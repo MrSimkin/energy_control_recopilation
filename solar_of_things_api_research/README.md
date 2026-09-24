@@ -21,7 +21,7 @@ The following research themes remain in scope:
 1. cloud data model and telemetry dictionary — **complete**;
 2. historical-data granularity, retention, pagination and gaps — **complete**;
 3. server-side statistics, aggregations and reports — **complete**;
-4. errors, polling frequency, freshness and reliability;
+4. errors, polling frequency, freshness and reliability — **complete**;
 5. cloud-UI coverage audit — whether useful cloud-visible information can be retrieved through the API;
 6. final controlled read-only validation against the user's own account/device when appropriate.
 
@@ -66,8 +66,10 @@ Existing Round 07/08 material is preserved as historical research but is not par
     - [Round 10 Companion — Historical Data Behavior Matrix](round_10_history_behavior_matrix.md)
 12. [Round 11 — Server-Side Statistics, Aggregations and Reports](round_11_server_side_statistics_aggregations_reports.md)
     - [Round 11 Companion — Aggregate Trust Matrix](round_11_aggregation_trust_matrix.md)
+13. [Round 12 — Errors, Polling Frequency, Freshness and Reliability](round_12_errors_polling_freshness_reliability.md)
+    - [Round 12 Companion — Reliability and Polling Matrix](round_12_reliability_polling_matrix.md)
 
-## Current cloud-only evidence baseline after Round 11
+## Current cloud-only evidence baseline after Round 12
 
 - The cloud API is independent of Android and can be consumed directly by a Windows program.
 - Production REST base: `https://solar.siseli.com/apis`.
@@ -91,23 +93,27 @@ Existing Round 07/08 material is preserved as historical research but is not par
 - Category-monthly responses provide daily energy buckets; category-yearly responses provide monthly buckets; long-term generated-energy endpoints provide longer/year-labelled totals.
 - Raw history remains preferable for curves and custom sub-period analysis; validated server aggregates are preferable for canonical period totals.
 - Device/station report/export endpoints exist but create server-side report artifacts and are not required for normal dashboard ingestion.
+- Cloud telemetry commonly advances around every five minutes; 60–120 s foreground polling improves detection latency but does not create higher measurement resolution.
+- Recommended durable collection is approximately every 5 minutes with a ~15-minute trailing-history overlap and idempotent upserts.
+- Source timestamp and HTTP retrieval timestamp must remain separate; successful HTTP does not imply a new inverter frame.
+- Auth refresh must be single-flight. Current best evidence favors refreshing with the current access+refresh pair and atomically persisting the rotated replacement pair.
+- Authentication expiry can surface as HTTP 401/403, code 9, business 401/1001/1002, or token-expiry text; only one refresh + one original-request retry should occur.
+- Transient DNS/connect/timeout/5xx failures can be retried boundedly; deterministic business errors such as 20101 must not be blindly retried.
+- No credible vendor request quota or 429 threshold was found. Concurrency and cadence must therefore be conservative by design, with generic Retry-After handling if 429 is ever observed.
+- For a single-account Windows collector, 2–4 concurrent reads is a conservative starting cap; do not overlap collection cycles.
+- Offline, stale telemetry, and collector/network failure are distinct states and must be represented separately.
 
 ## Next-round decision
 
-**Round 12 — Errors, Polling Frequency, Freshness and Reliability** remains standalone and is the next active investigation.
+**Round 13 — Cloud-UI Coverage Audit** remains standalone and is the next active investigation.
 
-It should determine:
+It should:
 
-- read-only API/business error taxonomy;
-- token expiration and refresh-failure behavior;
-- appropriate polling cadence by data class;
-- actual cloud freshness/reporting lag;
-- late-arriving samples and overlap-window needs;
-- retry/backoff behavior;
-- rate-limit evidence;
-- timeout/5xx/partial-page handling;
-- stale/offline detection;
-- refresh policy for open versus closed aggregate buckets;
-- concurrency/refresh-race behavior.
+- inventory useful cloud UI cards, charts and data views;
+- map each useful display to a known cloud API endpoint/property where possible;
+- identify UI-visible but API-unmapped metrics;
+- identify API-accessible cloud data not prominently surfaced in the UI;
+- ignore settings/control/local/BLE/provisioning screens because they are out of scope;
+- produce the final cloud-data gap list for controlled read-only validation.
 
-The cloud-UI coverage audit should remain the separate following round.
+After Round 13, the only planned surviving investigation should be controlled read-only validation against the user's own account/device, unless the coverage audit discovers a specific cloud-data gap that genuinely warrants a targeted extra round.
