@@ -22,7 +22,7 @@ The following research themes remain in scope:
 2. historical-data granularity, retention, pagination and gaps — **complete**;
 3. server-side statistics, aggregations and reports — **complete**;
 4. errors, polling frequency, freshness and reliability — **complete**;
-5. cloud-UI coverage audit — whether useful cloud-visible information can be retrieved through the API;
+5. cloud-UI coverage audit — **complete**;
 6. final controlled read-only validation against the user's own account/device when appropriate.
 
 ## Officially out of scope
@@ -68,8 +68,10 @@ Existing Round 07/08 material is preserved as historical research but is not par
     - [Round 11 Companion — Aggregate Trust Matrix](round_11_aggregation_trust_matrix.md)
 13. [Round 12 — Errors, Polling Frequency, Freshness and Reliability](round_12_errors_polling_freshness_reliability.md)
     - [Round 12 Companion — Reliability and Polling Matrix](round_12_reliability_polling_matrix.md)
+14. [Round 13 — Cloud-UI Coverage Audit](round_13_cloud_ui_coverage_audit.md)
+    - [Round 13 Companion — Cloud UI Coverage Matrix](round_13_cloud_ui_coverage_matrix.md)
 
-## Current cloud-only evidence baseline after Round 12
+## Current cloud-only evidence baseline after Round 13
 
 - The cloud API is independent of Android and can be consumed directly by a Windows program.
 - Production REST base: `https://solar.siseli.com/apis`.
@@ -102,18 +104,27 @@ Existing Round 07/08 material is preserved as historical research but is not par
 - No credible vendor request quota or 429 threshold was found. Concurrency and cadence must therefore be conservative by design, with generic Retry-After handling if 429 is ever observed.
 - For a single-account Windows collector, 2–4 concurrent reads is a conservative starting cap; do not overlap collection cycles.
 - Offline, stale telemetry, and collector/network failure are distinct states and must be represented separately.
+- Cloud-UI coverage is now sufficient: every major read-only dashboard/statistics surface has a known API path or API family.
+- Home/dashboard headline metrics map to `dashboard/summary/commons`, including station/device counts, generation totals, capacity/state summary and optional environmental-impact fields.
+- Project/station lists, device lists, current state, energy flow, alarms, selectable analysis parameters and historical curves all have mapped read-only cloud APIs.
+- Daily/monthly/yearly/cumulative generation is covered at device, station and owner levels.
+- Optional portal features such as income, environmental savings, station ranking and geographic distribution are API-mapped but do not justify additional broad research.
+- Remaining uncertainty is installation-specific: the user's model/protocol fields, units/signs, aggregate placeholder behavior, source lag, actual history retention and exact UI/API correspondence.
 
 ## Next-round decision
 
-**Round 13 — Cloud-UI Coverage Audit** remains standalone and is the next active investigation.
+No additional broad public-source research round is warranted.
 
-It should:
+The only planned surviving phase is **final controlled read-only validation against the user's own Solar of Things account/device**.
 
-- inventory useful cloud UI cards, charts and data views;
-- map each useful display to a known cloud API endpoint/property where possible;
-- identify UI-visible but API-unmapped metrics;
-- identify API-accessible cloud data not prominently surfaced in the UI;
-- ignore settings/control/local/BLE/provisioning screens because they are out of scope;
-- produce the final cloud-data gap list for controlled read-only validation.
+That phase should validate:
 
-After Round 13, the only planned surviving investigation should be controlled read-only validation against the user's own account/device, unless the coverage audit discovers a specific cloud-data gap that genuinely warrants a targeted extra round.
+- station/device/model/protocol identity;
+- target-device field catalog and `dataSource`;
+- current telemetry against the official UI;
+- history cadence, pagination, retention and timezone behavior;
+- daily/monthly/yearly/lifetime aggregate correspondence;
+- placeholder versus real summary properties;
+- token expiry/refresh behavior and cloud-source lag.
+
+If that validation reveals one specific dashboard-relevant cloud value that is still unmapped, create a targeted gap round for that value only. Do not reopen the officially out-of-scope local/BLE/MQTT/control branches unless the user explicitly changes scope.
