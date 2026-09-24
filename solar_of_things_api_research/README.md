@@ -22,38 +22,42 @@ This folder is the single canonical location for the results of the Solar of Thi
    - [Round 02 Appendix — Cloud REST Endpoint Catalog](round_02_endpoint_catalog.md) — route-level inventory: 108 HAR-observed endpoints, four permission-discovered additions, later live/implemented routes, and rejected legacy/unverified route names.
 4. [Round 03 — Official Production Web-Application Archaeology](round_03_official_production_web_app_archaeology.md) — current production SPA fingerprint, fresh Device details/Data Analysis capture, official Umi-bundle signing archaeology, current authentication/token behavior, signing-conflict resolution and current-web protocol constraints.
    - [Round 03 Companion — Production Web Protocol Delta Matrix](round_03_protocol_delta_matrix.md) — compact audit trail of what Round 03 resolved, strengthened, changed or left open from Round 02.
-
-## Round in progress
-
-5. [Round 04 — Official Android Application Package Archaeology](round_04_official_android_package_archaeology.md) — package identity, current/recent release artifacts, signing lineage, Flutter architecture, permissions, mobile SDKs and Android-specific surface mapping.
+5. [Round 04 — Official Android Application Package Archaeology](round_04_official_android_package_archaeology.md) — package identity, release/signing lineage, Flutter architecture, permissions, mobile SDKs and Android-specific surface mapping.
    - [Round 04 Companion — Android Release, Package and Permission Matrix](round_04_android_release_permission_matrix.md) — auditable release/hash/signature/permission matrix.
-   - **Status:** public package/manifest architecture phase complete; direct binary extraction remains blocked because the current XAPK cannot be materialized through the available CDN/tool path.
+   - **Closed as SUFFICIENT-FOR-PROJECT / BINARY-NOT-REQUIRED.** The intended implementation is a Windows client of the independent cloud API; Android binary extraction remains optional future corroboration.
+6. [Round 05 — Alternate Web Environment and OpenAPI Documentation Comparison](round_05_alternate_web_openapi_comparison.md) — production/test separation, first-party Swagger documentation recovery, signing/refresh corroboration, role model, documented capabilities, disabled/gated features, and environment-specific conclusions.
+   - [Round 05 Companion — Swagger vs Production Endpoint Delta](round_05_swagger_production_delta.md) — exact method/path comparison between the preserved Swagger-derived contract and the production corpus.
 
-## Current evidence baseline after the Round 04 public-static phase
+## Current evidence baseline after Round 05
 
-- Official Android package: `com.ssli.sise_solar`.
-- Android **3.1.12 / version code 86** is now distributed: APKPure's live latest redirect names the 3.1.12 XAPK and code 86, Softonic exposes a 3.1.12 XAPK hash, and Google Play's current page reports a September 16, 2026 update.
-- 3.1.11 / code 85 remains the newest release with fully indexed split/signature metadata.
-- The APKPure signature fingerprint is stable from at least 2.4.7 through 3.1.11, supporting one Android signing lineage across those releases.
-- The official privacy policy explicitly states that Solar of Things is **Flutter-based**.
-- Current indexed Android permissions establish cloud networking, Wi-Fi control, BLE scanning/connection/advertising, coarse/fine location, camera/storage access, foreground-service capability and system settings access.
-- The official privacy-policy appendix identifies Baidu Map SDK, Baidu Location SDK and the Flutter `com.baseflow.geolocator` plugin/library.
-- Official Android functionality clearly spans cloud API, BLE/Wi-Fi provisioning, local/proximal monitoring/debugging and map/location/weather surfaces.
-- The actual 3.1.12/3.1.11 package bytes have not yet been extracted here, so no claim is made about direct AndroidManifest parsing, `libapp.so` strings, current Android endpoint constants, embedded application credentials or official BLE UUIDs.
+- The Solar of Things cloud API is independent of Android and can be used directly by a Windows client.
+- Production REST base: `https://solar.siseli.com/apis`.
+- `test.solar.siseli.com` is a distinct live JavaScript environment and historically used a different IoT Open application identity/account environment from production.
+- `doc.solar.siseli.com` hosts/hosted an IoT Open Swagger service at `/openapi/`, including `swagger2/api-docs?group=openApis`.
+- The preserved Swagger-derived contract reproducibly contains **221 distinct method/path pairs**, despite a stale/unreconciled footer that states 227 endpoints.
+- The Round 02 production corpus currently contains **115** method/path entries.
+- Exact Swagger/production overlap is only **62** routes; **159** are Swagger-only and **53** production-corpus-only. Neither source is a superset.
+- Swagger independently corroborates the Base64 IoT Open signing algorithm, inclusion of URL parameters, empty GET body hash, MD5 password preprocessing, and the access+refresh token refresh DTO.
+- Login response schema exposes role/capability flags such as admin, dealer, manufacturer, integrator, official staff and station owner.
+- The documented platform includes significant API families absent from the captured owner-session HAR, including device lifecycle, account management, peak-valley scheduling, firmware/upgrade, raw passthrough, fast reporting and a 17-route `/near/dtu/*` local/protocol-generation service.
+- Documented routes can be role/manufacturer/device gated. The timed `/instruction/*` service is a concrete example: the backend accepts/parses the contract but returned manufacturer-disabled error 70247 in live testing for one product family.
+- Production traffic contains routes missing from the preserved Swagger snapshot, including portal/router metadata, reporting/export, station income, user currency/theme/logging, DTU variants and newer device-overview routes.
+- The previously proposed `wss://solar.siseli.com/openapis/ws` WebSocket remains **unverified**; its downstream implementation was later removed as dead code and no first-party/current production confirmation has been found.
+- `demo.doc.solar.siseli.com` remains an unresolved lead; current evidence does not justify a dedicated round.
 
 ## Remaining dedicated research branches
 
-- **Round 04 continuation:** Android XAPK acquisition, manifest/native/Flutter AOT static extraction;
-- alternate web environment comparison (`test.solar`, `doc.solar`, `demo.doc.solar`);
+- OpenAPI contract normalization for the Windows client;
 - dongle-to-cloud MQTT/uplink archaeology;
 - BLE / Proximal Monitoring archaeology;
 - raw inverter serial protocol archaeology;
-- cross-surface reconciliation and controlled read-only live validation after static evidence is mature.
+- cross-surface reconciliation and controlled read-only live validation after the static contract is mature;
+- optional Android binary archaeology only if a later Android-specific question requires it.
 
-## Next-run decision
+## Next-round decision
 
-**Remain in Round 04. Do not advance to Round 05 yet.**
+**Round 06 — OpenAPI Contract Reconstruction and Windows-Client Applicability** should remain standalone.
 
-Direct package-byte inspection is material to the purpose of Android application-package archaeology. The next run should make one dedicated acquisition/static-extraction attempt using 3.1.12 first and 3.1.11 as the stable fallback.
+Round 05 materially expanded the known HTTP API surface. Before moving into MQTT/BLE/serial protocols, normalize the 221-route Swagger-derived contract together with production evidence into a canonical Windows-oriented API map.
 
-If package materialization remains impossible after that dedicated attempt, Round 04 should be closed explicitly as **metadata-complete / binary-blocked**, with the precise missing checks recorded, rather than consuming repeated rounds on the same tooling limitation.
+Round 06 should classify each route by service group, method, parameters/body DTO, read vs mutation risk, production evidence, role/manufacturer/device gating and practical relevance to the Windows project. It should also identify a minimal safe/read-only core and optional management/control layers, without writing implementation code yet.
