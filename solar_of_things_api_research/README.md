@@ -27,37 +27,36 @@ This folder is the single canonical location for the results of the Solar of Thi
    - **Closed as SUFFICIENT-FOR-PROJECT / BINARY-NOT-REQUIRED.** The intended implementation is a Windows client of the independent cloud API; Android binary extraction remains optional future corroboration.
 6. [Round 05 — Alternate Web Environment and OpenAPI Documentation Comparison](round_05_alternate_web_openapi_comparison.md) — production/test separation, first-party Swagger documentation recovery, signing/refresh corroboration, role model, documented capabilities, disabled/gated features, and environment-specific conclusions.
    - [Round 05 Companion — Swagger vs Production Endpoint Delta](round_05_swagger_production_delta.md) — exact method/path comparison between the preserved Swagger-derived contract and the production corpus.
+7. [Round 06 — OpenAPI Contract Reconstruction and Windows-Client Applicability](round_06_openapi_contract_windows_applicability.md) — canonical Windows architecture, 12-route P0 core, auth/session rules, telemetry/schema design, safety boundaries and implementation priorities.
+   - [Round 06 Companion — Canonical Windows API Route Map](round_06_windows_api_canonical_map.md) — full 274-route union with provenance, operation class and Windows-project priority.
 
-## Current evidence baseline after Round 05
+## Current evidence baseline after Round 06
 
 - The Solar of Things cloud API is independent of Android and can be used directly by a Windows client.
 - Production REST base: `https://solar.siseli.com/apis`.
-- `test.solar.siseli.com` is a distinct live JavaScript environment and historically used a different IoT Open application identity/account environment from production.
-- `doc.solar.siseli.com` hosts/hosted an IoT Open Swagger service at `/openapi/`, including `swagger2/api-docs?group=openApis`.
-- The preserved Swagger-derived contract reproducibly contains **221 distinct method/path pairs**, despite a stale/unreconciled footer that states 227 endpoints.
-- The Round 02 production corpus currently contains **115** method/path entries.
-- Exact Swagger/production overlap is only **62** routes; **159** are Swagger-only and **53** production-corpus-only. Neither source is a superset.
-- Swagger independently corroborates the Base64 IoT Open signing algorithm, inclusion of URL parameters, empty GET body hash, MD5 password preprocessing, and the access+refresh token refresh DTO.
-- Login response schema exposes role/capability flags such as admin, dealer, manufacturer, integrator, official staff and station owner.
-- The documented platform includes significant API families absent from the captured owner-session HAR, including device lifecycle, account management, peak-valley scheduling, firmware/upgrade, raw passthrough, fast reporting and a 17-route `/near/dtu/*` local/protocol-generation service.
-- Documented routes can be role/manufacturer/device gated. The timed `/instruction/*` service is a concrete example: the backend accepts/parses the contract but returned manufacturer-disabled error 70247 in live testing for one product family.
-- Production traffic contains routes missing from the preserved Swagger snapshot, including portal/router metadata, reporting/export, station income, user currency/theme/logging, DTU variants and newer device-overview routes.
-- The previously proposed `wss://solar.siseli.com/openapis/ws` WebSocket remains **unverified**; its downstream implementation was later removed as dead code and no first-party/current production confirmation has been found.
-- `demo.doc.solar.siseli.com` remains an unresolved lead; current evidence does not justify a dedicated round.
+- The canonical method+path union now contains **274 distinct routes**: 221 Swagger-derived, 115 production-corpus, 62 overlapping, 159 Swagger-only, and 53 production-only.
+- A **12-contract P0 Windows core** is sufficient for authentication/session, station/device discovery, schema discovery, current telemetry, energy flow, historical selected-key data, and alarms.
+- The current best signing model is Base64(UTF-8(sorted URL params + IoT Open params)) → HMAC-SHA256 → MD5, with MD5 password preprocessing for account login.
+- `IOT-Token` is the core post-login session header; Open signing is not proven necessary on every authenticated route.
+- Refresh uses `/login/refresh/access/token`; current evidence favors sending the current access+refresh pair, with rotating/single-use refresh tokens and atomic token replacement.
+- Platform IDs must be preserved losslessly as strings.
+- Device telemetry is schema/model/firmware dependent; field name, unit, sign convention, dataSource and writable config keys cannot be assumed globally.
+- Time-zone handling is part of the protocol, not only presentation: use IANA zones and explicit ISO-8601 offsets.
+- Control/mutation routes are separated from passive telemetry and are disabled by default in the proposed Windows architecture.
+- The previously claimed `/openapis/ws` WebSocket remains unverified and should not be implemented from current evidence.
 
 ## Remaining dedicated research branches
 
-- OpenAPI contract normalization for the Windows client;
 - dongle-to-cloud MQTT/uplink archaeology;
 - BLE / Proximal Monitoring archaeology;
 - raw inverter serial protocol archaeology;
-- cross-surface reconciliation and controlled read-only live validation after the static contract is mature;
+- cross-surface reconciliation and controlled read-only live validation after static evidence is mature;
 - optional Android binary archaeology only if a later Android-specific question requires it.
 
 ## Next-round decision
 
-**Round 06 — OpenAPI Contract Reconstruction and Windows-Client Applicability** should remain standalone.
+**Round 07 — Dongle-to-cloud MQTT/uplink archaeology** should remain standalone.
 
-Round 05 materially expanded the known HTTP API surface. Before moving into MQTT/BLE/serial protocols, normalize the 221-route Swagger-derived contract together with production evidence into a canonical Windows-oriented API map.
+This is the highest-value next independent surface for the Windows project because it is Android-independent and exposes the telemetry/protocol stream produced by the physical logger before the REST API normalizes it.
 
-Round 06 should classify each route by service group, method, parameters/body DTO, read vs mutation risk, production evidence, role/manufacturer/device gating and practical relevance to the Windows project. It should also identify a minimal safe/read-only core and optional management/control layers, without writing implementation code yet.
+Round 07 should reconstruct broker behavior, transport/framing, device/topic identity, proprietary payload blocks, decoded measurements, reporting cadence, firmware/model variability, and the relationship between raw uplink fields and REST API fields. It should remain read/passive in research scope and should not interfere with the device's normal cloud connectivity.
