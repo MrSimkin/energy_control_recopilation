@@ -12,7 +12,7 @@ This folder is the single canonical location for the results of the Solar of Thi
 - Distinguish confirmed facts, code-derived evidence, live observations, third-party claims, hypotheses, contradictions, and unresolved questions.
 - Preserve source references and enough context to reproduce important findings.
 - Do not perform device-changing/control actions merely to investigate the API.
-- Do not store credentials, access tokens, refresh tokens, cookies, passwords, or other secrets in this repository.
+- Do not store credentials, access tokens, refresh tokens, cookies, passwords, application secrets, or other reusable secrets in this repository.
 
 ## Completed rounds
 
@@ -20,21 +20,25 @@ This folder is the single canonical location for the results of the Solar of Thi
 2. [Round 01 — Public-Source Census](round_01_public_source_census.md) — systematic inventory of public reverse-engineering projects, cloud API clients, MQTT interception work, BLE research, raw serial protocol work, manuals, application archives, issue histories, hardware variants and community evidence.
 3. [Round 02 — Cloud REST API Repository Archaeology](round_02_cloud_rest_api_repository_archaeology.md) — deep source/history analysis of independent cloud clients: authentication, IOT Open signing, token lifecycle, station/device discovery, realtime/history data, remote configuration, field/model variability, errors and evidence chronology.
    - [Round 02 Appendix — Cloud REST Endpoint Catalog](round_02_endpoint_catalog.md) — route-level inventory: 108 HAR-observed endpoints, four permission-discovered additions, later live/implemented routes, and rejected legacy/unverified route names.
+4. [Round 03 — Official Production Web-Application Archaeology](round_03_official_production_web_app_archaeology.md) — current production SPA fingerprint, fresh Device details/Data Analysis capture, official Umi-bundle signing archaeology, current authentication/token behavior, signing-conflict resolution and current-web protocol constraints.
+   - [Round 03 Companion — Production Web Protocol Delta Matrix](round_03_protocol_delta_matrix.md) — compact audit trail of what Round 03 resolved, strengthened, changed or left open from Round 02.
 
-## Current evidence baseline after Round 02
+## Current evidence baseline after Round 03
 
-- A captured Solar of Things web session documents 405 API requests and 108 unique `/apis/` routes.
-- The current upstream HAR-derived catalog contains 112 unique routes because four additional routes were recovered from permissions returned by login rather than from the original HAR traffic.
-- Later independent/live sources add at least three important routes outside that original 108-route snapshot: token refresh, DTU-to-device lookup, and a device PV-inverter daily-detail overview route.
-- Account login, `IOT-Token` session authentication, station/device discovery, latest telemetry, energy flow, attribute metadata, selected-key historical telemetry, statistical overviews and remote device configuration are all supported by substantial public evidence.
-- The exact IOT Open signing preimage still has a documented implementation disagreement. Multiple older/independent clients support the Base64 construction; one later SDK implements a hex construction. This is intentionally unresolved pending official-client verification.
-- Device fields, units, signs, data-source choices and writable configuration keys vary materially across hardware/firmware families.
+- The production site is a JavaScript-only Umi-based SPA. A fresh production capture in this research window identifies a current hashed bundle as `umi.6d0aa871.js`; older captures used different hashes, so the filename is deployment-specific.
+- The original broad browser HAR remains a strong 108-route production snapshot; its later catalog has 112 routes after four login-permission additions, but it is not complete or immutable.
+- A fresh current production Device details → Data Analysis capture confirms selected-key history, columnar history responses, attribute metadata, energy flow, several device-overview routes and a post-HAR PV-inverter daily-detail route.
+- The Round 02 signing disagreement is substantially resolved: historical official-bundle reverse engineering plus independent live-production interoperability strongly support **Base64(UTF-8(canonical parameters)) → HMAC-SHA256 → MD5**, not the later hex-preimage implementation.
+- Generic Open signing should include URL query parameters. Older three-field signing examples targeted queryless login and therefore did not disprove this.
+- `IOT-Token` remains the core post-login session mechanism. Open signing is clearly required for account login/open operations but is not proven necessary for every authenticated route; official portal evidence includes token-only post-login calls.
+- Contemporary production testing shows refresh uses `/login/refresh/access/token`, refresh tokens rotate/single-use, multiple independent sessions can coexist for one account, and the current production-tested refresh model sends the current access+refresh token pair.
+- Platform IDs must be preserved losslessly as strings; 64-bit numeric identifiers can exceed JavaScript's safe-integer range.
+- Device fields, units, signs, data-source choices and writable configuration keys still vary materially across hardware/firmware families.
 
 ## Remaining dedicated research branches
 
-- official production web-application archaeology;
-- alternate web environment comparison (`test.solar`, `doc.solar`, `demo.doc.solar`) if still useful after production mapping;
-- Android static/historical package archaeology;
+- official Android application package/static archaeology;
+- alternate web environment comparison (`test.solar`, `doc.solar`, `demo.doc.solar`);
 - dongle-to-cloud MQTT/uplink archaeology;
 - BLE / Proximal Monitoring archaeology;
 - raw inverter serial protocol archaeology;
@@ -42,8 +46,8 @@ This folder is the single canonical location for the results of the Solar of Thi
 
 ## Next-round decision
 
-**Round 03 — Official production web-application archaeology** remains standalone.
+**Round 04 — Official Android Application Package Archaeology** should remain standalone.
 
-It should focus on the current production `solar.siseli.com` JavaScript/assets. Round 02 has provided a precise route/header/auth dictionary, and the official web client is now the strongest next source for resolving the signing contradiction, validating the current endpoint set, exposing route/permission definitions and identifying functionality not exercised by the July HAR.
+Android is now the highest-value independent official-client source: it can cross-check the cloud auth/route model while exposing mobile-only network constants, DTO/service names, provisioning assets and protocol clues not reachable from the web SPA.
 
-Round 03 should not be merged with Android analysis or alternate-environment comparison: keeping those sources separate preserves provenance and makes later cross-checking stronger.
+Round 04 should inventory and statically analyze official Android packages and historical versions without performing device-changing actions. BLE details discovered there should be preserved as source-of-truth clues but deferred to the later dedicated BLE / Proximal Monitoring round, rather than mixing two protocol investigations.
