@@ -23,31 +23,37 @@ This folder is the single canonical location for the results of the Solar of Thi
 4. [Round 03 — Official Production Web-Application Archaeology](round_03_official_production_web_app_archaeology.md) — current production SPA fingerprint, fresh Device details/Data Analysis capture, official Umi-bundle signing archaeology, current authentication/token behavior, signing-conflict resolution and current-web protocol constraints.
    - [Round 03 Companion — Production Web Protocol Delta Matrix](round_03_protocol_delta_matrix.md) — compact audit trail of what Round 03 resolved, strengthened, changed or left open from Round 02.
 
-## Current evidence baseline after Round 03
+## Round in progress
 
-- The production site is a JavaScript-only Umi-based SPA. A fresh production capture in this research window identifies a current hashed bundle as `umi.6d0aa871.js`; older captures used different hashes, so the filename is deployment-specific.
-- The original broad browser HAR remains a strong 108-route production snapshot; its later catalog has 112 routes after four login-permission additions, but it is not complete or immutable.
-- A fresh current production Device details → Data Analysis capture confirms selected-key history, columnar history responses, attribute metadata, energy flow, several device-overview routes and a post-HAR PV-inverter daily-detail route.
-- The Round 02 signing disagreement is substantially resolved: historical official-bundle reverse engineering plus independent live-production interoperability strongly support **Base64(UTF-8(canonical parameters)) → HMAC-SHA256 → MD5**, not the later hex-preimage implementation.
-- Generic Open signing should include URL query parameters. Older three-field signing examples targeted queryless login and therefore did not disprove this.
-- `IOT-Token` remains the core post-login session mechanism. Open signing is clearly required for account login/open operations but is not proven necessary for every authenticated route; official portal evidence includes token-only post-login calls.
-- Contemporary production testing shows refresh uses `/login/refresh/access/token`, refresh tokens rotate/single-use, multiple independent sessions can coexist for one account, and the current production-tested refresh model sends the current access+refresh token pair.
-- Platform IDs must be preserved losslessly as strings; 64-bit numeric identifiers can exceed JavaScript's safe-integer range.
-- Device fields, units, signs, data-source choices and writable configuration keys still vary materially across hardware/firmware families.
+5. [Round 04 — Official Android Application Package Archaeology](round_04_official_android_package_archaeology.md) — package identity, current/recent release artifacts, signing lineage, Flutter architecture, permissions, mobile SDKs and Android-specific surface mapping.
+   - [Round 04 Companion — Android Release, Package and Permission Matrix](round_04_android_release_permission_matrix.md) — auditable release/hash/signature/permission matrix.
+   - **Status:** public package/manifest architecture phase complete; direct binary extraction remains blocked because the current XAPK cannot be materialized through the available CDN/tool path.
+
+## Current evidence baseline after the Round 04 public-static phase
+
+- Official Android package: `com.ssli.sise_solar`.
+- Android **3.1.12 / version code 86** is now distributed: APKPure's live latest redirect names the 3.1.12 XAPK and code 86, Softonic exposes a 3.1.12 XAPK hash, and Google Play's current page reports a September 16, 2026 update.
+- 3.1.11 / code 85 remains the newest release with fully indexed split/signature metadata.
+- The APKPure signature fingerprint is stable from at least 2.4.7 through 3.1.11, supporting one Android signing lineage across those releases.
+- The official privacy policy explicitly states that Solar of Things is **Flutter-based**.
+- Current indexed Android permissions establish cloud networking, Wi-Fi control, BLE scanning/connection/advertising, coarse/fine location, camera/storage access, foreground-service capability and system settings access.
+- The official privacy-policy appendix identifies Baidu Map SDK, Baidu Location SDK and the Flutter `com.baseflow.geolocator` plugin/library.
+- Official Android functionality clearly spans cloud API, BLE/Wi-Fi provisioning, local/proximal monitoring/debugging and map/location/weather surfaces.
+- The actual 3.1.12/3.1.11 package bytes have not yet been extracted here, so no claim is made about direct AndroidManifest parsing, `libapp.so` strings, current Android endpoint constants, embedded application credentials or official BLE UUIDs.
 
 ## Remaining dedicated research branches
 
-- official Android application package/static archaeology;
+- **Round 04 continuation:** Android XAPK acquisition, manifest/native/Flutter AOT static extraction;
 - alternate web environment comparison (`test.solar`, `doc.solar`, `demo.doc.solar`);
 - dongle-to-cloud MQTT/uplink archaeology;
 - BLE / Proximal Monitoring archaeology;
 - raw inverter serial protocol archaeology;
 - cross-surface reconciliation and controlled read-only live validation after static evidence is mature.
 
-## Next-round decision
+## Next-run decision
 
-**Round 04 — Official Android Application Package Archaeology** should remain standalone.
+**Remain in Round 04. Do not advance to Round 05 yet.**
 
-Android is now the highest-value independent official-client source: it can cross-check the cloud auth/route model while exposing mobile-only network constants, DTO/service names, provisioning assets and protocol clues not reachable from the web SPA.
+Direct package-byte inspection is material to the purpose of Android application-package archaeology. The next run should make one dedicated acquisition/static-extraction attempt using 3.1.12 first and 3.1.11 as the stable fallback.
 
-Round 04 should inventory and statically analyze official Android packages and historical versions without performing device-changing actions. BLE details discovered there should be preserved as source-of-truth clues but deferred to the later dedicated BLE / Proximal Monitoring round, rather than mixing two protocol investigations.
+If package materialization remains impossible after that dedicated attempt, Round 04 should be closed explicitly as **metadata-complete / binary-blocked**, with the precise missing checks recorded, rather than consuming repeated rounds on the same tooling limitation.
