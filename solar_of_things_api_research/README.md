@@ -20,7 +20,7 @@ The following research themes remain in scope:
 
 1. cloud data model and telemetry dictionary — **complete**;
 2. historical-data granularity, retention, pagination and gaps — **complete**;
-3. server-side statistics, aggregations and reports;
+3. server-side statistics, aggregations and reports — **complete**;
 4. errors, polling frequency, freshness and reliability;
 5. cloud-UI coverage audit — whether useful cloud-visible information can be retrieved through the API;
 6. final controlled read-only validation against the user's own account/device when appropriate.
@@ -64,8 +64,10 @@ Existing Round 07/08 material is preserved as historical research but is not par
     - [Round 09 Companion — Cloud Telemetry Normalization Dictionary](round_09_telemetry_dictionary.md)
 11. [Round 10 — Historical Data Granularity, Retention, Pagination and Gaps](round_10_historical_data_granularity_retention_pagination_gaps.md)
     - [Round 10 Companion — Historical Data Behavior Matrix](round_10_history_behavior_matrix.md)
+12. [Round 11 — Server-Side Statistics, Aggregations and Reports](round_11_server_side_statistics_aggregations_reports.md)
+    - [Round 11 Companion — Aggregate Trust Matrix](round_11_aggregation_trust_matrix.md)
 
-## Current cloud-only evidence baseline after Round 10
+## Current cloud-only evidence baseline after Round 11
 
 - The cloud API is independent of Android and can be consumed directly by a Windows program.
 - Production REST base: `https://solar.siseli.com/apis`.
@@ -82,21 +84,30 @@ Existing Round 07/08 material is preserved as historical research but is not par
 - Historical queries must use the station's IANA timezone and explicit local UTC offsets. Returned timestamps are UTC instants.
 - Daily, timezone-correct, paginated, idempotent backfill is the preferred architecture.
 - Current-only surfaces such as latest state, energy-flow structure, device details and config must be snapshotted locally if their change history matters.
+- Server aggregates exist at device, station and owner/account levels.
+- PV generated-energy aggregates have the strongest validation: one real month differed from raw-history integration by only 0.48 kWh, while another real installation showed station summary and device snapshot agreeing against a misleading cumulative-counter delta.
+- Aggregate trust is property-specific: `consumeElectricityQuantity` and `buyElectricityQuantity` were placeholders in one real corpus, so that dashboard used device-reported daily counters instead.
+- `isRealValue=false` means placeholder and must never be interpreted as measured zero; `true` is the strongest aggregate quality signal, while null is unlabelled.
+- Category-monthly responses provide daily energy buckets; category-yearly responses provide monthly buckets; long-term generated-energy endpoints provide longer/year-labelled totals.
+- Raw history remains preferable for curves and custom sub-period analysis; validated server aggregates are preferable for canonical period totals.
+- Device/station report/export endpoints exist but create server-side report artifacts and are not required for normal dashboard ingestion.
 
 ## Next-round decision
 
-**Round 11 — Server-Side Statistics, Aggregations and Reports** remains standalone and is the next active investigation.
+**Round 12 — Errors, Polling Frequency, Freshness and Reliability** remains standalone and is the next active investigation.
 
 It should determine:
 
-- which daily/monthly/yearly/total values are calculated by SiSeLi;
-- device vs station vs owner aggregation levels;
-- which energy properties are actually populated and trustworthy;
-- `isRealValue` placeholder semantics;
-- differences between server aggregates and totals calculated from raw telemetry;
-- PV generation, consumption, grid import/export, battery charge/discharge coverage;
-- bucket time semantics;
-- useful report/export endpoints that remain read-only;
-- which server-calculated values should be preferred for the future dashboard.
+- read-only API/business error taxonomy;
+- token expiration and refresh-failure behavior;
+- appropriate polling cadence by data class;
+- actual cloud freshness/reporting lag;
+- late-arriving samples and overlap-window needs;
+- retry/backoff behavior;
+- rate-limit evidence;
+- timeout/5xx/partial-page handling;
+- stale/offline detection;
+- refresh policy for open versus closed aggregate buckets;
+- concurrency/refresh-race behavior.
 
-Errors/polling/freshness/reliability should remain the separate following round.
+The cloud-UI coverage audit should remain the separate following round.
