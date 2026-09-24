@@ -17,7 +17,20 @@ This folder is the single canonical location for the results of the Solar of Thi
 ## Completed rounds
 
 1. [Round 00 — Identity and Ecosystem Mapping](round_00_identity_ecosystem.md) — product identity, official surfaces, app IDs, developer/publisher, sibling/white-label ecosystem, privacy evidence, discovered subdomains, and unresolved infrastructure questions.
+2. [Round 01 — Public-Source Census](round_01_public_source_census.md) — systematic inventory of public reverse-engineering projects, cloud API clients, MQTT interception work, BLE research, raw serial protocol work, manuals, application archives, issue histories, hardware variants and community evidence.
+
+## Investigation structure after Round 01
+
+Round 01 showed that the previously planned broad "Deep GitHub archaeology" round would combine four materially different protocol surfaces. To preserve rigor, repository archaeology is split rather than merged:
+
+- **Round 02 — Cloud REST API repository archaeology**: cloud clients, authentication, tokens/signatures, endpoints, models, history and implementation disagreements.
+- Later dedicated rounds will separately cover:
+  - dongle-to-cloud MQTT/uplink archaeology;
+  - BLE / Proximal Monitoring archaeology;
+  - raw inverter serial protocol archaeology.
+
+The web application and Android application will also retain their own later source-of-truth analysis rounds so third-party implementations can be cross-checked against official clients.
 
 ## Next-round decision
 
-Round 01 remains separate: **Public-source census**. It will inventory and classify externally visible API/reverse-engineering sources before any one codebase receives deep archaeological analysis.
+Round 02 remains standalone and should **not** be merged with web-app or Android archaeology. The independent cloud-client corpus is already large enough to justify a dedicated deep pass, and its extracted endpoint/header/auth vocabulary will make the later official-client analysis more systematic and less speculative.
