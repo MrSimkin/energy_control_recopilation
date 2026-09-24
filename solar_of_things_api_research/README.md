@@ -14,4 +14,10 @@ This folder is the single canonical location for the results of the Solar of Thi
 - Do not perform device-changing/control actions merely to investigate the API.
 - Do not store credentials, access tokens, refresh tokens, cookies, passwords, or other secrets in this repository.
 
-No substantive API research findings have been added yet.
+## Completed rounds
+
+1. [Round 00 — Identity and Ecosystem Mapping](round_00_identity_ecosystem.md) — product identity, official surfaces, app IDs, developer/publisher, sibling/white-label ecosystem, privacy evidence, discovered subdomains, and unresolved infrastructure questions.
+
+## Next-round decision
+
+Round 01 remains separate: **Public-source census**. It will inventory and classify externally visible API/reverse-engineering sources before any one codebase receives deep archaeological analysis.
