@@ -12,7 +12,7 @@ This folder is the single canonical location for the results of the Solar of Thi
 - Distinguish confirmed facts, code-derived evidence, live observations, third-party claims, hypotheses, contradictions, and unresolved questions.
 - Preserve source references and enough context to reproduce important findings.
 - Do not perform device-changing/control actions merely to investigate the API.
-- Do not store credentials, access tokens, refresh tokens, cookies, passwords, application secrets, or other reusable secrets in this repository.
+- Do not store credentials, access tokens, refresh tokens, cookies, passwords, application secrets, Wi-Fi passwords, or other reusable secrets in this repository.
 
 ## Completed rounds
 
@@ -29,34 +29,41 @@ This folder is the single canonical location for the results of the Solar of Thi
    - [Round 05 Companion — Swagger vs Production Endpoint Delta](round_05_swagger_production_delta.md) — exact method/path comparison between the preserved Swagger-derived contract and the production corpus.
 7. [Round 06 — OpenAPI Contract Reconstruction and Windows-Client Applicability](round_06_openapi_contract_windows_applicability.md) — canonical Windows architecture, 12-route P0 core, auth/session rules, telemetry/schema design, safety boundaries and implementation priorities.
    - [Round 06 Companion — Canonical Windows API Route Map](round_06_windows_api_canonical_map.md) — full 274-route union with provenance, operation class and Windows-project priority.
+8. [Round 07 — BLE / Proximal Monitoring Archaeology](round_07_ble_proximal_monitoring_archaeology.md) — RWB1 GATT profile, encrypted envelope/framing, DTUID-derived transport-key model, separate local security password, CID command catalog, UART passthrough, Windows BLE applicability and relation to `/near/dtu/*`.
 
-## Current evidence baseline after Round 06
+## Explicitly skipped branch
+
+**Dongle-to-cloud MQTT/uplink archaeology — SKIPPED BY PROJECT CONSTRAINT.**
+
+The project cannot intercept, proxy, redirect, or otherwise intervene in the logger-to-cloud MQTT communication path. This is an intentional scope decision, not an unresolved research failure.
+
+## Current evidence baseline after Round 07
 
 - The Solar of Things cloud API is independent of Android and can be used directly by a Windows client.
 - Production REST base: `https://solar.siseli.com/apis`.
-- The canonical method+path union now contains **274 distinct routes**: 221 Swagger-derived, 115 production-corpus, 62 overlapping, 159 Swagger-only, and 53 production-only.
-- A **12-contract P0 Windows core** is sufficient for authentication/session, station/device discovery, schema discovery, current telemetry, energy flow, historical selected-key data, and alarms.
-- The current best signing model is Base64(UTF-8(sorted URL params + IoT Open params)) → HMAC-SHA256 → MD5, with MD5 password preprocessing for account login.
-- `IOT-Token` is the core post-login session header; Open signing is not proven necessary on every authenticated route.
-- Refresh uses `/login/refresh/access/token`; current evidence favors sending the current access+refresh pair, with rotating/single-use refresh tokens and atomic token replacement.
-- Platform IDs must be preserved losslessly as strings.
-- Device telemetry is schema/model/firmware dependent; field name, unit, sign convention, dataSource and writable config keys cannot be assumed globally.
-- Time-zone handling is part of the protocol, not only presentation: use IANA zones and explicit ISO-8601 offsets.
-- Control/mutation routes are separated from passive telemetry and are disabled by default in the proposed Windows architecture.
-- The previously claimed `/openapis/ws` WebSocket remains unverified and should not be implemented from current evidence.
+- The canonical HTTP union contains **274 distinct routes**, with a 12-contract P0 core sufficient for a useful Windows monitoring client.
+- Current high-confidence signing model: Base64(UTF-8(sorted URL parameters + IoT Open parameters)) → HMAC-SHA256 → MD5, with MD5 password preprocessing for account login.
+- `IOT-Token` is the core post-login session header; refresh uses the current access+refresh pair in the strongest current evidence, and refresh tokens rotate.
+- Platform IDs should be preserved losslessly as strings; device telemetry remains schema/model/firmware dependent.
+- BLE / Proximal Monitoring is a separate Windows-capable local path and does **not** require Android or MQTT interception.
+- The RWB1 BLE application profile is strongly evidenced as FEE7 service / FED5 write / FED6 indication with AES-128-CBC, key=IV, zero padding, Base64 and 3-byte fragment headers.
+- The preserved provisioning implementation derives the BLE transport key as `MD5(DTUID + "SEC_")`; this transport key is separate from the optional user-configurable Proximal Monitoring security password.
+- BLE request/response CID pairs expose version, Wi-Fi/network diagnostics, provisioning, local-security verification and UART passthrough. Mutating operations remain outside the research execution scope.
+- CID 30024/30025 is a generic serial tunnel; the underlying inverter protocol varies by device/gather protocol.
+- The 17 documented `/near/dtu/*` cloud routes may provide server-side generation/parsing of local protocol frames, creating a possible future Windows BLE architecture without hard-coding every inverter protocol. This end-to-end workflow remains an inference, not a live-validated sequence.
+- Raw serial communication is not required for the current cloud-oriented Windows architecture and is retained only as an optional future branch.
 
-## Remaining dedicated research branches
+## Remaining research branches
 
-- dongle-to-cloud MQTT/uplink archaeology;
-- BLE / Proximal Monitoring archaeology;
-- raw inverter serial protocol archaeology;
-- cross-surface reconciliation and controlled read-only live validation after static evidence is mature;
+- cross-surface reconciliation for the Windows project;
+- controlled read-only live validation with the user's own Solar of Things account when/if the project requires it;
+- optional raw inverter serial archaeology only if direct inverter-level communication becomes a project requirement;
 - optional Android binary archaeology only if a later Android-specific question requires it.
 
 ## Next-round decision
 
-**Round 07 — Dongle-to-cloud MQTT/uplink archaeology** should remain standalone.
+**Round 08 — Cross-Surface Reconciliation for the Windows Project** should remain standalone.
 
-This is the highest-value next independent surface for the Windows project because it is Android-independent and exposes the telemetry/protocol stream produced by the physical logger before the REST API normalizes it.
+Round 08 should reconcile production REST, first-party Swagger/OpenAPI, current web-client evidence and BLE into one capability/dependency map. It should separate cloud-only, local-only and dual-path functions; identify remaining implementation blockers; and determine which unknowns actually require the user's project requirements or a controlled read-only account test.
 
-Round 07 should reconstruct broker behavior, transport/framing, device/topic identity, proprietary payload blocks, decoded measurements, reporting cadence, firmware/model variability, and the relationship between raw uplink fields and REST API fields. It should remain read/passive in research scope and should not interfere with the device's normal cloud connectivity.
+Raw serial should not be researched merely for completeness. Reopen it only if the eventual project requires direct inverter-level communication.
