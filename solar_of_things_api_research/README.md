@@ -23,7 +23,7 @@ The following research themes remain in scope:
 3. server-side statistics, aggregations and reports — **complete**;
 4. errors, polling frequency, freshness and reliability — **complete**;
 5. cloud-UI coverage audit — **complete**;
-6. final controlled read-only validation against the user's own account/device when appropriate.
+6. final controlled read-only validation against the user's own account/device — **completed in constrained form; live account access unavailable**.
 
 ## Officially out of scope
 
@@ -70,8 +70,10 @@ Existing Round 07/08 material is preserved as historical research but is not par
     - [Round 12 Companion — Reliability and Polling Matrix](round_12_reliability_polling_matrix.md)
 14. [Round 13 — Cloud-UI Coverage Audit](round_13_cloud_ui_coverage_audit.md)
     - [Round 13 Companion — Cloud UI Coverage Matrix](round_13_cloud_ui_coverage_matrix.md)
+15. [Round 14 — Constrained Target-Hardware Validation and First-Run Self-Discovery Contract](round_14_constrained_target_validation.md)
+    - [Round 14 Companion — First-Run Self-Validation Matrix](round_14_first_run_self_validation_matrix.md)
 
-## Current cloud-only evidence baseline after Round 13
+## Current cloud-only evidence baseline after Round 14
 
 - The cloud API is independent of Android and can be consumed directly by a Windows program.
 - Production REST base: `https://solar.siseli.com/apis`.
@@ -111,20 +113,23 @@ Existing Round 07/08 material is preserved as historical research but is not par
 - Optional portal features such as income, environmental savings, station ranking and geographic distribution are API-mapped but do not justify additional broad research.
 - Remaining uncertainty is installation-specific: the user's model/protocol fields, units/signs, aggregate placeholder behavior, source lag, actual history retention and exact UI/API correspondence.
 
-## Next-round decision
+- Target hardware is now narrowed to a strong public-family match: a SUNPRO/SPRO Energy 6.2 kW, nominal 48 V, 220/230 V off-grid hybrid inverter family.
+- Public evidence exposes candidate hardware identifiers `SP6200-48L` / `BIS6200-48L` and `GA6248MH`, but they are not proven to be identical or to match the SiSeLi cloud model string.
+- No public Solar of Things reverse-engineering source maps those candidate model codes to a specific `gatherProtocolNumber`, protocol version, `dataSource`, or telemetry alias family.
+- Because authenticated account/session artifacts are unavailable, station/device IDs, exact SiSeLi model/protocol, target field schema, target history depth, aggregate quality and live token behavior remain unvalidated.
+- This limitation is mitigated by a defined first-run local commissioning flow: login locally → discover station/device identity → load attribute schema → validate current state/dataSource → inspect history → calibrate aggregates → persist a per-device capability profile.
+- The future Windows client must not hard-code SP6200-48L, GA6248MH, field aliases, units, grid sign, dataSource or retention period from the public hardware label alone.
 
-No additional broad public-source research round is warranted.
+## Research phase status
 
-The only planned surviving phase is **final controlled read-only validation against the user's own Solar of Things account/device**.
+**CLOSED / COMPLETE FOR THE CURRENT PROJECT SCOPE**
 
-That phase should validate:
+All planned broad public cloud research has been completed.
 
-- station/device/model/protocol identity;
-- target-device field catalog and `dataSource`;
-- current telemetry against the official UI;
-- history cadence, pagination, retention and timezone behavior;
-- daily/monthly/yearly/lifetime aggregate correspondence;
-- placeholder versus real summary properties;
-- token expiry/refresh behavior and cloud-source lag.
+The original final live-account validation could not be performed because the user cannot provide authenticated account/session/device artifacts. Round 14 therefore closes that phase in a constrained but actionable form by moving the missing account-specific checks into the future Windows application's own local, read-only first-run commissioning process.
 
-If that validation reveals one specific dashboard-relevant cloud value that is still unmapped, create a targeted gap round for that value only. Do not reopen the officially out-of-scope local/BLE/MQTT/control branches unless the user explicitly changes scope.
+No further investigation round is planned now.
+
+The next project activity should begin only when the user explains the full application/dashboard requirements. At that point the implementation/design phase can select the needed API subset, statistics, local persistence model, UI and commissioning flow from this research corpus.
+
+If implementation-time self-discovery exposes one specific unmapped cloud datum, open a narrowly targeted research task for that datum only. Do not reopen BLE, MQTT interception, raw serial, Android-local internals, provisioning or device-control research unless the project scope is explicitly changed.
