@@ -683,34 +683,44 @@ The public/static metadata phase of Android archaeology is complete enough to es
 - declared native/third-party SDKs;
 - precise binary-analysis targets.
 
-### Why Round 04 is **not yet fully complete**
+### Scope decision for the Windows project
 
-The core purpose of an “application package archaeology” round includes inspecting the package bytes.
+The user's intended implementation will live on Windows and does not depend on launching, embedding, automating, or otherwise using the Android application.
 
-That has not happened because the current tooling can observe the binary download redirects and hashes but cannot materialize the XAPK.
+Rounds 02 and 03 already establish that the Solar of Things cloud API is an independent HTTP backend used by multiple clients. A Windows program can authenticate and communicate directly with `https://solar.siseli.com/apis`; the Android APK is not a runtime dependency.
 
-Closing Round 04 without binary inspection would artificially downgrade rigor and violate the investigation strategy.
+Therefore Android binary extraction would be **additional reverse-engineering evidence**, not a prerequisite for the Windows API client.
 
-### Next-run decision
+The missing binary work could still reveal:
+- mobile-only endpoints;
+- provisioning details;
+- embedded DTO/service names;
+- implementation-specific auth constants;
+- BLE/local protocol clues.
 
-**Do not advance to Round 05 yet. Remain in Round 04.**
+Those are useful but no longer justify blocking the main investigation.
 
-The next run should be:
+### Round-close decision
 
-### Round 04 continuation — Android binary/static extraction
+**Round 04 is closed as SUFFICIENT-FOR-PROJECT / BINARY-NOT-REQUIRED.**
 
-Priority order:
+The public/static phase established the Android application's role and confirmed that it is one client of the wider SiSeLi platform rather than the API itself.
 
-1. acquire 3.1.12 XAPK if the toolchain gains a materializable path;
-2. otherwise acquire the known 3.1.11 signed XAPK as a stable baseline;
-3. verify signer/certificate and hashes locally;
-4. unpack XAPK and base/ABI splits;
-5. parse AndroidManifest and native components;
-6. enumerate Flutter/native assets and plugins;
-7. extract/search URLs, endpoint paths, header names and auth constants;
-8. analyze Flutter AOT `libapp.so` strings/symbols with appropriate tools;
-9. compare recovered cloud routes against the Round 02 112-route catalog;
-10. inventory BLE/provisioning UUIDs/classes only at a high level and defer protocol decoding;
-11. compare at least one historical package if useful to isolate API evolution.
+Binary extraction remains an optional future branch if later evidence creates a concrete Android-only question. It should not consume another round merely for completeness.
 
-If binary acquisition remains impossible after another dedicated attempt, Round 04 should be closed explicitly as **metadata-complete / binary-blocked**, and the investigation may proceed to another independent surface without pretending the missing package analysis was performed.
+### Next-round decision
+
+Proceed to **Round 05 — Alternate Web Environment Comparison**.
+
+Targets:
+- `test.solar.siseli.com`;
+- `doc.solar.siseli.com`;
+- `demo.doc.solar.siseli.com`;
+- any additional first-party environment/tenant hosts discovered from those surfaces.
+
+Goals:
+- determine whether these are staging, documentation, demo, tenant/white-label, or aliases;
+- compare public application shells, routes, bundle/config clues and backend/base URLs against production;
+- identify API versions/features present outside production;
+- look for documentation, schemas or dormant functionality that can strengthen the Windows API implementation;
+- avoid authenticated/mutating activity.
