@@ -105,6 +105,6 @@ For future Flutter analysis, the base APK plus relevant ABI split must be preser
 
 ## Round routing
 
-Round 04 remains open.
+Round 04 is closed as **SUFFICIENT-FOR-PROJECT / BINARY-NOT-REQUIRED**.
 
-The next run should first attempt package-byte acquisition/static extraction again. Do not advance to a new protocol surface unless that remains genuinely blocked after a dedicated attempt.
+The intended implementation is a Windows client of the independent Solar of Things cloud API. Android binary extraction is therefore optional corroboration, not a runtime or protocol prerequisite. Reopen this branch only if a later unresolved question is specifically Android-only.
