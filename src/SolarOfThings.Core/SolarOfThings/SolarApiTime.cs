@@ -52,7 +52,7 @@ public static class SolarApiTime
         var start = new DateTimeOffset(startLocal, zone.GetUtcOffset(startLocal));
         var next = new DateTimeOffset(nextLocal, zone.GetUtcOffset(nextLocal));
 
-        return (start, next.AddSeconds(-1));
+        return (start, next.AddTicks(-1));
     }
 
     private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
