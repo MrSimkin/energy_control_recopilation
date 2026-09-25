@@ -174,6 +174,38 @@ public sealed class HistoryRepository
         command.ExecuteNonQuery();
     }
 
+    public long StartSyncRun(string detailJson)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO sync_run(started_utc, status, detail)
+            VALUES ($startedUtc, 'RUNNING', $detail);
+            SELECT last_insert_rowid();
+            """;
+        command.Parameters.AddWithValue("$startedUtc", DateTimeOffset.UtcNow.ToString("O"));
+        command.Parameters.AddWithValue("$detail", detailJson);
+        return Convert.ToInt64(command.ExecuteScalar());
+    }
+
+    public void CompleteSyncRun(long syncRunId, string status, string detailJson)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE sync_run
+            SET completed_utc = $completedUtc,
+                status = $status,
+                detail = $detail
+            WHERE sync_run_id = $syncRunId;
+            """;
+        command.Parameters.AddWithValue("$completedUtc", DateTimeOffset.UtcNow.ToString("O"));
+        command.Parameters.AddWithValue("$status", status);
+        command.Parameters.AddWithValue("$detail", detailJson);
+        command.Parameters.AddWithValue("$syncRunId", syncRunId);
+        command.ExecuteNonQuery();
+    }
+
     public DateTimeOffset? GetNewestTimestamp(string deviceId)
     {
         using var connection = _database.OpenConnection();

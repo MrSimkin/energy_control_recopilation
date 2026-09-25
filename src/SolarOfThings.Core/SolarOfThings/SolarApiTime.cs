@@ -19,44 +19,76 @@ public static class SolarApiTime
         return local.ToString(WireDateFormat, CultureInfo.InvariantCulture);
     }
 
+    public static DateOnly GetLocalDate(DateTimeOffset instant, string timeZoneId)
+    {
+        var local = ConvertToTimeZone(instant, timeZoneId);
+        return DateOnly.FromDateTime(local.DateTime);
+    }
+
+    public static (DateTimeOffset Start, DateTimeOffset End) GetLocalDayWindow(
+        DateOnly localDate,
+        string timeZoneId)
+    {
+        var zone = ResolveTimeZone(timeZoneId);
+
+        var startLocal = DateTime.SpecifyKind(
+            localDate.ToDateTime(TimeOnly.MinValue),
+            DateTimeKind.Unspecified);
+
+        var nextLocal = DateTime.SpecifyKind(
+            localDate.AddDays(1).ToDateTime(TimeOnly.MinValue),
+            DateTimeKind.Unspecified);
+
+        if (zone.IsInvalidTime(startLocal))
+        {
+            startLocal = startLocal.AddHours(1);
+        }
+
+        if (zone.IsInvalidTime(nextLocal))
+        {
+            nextLocal = nextLocal.AddHours(1);
+        }
+
+        var start = new DateTimeOffset(startLocal, zone.GetUtcOffset(startLocal));
+        var next = new DateTimeOffset(nextLocal, zone.GetUtcOffset(nextLocal));
+
+        return (start, next.AddSeconds(-1));
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
+    {
+        if (!string.IsNullOrWhiteSpace(timeZoneId))
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                if (OperatingSystem.IsWindows() &&
+                    TimeZoneInfo.TryConvertIanaIdToWindowsId(timeZoneId, out var windowsId))
+                {
+                    try
+                    {
+                        return TimeZoneInfo.FindSystemTimeZoneById(windowsId);
+                    }
+                    catch (TimeZoneNotFoundException)
+                    {
+                    }
+                }
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
     private static DateTimeOffset ConvertToTimeZone(
         DateTimeOffset instant,
         string timeZoneId)
     {
-        if (string.IsNullOrWhiteSpace(timeZoneId))
-        {
-            return instant;
-        }
-
-        try
-        {
-            return TimeZoneInfo.ConvertTime(
-                instant,
-                TimeZoneInfo.FindSystemTimeZoneById(timeZoneId));
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            if (OperatingSystem.IsWindows() &&
-                TimeZoneInfo.TryConvertIanaIdToWindowsId(
-                    timeZoneId,
-                    out var windowsId))
-            {
-                try
-                {
-                    return TimeZoneInfo.ConvertTime(
-                        instant,
-                        TimeZoneInfo.FindSystemTimeZoneById(windowsId));
-                }
-                catch (TimeZoneNotFoundException)
-                {
-                }
-            }
-
-            return instant;
-        }
-        catch (InvalidTimeZoneException)
-        {
-            return instant;
-        }
+        return TimeZoneInfo.ConvertTime(instant, ResolveTimeZone(timeZoneId));
     }
 }
