@@ -197,6 +197,26 @@
                                         <TextBlock Text="{DynamicResource Status.LastUpdate}" Foreground="#6C757D"/>
                                         <TextBlock x:Name="LastUpdatedText" Text="{DynamicResource Status.Never}" FontWeight="SemiBold" Foreground="#343A40" Margin="0,2,0,10"/>
 
+                                        <TextBlock Text="{DynamicResource DataSync.StartModeLabel}" Foreground="#6C757D"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                                            <ComboBox x:Name="CaptureStartModeSelector"
+                                                      Width="190"
+                                                      SelectedValuePath="Tag"
+                                                      SelectionChanged="CaptureStartModeSelector_SelectionChanged">
+                                                <ComboBoxItem Tag="auto" Content="{DynamicResource DataSync.StartModeAuto}"/>
+                                                <ComboBoxItem Tag="manual" Content="{DynamicResource DataSync.StartModeManual}"/>
+                                            </ComboBox>
+                                            <DatePicker x:Name="ManualCaptureStartDatePicker"
+                                                        Width="135"
+                                                        Margin="8,0,0,0"
+                                                        IsEnabled="False"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="CaptureStartHintText"
+                                                   Foreground="#6C757D"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,10"/>
+
                                         <TextBlock x:Name="HistorySyncProgressLabel"
                                                    Text="{DynamicResource Status.SyncProgress}"
                                                    Foreground="#6C757D"
