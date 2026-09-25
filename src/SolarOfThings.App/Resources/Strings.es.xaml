@@ -100,6 +100,7 @@
     <sys:String x:Key="Commissioning.Run">Ejecutar commissioning</sys:String>
     <sys:String x:Key="Commissioning.Progress">Progreso / evidencia</sys:String>
     <sys:String x:Key="Commissioning.Result">Resultado</sys:String>
+    <sys:String x:Key="Commissioning.ServerLogout">Cerrar sesión en Solar of Things</sys:String>
     <sys:String x:Key="Commissioning.ForgetSession">Olvidar sesión local</sys:String>
     <sys:String x:Key="Diagnostics.Title">Diagnóstico de desarrollo sanitizado</sys:String>
     <sys:String x:Key="Diagnostics.Heading">Diagnóstico técnico para desarrollo</sys:String>
