@@ -25,7 +25,7 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 7)
+        SqliteDatabase.CurrentSchemaVersion != 8)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
