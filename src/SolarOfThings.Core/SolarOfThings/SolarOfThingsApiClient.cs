@@ -417,8 +417,7 @@ public sealed class SolarOfThingsApiClient : IDisposable
     private static bool IsTransient(HttpStatusCode statusCode)
     {
         return (int)statusCode >= 500 ||
-               statusCode == HttpStatusCode.RequestTimeout ||
-               (int)statusCode == 429;
+               statusCode == HttpStatusCode.RequestTimeout;
     }
 
     private static SolarApiResponse ParseResponse(int httpStatus, string raw)
