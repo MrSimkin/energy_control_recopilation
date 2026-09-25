@@ -241,6 +241,7 @@ public partial class MainWindow : Window
         var repository = _services.GetRequiredService<NormalizationRepository>();
         var metrics = repository.GetLatestMetrics(profile.DeviceId);
         var configuration = _services.GetRequiredService<BatteryConfigurationService>().Get();
+        var policy = _services.GetRequiredService<InstallationContextPolicyService>().Current;
 
         BatteryConfiguredCapacityText.Text =
             $"{configuration.UsableCapacityKwh:F3} kWh";
@@ -255,9 +256,23 @@ public partial class MainWindow : Window
         var storedEnergy =
             configuration.UsableCapacityKwh * clampedSoc / 100.0;
         var ordinaryEnergy =
-            configuration.UsableCapacityKwh * Math.Max(clampedSoc - 20.0, 0) / 100.0;
+            configuration.UsableCapacityKwh *
+            Math.Max(clampedSoc - policy.NormalGridTransferSocPercent, 0) /
+            100.0;
+
+        var emergencyReserveWidth =
+            Math.Max(
+                policy.NormalGridTransferSocPercent -
+                policy.EmergencyFloorSocPercent,
+                0);
+
         var emergencySocRemaining =
-            Math.Min(10.0, Math.Max(clampedSoc - 10.0, 0));
+            Math.Min(
+                emergencyReserveWidth,
+                Math.Max(
+                    clampedSoc - policy.EmergencyFloorSocPercent,
+                    0));
+
         var emergencyEnergy =
             configuration.UsableCapacityKwh * emergencySocRemaining / 100.0;
 
