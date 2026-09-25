@@ -75,6 +75,8 @@
     <sys:String x:Key="Analysis.ChartIntro">Compare solar, consumo de la casa y uso de la red. Puede usar la rueda del mouse para acercar o alejar y arrastrar el gráfico para moverse.</sys:String>
     <sys:String x:Key="Analysis.ChartReset">Restablecer vista</sys:String>
     <sys:String x:Key="Tooltip.AnalysisChartReset">Vuelve a mostrar todos los datos del período después de acercar o mover un gráfico.</sys:String>
+    <sys:String x:Key="Analysis.Chart.Show">Mostrar en el gráfico</sys:String>
+    <sys:String x:Key="Analysis.Chart.NoneSelected">Seleccione al menos una opción para mostrar el gráfico.</sys:String>
     <sys:String x:Key="Analysis.Chart.Solar">Solar</sys:String>
     <sys:String x:Key="Analysis.Chart.House">Casa</sys:String>
     <sys:String x:Key="Analysis.Chart.Grid">Red eléctrica</sys:String>
