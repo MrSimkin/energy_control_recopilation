@@ -52,6 +52,16 @@
     <sys:String x:Key="Analysis.EmergencyTime">Tiempo usando reserva por corte</sys:String>
     <sys:String x:Key="Analysis.StateChanges">Cambios de estado observados</sys:String>
     <sys:String x:Key="Analysis.UnknownTime">Tiempo sin información suficiente</sys:String>
+    <sys:String x:Key="Analysis.EnergyHeading">Energía del período</sys:String>
+    <sys:String x:Key="Analysis.EnergyIntro">Estimación calculada con las lecturas de potencia y sus horas reales. Los huecos largos no se rellenan.</sys:String>
+    <sys:String x:Key="Analysis.PvEnergy">Energía solar producida</sys:String>
+    <sys:String x:Key="Analysis.HouseEnergy">Energía usada por la casa</sys:String>
+    <sys:String x:Key="Analysis.GridEnergy">Energía tomada de la red</sys:String>
+    <sys:String x:Key="Analysis.BatteryEnergy">Movimiento de la batería</sys:String>
+    <sys:String x:Key="Analysis.BatteryDelivered">Entregó: {0:N2} kWh</sys:String>
+    <sys:String x:Key="Analysis.BatteryReceived">Recibió: {0:N2} kWh</sys:String>
+    <sys:String x:Key="Analysis.EnergyCoverage">Cobertura mínima de estos cálculos: {0:N1}%</sys:String>
+    <sys:String x:Key="Tooltip.AnalysisEnergy">Estos valores se calculan integrando la potencia entre lecturas reales. Si falta un tramo largo, ese tramo queda fuera del total.</sys:String>
     <sys:String x:Key="Analysis.NoData">No hay datos interpretados para este período.</sys:String>
     <sys:String x:Key="Analysis.Hours">{0:N1} h</sys:String>
     <sys:String x:Key="Analysis.Percent">{0:N1}%</sys:String>
