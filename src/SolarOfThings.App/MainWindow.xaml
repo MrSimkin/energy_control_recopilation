@@ -284,6 +284,204 @@
                     </StackPanel>
                 </ScrollViewer>
 
+                <ScrollViewer x:Name="AnalysisContent"
+                              Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Analysis.Heading}"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Analysis.Intro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,5,0,16"
+                                   TextWrapping="Wrap"/>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                                           Text="{DynamicResource Analysis.From}"
+                                           VerticalAlignment="Center"
+                                           Foreground="#6C757D"
+                                           FontSize="13"
+                                           Margin="0,0,8,0"/>
+                                <DatePicker x:Name="AnalysisFromDatePicker"
+                                            Grid.Column="1"
+                                            Width="150"/>
+
+                                <TextBlock Grid.Column="2"
+                                           Text="{DynamicResource Analysis.To}"
+                                           VerticalAlignment="Center"
+                                           Foreground="#6C757D"
+                                           FontSize="13"
+                                           Margin="18,0,8,0"/>
+                                <DatePicker x:Name="AnalysisToDatePicker"
+                                            Grid.Column="3"
+                                            Width="150"/>
+
+                                <Button Grid.Column="4"
+                                        Content="{DynamicResource Analysis.Apply}"
+                                        Padding="14,6"
+                                        Margin="18,0,0,0"
+                                        Click="AnalysisApply_Click"/>
+
+                                <TextBlock x:Name="AnalysisStatusText"
+                                           Grid.Column="5"
+                                           Margin="18,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="#6C757D"
+                                           FontSize="12"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+                        </Border>
+
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0"
+                                    Style="{StaticResource CardStyle}"
+                                    ToolTip="{DynamicResource Tooltip.AnalysisCoverage}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.Coverage}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisCoverageText"
+                                               Text="—"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.SolarTime}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisSolarTimeText"
+                                               Text="—"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.BatteryTime}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisBatteryTimeText"
+                                               Text="—"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.GridTime}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisGridTimeText"
+                                               Text="—"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.RecoveryTime}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisRecoveryTimeText"
+                                               Text="—"
+                                               FontSize="22"
+                                               FontWeight="SemiBold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.EmergencyTime}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisEmergencyTimeText"
+                                               Text="—"
+                                               FontSize="22"
+                                               FontWeight="SemiBold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.StateChanges}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisStateChangesText"
+                                               Text="—"
+                                               FontSize="22"
+                                               FontWeight="SemiBold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="3"
+                                    Style="{StaticResource CardStyle}"
+                                    Margin="0"
+                                    ToolTip="{DynamicResource Tooltip.AnalysisUnknown}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.UnknownTime}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisUnknownTimeText"
+                                               Text="—"
+                                               FontSize="22"
+                                               FontWeight="SemiBold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <ScrollViewer x:Name="BatteryContent"
                               Visibility="Collapsed"
                               VerticalScrollBarVisibility="Auto">
