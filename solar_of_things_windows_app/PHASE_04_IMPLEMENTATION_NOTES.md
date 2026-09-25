@@ -1,4 +1,4 @@
-# Phase 4 — Installation-Aware Normalization — Implementation Notes
+# Phase 4 — Normalization and Installation Context — Implementation Notes
 
 Date started: 2026-09-25
 
@@ -8,7 +8,7 @@ Status: **IN PROGRESS**
 
 Phase 4 converts the Phase 3 raw SiSeLi corpus into trustworthy household-energy metrics.
 
-As of 2026-09-25 this phase is explicitly **installation-aware**.
+As of 2026-09-25 this phase has two explicit layers: **protocol/device normalization** and **installation-specific contextual interpretation**.
 
 Canonical target-house reference:
 
@@ -49,6 +49,17 @@ Source SHA-256:
 User confirmation:
 the recommended inverter changes are currently applied.
 
+### Architectural boundary
+
+The inverter data does not change because of this household's chosen setup.
+
+- raw telemetry remains raw evidence;
+- normalized watts/volts/SOC/energy retain device/protocol physical meaning;
+- the family manual does **not** alter those values;
+- the manual/settings add context for reserve semantics, expected behavior, configuration comparison and family-facing explanations.
+
+This separation is canonical.
+
 ### Important semantic corrections
 
 1. Do not call `SOC × 11.776 kWh` simply “available energy”.
@@ -70,7 +81,7 @@ the recommended inverter changes are currently applied.
 Implemented after the family-manual review:
 
 - SQLite schema v7 `installation_config_check` snapshot;
-- read-only `InstallationHealthService` using latest **local raw history**, with no extra Solar of Things request just to render the UI;
+- read-only `InstallationHealthService` using the latest saved **current-state snapshot** for contextual configuration comparison; it does not alter normalized telemetry;
 - expected-state checks for:
   - SBU source priority;
   - PYL battery protocol;
@@ -108,7 +119,7 @@ The UI does not write inverter settings.
 
 ### A. Read-only configuration health — IMPLEMENTED FOUNDATION
 
-A versioned installation-policy evaluator now uses locally stored SiSeLi raw-history fields.
+A versioned installation-policy evaluator uses a saved current-state SiSeLi snapshot. Historical telemetry is not treated as the current configuration.
 
 Target expected state where evidence is available:
 - SBU source priority;
@@ -177,7 +188,7 @@ When normalization rules change:
 
 Phase 4 completes only when:
 
-- target-device normalized metrics are generated from real raw history;
+- target-device normalized metrics are generated from real raw history without household-policy-dependent measurement semantics;
 - installation expected-state checks are read-only and evidence-backed;
 - battery reserve semantics match the family manual;
 - expected grid-recovery behavior is distinguishable from anomalies;
