@@ -683,7 +683,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        AnalysisChartStatusText.Text = string.Empty;
+        AnalysisChartStatusText.Text = rows.Any(
+                row => row.MinimumAvailableCoveragePercent < 80)
+            ? _localization.GetString("Analysis.Chart.LowCoverage")
+            : string.Empty;
+
+        AnalysisChartStatusText.Foreground = rows.Any(
+                row => row.MinimumAvailableCoveragePercent < 80)
+            ? Brushes.DarkOrange
+            : Brushes.Gray;
 
         var positions =
             Enumerable.Range(0, rows.Count)
@@ -785,7 +793,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        AnalysisBatteryChartStatusText.Text = string.Empty;
+        AnalysisBatteryChartStatusText.Text = rows.Any(
+                row => row.MinimumAvailableCoveragePercent < 80)
+            ? _localization.GetString("Analysis.Chart.LowCoverage")
+            : string.Empty;
+
+        AnalysisBatteryChartStatusText.Foreground = rows.Any(
+                row => row.MinimumAvailableCoveragePercent < 80)
+            ? Brushes.DarkOrange
+            : Brushes.Gray;
 
         if (averagePoints.Length > 0)
         {
