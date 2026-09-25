@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     private readonly AppPaths _paths;
 
@@ -43,6 +43,12 @@ public sealed class SqliteDatabase
         if (current < 2)
         {
             ApplyMigration2(connection);
+            current = 2;
+        }
+
+        if (current < 3)
+        {
+            ApplyMigration3(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -152,6 +158,27 @@ public sealed class SqliteDatabase
             transaction,
             2,
             "Phase 2 read-only commissioning capability profile.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration3(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            ALTER TABLE commissioning_profile ADD COLUMN device_sort_key TEXT NULL;
+            ALTER TABLE commissioning_profile ADD COLUMN device_type_number TEXT NULL;
+            ALTER TABLE commissioning_profile ADD COLUMN rated_power REAL NULL;
+            ALTER TABLE commissioning_profile ADD COLUMN is_online INTEGER NULL;
+            ALTER TABLE commissioning_profile ADD COLUMN last_data_at TEXT NULL;
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            3,
+            "Promote device identity, rated power, online state and source freshness metadata.");
 
         transaction.Commit();
     }
