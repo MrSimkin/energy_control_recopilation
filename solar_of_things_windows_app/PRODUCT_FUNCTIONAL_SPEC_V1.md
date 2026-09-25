@@ -21,6 +21,8 @@ The user explicitly changed the UI-language requirement after the original v1 ap
 - This change does not reopen Phase 0 or invalidate the already validated technical architecture.
 
 Source authority:
+- INSTALLATION_BEHAVIOR_CONTRACT.md
+- MANUAL_FAMILIAR_INTEGRATION_REVIEW_2026-09-25.md
 - solar_of_things_api_research/
 - INITIAL_REQUIREMENTS.md
 - REQUIREMENTS_CLARIFICATIONS_01.md
@@ -224,9 +226,13 @@ Grid energy/power used to charge the battery.
 
 Historically relevant because grid charging previously occurred.
 
+The current installation behavior contract expects solar-only battery charging (P16=OSO). Therefore current grid-to-battery behavior is not assumed merely because an AC-charging-related raw flag exists.
+
 It should be reported only when:
 - directly measured; or
 - credibly derived with high confidence.
+
+A material SOC rise at night / with PV absent while grid is supplying the house is a behavior worth flagging for review, but not from one sample alone.
 
 ## 5.9 Total Grid Import
 
@@ -259,16 +265,40 @@ Battery fullness.
 Unit:
 - %
 
-## 5.12 Estimated usable battery energy remaining
+## 5.12 Battery energy / reserve concepts
 
-Derived value:
+The installation-specific battery policy requires multiple distinct derived concepts.
 
-configured usable battery capacity × normalized SOC fraction
+Initial configured useful-capacity reference:
+- 11.776 kWh.
 
-Initial configured capacity:
-- 11.776 kWh
+### Estimated energy currently stored
 
-This must be labeled as an estimate, not as a separately measured energy counter.
+Derived:
+`configured useful capacity × normalized SOC fraction`
+
+This is an estimate, not a separately measured energy counter.
+
+### Estimated ordinary-use energy before normal grid transfer
+
+With the documented current baseline, the house normally transfers to grid at approximately 20% SOC when grid is available.
+
+Derived:
+`configured useful capacity × max(SOC - 20%, 0)`
+
+This must be labeled as an estimate and must not be confused with total stored energy.
+
+### Emergency outage reserve
+
+The 20%→10% SOC band is reserved for outage operation when grid is unavailable.
+
+The UI must explain this as emergency reserve, not ordinary nightly usable capacity.
+
+### Protected floor
+
+Around 10% SOC is the documented absolute software floor for outage discharge.
+
+Do not present this protected floor as household energy available for routine use.
 
 ## 5.13 Battery charge/discharge power
 
@@ -303,6 +333,32 @@ Only expose as a normalized metric if they are:
 - credibly derivable after commissioning.
 
 Do not create a fake “losses” value merely as a balancing residual unless explicitly labeled as such and validated.
+
+---
+
+# 5.16 Installation operating policy
+
+The app must interpret the target household against the versioned installation behavior contract.
+
+Current user-confirmed baseline includes:
+
+- SBU household source priority;
+- BMS/PYL battery operation;
+- intended solar-only battery charging;
+- 10% absolute emergency floor;
+- 20% normal transfer-to-grid threshold;
+- 50% return-to-SBU threshold;
+- 50% restart threshold after low-SOC shutdown;
+- load-before-battery solar priority (LBU);
+- mandatory zero export.
+
+These are interpretation/monitoring rules only.
+
+The application remains read-only and must not write inverter programs.
+
+Grid use between approximately 20% and 50% SOC can be expected while solar recovers the battery after a low-SOC transfer.
+
+Seasonal analytics may change load-timing recommendations, but must not imply that protection/transfer thresholds should change automatically by calendar season.
 
 ---
 
