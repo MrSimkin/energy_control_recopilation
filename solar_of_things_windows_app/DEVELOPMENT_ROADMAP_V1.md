@@ -165,7 +165,7 @@ Exit criterion:
 
 ---
 
-# Phase 2 — Solar of Things Authentication and Commissioning — IN PROGRESS
+# Phase 2 — Solar of Things Authentication and Commissioning — LIVE ACCEPTANCE NEAR-COMPLETE
 
 Goal: make the application connect safely to the user's own Solar of Things account and discover the actual inverter/cloud profile.
 
@@ -211,7 +211,7 @@ Exit criterion:
 
 ---
 
-# Phase 3 — Raw Data Ingestion and Full Historical Backfill
+# Phase 3 — Raw Data Ingestion and Full Historical Backfill — IN PROGRESS
 
 Goal: build the trustworthy local historical corpus.
 
@@ -232,9 +232,14 @@ Implement:
 
 First-run backfill:
 
-- determine oldest available history;
+- use actual device installation metadata as the practical initial lower bound when available;
+- query one station-local calendar day at a time;
+- paginate raw history with 300-point pages;
+- preserve actual source timestamps (nominal cadence is around five minutes but is not exact);
+- never synthesize missing 5-minute rows;
+- fall back from selected-key history to record-list history for incomplete/refused days;
 - backfill all available historical data;
-- preserve completeness/gap statistics.
+- preserve completeness/gap statistics including median/p90/max real timestamp gaps.
 
 Normal operation:
 
