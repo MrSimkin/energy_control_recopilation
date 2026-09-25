@@ -19,7 +19,7 @@ public sealed class InstallationHealthService
         string DriftDetail,
         bool Numeric = false);
 
-    private static readonly Rule[] Rules =
+    private static Rule[] BuildRules(InstallationContextPolicy policy) =>
     [
         new(
             "source-priority",
@@ -56,36 +56,36 @@ public sealed class InstallationHealthService
         new(
             "absolute-floor",
             "bmsLowPowerSOC",
-            "10",
+            policy.EmergencyFloorSocPercent.ToString(CultureInfo.InvariantCulture),
             null,
-            "10% — reserva mínima durante un corte",
+            $"{policy.EmergencyFloorSocPercent:0.#}% — reserva mínima durante un corte",
             "El piso mínimo coincide con 10%.",
             "El piso mínimo no coincide con 10%.",
             Numeric: true),
         new(
             "grid-transfer",
             "bmsReturnsToMainsModeSOC",
-            "20",
+            policy.NormalGridTransferSocPercent.ToString(CultureInfo.InvariantCulture),
             null,
-            "20% — punto normal para empezar a usar la red",
+            $"{policy.NormalGridTransferSocPercent:0.#}% — punto normal para empezar a usar la red",
             "El cambio normal a red coincide con 20%.",
             "El punto de cambio a red no coincide con 20%.",
             Numeric: true),
         new(
             "return-to-battery",
             "bmsReturnsToBatteryModeSOC",
-            "50",
+            policy.ReturnToBatterySocPercent.ToString(CultureInfo.InvariantCulture),
             null,
-            "50% — vuelve al uso normal de sol y batería",
+            $"{policy.ReturnToBatterySocPercent:0.#}% — vuelve al uso normal de sol y batería",
             "El retorno a batería coincide con 50%.",
             "El retorno desde red no coincide con 50%.",
             Numeric: true),
         new(
             "restart-after-low",
             "bmsAutomaticallyStartsSOCAfterLow",
-            "50",
+            policy.RestartAfterLowSocPercent.ToString(CultureInfo.InvariantCulture),
             null,
-            "50% — recuperación mínima después de apagado por batería baja",
+            $"{policy.RestartAfterLowSocPercent:0.#}% — recuperación mínima después de apagado por batería baja",
             "El reinicio después de batería baja coincide con 50%.",
             "El umbral de reinicio no coincide con 50%.",
             Numeric: true),
@@ -116,27 +116,31 @@ public sealed class InstallationHealthService
     ];
 
     private readonly InstallationHealthRepository _repository;
+    private readonly InstallationContextPolicyService _policy;
     private readonly ApiDiagnosticsStore _diagnostics;
 
     public InstallationHealthService(
         InstallationHealthRepository repository,
+        InstallationContextPolicyService policy,
         ApiDiagnosticsStore diagnostics)
     {
         _repository = repository;
+        _policy = policy;
         _diagnostics = diagnostics;
     }
 
     public InstallationConfigSummary Evaluate(CommissioningProfile profile)
     {
         var now = DateTimeOffset.UtcNow;
+        var rules = BuildRules(_policy.Current);
         var snapshot = _repository.GetLatestStateSnapshot(profile.DeviceId);
         var values = snapshot is null
             ? new Dictionary<string, RawInstallationValue>(StringComparer.Ordinal)
-            : ReadSnapshotValues(snapshot);
+            : ReadSnapshotValues(snapshot, rules);
 
-        var checks = new List<InstallationConfigCheck>(Rules.Length);
+        var checks = new List<InstallationConfigCheck>(rules.Length);
 
-        foreach (var rule in Rules)
+        foreach (var rule in rules)
         {
             if (!values.TryGetValue(rule.SourceAttributeKey, out var observed))
             {
@@ -225,7 +229,8 @@ public sealed class InstallationHealthService
     }
 
     private static IReadOnlyDictionary<string, RawInstallationValue> ReadSnapshotValues(
-        InstallationStateSnapshot snapshot)
+        InstallationStateSnapshot snapshot,
+        IReadOnlyList<Rule> rules)
     {
         var result = new Dictionary<string, RawInstallationValue>(StringComparer.Ordinal);
 
@@ -250,7 +255,7 @@ public sealed class InstallationHealthService
                 return result;
             }
 
-            foreach (var rule in Rules)
+            foreach (var rule in rules)
             {
                 if (!fields.TryGetProperty(rule.SourceAttributeKey, out var field) ||
                     field.ValueKind != JsonValueKind.Object ||
