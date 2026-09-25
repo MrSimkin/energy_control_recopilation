@@ -2,7 +2,7 @@
 
 Date started: 2026-09-24
 
-Status: IN PROGRESS
+Status: IN PROGRESS — CORE ARCHITECTURE VALIDATED
 
 ## Implemented in initial skeleton
 
@@ -31,12 +31,12 @@ Versions are pinned centrally in Directory.Packages.props.
 
 ## Phase 1 items still to prove/complete
 
-- Confirm GitHub Windows build passes.
-- Decide/finalize logging provider and structured local log file design.
-- Add explicit application configuration persistence.
-- Add secure Windows credential-storage abstraction (without real Solar of Things login yet).
+- GitHub Windows Release build: PASS (0 warnings, 0 errors).
+- Structured local JSONL diagnostics foundation: implemented.
+- SQL-backed non-secret application settings repository: implemented.
+- Windows DPAPI protected secret-store abstraction: implemented and smoke-tested.
 - Confirm installed/portable folder behavior on an actual Windows 11 x64 machine.
-- Add schema/database documentation starter.
+- Database schema starter documentation: implemented.
 - Finalize Phase 1 acceptance receipt before Phase 2.
 
 ## Important scope rule
@@ -44,3 +44,21 @@ Versions are pinned centrally in Directory.Packages.props.
 Phase 1 does not implement Solar of Things authentication or telemetry.
 
 The UI intentionally contains no fabricated energy data. Values remain unavailable until Phase 2/3 real-device work.
+
+
+## CI validation
+
+GitHub Actions Windows run `36085579691` passed on the Phase 1 infrastructure code.
+
+Validated:
+- .NET 10 restore;
+- Release build;
+- WPF compilation;
+- SQLite database creation;
+- schema migration to v1;
+- settings round-trip;
+- JSONL diagnostics creation;
+- Windows DPAPI secret save/read/delete;
+- clean smoke-test database teardown.
+
+A later workflow revision adds a self-contained win-x64 portable test artifact for manual Windows 11 UI inspection.
