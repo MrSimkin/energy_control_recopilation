@@ -181,3 +181,18 @@ Safety rules:
 - the same pagination, pacing, request-budget, circuit-breaker and safe-stop rules still apply.
 
 The purpose of manual mode is user control, not bypassing the anti-loop safeguards.
+
+
+## Combined live-test artifact — CI PASS
+
+Windows Build:
+- run `36186838776`
+- source `57f9b8b2912b5834edff7355f49d1566f3606bd6`
+- result: **SUCCESS**
+
+Portable artifact:
+- `SolarEnergyMonitor-win-x64-dev`
+- artifact ID `10887225685`
+- SHA-256 `fb7dc54e3255a5494d82ea32f1dbde5b3fcaa5be40aacc8a1b61fc2079681ee7`
+
+This is the canonical target-machine candidate for the first real Phase 3 backfill.
