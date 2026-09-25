@@ -221,6 +221,22 @@ The manual **does not invalidate Phase 3 raw history**. It improves interpretati
 
 Phase 4 work already underway before this manual remains useful, but battery semantics and behavior classification must follow the installation contract before the Battery page is finalized.
 
+## Phase 4 installation-aware implementation checkpoint — 2026-09-25
+
+Implemented and CI-compiling:
+
+- schema v7 configuration-health snapshot;
+- local read-only installation behavior evaluator;
+- HPVINV02 normalization rule v2 with AC grid voltage;
+- evidence-based latest household operating-state classifier;
+- real Battery page with 20% / 10% / 50% family-manual semantics;
+- Home plain-language operating explanation;
+- Data & Updates read-only inverter configuration-health summary.
+
+These views use local raw/normalized data and do not add background Solar of Things polling.
+
+The next substantive target-PC validation should verify this combined Phase 4 tranche together; do not ask for a separate micro-test for each individual UI/card change.
+
 ## Resume rule
 
 Resume with **Phase 3 raw-history ingestion continuing independently while Phase 4 installation-aware normalization advances**.
