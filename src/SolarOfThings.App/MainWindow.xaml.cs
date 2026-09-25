@@ -666,6 +666,7 @@ public partial class MainWindow : Window
 
         AnalysisAggregationGrid.ItemsSource = table.Rows;
         RefreshAnalysisEnergyChart(table.Rows);
+        RefreshAnalysisBatteryChart(table.Rows);
     }
 
     private void RefreshAnalysisEnergyChart(
@@ -749,6 +750,86 @@ public partial class MainWindow : Window
         plot.ShowLegend(ScottPlot.Alignment.UpperRight);
 
         AnalysisEnergyPlot.Refresh();
+    }
+
+    private void RefreshAnalysisBatteryChart(
+        IReadOnlyList<EnergyAggregationRow> rows)
+    {
+        var plot = AnalysisBatteryPlot.Plot;
+        plot.Clear();
+
+        var averagePoints = rows
+            .Select((row, index) => new
+            {
+                X = (double)index,
+                Value = row.SocAveragePercent
+            })
+            .Where(point => point.Value.HasValue)
+            .ToArray();
+
+        var endingPoints = rows
+            .Select((row, index) => new
+            {
+                X = (double)index,
+                Value = row.SocEndingPercent
+            })
+            .Where(point => point.Value.HasValue)
+            .ToArray();
+
+        if (averagePoints.Length == 0 &&
+            endingPoints.Length == 0)
+        {
+            AnalysisBatteryChartStatusText.Text =
+                _localization.GetString("Analysis.BatteryChart.NoData");
+            AnalysisBatteryPlot.Refresh();
+            return;
+        }
+
+        AnalysisBatteryChartStatusText.Text = string.Empty;
+
+        if (averagePoints.Length > 0)
+        {
+            var average = plot.Add.Scatter(
+                averagePoints.Select(point => point.X).ToArray(),
+                averagePoints.Select(point => point.Value!.Value).ToArray());
+            average.LegendText =
+                _localization.GetString("Analysis.BatteryChart.Average");
+            average.LineWidth = 2;
+            average.MarkerSize = 5;
+        }
+
+        if (endingPoints.Length > 0)
+        {
+            var ending = plot.Add.Scatter(
+                endingPoints.Select(point => point.X).ToArray(),
+                endingPoints.Select(point => point.Value!.Value).ToArray());
+            ending.LegendText =
+                _localization.GetString("Analysis.BatteryChart.End");
+            ending.LineWidth = 2;
+            ending.MarkerSize = 5;
+        }
+
+        var tickGenerator =
+            new ScottPlot.TickGenerators.NumericManual();
+
+        var tickStep =
+            Math.Max(
+                1,
+                (int)Math.Ceiling(rows.Count / 12.0));
+
+        for (var index = 0; index < rows.Count; index += tickStep)
+        {
+            tickGenerator.AddMajor(
+                index,
+                rows[index].LocalLabel);
+        }
+
+        plot.Axes.Bottom.TickGenerator = tickGenerator;
+        plot.YLabel("%");
+        plot.Axes.SetLimitsY(0, 100);
+        plot.ShowLegend(ScottPlot.Alignment.UpperRight);
+
+        AnalysisBatteryPlot.Refresh();
     }
 
     private AggregationPeriod GetSelectedAggregationPeriod()
@@ -859,6 +940,11 @@ public partial class MainWindow : Window
         AnalysisEnergyPlot.Refresh();
         AnalysisChartStatusText.Text =
             _localization.GetString("Analysis.Chart.NoData");
+
+        AnalysisBatteryPlot.Plot.Clear();
+        AnalysisBatteryPlot.Refresh();
+        AnalysisBatteryChartStatusText.Text =
+            _localization.GetString("Analysis.BatteryChart.NoData");
         AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
     }
 
