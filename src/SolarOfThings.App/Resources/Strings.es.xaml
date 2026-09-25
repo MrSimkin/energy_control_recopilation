@@ -214,6 +214,14 @@
     <sys:String x:Key="Confidence.Unresolved">No resuelto</sys:String>
     <sys:String x:Key="Metric.LocalNormalized">Dato local normalizado</sys:String>
     <sys:String x:Key="Dashboard.EnergyOverview">Resumen de energía</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayHeading">Resumen del último día guardado</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayDate">Fecha: {0}</sys:String>
+    <sys:String x:Key="Dashboard.LatestDaySolar">Solar producido</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayHouse">Usado por la casa</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayGrid">Tomado de la red</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayCoverage">Cobertura mínima</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayNoData">Aún no hay un día guardado suficiente para resumir.</sys:String>
+    <sys:String x:Key="Tooltip.DashboardLatestDay">Este resumen usa el último día que existe en los datos guardados, aunque sea una fecha antigua. Los huecos largos no se rellenan.</sys:String>
     <sys:String x:Key="Dashboard.ChartArea">Área de gráfico interactivo</sys:String>
     <sys:String x:Key="Dashboard.ChartPending">Los gráficos se añadirán después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">Estado del sistema</sys:String>
