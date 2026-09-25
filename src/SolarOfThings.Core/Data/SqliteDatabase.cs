@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 7;
+    public const int CurrentSchemaVersion = 8;
 
     private readonly AppPaths _paths;
 
@@ -73,6 +73,12 @@ public sealed class SqliteDatabase
         if (current < 7)
         {
             ApplyMigration7(connection);
+            current = 7;
+        }
+
+        if (current < 8)
+        {
+            ApplyMigration8(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -359,6 +365,38 @@ public sealed class SqliteDatabase
             transaction,
             7,
             "Phase 4 read-only installation behavior contract health snapshot.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration8(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            CREATE TABLE household_behavior_sample (
+                device_id TEXT NOT NULL,
+                recorded_at_utc TEXT NOT NULL,
+                context_version TEXT NOT NULL,
+                state_key TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                evidence_json TEXT NOT NULL,
+                updated_utc TEXT NOT NULL,
+                PRIMARY KEY(device_id, recorded_at_utc, context_version)
+            );
+
+            CREATE INDEX ix_household_behavior_device_time
+                ON household_behavior_sample(device_id, recorded_at_utc DESC);
+
+            CREATE INDEX ix_household_behavior_device_state
+                ON household_behavior_sample(device_id, state_key, recorded_at_utc);
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            8,
+            "Phase 4/5 contextual household behavior samples derived from normalized telemetry.");
 
         transaction.Commit();
     }
