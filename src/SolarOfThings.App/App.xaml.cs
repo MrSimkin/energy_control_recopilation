@@ -13,6 +13,7 @@ using SolarOfThings.Core.Normalization;
 using SolarOfThings.Core.History;
 using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
+using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.SolarOfThings;
 
 namespace SolarOfThings.App;
@@ -50,6 +51,7 @@ public partial class App : Application
         builder.Services.AddSingleton<HouseholdOperatingStateService>();
         builder.Services.AddSingleton<HouseholdBehaviorRepository>();
         builder.Services.AddSingleton<HouseholdBehaviorService>();
+        builder.Services.AddSingleton<HouseholdBehaviorStatisticsService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
