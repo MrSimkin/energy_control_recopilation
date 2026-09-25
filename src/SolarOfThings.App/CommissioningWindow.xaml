@@ -86,6 +86,10 @@
                                 Padding="12,6"
                                 Margin="8,0,0,0"
                                 Click="ImportEnvironment_Click"/>
+                        <Button Content="{DynamicResource Commissioning.UseDefaultProtocolCredential}"
+                                Padding="12,6"
+                                Margin="8,0,0,0"
+                                Click="UseDefaultProtocolCredential_Click"/>
                         <TextBlock x:Name="ProtocolCredentialStatus"
                                    Margin="12,0,0,0"
                                    VerticalAlignment="Center"
