@@ -1,7 +1,7 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
 Date: 2026-09-25
-Status: PHASE 1 COMPLETE — PHASE 2 IMPLEMENTATION IN PROGRESS
+Status: PHASE 1 COMPLETE — PHASE 2 LIVE ACCEPTANCE NEAR-COMPLETE / PHASE 3 IN PROGRESS
 
 This file is the canonical continuity note.
 
@@ -107,70 +107,57 @@ Canonical closure receipt:
 
 Phase 1 is complete.
 
-Phase 2 implementation is now in progress.
+Phase 2 has been validated against the user's real production account far enough to establish:
+- normal account/password login using the built-in production client profile: PASS;
+- station discovery: PASS;
+- device discovery/details: PASS;
+- gather-attribute discovery: PASS;
+- `dataSource=1` live-state validation: PASS;
+- energy-flow read: PASS;
+- daily aggregate read: PASS;
+- commissioning-profile persistence: PASS;
+- remembered session/reconnect after restart: PASS;
+- evidence-backed server logout: PASS.
 
-Current implementation tranche includes:
-- production REST client foundation;
-- IoT Open signing implementation;
-- account/password protocol login;
-- protected local session/token storage;
-- access+refresh token rotation;
-- advanced existing-token-pair bootstrap;
-- station/device discovery;
-- station/device detail reads;
-- gather-attribute discovery;
-- dataSource probing;
-- read-only energy-flow/history/aggregate/alarm capability probes;
-- SQLite schema v3 commissioning capability profile;
-- first-class sanitized development diagnostics and copy/save report.
+The live report exposed one shared protocol mismatch in history + alarm queries: fractional-second ISO timestamps were rejected by production as invalid `fromTime`. That wire format was corrected to station-local `yyyy-MM-ddTHH:mm:sszzz`. Its final production verification is intentionally folded into the next Phase 3 live test rather than spending a separate user test cycle.
 
-The development diagnostic stream records endpoint/method, sanitized request/response, HTTP status, API code/message, timing, retries, commissioning step, selected station/device metadata and capability outcomes. Passwords/password hashes, tokens, cookies, reusable client secrets and request signatures are redacted before diagnostic JSONL is written.
+Phase 3 raw-data ingestion is now **IN PROGRESS**.
 
-Normal account/password login now uses the public production IoT Open client profile used by the Solar of Things web-client ecosystem. A DPAPI-protected local override remains available for future upstream changes. Existing access/refresh tokens remain an optional advanced bootstrap, not a normal requirement.
+Implemented Phase 3 foundation:
+- SQLite schema v4 raw-history corpus;
+- raw `device + attribute + actual source timestamp` storage;
+- explicit null/missing preservation;
+- raw API-page capture;
+- per-local-day completeness/audit state;
+- selected-key history ingestion;
+- `record/list` fallback for any incomplete selected-key day;
+- local-day timezone-aware windows;
+- page size **300** for both raw-history endpoints;
+- stop on short page or positive page-count `total`, with bounded safety cap;
+- actual returned timestamps only — no synthetic five-minute grid;
+- daily median/p90/max gap metrics from real timestamps;
+- idempotent upsert;
+- initial lower bound from real device `installedAt` metadata when available;
+- incremental reread overlap from the newest locally stored timestamp;
+- sync-run audit;
+- core progress/cancellation support;
+- `Actualizar datos` wired to the history-ingestion engine.
 
-Latest Phase 2 implementation state passed Windows CI in run `36180523465` from source commit `7fc2d5701f34948e8181c3e555c2d3cdaadcde9b`.
+Canonical data rule:
+Solar of Things raw telemetry is commonly around five-minute cadence, but cadence is not exact. The collector must persist every real timestamp, preserve gaps/nulls, and never fabricate missing 5-minute rows or integrate power using a fixed 5-minute multiplier.
 
-Portable artifact:
-- name: `SolarEnergyMonitor-win-x64-dev`
-- artifact ID: `10883867535`
-- SHA-256: `f315669a111af582e390c50289ba38b2a04e96d1a3e38bbb0d811fa686dfc8c1`
-
-CI validated:
-- compile/publish;
-- SQLite schema v3;
-- production client-profile decryption/default/override behavior;
-- IoT Open signing vector;
-- commissioning-profile persistence including device type/sort, rated power, online state and `lastDataAt`;
-- DPAPI;
-- diagnostic body/header redaction;
-- proactive refresh/session logic;
-- evidence-backed server logout lifecycle and preservation of Solar user IDs as strings.
-
-First real-account checkpoint on 2026-09-25:
-- existing-token local session bootstrap: PASS;
-- station discovery against production: PASS;
-- device discovery against production: PASS;
-- one station and one device found;
-- exact large platform IDs remained lossless strings;
-- credential/token redaction: PASS.
-
-The first exported report revealed that raw platform responses also contain unnecessary personal account/location metadata. Diagnostic privacy hardening was therefore added before requesting the next report.
-
-Phase 2 is not complete until the remaining read-only capability probes and safe reconnect/session behavior are validated against the user's real account/device.
-
-Phase 2 scope:
-- Solar of Things authentication;
-- token/session handling;
-- station discovery;
-- device discovery;
-- telemetry download;
-- historical backfill;
-- target-device commissioning.
+The next real-PC run is intentionally a **combined Phase 2/Phase 3 acceptance/development test**:
+1. authenticate/reconnect normally;
+2. use the timestamp-corrected commissioning probes;
+3. run `Actualizar datos`;
+4. attempt daily backfill from the device installation date through today;
+5. inspect the resulting diagnostic/sync evidence and local corpus;
+6. correct any live pagination/shape/retention mismatch found.
 
 ## Resume rule
 
-Resume inside **Phase 2 — Solar of Things Authentication and Commissioning**.
+Resume at the **combined Phase 2 final verification + Phase 3 raw-history ingestion checkpoint**.
 
-Immediate checkpoint: use artifact `10883867535` with normal Solar of Things account/password login, run the full read-only commissioning sequence, verify session restore after restart, then test server logout and copy the diagnostic report so any remaining account/device-specific mismatches can be corrected.
+Do not spend a separate user test solely on the already-fixed history/alarm timestamp format. Continue building/validating the Phase 3 daily raw corpus, then use one combined target-PC run to verify both the timestamp fix and real historical backfill.
 
 Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
