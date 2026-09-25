@@ -42,6 +42,20 @@
     <sys:String x:Key="Page.Battery.Title">Batería</sys:String>
     <sys:String x:Key="Page.Battery.Subtitle">Estado, carga, descarga y comportamiento de la batería</sys:String>
     <sys:String x:Key="Page.Battery.Placeholder">La vista de batería se habilitará cuando existan datos reales del equipo.</sys:String>
+    <sys:String x:Key="Battery.Heading">Batería</sys:String>
+    <sys:String x:Key="Battery.Intro">Estado actual de la batería usando la información guardada en este computador.</sys:String>
+    <sys:String x:Key="Battery.Charge">Carga actual</sys:String>
+    <sys:String x:Key="Battery.EstimatedRemaining">Energía disponible (estimada)</sys:String>
+    <sys:String x:Key="Battery.Activity">Qué está haciendo la batería</sys:String>
+    <sys:String x:Key="Battery.Charging">Cargando</sys:String>
+    <sys:String x:Key="Battery.Discharging">Entregando energía a la casa</sys:String>
+    <sys:String x:Key="Battery.Resting">En reposo</sys:String>
+    <sys:String x:Key="Battery.Unknown">Sin información suficiente</sys:String>
+    <sys:String x:Key="Battery.ConfiguredCapacity">Capacidad usada para calcular la estimación</sys:String>
+    <sys:String x:Key="Battery.LastReading">Última lectura</sys:String>
+    <sys:String x:Key="Tooltip.BatteryRemaining">Estimación de la energía que queda en la batería. Se calcula multiplicando el porcentaje de carga por la capacidad útil configurada; no es una medición independiente.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryActivity">Indica si la batería está recibiendo energía, entregando energía o prácticamente en reposo según las lecturas del inversor.</sys:String>
+
     <sys:String x:Key="Page.GridUtility.Title">Red y compañía eléctrica</sys:String>
     <sys:String x:Key="Page.GridUtility.Subtitle">Importación desde la red y reconciliación con mediciones de la compañía</sys:String>
     <sys:String x:Key="Page.GridUtility.Placeholder">Las funciones de red y compañía eléctrica se incorporarán en fases posteriores.</sys:String>
