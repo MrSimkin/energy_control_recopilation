@@ -16,4 +16,10 @@ public sealed record ApiDiagnosticEntry(
     string? RequestJson,
     string? ResponseJson,
     string? ExceptionType,
-    string? ExceptionMessage);
+    string? ExceptionMessage)
+{
+    public string? RequestHeadersJson { get; init; }
+    public string? ResponseHeadersJson { get; init; }
+    public long? ResponseLengthBytes { get; init; }
+    public string? ExceptionStackTrace { get; init; }
+}
