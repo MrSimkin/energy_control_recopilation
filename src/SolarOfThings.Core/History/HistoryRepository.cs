@@ -16,56 +16,67 @@ public sealed class HistoryRepository
     {
         using var connection = _database.OpenConnection();
         using var transaction = connection.BeginTransaction();
-        var count = 0;
+        using var command = connection.CreateCommand();
 
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO history_sample (
+                device_id,
+                attribute_key,
+                recorded_at_utc,
+                value_json,
+                is_missing,
+                source,
+                retrieved_utc
+            )
+            VALUES (
+                $deviceId,
+                $attributeKey,
+                $recordedAtUtc,
+                $valueJson,
+                $isMissing,
+                $source,
+                $retrievedUtc
+            )
+            ON CONFLICT(device_id, attribute_key, recorded_at_utc) DO UPDATE SET
+                value_json = CASE
+                    WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
+                        THEN history_sample.value_json
+                    ELSE excluded.value_json
+                END,
+                is_missing = CASE
+                    WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
+                        THEN history_sample.is_missing
+                    ELSE excluded.is_missing
+                END,
+                source = CASE
+                    WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
+                        THEN history_sample.source
+                    ELSE excluded.source
+                END,
+                retrieved_utc = excluded.retrieved_utc;
+            """;
+
+        var deviceId = command.Parameters.Add("$deviceId", SqliteType.Text);
+        var attributeKey = command.Parameters.Add("$attributeKey", SqliteType.Text);
+        var recordedAtUtc = command.Parameters.Add("$recordedAtUtc", SqliteType.Text);
+        var valueJson = command.Parameters.Add("$valueJson", SqliteType.Text);
+        var isMissing = command.Parameters.Add("$isMissing", SqliteType.Integer);
+        var source = command.Parameters.Add("$source", SqliteType.Text);
+        var retrievedUtc = command.Parameters.Add("$retrievedUtc", SqliteType.Text);
+
+        command.Prepare();
+
+        var count = 0;
         foreach (var sample in samples)
         {
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = """
-                INSERT INTO history_sample (
-                    device_id,
-                    attribute_key,
-                    recorded_at_utc,
-                    value_json,
-                    is_missing,
-                    source,
-                    retrieved_utc
-                )
-                VALUES (
-                    $deviceId,
-                    $attributeKey,
-                    $recordedAtUtc,
-                    $valueJson,
-                    $isMissing,
-                    $source,
-                    $retrievedUtc
-                )
-                ON CONFLICT(device_id, attribute_key, recorded_at_utc) DO UPDATE SET
-                    value_json = CASE
-                        WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
-                            THEN history_sample.value_json
-                        ELSE excluded.value_json
-                    END,
-                    is_missing = CASE
-                        WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
-                            THEN history_sample.is_missing
-                        ELSE excluded.is_missing
-                    END,
-                    source = CASE
-                        WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
-                            THEN history_sample.source
-                        ELSE excluded.source
-                    END,
-                    retrieved_utc = excluded.retrieved_utc;
-                """;
-            command.Parameters.AddWithValue("$deviceId", sample.DeviceId);
-            command.Parameters.AddWithValue("$attributeKey", sample.AttributeKey);
-            command.Parameters.AddWithValue("$recordedAtUtc", sample.RecordedAtUtc.ToUniversalTime().ToString("O"));
-            command.Parameters.AddWithValue("$valueJson", sample.ValueJson is null ? DBNull.Value : sample.ValueJson);
-            command.Parameters.AddWithValue("$isMissing", sample.IsMissing ? 1 : 0);
-            command.Parameters.AddWithValue("$source", sample.Source);
-            command.Parameters.AddWithValue("$retrievedUtc", sample.RetrievedUtc.ToUniversalTime().ToString("O"));
+            deviceId.Value = sample.DeviceId;
+            attributeKey.Value = sample.AttributeKey;
+            recordedAtUtc.Value = sample.RecordedAtUtc.ToUniversalTime().ToString("O");
+            valueJson.Value = sample.ValueJson is null ? DBNull.Value : sample.ValueJson;
+            isMissing.Value = sample.IsMissing ? 1 : 0;
+            source.Value = sample.Source;
+            retrievedUtc.Value = sample.RetrievedUtc.ToUniversalTime().ToString("O");
             count += command.ExecuteNonQuery();
         }
 
