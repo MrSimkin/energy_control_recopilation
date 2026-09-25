@@ -58,6 +58,8 @@
     <sys:String x:Key="Battery.Unknown">Not enough information</sys:String>
     <sys:String x:Key="Battery.ConfiguredCapacity">Capacity used for this estimate</sys:String>
     <sys:String x:Key="Battery.LastReading">Latest reading</sys:String>
+    <sys:String x:Key="Battery.OrdinaryReserveNote">The home normally changes to grid power near 20%.</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserveNote">The 20% to 10% band is kept for grid outages.</sys:String>
     <sys:String x:Key="Tooltip.BatteryRemaining">An estimate of the energy left in the battery. It is calculated from charge percentage and configured usable capacity; it is not a separate measurement.</sys:String>
     <sys:String x:Key="Tooltip.BatteryActivity">Shows whether the battery is receiving energy, supplying energy, or nearly at rest based on inverter readings.</sys:String>
 
@@ -83,6 +85,12 @@
     <sys:String x:Key="Data.UnavailableDays">Days automatic downloads will no longer retry</sys:String>
     <sys:String x:Key="Data.SavedReadings">Saved readings</sys:String>
     <sys:String x:Key="Data.ReadyReadings">Readings ready to display</sys:String>
+    <sys:String x:Key="Data.ConfigurationHealth">Inverter configuration</sys:String>
+    <sys:String x:Key="Data.ConfigurationConfirmed">Matches the family configuration</sys:String>
+    <sys:String x:Key="Data.ConfigurationDrift">Some values differ and should be reviewed</sys:String>
+    <sys:String x:Key="Data.ConfigurationUnresolved">More data is needed to check everything</sys:String>
+    <sys:String x:Key="Data.ConfigurationDetail">{0} confirmed · {1} different · {2} not confirmed</sys:String>
+    <sys:String x:Key="Tooltip.ConfigurationHealth">The app only compares readings with the expected configuration. It never changes inverter settings.</sys:String>
     <sys:String x:Key="Data.None">No data yet</sys:String>
     <sys:String x:Key="Tooltip.DataDaysReviewed">Includes days downloaded successfully and days when Solar of Things responded successfully but had no readings.</sys:String>
     <sys:String x:Key="Tooltip.DataIssues">These are days whose download did not finish correctly. The app retries them only a limited number of times.</sys:String>
@@ -111,6 +119,20 @@
     <sys:String x:Key="Dashboard.ChartArea">Interactive chart area</sys:String>
     <sys:String x:Key="Dashboard.ChartPending">Charting is added after real telemetry and normalization are proven.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">System Status</sys:String>
+    <sys:String x:Key="Dashboard.OperatingState">What is happening now</sys:String>
+    <sys:String x:Key="Operating.NO_DATA">There is not enough data yet to explain the home's current state.</sys:String>
+    <sys:String x:Key="Operating.SOLAR_PRIMARY">The home is using mainly solar energy.</sys:String>
+    <sys:String x:Key="Operating.SOLAR_AND_CHARGING">Solar is powering the home and charging the battery.</sys:String>
+    <sys:String x:Key="Operating.BATTERY_SUPPLY">The battery is helping power the home.</sys:String>
+    <sys:String x:Key="Operating.GRID_RECOVERY">The home is using the grid while solar recovers the battery toward 50%.</sys:String>
+    <sys:String x:Key="Operating.GRID_LOW_SOC">The home is using the grid while the battery remains below its normal return level.</sys:String>
+    <sys:String x:Key="Operating.GRID_SUPPLY">The home is using electricity from the grid.</sys:String>
+    <sys:String x:Key="Operating.OUTAGE_BATTERY">The grid is unavailable; the battery is keeping the home powered.</sys:String>
+    <sys:String x:Key="Operating.OUTAGE_EMERGENCY_RESERVE">Grid outage: the home is using the battery's emergency reserve.</sys:String>
+    <sys:String x:Key="Operating.OUTAGE_PROTECTED_FLOOR">Grid outage: the battery is near its protected minimum reserve.</sys:String>
+    <sys:String x:Key="Operating.BATTERY_CHARGING">The battery is charging.</sys:String>
+    <sys:String x:Key="Operating.MIXED">The home is using a mix of energy sources.</sys:String>
+    <sys:String x:Key="Operating.LastReading">Reading: {0}</sys:String>
     <sys:String x:Key="Status.SolarOfThings">Solar of Things</sys:String>
     <sys:String x:Key="Status.NotConnected">Not connected yet</sys:String>
     <sys:String x:Key="Status.LocalDatabase">Local database</sys:String>
