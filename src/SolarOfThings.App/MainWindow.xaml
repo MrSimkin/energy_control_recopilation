@@ -654,7 +654,17 @@
                                            Margin="0,0,0,6"
                                            TextWrapping="Wrap"/>
                                 <ScottPlot:WpfPlot x:Name="AnalysisEnergyPlot"
-                                                  Height="340"/>
+                                                  Height="340"
+                                                  MouseMove="AnalysisEnergyPlot_MouseMove"
+                                                  MouseLeave="AnalysisEnergyPlot_MouseLeave"
+                                                  ToolTip="{DynamicResource Analysis.Chart.HoverHint}"/>
+                                <TextBlock x:Name="AnalysisEnergyHoverText"
+                                           Text="{DynamicResource Analysis.Chart.HoverHint}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#495057"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
 
@@ -677,7 +687,17 @@
                                            Margin="0,0,0,6"
                                            TextWrapping="Wrap"/>
                                 <ScottPlot:WpfPlot x:Name="AnalysisBatteryPlot"
-                                                  Height="300"/>
+                                                  Height="300"
+                                                  MouseMove="AnalysisBatteryPlot_MouseMove"
+                                                  MouseLeave="AnalysisBatteryPlot_MouseLeave"
+                                                  ToolTip="{DynamicResource Analysis.BatteryChart.HoverHint}"/>
+                                <TextBlock x:Name="AnalysisBatteryHoverText"
+                                           Text="{DynamicResource Analysis.BatteryChart.HoverHint}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#495057"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
 
