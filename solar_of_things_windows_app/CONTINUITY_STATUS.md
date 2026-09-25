@@ -1,7 +1,7 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
 Date: 2026-09-25
-Status: PHASE 1 COMPLETE — PHASE 2 LIVE ACCEPTANCE NEAR-COMPLETE / PHASE 3 IN PROGRESS
+Status: PHASE 1 COMPLETE — PHASE 3 IN PROGRESS / PHASE 4 INSTALLATION-AWARE NORMALIZATION IN PROGRESS
 
 This file is the canonical continuity note.
 
@@ -183,10 +183,56 @@ The next real-PC run is intentionally a **combined Phase 2/Phase 3 acceptance/de
 5. inspect the resulting diagnostic/sync evidence and local corpus;
 6. correct any live pagination/shape/retention mismatch found.
 
+## Installation-specific family manual integrated — 2026-09-25
+
+The user supplied the family-specific manual:
+
+`Manual_Familiar_SPRO_6200_LC230_Midea_v2_ES.docx`
+
+Source metadata:
+- edition: v2.0;
+- manual date: 2026-08-14;
+- SHA-256: `f519a39be14950258ce51d3cbb3a7e69cbc6b23769b2ae9e47c77ca71f5a3bde`;
+- user confirms the manual's recommended inverter changes are currently applied.
+
+Canonical repo integration:
+- `INSTALLATION_BEHAVIOR_CONTRACT.md`;
+- `MANUAL_FAMILIAR_INTEGRATION_REVIEW_2026-09-25.md`;
+- `reference/FAMILY_MANUAL_SOURCE.md`.
+
+Roadmap effect:
+- no phase renumbering;
+- Phase 4 is now installation-aware before generic analytics;
+- current configuration becomes a read-only behavior/compliance contract;
+- battery UI must distinguish stored energy, ordinary-use energy above 20%, emergency 20→10% reserve and protected 10% floor;
+- grid use while recovering from 20% toward 50% can be expected;
+- current policy expects solar-only battery charging;
+- zero export is an invariant;
+- seasonal analysis may move load timing but must not automatically change protection thresholds;
+- known 1.5 kW Midea heater schedule is contextual metadata, not a new control integration.
+
+Important protected/unknown areas:
+- exact firmware remains unknown;
+- exact CT/zero-export meter topology remains unknown;
+- second AC output is observed enabled but its physical circuit mapping remains unknown;
+- grid profile/CT/BMS/protection writes remain outside application scope.
+
+The manual **does not invalidate Phase 3 raw history**. It improves interpretation. Versioned normalization can be rebuilt locally without another historical cloud download.
+
+Phase 4 work already underway before this manual remains useful, but battery semantics and behavior classification must follow the installation contract before the Battery page is finalized.
+
 ## Resume rule
 
-Resume at the **combined Phase 2 final verification + Phase 3 raw-history ingestion checkpoint**.
+Resume with **Phase 3 raw-history ingestion continuing independently while Phase 4 installation-aware normalization advances**.
 
-Do not spend a separate user test solely on the already-fixed history/alarm timestamp format. Continue building/validating the Phase 3 daily raw corpus, then use one combined target-PC run to verify both the timestamp fix and real historical backfill.
+Immediate development order:
+1. use `INSTALLATION_BEHAVIOR_CONTRACT.md` as the target-house interpretation authority;
+2. keep Phase 3 raw data immutable/auditable and continue filling missing history as needed;
+3. add read-only configuration/baseline interpretation and drift states;
+4. finish normalized target-device metrics;
+5. correct/finalize Battery UI around 20% normal reserve, 10% outage floor and 50% recovery/restart semantics;
+6. only then expand aggregation/statistics and broader household analysis.
+
+Do not perform another micro-test merely for manual integration. The next target-machine test should validate a substantive combined tranche.
 
 Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
