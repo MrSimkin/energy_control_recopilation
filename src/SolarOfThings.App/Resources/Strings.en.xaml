@@ -45,7 +45,12 @@
     <sys:String x:Key="Battery.Heading">Battery</sys:String>
     <sys:String x:Key="Battery.Intro">Current battery status using information already saved on this computer.</sys:String>
     <sys:String x:Key="Battery.Charge">Current charge</sys:String>
-    <sys:String x:Key="Battery.EstimatedRemaining">Available energy (estimate)</sys:String>
+    <sys:String x:Key="Battery.EstimatedRemaining">Stored energy (estimate)</sys:String>
+    <sys:String x:Key="Battery.OrdinaryUseRemaining">Available before normal grid use (estimate)</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserve">Outage reserve (20% to 10%)</sys:String>
+    <sys:String x:Key="Battery.ProtectedFloor">Protected minimum reserve: 10%</sys:String>
+    <sys:String x:Key="Tooltip.BatteryOrdinaryUse">Estimated energy normally available before the home changes to grid power near 20% battery charge.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryEmergencyReserve">The 20% to 10% band is kept for grid outages. It is not intended for normal nightly use.</sys:String>
     <sys:String x:Key="Battery.Activity">What the battery is doing</sys:String>
     <sys:String x:Key="Battery.Charging">Charging</sys:String>
     <sys:String x:Key="Battery.Discharging">Supplying energy to the home</sys:String>
