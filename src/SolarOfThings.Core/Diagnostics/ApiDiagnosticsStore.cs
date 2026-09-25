@@ -130,7 +130,8 @@ public sealed class ApiDiagnosticsStore
         sb.AppendLine($"OS: {RuntimeInformation.OSDescription}");
         sb.AppendLine($"Process architecture: {RuntimeInformation.ProcessArchitecture}");
         sb.AppendLine($"Framework: {RuntimeInformation.FrameworkDescription}");
-        sb.AppendLine($"Portable mode: {(_paths.IsPortable ? "YES" : "NO")}");
+        var portable = File.Exists(Path.Combine(AppContext.BaseDirectory, "portable.mode"));
+        sb.AppendLine($"Portable mode: {(portable ? "YES" : "NO")}");
         sb.AppendLine($"Database path: {_paths.DatabasePath}");
         sb.AppendLine();
         sb.AppendLine("SECURITY:");
