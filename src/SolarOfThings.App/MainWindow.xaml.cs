@@ -115,6 +115,7 @@ public partial class MainWindow : Window
         SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
         SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
         RefreshOperatingState(metrics);
+        RefreshDashboardFreshness(metrics);
     }
 
     private void SetPowerMetric(
@@ -176,6 +177,34 @@ public partial class MainWindow : Window
         GridImportMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
         OperatingStateText.SetResourceReference(TextBlock.TextProperty, "Operating.NO_DATA");
         OperatingStateMetaText.Text = string.Empty;
+        DashboardFreshnessText.Text = string.Empty;
+    }
+
+    private void RefreshDashboardFreshness(
+        IReadOnlyDictionary<string, NormalizedMetricValue> metrics)
+    {
+        if (metrics.Count == 0)
+        {
+            DashboardFreshnessText.Text = string.Empty;
+            return;
+        }
+
+        var latest = metrics.Values.Max(metric => metric.RecordedAtUtc);
+        var display = latest.ToLocalTime().ToString("dd-MM-yyyy HH:mm");
+        var age = DateTimeOffset.UtcNow - latest;
+
+        var recent = age >= TimeSpan.FromMinutes(-5) &&
+                     age <= TimeSpan.FromMinutes(20);
+
+        DashboardFreshnessText.Text = string.Format(
+            _localization.GetString(
+                recent
+                    ? "Dashboard.FreshnessRecent"
+                    : "Dashboard.FreshnessStale"),
+            display);
+
+        DashboardFreshnessText.Foreground =
+            recent ? Brushes.Green : Brushes.DarkOrange;
     }
 
     private void RefreshOperatingState(
