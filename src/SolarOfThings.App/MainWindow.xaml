@@ -166,7 +166,30 @@
                                     <Border BorderBrush="#DEE2E6" BorderThickness="0,0,0,1" Padding="16,12">
                                         <TextBlock Text="{DynamicResource Dashboard.EnergyOverview}" FontSize="15" FontWeight="SemiBold" Foreground="#343A40"/>
                                     </Border>
-                                    <Grid Height="320">
+                                    <Border Background="#F8F9FA"
+                                            BorderBrush="#DEE2E6"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="16,12">
+                                        <StackPanel>
+                                            <TextBlock Text="{DynamicResource Dashboard.OperatingState}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#6C757D"/>
+                                            <TextBlock x:Name="OperatingStateText"
+                                                       Text="{DynamicResource Operating.NO_DATA}"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#343A40"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,5,0,0"/>
+                                            <TextBlock x:Name="OperatingStateMetaText"
+                                                       Text=""
+                                                       FontSize="11"
+                                                       Foreground="#6C757D"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Grid Height="245">
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="{DynamicResource Dashboard.ChartArea}" FontSize="18" Foreground="#6C757D" HorizontalAlignment="Center"/>
                                             <TextBlock Text="{DynamicResource Dashboard.ChartPending}"
@@ -251,6 +274,163 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="BatteryContent"
+                              Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Battery.Heading}"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Battery.Intro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,5,0,16"
+                                   TextWrapping="Wrap"/>
+
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0"
+                                    Style="{StaticResource CardStyle}"
+                                    BorderBrush="#FFC107"
+                                    BorderThickness="4,1,1,1"
+                                    ToolTip="{DynamicResource Tooltip.BatterySoc}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Battery.Charge}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="BatteryPageChargeText"
+                                               Text="— %"
+                                               FontSize="26"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1"
+                                    Style="{StaticResource CardStyle}"
+                                    ToolTip="{DynamicResource Tooltip.BatteryRemaining}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Battery.EstimatedRemaining}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="BatteryStoredEnergyText"
+                                               Text="— kWh"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2"
+                                    Style="{StaticResource CardStyle}"
+                                    ToolTip="{DynamicResource Tooltip.BatteryOrdinaryUse}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Battery.OrdinaryUseRemaining}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="BatteryOrdinaryEnergyText"
+                                               Text="— kWh"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="3"
+                                    Style="{StaticResource CardStyle}"
+                                    Margin="0"
+                                    ToolTip="{DynamicResource Tooltip.BatteryEmergencyReserve}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Battery.EmergencyReserve}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="BatteryEmergencyEnergyText"
+                                               Text="— kWh"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,24,0">
+                                    <TextBlock Text="{DynamicResource Battery.Activity}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="BatteryActivityText"
+                                               Text="{DynamicResource Battery.Unknown}"
+                                               FontSize="20"
+                                               FontWeight="SemiBold"
+                                               Foreground="#343A40"
+                                               TextWrapping="Wrap"
+                                               Margin="0,5,0,16"/>
+
+                                    <TextBlock Text="{DynamicResource Battery.ConfiguredCapacity}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="BatteryConfiguredCapacityText"
+                                               Text="11,776 kWh"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               Margin="0,4,0,16"/>
+
+                                    <TextBlock Text="{DynamicResource Battery.LastReading}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="BatteryLastReadingText"
+                                               Text="—"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{DynamicResource Battery.OrdinaryReserveNote}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#343A40"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,12"/>
+                                    <TextBlock Text="{DynamicResource Battery.EmergencyReserveNote}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#856404"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,12"/>
+                                    <Border Background="#F8D7DA"
+                                            BorderBrush="#F5C6CB"
+                                            BorderThickness="1"
+                                            CornerRadius="3"
+                                            Padding="12">
+                                        <TextBlock Text="{DynamicResource Battery.ProtectedFloor}"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#721C24"
+                                                   TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -346,6 +526,28 @@
                                     <TextBlock x:Name="DataUnavailableDaysText" Text="0" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}"
+                                Margin="0,18,0,0"
+                                ToolTip="{DynamicResource Tooltip.ConfigurationHealth}">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Data.ConfigurationHealth}"
+                                           FontSize="13"
+                                           Foreground="#6C757D"/>
+                                <TextBlock x:Name="ConfigurationHealthText"
+                                           Text="{DynamicResource Data.ConfigurationUnresolved}"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Foreground="#343A40"
+                                           TextWrapping="Wrap"
+                                           Margin="0,5,0,0"/>
+                                <TextBlock x:Name="ConfigurationHealthDetailText"
+                                           Text=""
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,5,0,0"/>
+                            </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
