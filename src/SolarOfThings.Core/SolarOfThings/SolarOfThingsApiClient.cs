@@ -122,7 +122,8 @@ public sealed class SolarOfThingsApiClient : IDisposable
             refresh ?? string.Empty,
             GetString(payload, "accessTokenWillExpiredAt", "accessTokenExpiredAt"),
             GetString(payload, "refreshTokenWillExpiredAt", "refreshTokenExpiredAt"),
-            GetInt64(payload, "accessTokenWillExpiredInMillis"));
+            GetInt64(payload, "accessTokenWillExpiredInMillis"),
+            GetString(payload, "userId", "id"));
     }
 
     public async Task<SolarSessionTokens> RefreshAsync(
@@ -196,6 +197,28 @@ public sealed class SolarOfThingsApiClient : IDisposable
             GetString(payload, "accessTokenWillExpiredAt", "accessTokenExpiredAt"),
             GetString(payload, "refreshTokenWillExpiredAt", "refreshTokenExpiredAt"),
             GetInt64(payload, "accessTokenWillExpiredInMillis"));
+    }
+
+    public async Task LogoutAsync(
+        string accessToken,
+        string userId,
+        string timeZone,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await PostAuthorizedAsync(
+            "Session",
+            "Logout",
+            "login/logout",
+            new
+            {
+                accessToken,
+                userId
+            },
+            accessToken,
+            timeZone,
+            cancellationToken);
+
+        EnsureSuccess(response, "Solar of Things logout failed.");
     }
 
     public Task<SolarApiResponse> GetAuthorizedAsync(
