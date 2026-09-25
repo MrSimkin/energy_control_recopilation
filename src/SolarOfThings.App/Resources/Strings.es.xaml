@@ -15,6 +15,8 @@
     <sys:String x:Key="Nav.Settings">Configuración</sys:String>
 
     <sys:String x:Key="Action.UpdateData">Actualizar datos</sys:String>
+    <sys:String x:Key="Action.StopSync">Detener</sys:String>
+    <sys:String x:Key="Status.SyncProgress">Progreso de sincronización</sys:String>
     <sys:String x:Key="Language.Label">Idioma</sys:String>
     <sys:String x:Key="Language.Spanish">Español</sys:String>
     <sys:String x:Key="Language.English">English</sys:String>
