@@ -5,9 +5,11 @@ using Microsoft.Extensions.DependencyInjection;
 using SolarOfThings.App.Localization;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Infrastructure;
+using SolarOfThings.Core.Installation;
 using SolarOfThings.Core.History;
 using SolarOfThings.Core.Normalization;
 using SolarOfThings.Core.SolarOfThings;
+using SolarOfThings.Core.Settings;
 
 namespace SolarOfThings.App;
 
@@ -48,6 +50,7 @@ public partial class MainWindow : Window
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
+        RefreshBatteryView();
         RefreshDataCoverageView();
         ShowPage("Dashboard");
         Loaded += MainWindow_Loaded;
@@ -64,26 +67,35 @@ public partial class MainWindow : Window
         var history = _services.GetRequiredService<HistoryRepository>();
         var normalized = _services.GetRequiredService<NormalizationRepository>();
 
-        if (history.GetSampleCount(profile.DeviceId) == 0 ||
-            normalized.HasRuleVersion(
-                profile.DeviceId,
-                NormalizationService.RuleVersion))
+        if (history.GetSampleCount(profile.DeviceId) == 0)
         {
             RefreshDashboardMetrics();
+            RefreshBatteryView();
+            RefreshDataCoverageView();
             return;
         }
 
         try
         {
-            var normalizer = _services.GetRequiredService<NormalizationService>();
-            await normalizer.RebuildAsync(profile);
-            RefreshDashboardMetrics();
+            if (!normalized.HasRuleVersion(
+                    profile.DeviceId,
+                    NormalizationService.RuleVersion))
+            {
+                var normalizer = _services.GetRequiredService<NormalizationService>();
+                await normalizer.RebuildAsync(profile);
+            }
+
+            EvaluateInstallationHealth(profile);
         }
         catch
         {
-            // Diagnostics are recorded by the normalization service.
-            // Keep the dashboard unavailable rather than showing guessed values.
+            // Detailed normalization/configuration failures are kept in local diagnostics.
+            // User-facing views remain conservative rather than guessing.
         }
+
+        RefreshDashboardMetrics();
+        RefreshBatteryView();
+        RefreshDataCoverageView();
     }
 
     private void RefreshDashboardMetrics()
@@ -102,6 +114,7 @@ public partial class MainWindow : Window
         SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
         SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
         SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
+        RefreshOperatingState(metrics);
     }
 
     private void SetPowerMetric(
@@ -161,6 +174,128 @@ public partial class MainWindow : Window
         HouseLoadMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
         BatterySocMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
         GridImportMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
+        OperatingStateText.SetResourceReference(TextBlock.TextProperty, "Operating.NO_DATA");
+        OperatingStateMetaText.Text = string.Empty;
+    }
+
+    private void RefreshOperatingState(
+        IReadOnlyDictionary<string, NormalizedMetricValue> metrics)
+    {
+        var classifier = _services.GetRequiredService<HouseholdOperatingStateService>();
+        var state = classifier.Evaluate(metrics);
+
+        OperatingStateText.SetResourceReference(
+            TextBlock.TextProperty,
+            $"Operating.{state.StateKey}");
+
+        OperatingStateMetaText.Text = state.ObservedAtUtc.HasValue
+            ? string.Format(
+                _localization.GetString("Operating.LastReading"),
+                state.ObservedAtUtc.Value.ToLocalTime().ToString("dd-MM HH:mm"))
+            : string.Empty;
+    }
+
+    private void RefreshBatteryView()
+    {
+        if (!IsInitialized || BatteryContent is null)
+        {
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            ResetBatteryView();
+            return;
+        }
+
+        var repository = _services.GetRequiredService<NormalizationRepository>();
+        var metrics = repository.GetLatestMetrics(profile.DeviceId);
+        var configuration = _services.GetRequiredService<BatteryConfigurationService>().Get();
+
+        BatteryConfiguredCapacityText.Text =
+            $"{configuration.UsableCapacityKwh:F3} kWh";
+
+        if (!metrics.TryGetValue("battery_soc_pct", out var soc))
+        {
+            ResetBatteryView(keepCapacity: true);
+            return;
+        }
+
+        var clampedSoc = Math.Clamp(soc.Value, 0, 100);
+        var storedEnergy =
+            configuration.UsableCapacityKwh * clampedSoc / 100.0;
+        var ordinaryEnergy =
+            configuration.UsableCapacityKwh * Math.Max(clampedSoc - 20.0, 0) / 100.0;
+        var emergencySocRemaining =
+            Math.Min(10.0, Math.Max(clampedSoc - 10.0, 0));
+        var emergencyEnergy =
+            configuration.UsableCapacityKwh * emergencySocRemaining / 100.0;
+
+        BatteryPageChargeText.Text = $"{clampedSoc:F0} %";
+        BatteryStoredEnergyText.Text = $"{storedEnergy:F2} kWh";
+        BatteryOrdinaryEnergyText.Text = $"{ordinaryEnergy:F2} kWh";
+        BatteryEmergencyEnergyText.Text = $"{emergencyEnergy:F2} kWh";
+        BatteryLastReadingText.Text = soc.RecordedAtUtc
+            .ToLocalTime()
+            .ToString("dd-MM-yyyy HH:mm");
+
+        if (!metrics.TryGetValue("battery_power_w", out var batteryPower))
+        {
+            BatteryActivityText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Battery.Unknown");
+        }
+        else if (batteryPower.Value > 100)
+        {
+            BatteryActivityText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Battery.Discharging");
+        }
+        else if (batteryPower.Value < -100)
+        {
+            BatteryActivityText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Battery.Charging");
+        }
+        else
+        {
+            BatteryActivityText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Battery.Resting");
+        }
+    }
+
+    private void ResetBatteryView(bool keepCapacity = false)
+    {
+        BatteryPageChargeText.Text = "— %";
+        BatteryStoredEnergyText.Text = "— kWh";
+        BatteryOrdinaryEnergyText.Text = "— kWh";
+        BatteryEmergencyEnergyText.Text = "— kWh";
+        BatteryActivityText.SetResourceReference(
+            TextBlock.TextProperty,
+            "Battery.Unknown");
+        BatteryLastReadingText.Text = "—";
+
+        if (!keepCapacity)
+        {
+            var configuration =
+                _services.GetRequiredService<BatteryConfigurationService>().Get();
+            BatteryConfiguredCapacityText.Text =
+                $"{configuration.UsableCapacityKwh:F3} kWh";
+        }
+    }
+
+    private void EvaluateInstallationHealth(CommissioningProfile profile)
+    {
+        var history = _services.GetRequiredService<HistoryRepository>();
+        if (history.GetSampleCount(profile.DeviceId) == 0)
+        {
+            return;
+        }
+
+        var evaluator = _services.GetRequiredService<InstallationHealthService>();
+        evaluator.Evaluate(profile);
     }
 
     private void Navigation_Click(object sender, RoutedEventArgs e)
@@ -204,16 +339,22 @@ public partial class MainWindow : Window
         PageSubtitle.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Subtitle");
 
         var isDashboard = string.Equals(pageKey, "Dashboard", StringComparison.Ordinal);
+        var isBattery = string.Equals(pageKey, "Battery", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
 
         DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
+        BatteryContent.Visibility = isBattery ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
         PlaceholderContent.Visibility =
-            !isDashboard && !isData
+            !isDashboard && !isBattery && !isData
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-        if (isData)
+        if (isBattery)
+        {
+            RefreshBatteryView();
+        }
+        else if (isData)
         {
             RefreshDataCoverageView();
         }
@@ -240,6 +381,7 @@ public partial class MainWindow : Window
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
+        RefreshBatteryView();
         RefreshDataCoverageView();
     }
 
@@ -342,7 +484,9 @@ public partial class MainWindow : Window
 
                     var normalizer = _services.GetRequiredService<NormalizationService>();
                     await normalizer.RebuildAsync(profile);
+                    EvaluateInstallationHealth(profile);
                     RefreshDashboardMetrics();
+                    RefreshBatteryView();
                 }
             }
             catch (Exception normalizationError)
@@ -400,6 +544,7 @@ public partial class MainWindow : Window
         RefreshCaptureStartOptions();
         RefreshDataCoverageView();
         RefreshDashboardMetrics();
+        RefreshBatteryView();
     }
 
     private void CaptureStartModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -504,6 +649,11 @@ public partial class MainWindow : Window
             DataUnavailableDaysText.Text = "0";
             DataSavedReadingsText.Text = "0";
             DataReadyReadingsText.Text = "0";
+            ConfigurationHealthText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Data.ConfigurationUnresolved");
+            ConfigurationHealthDetailText.Text = string.Empty;
+            ConfigurationHealthText.Foreground = Brushes.Gray;
             return;
         }
 
@@ -555,6 +705,45 @@ public partial class MainWindow : Window
         DataSavedReadingsText.Text = coverage.RawSampleCount.ToString("N0");
         DataReadyReadingsText.Text =
             normalized.GetNormalizedSampleCount(profile.DeviceId).ToString("N0");
+
+        var healthRepository =
+            _services.GetRequiredService<InstallationHealthRepository>();
+        var health = healthRepository.GetSummary(profile.DeviceId);
+
+        if (health is null)
+        {
+            ConfigurationHealthText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Data.ConfigurationUnresolved");
+            ConfigurationHealthDetailText.Text = string.Empty;
+            ConfigurationHealthText.Foreground = Brushes.Gray;
+        }
+        else
+        {
+            var resourceKey = health.OverallStatus switch
+            {
+                "CONFIG_CONFIRMED" => "Data.ConfigurationConfirmed",
+                "CONFIG_DRIFT" => "Data.ConfigurationDrift",
+                _ => "Data.ConfigurationUnresolved"
+            };
+
+            ConfigurationHealthText.SetResourceReference(
+                TextBlock.TextProperty,
+                resourceKey);
+
+            ConfigurationHealthText.Foreground = health.OverallStatus switch
+            {
+                "CONFIG_CONFIRMED" => Brushes.Green,
+                "CONFIG_DRIFT" => Brushes.DarkOrange,
+                _ => Brushes.Gray
+            };
+
+            ConfigurationHealthDetailText.Text = string.Format(
+                _localization.GetString("Data.ConfigurationDetail"),
+                health.ConfirmedCount,
+                health.DriftCount,
+                health.UnresolvedCount);
+        }
     }
 
     private void RefreshConnectionStatus()
