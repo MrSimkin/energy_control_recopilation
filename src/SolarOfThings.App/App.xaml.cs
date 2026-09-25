@@ -42,7 +42,6 @@ public partial class App : Application
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
         builder.Services.AddTransient<DeveloperDiagnosticsWindow>();
-        builder.Services.AddTransient<DataSyncWindow>();
 
         _host = builder.Build();
 
