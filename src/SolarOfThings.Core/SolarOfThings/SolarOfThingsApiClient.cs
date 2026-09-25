@@ -267,6 +267,20 @@ public sealed class SolarOfThingsApiClient : IDisposable
 
                 var parsed = ParseResponse((int)response.StatusCode, raw);
 
+                var requestHeaders = request.Headers
+                    .Concat(request.Content?.Headers ?? [])
+                    .ToDictionary(
+                        header => header.Key,
+                        header => string.Join(",", header.Value),
+                        StringComparer.OrdinalIgnoreCase);
+
+                var responseHeaders = response.Headers
+                    .Concat(response.Content.Headers)
+                    .ToDictionary(
+                        header => header.Key,
+                        header => string.Join(",", header.Value),
+                        StringComparer.OrdinalIgnoreCase);
+
                 _diagnostics.Record(new ApiDiagnosticEntry(
                     DateTimeOffset.UtcNow,
                     correlationId,
@@ -283,7 +297,12 @@ public sealed class SolarOfThingsApiClient : IDisposable
                     body,
                     raw,
                     null,
-                    null));
+                    null)
+                {
+                    RequestHeadersJson = JsonSerializer.Serialize(requestHeaders),
+                    ResponseHeadersJson = JsonSerializer.Serialize(responseHeaders),
+                    ResponseLengthBytes = Encoding.UTF8.GetByteCount(raw)
+                });
 
                 if (IsTransient(response.StatusCode) && attempt < 2)
                 {
@@ -316,7 +335,10 @@ public sealed class SolarOfThingsApiClient : IDisposable
                     body,
                     null,
                     ex.GetType().FullName,
-                    ex.Message));
+                    ex.Message)
+                {
+                    ExceptionStackTrace = ex.StackTrace
+                });
 
                 if (attempt < 2)
                 {
