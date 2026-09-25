@@ -13,6 +13,7 @@ public sealed class InstallationHealthService
         string CheckKey,
         string SourceAttributeKey,
         string ExpectedRawValue,
+        string? ExpectedAlternateValue,
         string ExpectedDisplay,
         string ConfirmedDetail,
         string DriftDetail,
@@ -24,6 +25,7 @@ public sealed class InstallationHealthService
             "source-priority",
             "workingMode",
             "1",
+            "SBU",
             "SBU — sol primero, batería después y red al final",
             "La prioridad de energía coincide con la configuración familiar.",
             "La prioridad de energía no coincide con SBU."),
@@ -31,6 +33,7 @@ public sealed class InstallationHealthService
             "battery-protocol",
             "batteryType",
             "4",
+            "PYL",
             "PYL — batería administrada por BMS",
             "El protocolo de batería coincide con PYL.",
             "El protocolo de batería no coincide con PYL."),
@@ -38,6 +41,7 @@ public sealed class InstallationHealthService
             "charge-source",
             "chargingPriorityOrder",
             "2",
+            "OSO",
             "OSO — batería cargada sólo desde solar",
             "La prioridad de carga coincide con solar solamente.",
             "La prioridad de carga no coincide con OSO."),
@@ -45,6 +49,7 @@ public sealed class InstallationHealthService
             "bms-communication",
             "bmsCommunicationNormal",
             "1",
+            "Yes",
             "Comunicación de batería activa",
             "La batería está entregando información BMS al inversor.",
             "La comunicación BMS no aparece activa."),
@@ -52,6 +57,7 @@ public sealed class InstallationHealthService
             "absolute-floor",
             "bmsLowPowerSOC",
             "10",
+            null,
             "10% — reserva mínima durante un corte",
             "El piso mínimo coincide con 10%.",
             "El piso mínimo no coincide con 10%.",
@@ -60,6 +66,7 @@ public sealed class InstallationHealthService
             "grid-transfer",
             "bmsReturnsToMainsModeSOC",
             "20",
+            null,
             "20% — punto normal para empezar a usar la red",
             "El cambio normal a red coincide con 20%.",
             "El punto de cambio a red no coincide con 20%.",
@@ -68,6 +75,7 @@ public sealed class InstallationHealthService
             "return-to-battery",
             "bmsReturnsToBatteryModeSOC",
             "50",
+            null,
             "50% — vuelve al uso normal de sol y batería",
             "El retorno a batería coincide con 50%.",
             "El retorno desde red no coincide con 50%.",
@@ -76,6 +84,7 @@ public sealed class InstallationHealthService
             "restart-after-low",
             "bmsAutomaticallyStartsSOCAfterLow",
             "50",
+            null,
             "50% — recuperación mínima después de apagado por batería baja",
             "El reinicio después de batería baja coincide con 50%.",
             "El umbral de reinicio no coincide con 50%.",
@@ -84,6 +93,7 @@ public sealed class InstallationHealthService
             "solar-priority",
             "pvEnergyFeedingPriority",
             "1",
+            "LBU",
             "LBU — solar alimenta primero la casa",
             "La prioridad solar coincide con casa primero.",
             "La prioridad solar no coincide con LBU."),
@@ -91,6 +101,7 @@ public sealed class InstallationHealthService
             "zero-export",
             "gridConnectionFunction",
             "0",
+            "Off",
             "Inyección a red deshabilitada",
             "La función de inyección a red aparece deshabilitada.",
             "La función de conexión/inyección a red no aparece deshabilitada."),
@@ -98,6 +109,7 @@ public sealed class InstallationHealthService
             "equalization",
             "batteryEqualizationMode",
             "0",
+            "Disable",
             "Ecualización deshabilitada",
             "La ecualización permanece deshabilitada para la batería LiFePO₄.",
             "La ecualización no aparece deshabilitada; requiere revisión.")
@@ -143,9 +155,14 @@ public sealed class InstallationHealthService
             var confirmed = rule.Numeric
                 ? NumericEquals(comparable, rule.ExpectedRawValue)
                 : string.Equals(
-                    comparable,
-                    rule.ExpectedRawValue,
-                    StringComparison.OrdinalIgnoreCase);
+                      comparable,
+                      rule.ExpectedRawValue,
+                      StringComparison.OrdinalIgnoreCase) ||
+                  (!string.IsNullOrWhiteSpace(rule.ExpectedAlternateValue) &&
+                   string.Equals(
+                       comparable,
+                       rule.ExpectedAlternateValue,
+                       StringComparison.OrdinalIgnoreCase));
 
             checks.Add(new InstallationConfigCheck(
                 rule.CheckKey,
