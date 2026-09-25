@@ -2,7 +2,7 @@
 
 Date: 2026-09-24
 
-Status: INITIAL DEVELOPMENT ROADMAP
+Status: ACTIVE DEVELOPMENT ROADMAP
 
 Authority:
 - `INITIAL_REQUIREMENTS.md`
@@ -33,7 +33,7 @@ Authority:
 
 ---
 
-# Phase 0 — Product / Functional Specification v1
+# Phase 0 — Product / Functional Specification v1 — COMPLETE
 
 Goal: turn the accumulated research and requirements into one canonical implementation specification before significant coding.
 
@@ -100,7 +100,7 @@ Deliverables:
 
 Exit criterion:
 
-**One canonical specification is approved and sufficient to implement the first vertical slice without inventing product behavior during coding.**
+**COMPLETE — PRODUCT_FUNCTIONAL_SPEC_V1.md approved/frozen on 2026-09-24.**
 
 ---
 
