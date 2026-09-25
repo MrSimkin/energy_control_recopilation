@@ -8,6 +8,13 @@ public sealed record HouseholdOperatingState(
 
 public sealed class HouseholdOperatingStateService
 {
+    private readonly InstallationContextPolicyService _policy;
+
+    public HouseholdOperatingStateService(InstallationContextPolicyService policy)
+    {
+        _policy = policy;
+    }
+
     public HouseholdOperatingState Evaluate(
         IReadOnlyDictionary<string, NormalizedMetricValue> metrics)
     {
@@ -17,6 +24,8 @@ public sealed class HouseholdOperatingStateService
         metrics.TryGetValue("grid_voltage_v", out var gridVoltage);
         metrics.TryGetValue("battery_soc_pct", out var soc);
         metrics.TryGetValue("battery_power_w", out var battery);
+
+        var policy = _policy.Current;
 
         var latest = new[]
             {
@@ -38,14 +47,14 @@ public sealed class HouseholdOperatingStateService
             gridVoltage is not null &&
             gridVoltage.Value < 50)
         {
-            if (soc.Value <= 10.5)
+            if (soc.Value <= policy.EmergencyFloorSocPercent + 0.5)
             {
                 return new HouseholdOperatingState(
                     "OUTAGE_PROTECTED_FLOOR",
                     observedAt);
             }
 
-            if (soc.Value < 20)
+            if (soc.Value < policy.NormalGridTransferSocPercent)
             {
                 return new HouseholdOperatingState(
                     "OUTAGE_EMERGENCY_RESERVE",
@@ -63,7 +72,7 @@ public sealed class HouseholdOperatingStateService
         if (grid is not null &&
             grid.Value > 100 &&
             soc is not null &&
-            soc.Value < 50)
+            soc.Value < policy.ReturnToBatterySocPercent)
         {
             if (pv is not null &&
                 pv.Value > 100 &&
