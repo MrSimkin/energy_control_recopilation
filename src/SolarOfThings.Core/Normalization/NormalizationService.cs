@@ -504,9 +504,10 @@ public sealed class NormalizationService
             return null;
         }
 
-        return ratedPower.Value <= 50
-            ? ratedPower.Value * 1000.0
-            : ratedPower.Value;
+        var value = (double)ratedPower.Value;
+        return value <= 50
+            ? value * 1000.0
+            : value;
     }
 
     private static IReadOnlyDictionary<string, string?> ReadAttributeUnits(string json)
