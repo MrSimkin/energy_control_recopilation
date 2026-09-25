@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 7;
 
     private readonly AppPaths _paths;
 
@@ -67,6 +67,12 @@ public sealed class SqliteDatabase
         if (current < 6)
         {
             ApplyMigration6(connection);
+            current = 6;
+        }
+
+        if (current < 7)
+        {
+            ApplyMigration7(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -322,6 +328,37 @@ public sealed class SqliteDatabase
             transaction,
             6,
             "Phase 4 versioned normalized metric layer and normalization audit.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration7(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            CREATE TABLE installation_config_check (
+                device_id TEXT NOT NULL,
+                check_key TEXT NOT NULL,
+                source_attribute_key TEXT NOT NULL,
+                status TEXT NOT NULL,
+                observed_at_utc TEXT NULL,
+                observed_value_json TEXT NULL,
+                expected_display TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                evaluated_utc TEXT NOT NULL,
+                PRIMARY KEY(device_id, check_key)
+            );
+
+            CREATE INDEX ix_installation_config_check_device_status
+                ON installation_config_check(device_id, status);
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            7,
+            "Phase 4 read-only installation behavior contract health snapshot.");
 
         transaction.Commit();
     }
