@@ -147,3 +147,37 @@ Implemented safety rules:
 - all safety stops are recorded in diagnostics/sync audit.
 
 These limits are intentionally conservative for the personal Solar of Things / SiSeLi account. The goal is complete recoverable data, not maximum request throughput.
+
+
+## Capture start selection
+
+The desktop UI exposes two explicit start modes:
+
+### Automatic (recommended)
+
+Automatic mode is bounded and evidence-based. It does **not** probe arbitrary old years.
+
+On an empty local corpus:
+- use the commissioned device's real `installedAt` date when available;
+- if installation metadata is unavailable, use only the conservative fallback already defined by the ingestion engine.
+
+On an existing local corpus:
+- resume from one local day before the newest stored timestamp;
+- also retry any historical days still marked `PARTIAL`.
+
+The UI shows the calculated automatic start date before synchronization begins.
+
+For the current real inverter, installation metadata places the automatic lower bound in April 2026, so automatic mode must not attempt dates such as 2020.
+
+### Manual
+
+Manual mode enables a date picker.
+
+The chosen date becomes the lower bound for that synchronization without deleting or replacing already captured data.
+
+Safety rules:
+- a requested future date is clamped to the current station-local date;
+- when `installedAt` is known, a requested date earlier than installation is clamped to the installation date;
+- the same pagination, pacing, request-budget, circuit-breaker and safe-stop rules still apply.
+
+The purpose of manual mode is user control, not bypassing the anti-loop safeguards.
