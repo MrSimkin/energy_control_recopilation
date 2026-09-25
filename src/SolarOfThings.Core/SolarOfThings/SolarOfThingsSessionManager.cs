@@ -13,6 +13,7 @@ public sealed class SolarOfThingsSessionManager
     private const string AccessExpiryKey = "solar.session.access-expiry";
     private const string RefreshExpiryKey = "solar.session.refresh-expiry";
     private const string TimeZoneKey = "solar.session.time-zone";
+    private const string UserIdKey = "solar.session.user-id";
 
     private static readonly TimeSpan RefreshLeadTime = TimeSpan.FromMinutes(5);
 
@@ -43,6 +44,10 @@ public sealed class SolarOfThingsSessionManager
                               !string.IsNullOrWhiteSpace(_tokens.AccessToken);
 
     public string? Account => _account;
+    public bool CanServerLogout =>
+        _tokens is not null &&
+        !string.IsNullOrWhiteSpace(_tokens.AccessToken) &&
+        !string.IsNullOrWhiteSpace(_tokens.UserId);
 
     public async Task LoginAsync(
         string account,
@@ -96,6 +101,7 @@ public sealed class SolarOfThingsSessionManager
         _tokens = new SolarSessionTokens(
             accessToken,
             refreshToken,
+            null,
             null,
             null,
             null);
@@ -225,6 +231,7 @@ public sealed class SolarOfThingsSessionManager
         _secrets.TryRead(AccountKey, out _account);
         _secrets.TryRead(PasswordKey, out _password);
         _secrets.TryRead(TimeZoneKey, out var timeZone);
+        _secrets.TryRead(UserIdKey, out var userId);
 
         if (!string.IsNullOrWhiteSpace(timeZone))
         {
@@ -236,7 +243,8 @@ public sealed class SolarOfThingsSessionManager
             refresh ?? string.Empty,
             accessExpiry,
             refreshExpiry,
-            null);
+            null,
+            userId);
         _tokensReceivedUtc = null;
 
         _remember = true;
@@ -325,6 +333,11 @@ public sealed class SolarOfThingsSessionManager
                     _tokens.RefreshToken,
                     cancellationToken);
 
+                refreshed = refreshed with
+                {
+                    UserId = refreshed.UserId ?? _tokens.UserId
+                };
+
                 _tokens = refreshed;
                 _tokensReceivedUtc = DateTimeOffset.UtcNow;
 
@@ -410,6 +423,59 @@ public sealed class SolarOfThingsSessionManager
         {
             _secrets.Save(RefreshExpiryKey, tokens.RefreshExpiresAt);
         }
+
+        if (!string.IsNullOrWhiteSpace(tokens.UserId))
+        {
+            _secrets.Save(UserIdKey, tokens.UserId);
+        }
+        else
+        {
+            _secrets.Delete(UserIdKey);
+        }
+    }
+
+    public async Task<bool> LogoutFromServerAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (_tokens is null ||
+            string.IsNullOrWhiteSpace(_tokens.AccessToken) ||
+            string.IsNullOrWhiteSpace(_tokens.UserId))
+        {
+            return false;
+        }
+
+        var succeeded = false;
+
+        try
+        {
+            await _api.LogoutAsync(
+                _tokens.AccessToken,
+                _tokens.UserId,
+                _timeZone,
+                cancellationToken);
+
+            succeeded = true;
+
+            _diagnostics.RecordLocal(
+                "Session",
+                "ServerLogout",
+                "SUCCESS",
+                "Solar of Things server logout completed.");
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordLocal(
+                "Session",
+                "ServerLogout",
+                "WARN",
+                $"Server logout failed; local session will still be cleared. {ex.Message}");
+        }
+        finally
+        {
+            ResetLocalSession(forgetRememberedCredentials: true);
+        }
+
+        return succeeded;
     }
 
     private void DeletePersistedSession()
@@ -422,7 +488,8 @@ public sealed class SolarOfThingsSessionManager
             PasswordKey,
             AccessExpiryKey,
             RefreshExpiryKey,
-            TimeZoneKey
+            TimeZoneKey,
+            UserIdKey
         })
         {
             _secrets.Delete(key);
