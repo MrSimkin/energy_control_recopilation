@@ -48,6 +48,8 @@ public partial class App : Application
         builder.Services.AddSingleton<InstallationHealthService>();
         builder.Services.AddSingleton<CurrentStateSnapshotService>();
         builder.Services.AddSingleton<HouseholdOperatingStateService>();
+        builder.Services.AddSingleton<HouseholdBehaviorRepository>();
+        builder.Services.AddSingleton<HouseholdBehaviorService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
