@@ -348,7 +348,8 @@
                                                Margin="0,0,8,0"/>
                                     <DatePicker x:Name="AnalysisFromDatePicker"
                                                 Grid.Column="1"
-                                                Width="150"/>
+                                                Width="150"
+                                                SelectedDateChanged="AnalysisDatePicker_SelectedDateChanged"/>
 
                                     <TextBlock Grid.Column="2"
                                                Text="{DynamicResource Analysis.To}"
@@ -358,7 +359,8 @@
                                                Margin="18,0,8,0"/>
                                     <DatePicker x:Name="AnalysisToDatePicker"
                                                 Grid.Column="3"
-                                                Width="150"/>
+                                                Width="150"
+                                                SelectedDateChanged="AnalysisDatePicker_SelectedDateChanged"/>
 
                                     <Button Grid.Column="4"
                                             Content="{DynamicResource Analysis.Apply}"
