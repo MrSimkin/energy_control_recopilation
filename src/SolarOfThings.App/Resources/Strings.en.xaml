@@ -20,7 +20,8 @@
     <sys:String x:Key="DataSync.StartModeLabel">Capture start</sys:String>
     <sys:String x:Key="DataSync.StartModeAuto">Automatic (recommended)</sys:String>
     <sys:String x:Key="DataSync.StartModeManual">Manual</sys:String>
-    <sys:String x:Key="DataSync.AutomaticFrom">Automatic: from {0} (installation date / local continuity)</sys:String>
+    <sys:String x:Key="DataSync.InstallationDate">Installation date: {0}</sys:String>
+    <sys:String x:Key="DataSync.AutomaticResumeFrom">Next automatic start: {0}</sys:String>
     <sys:String x:Key="DataSync.ManualHint">Choose a start date. Already captured data is never deleted.</sys:String>
     <sys:String x:Key="Language.Label">Language</sys:String>
     <sys:String x:Key="Language.Spanish">Español</sys:String>
@@ -81,7 +82,9 @@
     <sys:String x:Key="UpdateDialog.Message">Connect and commission Solar of Things before data synchronization.</sys:String>
     <sys:String x:Key="UpdateDialog.Phase3Message">Connection and device profile are available. Full historical synchronization begins in Phase 3.</sys:String>
 
-    <sys:String x:Key="Status.SessionReady">Session available; commissioning pending</sys:String>
+    <sys:String x:Key="Status.SessionReady">Verified session; commissioning pending</sys:String>
+    <sys:String x:Key="Status.SessionStoredUnverified">Profile available; stored session not yet verified</sys:String>
+    <sys:String x:Key="Status.LoginRequired">Local profile available; sign-in required</sys:String>
     <sys:String x:Key="Status.Commissioned">Commissioning completed</sys:String>
     <sys:String x:Key="Commissioning.ConnectButton">Connect Solar of Things</sys:String>
     <sys:String x:Key="Commissioning.Title">Connection &amp; commissioning — Solar of Things</sys:String>
