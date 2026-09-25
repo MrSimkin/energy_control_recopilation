@@ -436,6 +436,18 @@ public sealed class HistoryIngestionService
         }
     }
 
+    public DateOnly? GetInstallationDate(CommissioningProfile profile)
+    {
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var installed = ReadInstalledAt(profile.DeviceJson);
+        return installed.HasValue
+            ? SolarApiTime.GetLocalDate(installed.Value, timeZone)
+            : null;
+    }
+
     public DateOnly GetSuggestedAutomaticStartDate(CommissioningProfile profile)
     {
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
