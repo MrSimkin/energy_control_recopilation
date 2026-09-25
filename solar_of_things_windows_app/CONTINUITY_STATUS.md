@@ -272,6 +272,39 @@ Important separation:
 
 Do not ask the user to manually validate each intermediate chart commit.
 The next manual test is one combined Phase 4–6 checkpoint using the existing real `Data\energy.db`.
+## Extended Phase 6 household UI checkpoint — 2026-09-25
+
+Additional implementation after the first interactive checkpoint:
+
+- energy and battery charts now support readable mouse-hover bucket inspection;
+- hover detail and WPF tooltip show exact aggregation-row values and coverage;
+- energy and battery chart X axes are linked, while their kWh and % Y axes remain independent;
+- target normalization advanced to `hpvinv02.v3`;
+- measured battery charging current and measured battery discharge current are preserved as separate normalized physical metrics;
+- Battery page has a collapsed **Información técnica** section for:
+  - measured battery voltage;
+  - measured charge current;
+  - measured discharge current;
+  - derived battery power;
+- missing SOC no longer erases independently available technical measurements;
+- Home replaces the obsolete chart-placeholder area with a truthful **latest saved day** summary:
+  - exact saved date;
+  - solar kWh;
+  - house kWh;
+  - grid kWh;
+  - minimum calculation coverage;
+- that summary does not extrapolate missing hours;
+- Home includes an obvious button to open History & Charts.
+
+Validated checkpoints already green:
+- chart hover inspection: run 257;
+- linked chart time axes: run 258;
+- normalization v3 current preservation: run 259;
+- technical battery panel/value wiring: run 263;
+- latest-saved-day Dashboard summary passed build + smoke in run 267 while artifact publishing continued.
+
+The next manual target-PC validation remains one **combined Phase 4–6 test**, not a micro-test for each addition.
+
 ## Resume rule
 
 Resume with **Phase 3 backfill continuing independently while the Phase 4–6 local analysis stack advances**.
@@ -284,7 +317,7 @@ Canonical architecture:
 5. charts/tables built from the same aggregation rows.
 
 Immediate order after the current combined checkpoint:
-1. validate the latest metric-picker build in CI;
+1. validate the latest combined Dashboard/Battery/History build in CI;
 2. perform one substantive target-PC Phase 4–6 validation using the existing database;
 3. fix only concrete real-data/UI issues found;
 4. continue Phase 6 chart interaction/analysis UX;
