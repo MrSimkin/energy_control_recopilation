@@ -46,6 +46,8 @@ public sealed record HistorySyncResult(
 public sealed record HistoryCoverageSummary(
     DateOnly? FirstTrackedDate,
     DateOnly? LastTrackedDate,
+    DateTimeOffset? FirstSampleAtUtc,
+    DateTimeOffset? LastSampleAtUtc,
     int CompleteDays,
     int EmptyDays,
     int PartialDays,
