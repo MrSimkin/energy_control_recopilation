@@ -16,7 +16,17 @@ public static partial class DiagnosticSanitizer
         "secret",
         "authorization",
         "iotopensign",
-        "signature"
+        "signature",
+        "userid",
+        "useraccount",
+        "username",
+        "address",
+        "longitude",
+        "latitude",
+        "country",
+        "province",
+        "city",
+        "area"
     ];
 
     public static string? SanitizeJson(string? json, int maxLength = 262144)
