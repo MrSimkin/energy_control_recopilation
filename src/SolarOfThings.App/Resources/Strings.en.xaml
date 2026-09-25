@@ -93,14 +93,14 @@
     <sys:String x:Key="UpdateDialog.Message">Connect and commission Solar of Things before data synchronization.</sys:String>
     <sys:String x:Key="UpdateDialog.Phase3Message">Connection and device profile are available. Full historical synchronization begins in Phase 3.</sys:String>
 
-    <sys:String x:Key="Status.SessionReady">Verified session; commissioning pending</sys:String>
+    <sys:String x:Key="Status.SessionReady">Account connected; setup still needs to finish</sys:String>
     <sys:String x:Key="Status.SessionStoredUnverified">Profile available; stored session not yet verified</sys:String>
     <sys:String x:Key="Status.LoginRequired">Local profile available; sign-in required</sys:String>
     <sys:String x:Key="Status.Commissioned">Commissioning completed</sys:String>
     <sys:String x:Key="Commissioning.ConnectButton">Connect Solar of Things</sys:String>
-    <sys:String x:Key="Commissioning.Title">Connection &amp; commissioning — Solar of Things</sys:String>
-    <sys:String x:Key="Commissioning.Heading">Secure connection and device discovery</sys:String>
-    <sys:String x:Key="Commissioning.Intro">This process runs locally and uses read-only operations. Passwords, tokens and secrets are excluded from diagnostic reports.</sys:String>
+    <sys:String x:Key="Commissioning.Title">Connect solar system — Solar of Things</sys:String>
+    <sys:String x:Key="Commissioning.Heading">Connect your solar system</sys:String>
+    <sys:String x:Key="Commissioning.Intro">The app will find your station and inverter without changing equipment settings. Your password stays protected on this computer.</sys:String>
     <sys:String x:Key="Commissioning.Account">Solar of Things account</sys:String>
     <sys:String x:Key="Commissioning.Password">Password</sys:String>
     <sys:String x:Key="Commissioning.Remember">Remember session and credentials for this Windows user (DPAPI)</sys:String>
@@ -118,9 +118,9 @@
     <sys:String x:Key="Commissioning.UseDefaultProtocolCredential">Use production profile</sys:String>
     <sys:String x:Key="Commissioning.ProtocolDefaultActive">Production profile active</sys:String>
     <sys:String x:Key="Commissioning.ProtocolOverrideActive">Local override active</sys:String>
-    <sys:String x:Key="Commissioning.ConnectDiscover">Connect &amp; discover</sys:String>
-    <sys:String x:Key="Commissioning.Run">Run commissioning</sys:String>
-    <sys:String x:Key="Commissioning.Progress">Progress / evidence</sys:String>
+    <sys:String x:Key="Commissioning.ConnectDiscover">Connect &amp; find equipment</sys:String>
+    <sys:String x:Key="Commissioning.Run">Finish setup</sys:String>
+    <sys:String x:Key="Commissioning.Progress">Progress</sys:String>
     <sys:String x:Key="Commissioning.Result">Result</sys:String>
     <sys:String x:Key="Commissioning.ServerLogout">Sign out from Solar of Things</sys:String>
     <sys:String x:Key="Commissioning.ForgetSession">Forget local session</sys:String>
