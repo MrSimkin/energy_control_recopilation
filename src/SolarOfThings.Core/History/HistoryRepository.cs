@@ -131,7 +131,7 @@ public sealed class HistoryRepository
                     WHEN excluded.status = 'PARTIAL'
                         THEN history_day_status.retry_count + 1
                     WHEN excluded.status = 'UNAVAILABLE'
-                        THEN history_day_status.retry_count
+                        THEN history_day_status.retry_count + 1
                     ELSE 0
                 END;
             """;
