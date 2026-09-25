@@ -211,6 +211,8 @@ public partial class MainWindow : Window
 
             _syncCancellation.Dispose();
             _syncCancellation = null;
+            RefreshCaptureStartOptions();
+            RefreshConnectionStatus();
         }
     }
 
@@ -298,8 +300,14 @@ public partial class MainWindow : Window
         }
 
         var ingestion = _services.GetRequiredService<HistoryIngestionService>();
+        var installationDate = ingestion.GetInstallationDate(profile);
         var automaticStart = ingestion.GetSuggestedAutomaticStartDate(profile);
         var automaticDate = automaticStart.ToString("dd-MM-yyyy");
+        var installationText = installationDate.HasValue
+            ? string.Format(
+                _localization.GetString("DataSync.InstallationDate"),
+                installationDate.Value.ToString("dd-MM-yyyy"))
+            : string.Empty;
 
         if (manual)
         {
@@ -309,13 +317,19 @@ public partial class MainWindow : Window
                     automaticStart.ToDateTime(TimeOnly.MinValue);
             }
 
-            CaptureStartHintText.Text = _localization.GetString("DataSync.ManualHint");
+            CaptureStartHintText.Text = string.IsNullOrWhiteSpace(installationText)
+                ? _localization.GetString("DataSync.ManualHint")
+                : $"{installationText}\n{_localization.GetString("DataSync.ManualHint")}";
         }
         else
         {
-            CaptureStartHintText.Text = string.Format(
-                _localization.GetString("DataSync.AutomaticFrom"),
+            var resumeText = string.Format(
+                _localization.GetString("DataSync.AutomaticResumeFrom"),
                 automaticDate);
+
+            CaptureStartHintText.Text = string.IsNullOrWhiteSpace(installationText)
+                ? resumeText
+                : $"{installationText}\n{resumeText}";
         }
     }
 
@@ -323,7 +337,7 @@ public partial class MainWindow : Window
     {
         var profile = _profiles.Get();
 
-        if (profile is not null)
+        if (profile is not null && _session.IsSessionVerified)
         {
             SolarStatusText.Text =
                 $"{_localization.GetString("Status.Commissioned")}: {profile.DeviceName ?? profile.DeviceId}";
@@ -331,9 +345,36 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_session.HasSession)
+        if (profile is not null && _session.HasSession)
+        {
+            SolarStatusText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Status.SessionStoredUnverified");
+            SolarStatusText.Foreground = Brushes.DarkOrange;
+            return;
+        }
+
+        if (profile is not null)
+        {
+            SolarStatusText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Status.LoginRequired");
+            SolarStatusText.Foreground = Brushes.DarkOrange;
+            return;
+        }
+
+        if (_session.IsSessionVerified)
         {
             SolarStatusText.SetResourceReference(TextBlock.TextProperty, "Status.SessionReady");
+            SolarStatusText.Foreground = Brushes.DarkOrange;
+            return;
+        }
+
+        if (_session.HasSession)
+        {
+            SolarStatusText.SetResourceReference(
+                TextBlock.TextProperty,
+                "Status.SessionStoredUnverified");
             SolarStatusText.Foreground = Brushes.DarkOrange;
             return;
         }
