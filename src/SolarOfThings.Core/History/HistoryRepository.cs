@@ -380,6 +380,81 @@ public sealed class HistoryRepository
         return DateTimeOffset.TryParse(raw, out var parsed) ? parsed : null;
     }
 
+    public HistoryCoverageSummary GetCoverageSummary(string deviceId)
+    {
+        using var connection = _database.OpenConnection();
+
+        DateOnly? firstDate = null;
+        DateOnly? lastDate = null;
+        var complete = 0;
+        var empty = 0;
+        var partial = 0;
+        var unavailable = 0;
+        var open = 0;
+        var total = 0;
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT
+                    MIN(local_date),
+                    MAX(local_date),
+                    SUM(CASE WHEN status = 'COMPLETE' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 'EMPTY' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 'PARTIAL' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 'UNAVAILABLE' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END),
+                    COUNT(*)
+                FROM history_day_status
+                WHERE device_id = $deviceId;
+                """;
+            command.Parameters.AddWithValue("$deviceId", deviceId);
+
+            using var reader = command.ExecuteReader();
+            if (reader.Read())
+            {
+                if (!reader.IsDBNull(0) &&
+                    DateOnly.TryParse(reader.GetString(0), out var parsedFirst))
+                {
+                    firstDate = parsedFirst;
+                }
+
+                if (!reader.IsDBNull(1) &&
+                    DateOnly.TryParse(reader.GetString(1), out var parsedLast))
+                {
+                    lastDate = parsedLast;
+                }
+
+                complete = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+                empty = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+                partial = reader.IsDBNull(4) ? 0 : reader.GetInt32(4);
+                unavailable = reader.IsDBNull(5) ? 0 : reader.GetInt32(5);
+                open = reader.IsDBNull(6) ? 0 : reader.GetInt32(6);
+                total = reader.IsDBNull(7) ? 0 : reader.GetInt32(7);
+            }
+        }
+
+        using var sampleCommand = connection.CreateCommand();
+        sampleCommand.CommandText = """
+            SELECT COUNT(*)
+            FROM history_sample
+            WHERE device_id = $deviceId;
+            """;
+        sampleCommand.Parameters.AddWithValue("$deviceId", deviceId);
+        var rawSamples = Convert.ToInt32(sampleCommand.ExecuteScalar());
+
+        return new HistoryCoverageSummary(
+            firstDate,
+            lastDate,
+            complete,
+            empty,
+            partial,
+            unavailable,
+            open,
+            total,
+            rawSamples);
+    }
+
     public int GetSampleCount(string deviceId)
     {
         using var connection = _database.OpenConnection();
