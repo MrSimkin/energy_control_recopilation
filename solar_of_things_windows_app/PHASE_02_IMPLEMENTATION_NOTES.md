@@ -118,9 +118,32 @@ Smoke-test coverage now includes:
 - diagnostic redaction test proving tokens/passwords do not survive while device metadata remains;
 - existing settings/JSONL/DPAPI tests.
 
+## Windows CI validation — PASS
+
+Workflow:
+- Windows Build
+- run `36177864396`
+- source commit `a013708164b593bc1d072f94eec083216a4181c2`
+- conclusion: **SUCCESS**
+
+Artifact:
+- `SolarEnergyMonitor-win-x64-dev`
+- ID `10883196259`
+- SHA-256 `9879c97adeb37b025e95c595b566e4a7939d0342b6c7745fc7bcfad0a5add9ac`
+
+Passed:
+- restore/build;
+- schema v2 smoke test;
+- deterministic IoT Open body hash/signing vector;
+- commissioning-profile round trip;
+- DPAPI secret-store test;
+- API diagnostic JSON/body redaction;
+- API header redaction while retaining safe response/request metadata;
+- self-contained win-x64 publish.
+
 ## Remaining checkpoint
 
-- Windows CI must pass the complete Phase 2 tranche.
+- Run the portable artifact against the user's real account/device using only local credentials/session material.
 - Generate a fresh portable development artifact.
 - User performs local read-only connection/commissioning.
 - User copies the sanitized diagnostic report into the development conversation.
