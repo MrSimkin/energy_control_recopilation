@@ -196,11 +196,14 @@ public sealed class HistoryIngestionService
                             ? "EMPTY"
                             : "COMPLETE";
 
-                if (!result.Complete && day < today && !requestedStartDate.HasValue)
+                if (!result.Complete && day < today)
                 {
                     var priorRetries = _history.GetRetryCount(profile.DeviceId, day);
+                    var terminalRetryFailure = requestedStartDate.HasValue
+                        ? priorRetries >= MaxAutomaticRetriesPerHistoricalDay
+                        : priorRetries + 1 >= MaxAutomaticRetriesPerHistoricalDay;
 
-                    if (priorRetries + 1 >= MaxAutomaticRetriesPerHistoricalDay)
+                    if (terminalRetryFailure)
                     {
                         dayStatus = "UNAVAILABLE";
 
@@ -208,11 +211,14 @@ public sealed class HistoryIngestionService
                             "HistorySync",
                             "HistoricalDayUnavailable",
                             "STOP_RETRYING",
-                            $"Automatic synchronization will stop retrying {day:yyyy-MM-dd} after {priorRetries + 1} failed acquisition attempts.",
+                            requestedStartDate.HasValue
+                                ? $"Manual recheck of {day:yyyy-MM-dd} still found no retrievable data; Automatic will continue skipping it."
+                                : $"Automatic synchronization will stop retrying {day:yyyy-MM-dd} after {priorRetries + 1} failed acquisition attempts.",
                             JsonSerializer.Serialize(new
                             {
                                 localDate = day.ToString("yyyy-MM-dd"),
                                 attempts = priorRetries + 1,
+                                manualRecheck = requestedStartDate.HasValue,
                                 result.Error,
                                 result.Source
                             }));
