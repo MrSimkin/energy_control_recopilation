@@ -118,16 +118,19 @@ public partial class MainWindow : Window
     {
         var profile = _profiles.Get();
 
-        if (profile is null)
+        if (profile is null || !_session.HasSession)
         {
             OpenCommissioningWindow();
             return;
         }
 
-        await RunHistorySyncAsync(profile);
+        if (sender is Button button)
+        {
+            await RunHistorySyncAsync(profile, button);
+        }
     }
 
-    private async Task RunHistorySyncAsync(CommissioningProfile profile)
+    private async Task RunHistorySyncAsync(CommissioningProfile profile, Button button)
     {
         var history = _services.GetRequiredService<HistoryRepository>();
         var ingestion = _services.GetRequiredService<HistoryIngestionService>();
