@@ -112,7 +112,14 @@
             <Grid Grid.Row="1">
                 <ScrollViewer x:Name="DashboardContent" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
-                        <TextBlock Text="{DynamicResource Dashboard.Overview}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40" Margin="0,0,0,14"/>
+                        <TextBlock Text="{DynamicResource Dashboard.Overview}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40"/>
+                        <TextBlock x:Name="DashboardFreshnessText"
+                                   Text=""
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#6C757D"
+                                   Margin="0,4,0,14"
+                                   TextWrapping="Wrap"/>
 
                         <Grid Margin="0,0,0,18">
                             <Grid.ColumnDefinitions>
