@@ -256,19 +256,21 @@ Exit criterion:
 
 ---
 
-# Phase 4 — Installation-Aware Normalization and Metric Engine
+# Phase 4 — Normalization, Metric Engine and Installation Context
 
-Goal: transform raw SiSeLi fields into trustworthy canonical household-energy metrics **for the documented household installation**, while preserving raw evidence and explicit uncertainty.
+Goal: transform raw SiSeLi fields into trustworthy canonical energy metrics **without changing their physical meaning based on household configuration**, then apply the documented household setup as a separate contextual interpretation layer.
 
 Canonical installation authority:
 - `INSTALLATION_BEHAVIOR_CONTRACT.md`;
 - source manual integration review:
   `MANUAL_FAMILIAR_INTEGRATION_REVIEW_2026-09-25.md`.
 
-Implement the installation behavior-contract layer **before** widening generic metric interpretation:
+Keep normalization and installation context explicitly separated:
 
-- load the expected read-only installation baseline;
-- compare observed SiSeLi configuration/state fields with the expected baseline;
+- normalization uses only device/protocol evidence, units, signs, timestamps and measured fields;
+- the household manual/settings never redefine a raw or normalized measurement;
+- separately load the expected read-only installation baseline;
+- compare observed configuration/state fields with that baseline for context;
 - record configuration interpretation states:
   - CONFIG_CONFIRMED;
   - CONFIG_DRIFT;
@@ -278,9 +280,9 @@ Implement the installation behavior-contract layer **before** widening generic m
 - unit normalization;
 - sign normalization;
 - per-device/protocol rules;
-- target-installation operating rules;
-- plausibility checks using inverter/battery configuration;
-- zero-export guardrails;
+- device/protocol plausibility checks for normalized physical metrics;
+- household operating rules only in the contextual interpretation layer;
+- zero-export treated as household context/invariant, not as a rewrite of raw grid measurements;
 - confidence states:
   - CONFIRMED;
   - PROBABLE;
