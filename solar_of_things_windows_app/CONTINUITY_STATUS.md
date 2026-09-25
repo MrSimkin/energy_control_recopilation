@@ -121,21 +121,29 @@ Current implementation tranche includes:
 - gather-attribute discovery;
 - dataSource probing;
 - read-only energy-flow/history/aggregate/alarm capability probes;
-- SQLite schema v2 commissioning capability profile;
+- SQLite schema v3 commissioning capability profile;
 - first-class sanitized development diagnostics and copy/save report.
 
 The development diagnostic stream records endpoint/method, sanitized request/response, HTTP status, API code/message, timing, retries, commissioning step, selected station/device metadata and capability outcomes. Passwords/password hashes, tokens, cookies, reusable client secrets and request signatures are redacted before diagnostic JSONL is written.
 
-The reusable IoT Open application credential remains intentionally absent from source control. The program accepts it only through local Windows-protected configuration/environment bootstrap; an existing access/refresh token pair can also bootstrap a local development session.
+Normal account/password login now uses the public production IoT Open client profile used by the Solar of Things web-client ecosystem. A DPAPI-protected local override remains available for future upstream changes. Existing access/refresh tokens remain an optional advanced bootstrap, not a normal requirement.
 
-Phase 2 implementation tranche passed Windows CI in run `36177864396` from source commit `a013708164b593bc1d072f94eec083216a4181c2`.
+Latest Phase 2 implementation state passed Windows CI in run `36180218439` from source commit `a357acce1b299b5b743275675bc094f775053ca6`.
 
 Portable artifact:
 - name: `SolarEnergyMonitor-win-x64-dev`
-- artifact ID: `10883196259`
-- SHA-256: `9879c97adeb37b025e95c595b566e4a7939d0342b6c7745fc7bcfad0a5add9ac`
+- artifact ID: `10883354925`
+- SHA-256: `cea58c38ef384712a9e1ada3a0137ccafb6d80ec96018a50c384612cc572df1a`
 
-CI validated compile, SQLite schema v2, IoT Open signing vector, commissioning-profile persistence, DPAPI, and diagnostic body/header redaction.
+CI validated:
+- compile/publish;
+- SQLite schema v3;
+- production client-profile decryption/default/override behavior;
+- IoT Open signing vector;
+- commissioning-profile persistence including device type/sort, rated power, online state and `lastDataAt`;
+- DPAPI;
+- diagnostic body/header redaction;
+- proactive refresh/session logic.
 
 First real-account checkpoint on 2026-09-25:
 - existing-token local session bootstrap: PASS;
@@ -162,6 +170,6 @@ Phase 2 scope:
 
 Resume inside **Phase 2 — Solar of Things Authentication and Commissioning**.
 
-Immediate checkpoint: obtain a green Windows build/smoke artifact, then run the local read-only commissioning wizard and use its sanitized diagnostic export to resolve any account/device-specific API mismatch.
+Immediate checkpoint: use artifact `10883354925` with normal Solar of Things account/password login, run the full read-only commissioning sequence, then copy the diagnostic report so remaining account/device-specific mismatches can be corrected.
 
 Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
