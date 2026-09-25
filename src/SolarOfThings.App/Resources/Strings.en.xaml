@@ -42,7 +42,7 @@
     <sys:String x:Key="Page.Reports.Placeholder">Report generation will be implemented after the data and statistics engines.</sys:String>
     <sys:String x:Key="Page.Data.Title">Data</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Local data, synchronization and historical coverage</sys:String>
-    <sys:String x:Key="Page.Data.Placeholder">Real synchronization and history begin in Phases 2 and 3.</sys:String>
+    <sys:String x:Key="Page.Data.Placeholder">Local historical synchronization is now active through Update Data. Analysis will be built on this validated corpus.</sys:String>
     <sys:String x:Key="Page.Diagnostics.Title">Advanced / Diagnostics</sys:String>
     <sys:String x:Key="Page.Diagnostics.Subtitle">Technical diagnostics and internal application state</sys:String>
     <sys:String x:Key="Page.Diagnostics.Placeholder">Current diagnostics are written locally; this view will grow as real integrations are added.</sys:String>
@@ -70,6 +70,7 @@
     <sys:String x:Key="Status.Phase">Phase</sys:String>
     <sys:String x:Key="Status.Phase1">1 — Technical Skeleton</sys:String>
     <sys:String x:Key="Status.Phase2">2 — Connection &amp; commissioning</sys:String>
+    <sys:String x:Key="Status.Phase3">3 — Historical ingestion</sys:String>
     <sys:String x:Key="Status.Database">Database:</sys:String>
     <sys:String x:Key="Status.SpecFrozen">Specification v1 + language change 2026-09-25</sys:String>
 
