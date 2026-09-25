@@ -89,10 +89,13 @@
     <sys:String x:Key="Commissioning.RefreshToken">Refresh token</sys:String>
     <sys:String x:Key="Commissioning.UseTokens">Use token pair</sys:String>
     <sys:String x:Key="Commissioning.ProtocolCredential">Advanced — IoT Open client credential</sys:String>
-    <sys:String x:Key="Commissioning.ProtocolCredentialHint">Account/password login requires IoT Open client material. It is never stored in GitHub; it is kept only in Windows DPAPI. Local environment variables can also be imported.</sys:String>
+    <sys:String x:Key="Commissioning.ProtocolCredentialHint">Normal sign-in automatically uses the public production client profile. This section only provides a DPAPI-protected local override if Solar of Things changes that profile.</sys:String>
     <sys:String x:Key="Commissioning.EncryptedSecret">Encrypted client secret</sys:String>
     <sys:String x:Key="Commissioning.SaveProtocolCredential">Save locally</sys:String>
-    <sys:String x:Key="Commissioning.ImportEnvironment">Import from environment</sys:String>
+    <sys:String x:Key="Commissioning.ImportEnvironment">Import override from environment</sys:String>
+    <sys:String x:Key="Commissioning.UseDefaultProtocolCredential">Use production profile</sys:String>
+    <sys:String x:Key="Commissioning.ProtocolDefaultActive">Production profile active</sys:String>
+    <sys:String x:Key="Commissioning.ProtocolOverrideActive">Local override active</sys:String>
     <sys:String x:Key="Commissioning.ConnectDiscover">Connect &amp; discover</sys:String>
     <sys:String x:Key="Commissioning.Run">Run commissioning</sys:String>
     <sys:String x:Key="Commissioning.Progress">Progress / evidence</sys:String>
