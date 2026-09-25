@@ -117,12 +117,19 @@ try
         "{\"password\":\"secret\",\"deviceId\":\"123\"}",
         "{\"accessToken\":\"token-value\",\"data\":{\"deviceId\":\"123\"}}",
         null,
-        null));
+        null)
+    {
+        RequestHeadersJson = "{\"IOT-Token\":\"header-token\",\"IOT-Time-Zone\":\"America/Santiago\"}",
+        ResponseHeadersJson = "{\"X-Request-Id\":\"request-123\"}",
+        ResponseLengthBytes = 42
+    });
 
     var report = apiDiagnostics.BuildSanitizedReport();
     if (report.Contains("token-value", StringComparison.Ordinal) ||
         report.Contains("\"password\":\"secret\"", StringComparison.Ordinal) ||
-        !report.Contains("deviceId", StringComparison.Ordinal))
+        report.Contains("header-token", StringComparison.Ordinal) ||
+        !report.Contains("deviceId", StringComparison.Ordinal) ||
+        !report.Contains("request-123", StringComparison.Ordinal))
     {
         throw new InvalidOperationException("Diagnostic redaction smoke test failed.");
     }
