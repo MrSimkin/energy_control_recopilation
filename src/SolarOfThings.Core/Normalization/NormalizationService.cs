@@ -9,7 +9,7 @@ namespace SolarOfThings.Core.Normalization;
 
 public sealed class NormalizationService
 {
-    public const string RuleVersion = "hpvinv02.v2";
+    public const string RuleVersion = "hpvinv02.v3";
 
     private static readonly string[] RelevantKeys =
     [
@@ -237,7 +237,7 @@ public sealed class NormalizationService
         SqliteCommand insert,
         IDictionary<string, int> metricCounts)
     {
-        var rows = new List<NormalizedRow>(8);
+        var rows = new List<NormalizedRow>(10);
         var ratedPowerW = NormalizeRatedPower(profile.RatedPower);
 
         AddTargetPvPower(
@@ -262,6 +262,7 @@ public sealed class NormalizationService
         AddGridVoltage(rows, frame, units);
         AddBatterySoc(rows, frame, units);
         AddBatteryVoltage(rows, frame, units);
+        AddBatteryCurrents(rows, frame, units);
         AddBatteryPower(rows, frame, units, ratedPowerW);
         AddCounter(rows, frame, units, "pvGeneratedEnergyOfDay", "pv_energy_day_counter_kwh");
         AddCounter(rows, frame, units, "pvGeneratedEnergyOfTotal", "pv_energy_total_counter_kwh");
@@ -469,6 +470,54 @@ public sealed class NormalizationService
             raw.Json,
             valid ? "CONFIRMED" : "UNRESOLVED",
             valid ? "OK" : "PLAUSIBILITY_REVIEW"));
+    }
+
+    private static void AddBatteryCurrents(
+        ICollection<NormalizedRow> rows,
+        IReadOnlyDictionary<string, RawReading> frame,
+        IReadOnlyDictionary<string, string?> units)
+    {
+        RawReading charge;
+        string? chargeKey = null;
+
+        if (TryRead(frame, units, "bmsChargingCurrent", "A", out charge))
+        {
+            chargeKey = "bmsChargingCurrent";
+        }
+        else if (TryRead(frame, units, "batteryChargingCurrent", "A", out charge))
+        {
+            chargeKey = "batteryChargingCurrent";
+        }
+
+        if (chargeKey is not null)
+        {
+            var value = charge.Value!.Value;
+            var valid = value is >= 0 and < 500;
+
+            rows.Add(new NormalizedRow(
+                "battery_charge_current_a",
+                valid ? value : null,
+                "A",
+                chargeKey,
+                charge.Json,
+                valid ? "CONFIRMED" : "UNRESOLVED",
+                valid ? "MEASURED_DIRECTIONAL_CURRENT" : "PLAUSIBILITY_REVIEW"));
+        }
+
+        if (TryRead(frame, units, "batteryDischargeCurrent", "A", out var discharge))
+        {
+            var value = discharge.Value!.Value;
+            var valid = value is >= 0 and < 500;
+
+            rows.Add(new NormalizedRow(
+                "battery_discharge_current_a",
+                valid ? value : null,
+                "A",
+                "batteryDischargeCurrent",
+                discharge.Json,
+                valid ? "CONFIRMED" : "UNRESOLVED",
+                valid ? "MEASURED_DIRECTIONAL_CURRENT" : "PLAUSIBILITY_REVIEW"));
+        }
     }
 
     private static void AddBatteryPower(
