@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
 using SolarOfThings.App.Localization;
@@ -26,6 +27,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _syncCancellation;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
+    private IReadOnlyList<EnergyAggregationRow> _analysisAggregationRows =
+        Array.Empty<EnergyAggregationRow>();
 
     public MainWindow(
         AppPaths paths,
@@ -692,9 +695,152 @@ public partial class MainWindow : Window
                     timeZoneId,
                     period);
 
+        _analysisAggregationRows = table.Rows;
         AnalysisAggregationGrid.ItemsSource = table.Rows;
         RefreshAnalysisEnergyChart(table.Rows);
         RefreshAnalysisBatteryChart(table.Rows);
+    }
+
+    private void AnalysisEnergyPlot_MouseMove(
+        object sender,
+        MouseEventArgs e)
+    {
+        if (_analysisAggregationRows.Count == 0)
+        {
+            return;
+        }
+
+        var p = e.GetPosition(AnalysisEnergyPlot);
+        var pixel = new ScottPlot.Pixel(
+            p.X * AnalysisEnergyPlot.DisplayScale,
+            p.Y * AnalysisEnergyPlot.DisplayScale);
+        var coordinates =
+            AnalysisEnergyPlot.Plot.GetCoordinates(pixel);
+
+        var index = (int)Math.Round(coordinates.X);
+        if (index < 0 || index >= _analysisAggregationRows.Count)
+        {
+            return;
+        }
+
+        var row = _analysisAggregationRows[index];
+        var parts = new List<string>
+        {
+            string.Format(
+                _localization.GetString("Analysis.Chart.PointPeriod"),
+                row.LocalLabel)
+        };
+
+        if (AnalysisShowSolarCheckBox.IsChecked == true)
+        {
+            parts.Add(string.Format(
+                _localization.GetString("Analysis.Chart.PointSolar"),
+                row.PvEnergyKwh));
+        }
+
+        if (AnalysisShowHouseCheckBox.IsChecked == true)
+        {
+            parts.Add(string.Format(
+                _localization.GetString("Analysis.Chart.PointHouse"),
+                row.HouseEnergyKwh));
+        }
+
+        if (AnalysisShowGridCheckBox.IsChecked == true)
+        {
+            parts.Add(string.Format(
+                _localization.GetString("Analysis.Chart.PointGrid"),
+                row.GridImportEnergyKwh));
+        }
+
+        parts.Add(string.Format(
+            _localization.GetString("Analysis.Chart.PointCoverage"),
+            row.MinimumAvailableCoveragePercent));
+
+        var detail = string.Join(" · ", parts);
+        AnalysisEnergyHoverText.Text = detail;
+        AnalysisEnergyPlot.ToolTip = detail;
+    }
+
+    private void AnalysisEnergyPlot_MouseLeave(
+        object sender,
+        MouseEventArgs e)
+    {
+        var hint =
+            _localization.GetString("Analysis.Chart.HoverHint");
+        AnalysisEnergyHoverText.Text = hint;
+        AnalysisEnergyPlot.ToolTip = hint;
+    }
+
+    private void AnalysisBatteryPlot_MouseMove(
+        object sender,
+        MouseEventArgs e)
+    {
+        if (_analysisAggregationRows.Count == 0)
+        {
+            return;
+        }
+
+        var p = e.GetPosition(AnalysisBatteryPlot);
+        var pixel = new ScottPlot.Pixel(
+            p.X * AnalysisBatteryPlot.DisplayScale,
+            p.Y * AnalysisBatteryPlot.DisplayScale);
+        var coordinates =
+            AnalysisBatteryPlot.Plot.GetCoordinates(pixel);
+
+        var index = (int)Math.Round(coordinates.X);
+        if (index < 0 || index >= _analysisAggregationRows.Count)
+        {
+            return;
+        }
+
+        var row = _analysisAggregationRows[index];
+        var parts = new List<string>
+        {
+            string.Format(
+                _localization.GetString("Analysis.Chart.PointPeriod"),
+                row.LocalLabel)
+        };
+
+        if (row.SocAveragePercent.HasValue)
+        {
+            parts.Add(string.Format(
+                _localization.GetString("Analysis.BatteryChart.PointAverage"),
+                row.SocAveragePercent.Value));
+        }
+
+        if (row.SocEndingPercent.HasValue)
+        {
+            parts.Add(string.Format(
+                _localization.GetString("Analysis.BatteryChart.PointEnd"),
+                row.SocEndingPercent.Value));
+        }
+
+        if (row.SocMinimumPercent.HasValue &&
+            row.SocMaximumPercent.HasValue)
+        {
+            parts.Add(string.Format(
+                _localization.GetString("Analysis.BatteryChart.PointRange"),
+                row.SocMinimumPercent.Value,
+                row.SocMaximumPercent.Value));
+        }
+
+        parts.Add(string.Format(
+            _localization.GetString("Analysis.Chart.PointCoverage"),
+            row.MinimumAvailableCoveragePercent));
+
+        var detail = string.Join(" · ", parts);
+        AnalysisBatteryHoverText.Text = detail;
+        AnalysisBatteryPlot.ToolTip = detail;
+    }
+
+    private void AnalysisBatteryPlot_MouseLeave(
+        object sender,
+        MouseEventArgs e)
+    {
+        var hint =
+            _localization.GetString("Analysis.BatteryChart.HoverHint");
+        AnalysisBatteryHoverText.Text = hint;
+        AnalysisBatteryPlot.ToolTip = hint;
     }
 
     private void RefreshAnalysisEnergyChart(
@@ -1025,6 +1171,7 @@ public partial class MainWindow : Window
         AnalysisToDatePicker.SelectedDate = null;
         ResetAnalysisValues();
         ResetAnalysisEnergyValues();
+        _analysisAggregationRows = Array.Empty<EnergyAggregationRow>();
         AnalysisAggregationGrid.ItemsSource = null;
         AnalysisEnergyPlot.Plot.Clear();
         AnalysisEnergyPlot.Refresh();
@@ -1035,6 +1182,10 @@ public partial class MainWindow : Window
         AnalysisBatteryPlot.Refresh();
         AnalysisBatteryChartStatusText.Text =
             _localization.GetString("Analysis.BatteryChart.NoData");
+        AnalysisEnergyHoverText.Text =
+            _localization.GetString("Analysis.Chart.HoverHint");
+        AnalysisBatteryHoverText.Text =
+            _localization.GetString("Analysis.BatteryChart.HoverHint");
         AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
     }
 
