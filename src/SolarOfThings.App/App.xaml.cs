@@ -52,6 +52,7 @@ public partial class App : Application
         builder.Services.AddSingleton<HouseholdBehaviorRepository>();
         builder.Services.AddSingleton<HouseholdBehaviorService>();
         builder.Services.AddSingleton<HouseholdBehaviorStatisticsService>();
+        builder.Services.AddSingleton<EnergyRangeStatisticsService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
