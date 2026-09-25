@@ -8,6 +8,7 @@ using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Data;
 using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Infrastructure;
+using SolarOfThings.Core.History;
 using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.SolarOfThings;
@@ -35,10 +36,13 @@ public partial class App : Application
         builder.Services.AddSingleton<SolarOfThingsSessionManager>();
         builder.Services.AddSingleton<CommissioningProfileRepository>();
         builder.Services.AddSingleton<CommissioningService>();
+        builder.Services.AddSingleton<HistoryRepository>();
+        builder.Services.AddSingleton<HistoryIngestionService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
         builder.Services.AddTransient<DeveloperDiagnosticsWindow>();
+        builder.Services.AddTransient<DataSyncWindow>();
 
         _host = builder.Build();
 
