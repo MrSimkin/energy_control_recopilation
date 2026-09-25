@@ -362,7 +362,7 @@ public sealed class CommissioningService
         {
             progress?.Report(new("History", "RUNNING", "Probando historial reciente con claves descubiertas..."));
 
-            var now = DateTimeOffset.Now;
+            var now = DateTimeOffset.UtcNow;
             var from = now.AddHours(-2);
 
             var history = await _session.PostAsync(
@@ -373,8 +373,8 @@ public sealed class CommissioningService
                 {
                     deviceId = device.Id,
                     keys = attributeKeys.Take(5).ToArray(),
-                    fromTime = from.ToString("O"),
-                    toTime = now.ToString("O"),
+                    fromTime = SolarApiTime.FormatDateTime(from, stationTimeZone),
+                    toTime = SolarApiTime.FormatDateTime(now, stationTimeZone),
                     page = 1,
                     count = 100,
                     orderByTimeAsc = true
@@ -401,7 +401,7 @@ public sealed class CommissioningService
             "Commissioning",
             "DailyAggregate",
             $"deviceOverView/generatedEnergy/daily?deviceId={Uri.EscapeDataString(device.Id)}",
-            new { time = DateTimeOffset.Now.ToString("yyyy-MM-dd") },
+            new { time = SolarApiTime.FormatDate(DateTimeOffset.UtcNow, stationTimeZone) },
             stationTimeZone,
             cancellationToken);
 
@@ -416,7 +416,7 @@ public sealed class CommissioningService
 
         progress?.Report(new("Alarms", "RUNNING", "Probando consulta de alarmas en modo lectura..."));
 
-        var alarmTo = DateTimeOffset.Now;
+        var alarmTo = DateTimeOffset.UtcNow;
         var alarmFrom = alarmTo.AddDays(-7);
         var deviceSerialNumber = ExtractString(
             deviceData,
@@ -437,8 +437,8 @@ public sealed class CommissioningService
             {
                 certificateDtuID = certificateDtuId,
                 deviceSerialNumber,
-                fromTime = alarmFrom.ToString("O"),
-                toTime = alarmTo.ToString("O"),
+                fromTime = SolarApiTime.FormatDateTime(alarmFrom, stationTimeZone),
+                toTime = SolarApiTime.FormatDateTime(alarmTo, stationTimeZone),
                 orderByCreatedTimeDesc = true,
                 page = 1,
                 count = 20

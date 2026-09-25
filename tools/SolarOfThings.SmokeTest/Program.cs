@@ -64,6 +64,27 @@ try
         throw new InvalidOperationException("IOT Open signing test vector failed.");
     }
 
+    var historyTime = SolarApiTime.FormatDateTime(
+        DateTimeOffset.Parse("2026-09-25T19:53:37Z"),
+        "America/Santiago");
+
+    if (historyTime != "2026-09-25T16:53:37-03:00" ||
+        historyTime.Contains('.', StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException(
+            $"Unexpected Solar API datetime wire format: {historyTime}");
+    }
+
+    var historyDate = SolarApiTime.FormatDate(
+        DateTimeOffset.Parse("2026-09-25T19:53:37Z"),
+        "America/Santiago");
+
+    if (historyDate != "2026-09-25")
+    {
+        throw new InvalidOperationException(
+            $"Unexpected Solar API date wire format: {historyDate}");
+    }
+
     var logoutBody = SolarOfThingsApiClient.SerializeCompact(new
     {
         accessToken = "ACCESS",
@@ -221,7 +242,7 @@ try
 
     Console.WriteLine(
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
-        "settings, diagnostics/redaction, production client profile, IOT Open signing, " +
+        "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
         "commissioning metadata/profile and protected secret storage are operational.");
 }
 finally
