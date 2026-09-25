@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     private readonly AppPaths _paths;
 
@@ -55,6 +55,12 @@ public sealed class SqliteDatabase
         if (current < 4)
         {
             ApplyMigration4(connection);
+            current = 4;
+        }
+
+        if (current < 5)
+        {
+            ApplyMigration5(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -244,6 +250,24 @@ public sealed class SqliteDatabase
             transaction,
             4,
             "Phase 3 raw history corpus, daily completeness and raw API capture.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration5(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            ALTER TABLE history_day_status
+                ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0;
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            5,
+            "Track bounded automatic retries for unresolved historical days.");
 
         transaction.Commit();
     }
