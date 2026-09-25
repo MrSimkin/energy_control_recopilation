@@ -1,7 +1,7 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
 Date: 2026-09-25
-Status: PHASE 1 COMPLETE — PHASE 2 READY TO START
+Status: PHASE 1 COMPLETE — PHASE 2 IMPLEMENTATION IN PROGRESS
 
 This file is the canonical continuity note.
 
@@ -107,7 +107,28 @@ Canonical closure receipt:
 
 Phase 1 is complete.
 
-Phase 2 has **not yet been implemented**, but is now the authorized next development phase.
+Phase 2 implementation is now in progress.
+
+Current implementation tranche includes:
+- production REST client foundation;
+- IoT Open signing implementation;
+- account/password protocol login;
+- protected local session/token storage;
+- access+refresh token rotation;
+- advanced existing-token-pair bootstrap;
+- station/device discovery;
+- station/device detail reads;
+- gather-attribute discovery;
+- dataSource probing;
+- read-only energy-flow/history/aggregate/alarm capability probes;
+- SQLite schema v2 commissioning capability profile;
+- first-class sanitized development diagnostics and copy/save report.
+
+The development diagnostic stream records endpoint/method, sanitized request/response, HTTP status, API code/message, timing, retries, commissioning step, selected station/device metadata and capability outcomes. Passwords/password hashes, tokens, cookies, reusable client secrets and request signatures are redacted before diagnostic JSONL is written.
+
+The reusable IoT Open application credential remains intentionally absent from source control. The program accepts it only through local Windows-protected configuration/environment bootstrap; an existing access/refresh token pair can also bootstrap a local development session.
+
+Phase 2 is not complete until the build is green and read-only commissioning is validated against the user's real account/device.
 
 Phase 2 scope:
 - Solar of Things authentication;
@@ -120,6 +141,8 @@ Phase 2 scope:
 
 ## Resume rule
 
-Resume at **Phase 2 — Solar of Things Authentication and Commissioning**.
+Resume inside **Phase 2 — Solar of Things Authentication and Commissioning**.
+
+Immediate checkpoint: obtain a green Windows build/smoke artifact, then run the local read-only commissioning wizard and use its sanitized diagnostic export to resolve any account/device-specific API mismatch.
 
 Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
