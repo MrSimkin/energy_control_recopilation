@@ -29,6 +29,7 @@ public partial class App : Application
         builder.Services.AddSingleton(_ => new AppPaths());
         builder.Services.AddSingleton<SqliteDatabase>();
         builder.Services.AddSingleton<AppSettingsRepository>();
+        builder.Services.AddSingleton<BatteryConfigurationService>();
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
         builder.Services.AddSingleton<ApiDiagnosticsStore>();
         builder.Services.AddSingleton<ISecretStore, DpapiFileSecretStore>();
