@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SolarOfThings.App.Localization;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Infrastructure;
+using SolarOfThings.Core.History;
 using SolarOfThings.Core.SolarOfThings;
 
 namespace SolarOfThings.App;
