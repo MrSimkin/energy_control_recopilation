@@ -116,6 +116,11 @@ public partial class MainWindow : Window
 
     private async void UpdateData_Click(object sender, RoutedEventArgs e)
     {
+        if (_syncCancellation is not null)
+        {
+            return;
+        }
+
         var profile = _profiles.Get();
 
         if (profile is null || !_session.HasSession)
@@ -135,26 +140,89 @@ public partial class MainWindow : Window
         var history = _services.GetRequiredService<HistoryRepository>();
         var ingestion = _services.GetRequiredService<HistoryIngestionService>();
 
+        _syncCancellation = new CancellationTokenSource();
+
+        button.IsEnabled = false;
+        HistorySyncProgressLabel.Visibility = Visibility.Visible;
+        HistorySyncProgressBar.Visibility = Visibility.Visible;
+        HistorySyncProgressText.Visibility = Visibility.Visible;
+        StopHistorySyncButton.Visibility = Visibility.Visible;
+        StopHistorySyncButton.IsEnabled = true;
+        HistorySyncProgressBar.Minimum = 0;
+        HistorySyncProgressBar.Maximum = 1;
+        HistorySyncProgressBar.Value = 0;
+
         LastUpdatedText.Text = _localization.CurrentLanguage == "es"
             ? "Actualizando..."
             : "Updating...";
+
+        var progress = new Progress<HistorySyncProgress>(p =>
+        {
+            HistorySyncProgressBar.Maximum = Math.Max(1, p.TotalDays);
+            HistorySyncProgressBar.Value = Math.Min(p.CompletedDays, p.TotalDays);
+            HistorySyncProgressText.Text =
+                $"{p.CompletedDays}/{p.TotalDays} · {p.Frames} frames · {p.Samples} muestras\n{p.Message}";
+        });
 
         try
         {
             var result = await ingestion.SyncAsync(
                 profile,
-                history.GetSampleCount(profile.DeviceId) == 0);
+                history.GetSampleCount(profile.DeviceId) == 0,
+                progress,
+                _syncCancellation.Token);
 
-            LastUpdatedText.Text =
-                $"{result.DaysCompleted}/{result.DaysAttempted} días · {result.Frames} frames · {result.SamplesUpserted} muestras";
+            HistorySyncProgressBar.Maximum = Math.Max(1, result.DaysAttempted);
+            HistorySyncProgressBar.Value = Math.Min(result.DaysCompleted, result.DaysAttempted);
+
+            if (result.Cancelled)
+            {
+                LastUpdatedText.Text = _localization.CurrentLanguage == "es"
+                    ? "Sincronización detenida; los datos descargados quedaron guardados"
+                    : "Synchronization stopped; downloaded data was kept";
+
+                HistorySyncProgressText.Text =
+                    $"{result.DaysCompleted}/{result.DaysAttempted} · {result.Frames} frames · {result.SamplesUpserted} muestras";
+            }
+            else
+            {
+                LastUpdatedText.Text =
+                    $"{result.DaysCompleted}/{result.DaysAttempted} días · {result.Frames} frames · {result.SamplesUpserted} muestras";
+            }
         }
         catch (Exception ex)
         {
             LastUpdatedText.Text = _localization.CurrentLanguage == "es"
-                ? "Error de actualización"
-                : "Update error";
+                ? "Sincronización detenida por seguridad/error"
+                : "Synchronization stopped for safety/error";
+
+            HistorySyncProgressText.Text = ex.Message;
             MessageBox.Show(ex.Message, _localization.GetString("UpdateDialog.Title"));
         }
+        finally
+        {
+            StopHistorySyncButton.IsEnabled = false;
+            StopHistorySyncButton.Visibility = Visibility.Collapsed;
+            button.IsEnabled = true;
+
+            _syncCancellation.Dispose();
+            _syncCancellation = null;
+        }
+    }
+
+    private void StopHistorySync_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncCancellation is null)
+        {
+            return;
+        }
+
+        StopHistorySyncButton.IsEnabled = false;
+        HistorySyncProgressText.Text = _localization.CurrentLanguage == "es"
+            ? "Deteniendo de forma segura... Los datos ya guardados se conservarán."
+            : "Stopping safely... Already saved data will be kept.";
+
+        _syncCancellation.Cancel();
     }
 
     private void ConnectSolar_Click(object sender, RoutedEventArgs e)
