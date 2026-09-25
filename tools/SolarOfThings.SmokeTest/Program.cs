@@ -1,6 +1,9 @@
 using Microsoft.Data.Sqlite;
 using SolarOfThings.Core.Data;
+using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Infrastructure;
+using SolarOfThings.Core.Security;
+using SolarOfThings.Core.Settings;
 
 var root = Path.Combine(
     Path.GetTempPath(),
@@ -24,13 +27,45 @@ try
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
 
-    Console.WriteLine($"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}.");
+    var settings = new AppSettingsRepository(database);
+    settings.Set("smoke.setting", "ok");
+    if (settings.Get("smoke.setting") != "ok")
+    {
+        throw new InvalidOperationException("Application settings round-trip failed.");
+    }
+    settings.Delete("smoke.setting");
+
+    var diagnostics = new DiagnosticsFileWriter(paths);
+    diagnostics.Write("Information", "SmokeTest", "Diagnostics writer is operational.");
+    if (Directory.GetFiles(paths.LogDirectory, "diagnostics-*.jsonl").Length != 1)
+    {
+        throw new InvalidOperationException("Diagnostics log file was not created.");
+    }
+
+    if (OperatingSystem.IsWindows())
+    {
+        ISecretStore secrets = new DpapiFileSecretStore(paths);
+        secrets.Save("smoke.secret", "not-a-real-secret");
+
+        if (!secrets.TryRead("smoke.secret", out var secretValue) ||
+            secretValue != "not-a-real-secret")
+        {
+            throw new InvalidOperationException("DPAPI secret-store round-trip failed.");
+        }
+
+        secrets.Delete("smoke.secret");
+        if (secrets.TryRead("smoke.secret", out _))
+        {
+            throw new InvalidOperationException("DPAPI secret-store delete failed.");
+        }
+    }
+
+    Console.WriteLine(
+        $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
+        "settings, diagnostics and protected secret storage are operational.");
 }
 finally
 {
-    // Microsoft.Data.Sqlite connection pooling can keep the database file open
-    // after individual connections are disposed. Clear the pool before deleting
-    // this disposable smoke-test database.
     SqliteConnection.ClearAllPools();
 
     if (Directory.Exists(root))
