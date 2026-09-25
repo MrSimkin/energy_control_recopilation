@@ -9,7 +9,7 @@ namespace SolarOfThings.Core.Normalization;
 
 public sealed class NormalizationService
 {
-    public const string RuleVersion = "hpvinv02.v1";
+    public const string RuleVersion = "hpvinv02.v2";
 
     private static readonly string[] RelevantKeys =
     [
@@ -17,6 +17,7 @@ public sealed class NormalizationService
         "pvPower",
         "outputActivePower",
         "mainsPower",
+        "acInputVoltage",
         "batteryCapacity",
         "bmsCurrentSOC",
         "batteryVoltage",
@@ -258,6 +259,7 @@ public sealed class NormalizationService
             2.0);
 
         AddGridImport(rows, frame, units, ratedPowerW);
+        AddGridVoltage(rows, frame, units);
         AddBatterySoc(rows, frame, units);
         AddBatteryVoltage(rows, frame, units);
         AddBatteryPower(rows, frame, units, ratedPowerW);
@@ -387,6 +389,29 @@ public sealed class NormalizationService
             raw.Json,
             confidence,
             quality));
+    }
+
+    private static void AddGridVoltage(
+        ICollection<NormalizedRow> rows,
+        IReadOnlyDictionary<string, RawReading> frame,
+        IReadOnlyDictionary<string, string?> units)
+    {
+        if (!TryRead(frame, units, "acInputVoltage", "V", out var raw))
+        {
+            return;
+        }
+
+        var value = raw.Value!.Value;
+        var valid = value is >= 0 and < 350;
+
+        rows.Add(new NormalizedRow(
+            "grid_voltage_v",
+            valid ? value : null,
+            "V",
+            "acInputVoltage",
+            raw.Json,
+            valid ? "CONFIRMED" : "UNRESOLVED",
+            valid ? "GRID_INPUT_VOLTAGE" : "PLAUSIBILITY_REVIEW"));
     }
 
     private static void AddBatterySoc(
