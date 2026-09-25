@@ -949,6 +949,92 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
+
+                        <Expander Header="{DynamicResource Battery.TechnicalHeading}"
+                                  IsExpanded="False"
+                                  Margin="0,18,0,0"
+                                  FontSize="15"
+                                  FontWeight="SemiBold">
+                            <Border Style="{StaticResource CardStyle}"
+                                    Margin="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Battery.TechnicalIntro}"
+                                               FontSize="13"
+                                               FontWeight="Normal"
+                                               Foreground="#6C757D"
+                                               Margin="0,0,0,12"
+                                               TextWrapping="Wrap"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0"
+                                                    Margin="0,0,18,0"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryVoltage}">
+                                            <TextBlock Text="{DynamicResource Battery.Voltage}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryVoltageTechnicalText"
+                                                       Text="— V"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1"
+                                                    Margin="0,0,18,0"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryChargeCurrent}">
+                                            <TextBlock Text="{DynamicResource Battery.ChargeCurrent}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryChargeCurrentTechnicalText"
+                                                       Text="— A"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2"
+                                                    Margin="0,0,18,0"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryDischargeCurrent}">
+                                            <TextBlock Text="{DynamicResource Battery.DischargeCurrent}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryDischargeCurrentTechnicalText"
+                                                       Text="— A"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="3"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryPowerTechnical}">
+                                            <TextBlock Text="{DynamicResource Battery.Power}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryPowerTechnicalText"
+                                                       Text="— kW"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
 
