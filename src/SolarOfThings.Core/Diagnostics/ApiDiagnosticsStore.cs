@@ -135,7 +135,7 @@ public sealed class ApiDiagnosticsStore
         sb.AppendLine($"Framework: {RuntimeInformation.FrameworkDescription}");
         var portable = File.Exists(Path.Combine(AppContext.BaseDirectory, "portable.mode"));
         sb.AppendLine($"Portable mode: {(portable ? "YES" : "NO")}");
-        sb.AppendLine($"Database path: {_paths.DatabasePath}");
+        sb.AppendLine($"Database path: {(portable ? @".\Data\energy.db" : Path.Combine("%ProgramData%", AppPaths.ProductFolderName, "Data", "energy.db"))}");
         sb.AppendLine();
         sb.AppendLine("SECURITY:");
         sb.AppendLine("- Passwords, password hashes, access tokens, refresh tokens, cookies,");
