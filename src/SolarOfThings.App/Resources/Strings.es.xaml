@@ -45,7 +45,12 @@
     <sys:String x:Key="Battery.Heading">Batería</sys:String>
     <sys:String x:Key="Battery.Intro">Estado actual de la batería usando la información guardada en este computador.</sys:String>
     <sys:String x:Key="Battery.Charge">Carga actual</sys:String>
-    <sys:String x:Key="Battery.EstimatedRemaining">Energía disponible (estimada)</sys:String>
+    <sys:String x:Key="Battery.EstimatedRemaining">Energía almacenada (estimada)</sys:String>
+    <sys:String x:Key="Battery.OrdinaryUseRemaining">Disponible antes de usar la red (estimado)</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserve">Reserva para un corte (20% a 10%)</sys:String>
+    <sys:String x:Key="Battery.ProtectedFloor">Reserva mínima protegida: 10%</sys:String>
+    <sys:String x:Key="Tooltip.BatteryOrdinaryUse">Estimación de la energía que puede usar normalmente antes de que la casa pase a la red cerca del 20% de batería.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryEmergencyReserve">Entre 20% y 10% se guarda una reserva para cortes de red. No está pensada para gastarse cada noche.</sys:String>
     <sys:String x:Key="Battery.Activity">Qué está haciendo la batería</sys:String>
     <sys:String x:Key="Battery.Charging">Cargando</sys:String>
     <sys:String x:Key="Battery.Discharging">Entregando energía a la casa</sys:String>
