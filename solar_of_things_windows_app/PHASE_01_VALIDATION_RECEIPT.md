@@ -2,7 +2,7 @@
 
 Date: 2026-09-24
 
-Status: ORIGINAL BUILD CI + WINDOWS 11 MANUAL CHECK PASS / REFINED BUILD PENDING
+Status: REFINED BUILD CI PASS / FINAL WINDOWS 11 USER REVALIDATION PENDING
 
 ## Validated commit/run
 
@@ -86,3 +86,28 @@ After this checkpoint, the user explicitly changed the language requirement from
 These are refinements, not failures of the validated Phase 1 architecture.
 
 Formal Phase 1 closure is deferred until the refined portable build passes CI and receives one final short user revalidation.
+
+
+## Refined Phase 1 CI validation — 2026-09-25
+
+GitHub Actions workflow:
+- Name: Windows Build
+- Run ID: `36171030035`
+- Source commit: `ee8e8200f132be9aef42875c6ae92eb1f10adc66`
+- Conclusion: **SUCCESS**
+
+Automated checks passed:
+- .NET 10 restore;
+- Release WPF x64 build including localization resources/navigation code;
+- existing SQLite smoke test;
+- self-contained win-x64 publish;
+- portable-mode marker;
+- artifact upload.
+
+Fresh portable artifact:
+- Name: `SolarEnergyMonitor-win-x64-dev`
+- Artifact ID: `10881030047`
+- SHA-256: `4389db735ab205698c014bc97e505191b0601ad2075988f926ef441642281cde`
+
+Remaining acceptance item:
+final user check of Spanish default, English switching/persistence, sidebar navigation, normal non-admin launch, portable path, and clean shutdown.

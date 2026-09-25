@@ -1,7 +1,7 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
 Date: 2026-09-25
-Status: PHASE 1 REFINEMENT IN PROGRESS — ORIGINAL WINDOWS CHECKPOINT PASSED
+Status: PHASE 1 — REFINED BUILD CI PASS / FINAL USER REVALIDATION PENDING
 
 This file is the canonical continuity note.
 
@@ -61,6 +61,30 @@ Current product name `Solar Energy Monitor / SolarEnergyMonitor` is provisional.
 
 **Final product name = TBD.**
 
+## Refined Phase 1 build — CI PASS
+
+Implementation commit:
+- `ee8e8200f132be9aef42875c6ae92eb1f10adc66`
+
+GitHub Actions:
+- workflow: Windows Build
+- run ID: `36171030035`
+- conclusion: **SUCCESS**
+
+Fresh portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`
+- artifact ID: `10881030047`
+- SHA-256 digest reported by GitHub: `4389db735ab205698c014bc97e505191b0601ad2075988f926ef441642281cde`
+- source commit: `ee8e8200f132be9aef42875c6ae92eb1f10adc66`
+
+Validated by CI:
+- .NET 10 restore;
+- WPF Release build;
+- existing SQLite smoke test;
+- self-contained win-x64 publish;
+- portable-mode marker;
+- artifact upload.
+
 ## Current narrow Phase 1 refinement
 
 Implement only:
@@ -72,7 +96,7 @@ Implement only:
 5. minimal real sidebar navigation between distinct placeholder sections;
 6. no fabricated telemetry.
 
-After the refinement CI succeeds, generate/use the fresh portable artifact and perform one short user revalidation:
+Implementation and CI are complete. Perform one short user revalidation of artifact ID `10881030047`:
 
 - opens normally without UAC;
 - Spanish appears by default on a fresh database;

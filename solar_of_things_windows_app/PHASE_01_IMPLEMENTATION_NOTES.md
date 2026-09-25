@@ -2,7 +2,7 @@
 
 Date started: 2026-09-24
 
-Status: REFINEMENT IN PROGRESS — CORE ARCHITECTURE + ORIGINAL WINDOWS CHECKPOINT VALIDATED
+Status: REFINED BUILD CI PASS — FINAL USER REVALIDATION PENDING
 
 ## Implemented in initial skeleton
 
@@ -113,3 +113,31 @@ The previous English-only UI requirement was correct historical documentation of
 - current product name is provisional; final product name = TBD.
 
 After CI passes for this refinement, Phase 1 remains pending one final user revalidation of the refined portable build.
+
+
+## Refined build CI receipt — 2026-09-25
+
+Implementation commit:
+`ee8e8200f132be9aef42875c6ae92eb1f10adc66`
+
+GitHub Actions run:
+`36171030035`
+
+Conclusion:
+**SUCCESS**
+
+Fresh portable artifact:
+- `SolarEnergyMonitor-win-x64-dev`
+- artifact ID `10881030047`
+- SHA-256 `4389db735ab205698c014bc97e505191b0601ad2075988f926ef441642281cde`
+
+The refined shell now contains:
+- reusable resource-dictionary localization;
+- Spanish default;
+- English selector;
+- persisted language preference through `app_setting`;
+- localized current shell and Phase 1 informational dialog;
+- distinct functional placeholder navigation for every sidebar section;
+- no fabricated telemetry.
+
+Phase 1 is waiting only for final user revalidation of this artifact.
