@@ -16,6 +16,7 @@ public sealed class HistoryIngestionService
     private const int MinimumRequestSpacingMilliseconds = 500;
     private const int MaxConsecutiveDangerResponses = 3;
     private const int MaxConsecutivePartialDays = 3;
+    private const int MaxAutomaticRetriesPerHistoricalDay = 3;
 
     private readonly SolarOfThingsSessionManager _session;
     private readonly HistoryRepository _history;
@@ -195,6 +196,29 @@ public sealed class HistoryIngestionService
                             ? "EMPTY"
                             : "COMPLETE";
 
+                if (!result.Complete && day < today && !requestedStartDate.HasValue)
+                {
+                    var priorRetries = _history.GetRetryCount(profile.DeviceId, day);
+
+                    if (priorRetries + 1 >= MaxAutomaticRetriesPerHistoricalDay)
+                    {
+                        dayStatus = "UNAVAILABLE";
+
+                        _diagnostics.RecordLocal(
+                            "HistorySync",
+                            "HistoricalDayUnavailable",
+                            "STOP_RETRYING",
+                            $"Automatic synchronization will stop retrying {day:yyyy-MM-dd} after {priorRetries + 1} failed acquisition attempts.",
+                            JsonSerializer.Serialize(new
+                            {
+                                localDate = day.ToString("yyyy-MM-dd"),
+                                attempts = priorRetries + 1,
+                                result.Error,
+                                result.Source
+                            }));
+                    }
+                }
+
                 _history.SaveDayStatus(new HistoryDayStatus(
                     profile.DeviceId,
                     day,
@@ -219,6 +243,10 @@ public sealed class HistoryIngestionService
                 if (result.Complete)
                 {
                     daysCompleted++;
+                    consecutivePartialDays = 0;
+                }
+                else if (dayStatus == "UNAVAILABLE")
+                {
                     consecutivePartialDays = 0;
                 }
                 else
