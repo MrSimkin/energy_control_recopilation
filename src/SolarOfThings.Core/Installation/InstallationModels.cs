@@ -23,3 +23,8 @@ public sealed record RawInstallationValue(
     string AttributeKey,
     DateTimeOffset RecordedAtUtc,
     string? ValueJson);
+
+
+public sealed record InstallationStateSnapshot(
+    DateTimeOffset RetrievedUtc,
+    string StateJson);
