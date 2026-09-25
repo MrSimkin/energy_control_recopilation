@@ -205,15 +205,22 @@ Station/device detail endpoint failures are non-fatal during commissioning: list
 
 Workflow:
 - Windows Build
-- run `36180218439`
-- source commit `a357acce1b299b5b743275675bc094f775053ca6`
+- run `36180523465`
+- source commit `7fc2d5701f34948e8181c3e555c2d3cdaadcde9b`
 - conclusion: **SUCCESS**
 
 Artifact:
 - `SolarEnergyMonitor-win-x64-dev`
-- ID `10883354925`
-- SHA-256 `cea58c38ef384712a9e1ada3a0137ccafb6d80ec96018a50c384612cc572df1a`
+- ID `10883867535`
+- SHA-256 `f315669a111af582e390c50289ba38b2a04e96d1a3e38bbb0d811fa686dfc8c1`
 
 This supersedes the earlier Phase 2 development artifact for live testing.
 
-Next live test should use normal account/password login and run the entire read-only commissioning sequence.
+Additional session-lifecycle work included in this build:
+
+- proactive access-token refresh when expiry is known and within the five-minute lead window;
+- server logout using the evidence-backed Solar of Things logout contract when the session owns the required user identity;
+- local-session cleanup even if server logout cannot be confirmed;
+- logout contract preserves large platform user IDs as strings.
+
+Next live test should use normal account/password login, run the entire read-only commissioning sequence, restart to prove protected-session restore/reconnect, and finally exercise server logout.
