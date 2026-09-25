@@ -129,9 +129,10 @@ public sealed class InstallationHealthService
     public InstallationConfigSummary Evaluate(CommissioningProfile profile)
     {
         var now = DateTimeOffset.UtcNow;
-        var values = _repository.GetLatestRawValues(
-            profile.DeviceId,
-            Rules.Select(rule => rule.SourceAttributeKey).Distinct().ToArray());
+        var snapshot = _repository.GetLatestStateSnapshot(profile.DeviceId);
+        var values = snapshot is null
+            ? new Dictionary<string, RawInstallationValue>(StringComparer.Ordinal)
+            : ReadSnapshotValues(snapshot);
 
         var checks = new List<InstallationConfigCheck>(Rules.Length);
 
@@ -146,7 +147,9 @@ public sealed class InstallationHealthService
                     null,
                     null,
                     rule.ExpectedDisplay,
-                    "Todavía no hay una lectura local suficiente para comprobar este punto.",
+                    snapshot is null
+                        ? "Todavía no hay una comprobación actual guardada para este punto."
+                        : "La comprobación actual no incluyó este valor.",
                     now));
                 continue;
             }
@@ -219,6 +222,55 @@ public sealed class InstallationHealthService
             }));
 
         return summary;
+    }
+
+    private static IReadOnlyDictionary<string, RawInstallationValue> ReadSnapshotValues(
+        InstallationStateSnapshot snapshot)
+    {
+        var result = new Dictionary<string, RawInstallationValue>(StringComparer.Ordinal);
+
+        try
+        {
+            using var document = JsonDocument.Parse(snapshot.StateJson);
+            var root = document.RootElement;
+
+            var observedAt = snapshot.RetrievedUtc;
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty("time", out var timeElement) &&
+                timeElement.ValueKind == JsonValueKind.String &&
+                DateTimeOffset.TryParse(timeElement.GetString(), out var parsedTime))
+            {
+                observedAt = parsedTime;
+            }
+
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("fields", out var fields) ||
+                fields.ValueKind != JsonValueKind.Object)
+            {
+                return result;
+            }
+
+            foreach (var rule in Rules)
+            {
+                if (!fields.TryGetProperty(rule.SourceAttributeKey, out var field) ||
+                    field.ValueKind != JsonValueKind.Object ||
+                    !field.TryGetProperty("value", out var value))
+                {
+                    continue;
+                }
+
+                result[rule.SourceAttributeKey] = new RawInstallationValue(
+                    rule.SourceAttributeKey,
+                    observedAt,
+                    value.GetRawText());
+            }
+        }
+        catch
+        {
+            return result;
+        }
+
+        return result;
     }
 
     private static string? ReadComparableValue(string? valueJson)
