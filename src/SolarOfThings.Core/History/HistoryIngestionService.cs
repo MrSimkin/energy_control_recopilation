@@ -202,12 +202,20 @@ public sealed class HistoryIngestionService
                 samples += result.SamplesUpserted;
                 pages += result.Pages;
 
+                var dayStatus = !result.Complete
+                    ? "PARTIAL"
+                    : day == today
+                        ? "OPEN"
+                        : result.FrameCount == 0
+                            ? "EMPTY"
+                            : "COMPLETE";
+
                 _history.SaveDayStatus(new HistoryDayStatus(
                     profile.DeviceId,
                     day,
                     timeZone,
                     result.Source,
-                    result.Complete ? (result.FrameCount == 0 ? "EMPTY" : "COMPLETE") : "PARTIAL",
+                    dayStatus,
                     result.FrameCount,
                     result.Pages,
                     result.FirstAtUtc,
