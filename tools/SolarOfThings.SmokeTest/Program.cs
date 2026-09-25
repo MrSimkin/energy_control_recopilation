@@ -158,7 +158,7 @@ try
         1,
         "SUCCESS",
         "{\"password\":\"secret\",\"deviceId\":\"123\"}",
-        "{\"accessToken\":\"token-value\",\"data\":{\"deviceId\":\"123\",\"ownerUserName\":\"example-user\",\"ownerUserId\":\"999\",\"address\":\"example-address\",\"longitude\":1.2345,\"latitude\":2.3456,\"city\":\"example-city\",\"deviceModel\":\"HPVINV02\"}}",
+        "{\"accessToken\":\"token-value\",\"data\":{\"deviceId\":\"123\",\"userName\":\"example-user\",\"userId\":\"999\",\"address\":\"example-address\",\"longitude\":1.2345,\"latitude\":2.3456,\"city\":\"example-city\",\"batteryCapacity\":30,\"monthlyBuyElectricityQuantity\":12.5,\"deviceModel\":\"HPVINV02\"}}",
         null,
         null)
     {
@@ -177,6 +177,8 @@ try
         report.Contains("1.2345", StringComparison.Ordinal) ||
         report.Contains("2.3456", StringComparison.Ordinal) ||
         !report.Contains("deviceId", StringComparison.Ordinal) ||
+        !report.Contains("\"batteryCapacity\":30", StringComparison.Ordinal) ||
+        !report.Contains("\"monthlyBuyElectricityQuantity\":12.5", StringComparison.Ordinal) ||
         !report.Contains("HPVINV02", StringComparison.Ordinal) ||
         !report.Contains("request-123", StringComparison.Ordinal))
     {

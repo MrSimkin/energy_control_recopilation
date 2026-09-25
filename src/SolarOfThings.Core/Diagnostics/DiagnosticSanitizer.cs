@@ -6,7 +6,7 @@ namespace SolarOfThings.Core.Diagnostics;
 
 public static partial class DiagnosticSanitizer
 {
-    private static readonly string[] SensitiveKeyFragments =
+    private static readonly string[] SecretKeyFragments =
     [
         "password",
         "accesstoken",
@@ -16,7 +16,11 @@ public static partial class DiagnosticSanitizer
         "secret",
         "authorization",
         "iotopensign",
-        "signature",
+        "signature"
+    ];
+
+    private static readonly HashSet<string> PersonalExactKeys =
+    [
         "userid",
         "useraccount",
         "username",
@@ -95,8 +99,9 @@ public static partial class DiagnosticSanitizer
             .Replace("-", string.Empty, StringComparison.Ordinal)
             .ToLowerInvariant();
 
-        return SensitiveKeyFragments.Any(fragment =>
-            normalized.Contains(fragment, StringComparison.Ordinal));
+        return SecretKeyFragments.Any(fragment =>
+                   normalized.Contains(fragment, StringComparison.Ordinal)) ||
+               PersonalExactKeys.Contains(normalized);
     }
 
     private static string Truncate(string value, int maxLength)
