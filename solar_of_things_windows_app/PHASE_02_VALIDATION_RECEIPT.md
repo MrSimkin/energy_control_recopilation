@@ -9,26 +9,27 @@ Repository:
 
 ## Validated source
 
-- source commit: `a013708164b593bc1d072f94eec083216a4181c2`
+- source commit: `a357acce1b299b5b743275675bc094f775053ca6`
 - workflow: Windows Build
-- run ID: `36177864396`
+- run ID: `36180218439`
 - conclusion: **SUCCESS**
 
 ## Portable artifact
 
 - name: `SolarEnergyMonitor-win-x64-dev`
-- artifact ID: `10883196259`
-- SHA-256: `9879c97adeb37b025e95c595b566e4a7939d0342b6c7745fc7bcfad0a5add9ac`
+- artifact ID: `10883354925`
+- SHA-256: `cea58c38ef384712a9e1ada3a0137ccafb6d80ec96018a50c384612cc572df1a`
 
 ## Automated checks passed
 
 - .NET 10 restore;
 - Windows x64 WPF Release compile;
-- SQLite schema v2 creation/migration;
+- SQLite schema v3 creation/migration;
 - app-setting round trip;
 - JSONL diagnostics;
 - deterministic IoT Open body-hash/signature test vector;
-- commissioning capability-profile SQLite round trip;
+- built-in production client profile decryption/default/override behavior;
+- commissioning capability-profile SQLite round trip including promoted device metadata;
 - Windows DPAPI secret save/read/delete;
 - sanitized diagnostic response/body redaction;
 - sanitized request-header redaction;
@@ -65,3 +66,17 @@ Next test must run locally on the user's Windows PC:
 7. prove reconnect/session behavior.
 
 Phase 2 remains **IN PROGRESS** until those checks pass.
+
+
+## Superseding Phase 2 build
+
+This receipt now points to the later green build that includes:
+
+- normal account/password login using the production client profile;
+- dual-form refresh compatibility;
+- proactive pre-expiry refresh;
+- schema v3 commissioning metadata;
+- richer alarm probe context;
+- non-fatal detail-endpoint fallback.
+
+The prior live token-bootstrap discovery remains valid evidence, but the next acceptance test should use normal account/password login.
