@@ -484,18 +484,20 @@ public sealed class NormalizationService
         string expectedUnit,
         out RawReading reading)
     {
-        if (!frame.TryGetValue(key, out reading) ||
-            reading.Missing ||
-            !reading.Value.HasValue)
+        if (!frame.TryGetValue(key, out var found) ||
+            found.Missing ||
+            !found.Value.HasValue)
         {
+            reading = new RawReading(null, null, true);
             return false;
         }
 
+        reading = found;
         return units.TryGetValue(key, out var actualUnit) &&
                string.Equals(actualUnit, expectedUnit, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static double? NormalizeRatedPower(double? ratedPower)
+    private static double? NormalizeRatedPower(decimal? ratedPower)
     {
         if (!ratedPower.HasValue || ratedPower.Value <= 0)
         {
