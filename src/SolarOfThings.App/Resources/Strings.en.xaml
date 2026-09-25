@@ -71,6 +71,12 @@
     <sys:String x:Key="Analysis.BatteryReceived">Received: {0:N2} kWh</sys:String>
     <sys:String x:Key="Analysis.EnergyCoverage">Minimum coverage for these calculations: {0:N1}%</sys:String>
     <sys:String x:Key="Tooltip.AnalysisEnergy">These values integrate power between real readings. If a long interval is missing, that interval is excluded from the total.</sys:String>
+    <sys:String x:Key="Analysis.ChartHeading">Energy by period</sys:String>
+    <sys:String x:Key="Analysis.ChartIntro">Compare solar, home use and grid use. Use the mouse wheel to zoom and drag the chart to move around.</sys:String>
+    <sys:String x:Key="Analysis.Chart.Solar">Solar</sys:String>
+    <sys:String x:Key="Analysis.Chart.House">Home</sys:String>
+    <sys:String x:Key="Analysis.Chart.Grid">Electric grid</sys:String>
+    <sys:String x:Key="Analysis.Chart.NoData">There is not enough data to draw this period.</sys:String>
     <sys:String x:Key="Analysis.DetailHeading">Period detail</sys:String>
     <sys:String x:Key="Analysis.DetailIntro">Group the information to compare hours, days, weeks, months or years.</sys:String>
     <sys:String x:Key="Analysis.AggregateBy">Group by</sys:String>
