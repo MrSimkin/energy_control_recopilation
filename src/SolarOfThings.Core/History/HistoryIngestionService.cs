@@ -12,6 +12,10 @@ public sealed class HistoryIngestionService
     private const int SelectedKeyMaxPages = 500;
     private const int RecordListPageSize = 300;
     private const int RecordListMaxPages = 500;
+    private const int MaxRequestsPerSync = 750;
+    private const int MinimumRequestSpacingMilliseconds = 500;
+    private const int MaxConsecutiveDangerResponses = 3;
+    private const int MaxConsecutivePartialDays = 3;
 
     private readonly SolarOfThingsSessionManager _session;
     private readonly HistoryRepository _history;
@@ -86,6 +90,12 @@ public sealed class HistoryIngestionService
         var pages = 0;
         var source = "selected-key-v1";
         var cancelled = false;
+        var consecutivePartialDays = 0;
+        var safety = new BackfillSafetyGuard(
+            MaxRequestsPerSync,
+            TimeSpan.FromMilliseconds(MinimumRequestSpacingMilliseconds),
+            MaxConsecutiveDangerResponses,
+            _diagnostics);
 
         try
         {
@@ -127,12 +137,14 @@ public sealed class HistoryIngestionService
                         validationDay,
                         timeZone,
                         keys,
+                        safety,
                         cancellationToken);
 
                     var recordValidation = await FetchRecordListDayAsync(
                         profile.DeviceId,
                         validationDay,
                         timeZone,
+                        safety,
                         cancellationToken);
 
                     _diagnostics.RecordLocal(
@@ -199,6 +211,7 @@ public sealed class HistoryIngestionService
                     day,
                     timeZone,
                     keys,
+                    safety,
                     cancellationToken);
 
                 if (!result.Complete)
@@ -218,6 +231,7 @@ public sealed class HistoryIngestionService
                         profile.DeviceId,
                         day,
                         timeZone,
+                        safety,
                         cancellationToken);
 
                     source = "record-list";
@@ -259,6 +273,18 @@ public sealed class HistoryIngestionService
                 if (result.Complete)
                 {
                     daysCompleted++;
+                    consecutivePartialDays = 0;
+                }
+                else
+                {
+                    consecutivePartialDays++;
+
+                    if (consecutivePartialDays >= MaxConsecutivePartialDays)
+                    {
+                        throw new InvalidOperationException(
+                            $"Safety circuit breaker stopped synchronization after {consecutivePartialDays} consecutive partial days. " +
+                            "Previously downloaded data remains saved; retry later after reviewing diagnostics.");
+                    }
                 }
 
                 progress?.Report(new(
@@ -386,6 +412,7 @@ public sealed class HistoryIngestionService
         DateOnly day,
         string timeZone,
         IReadOnlyList<string> keys,
+        BackfillSafetyGuard safety,
         CancellationToken cancellationToken)
     {
         var (start, end) = SolarApiTime.GetLocalDayWindow(day, timeZone);
@@ -407,6 +434,8 @@ public sealed class HistoryIngestionService
                 orderByTimeAsc = true
             };
 
+            await safety.BeforeRequestAsync(cancellationToken);
+
             var response = await _session.PostAsync(
                 "HistorySync",
                 "SelectedKeyHistory",
@@ -414,6 +443,8 @@ public sealed class HistoryIngestionService
                 body,
                 timeZone,
                 cancellationToken);
+
+            safety.ObserveResponse(response);
 
             var retrieved = DateTimeOffset.UtcNow;
             _history.CaptureRaw(
@@ -532,6 +563,7 @@ public sealed class HistoryIngestionService
         string deviceId,
         DateOnly day,
         string timeZone,
+        BackfillSafetyGuard safety,
         CancellationToken cancellationToken)
     {
         var (start, end) = SolarApiTime.GetLocalDayWindow(day, timeZone);
@@ -552,6 +584,8 @@ public sealed class HistoryIngestionService
                 orderByTimeAsc = true
             };
 
+            await safety.BeforeRequestAsync(cancellationToken);
+
             var response = await _session.PostAsync(
                 "HistorySync",
                 "RecordListHistory",
@@ -559,6 +593,8 @@ public sealed class HistoryIngestionService
                 body,
                 timeZone,
                 cancellationToken);
+
+            safety.ObserveResponse(response);
 
             var retrieved = DateTimeOffset.UtcNow;
             _history.CaptureRaw(
@@ -755,6 +791,108 @@ public sealed class HistoryIngestionService
         }
 
         return null;
+    }
+
+    private sealed class BackfillSafetyGuard
+    {
+        private readonly int _maxRequests;
+        private readonly TimeSpan _minimumSpacing;
+        private readonly int _maxConsecutiveDangerResponses;
+        private readonly ApiDiagnosticsStore _diagnostics;
+        private int _requestCount;
+        private int _consecutiveDangerResponses;
+        private DateTimeOffset? _lastRequestUtc;
+
+        public BackfillSafetyGuard(
+            int maxRequests,
+            TimeSpan minimumSpacing,
+            int maxConsecutiveDangerResponses,
+            ApiDiagnosticsStore diagnostics)
+        {
+            _maxRequests = maxRequests;
+            _minimumSpacing = minimumSpacing;
+            _maxConsecutiveDangerResponses = maxConsecutiveDangerResponses;
+            _diagnostics = diagnostics;
+        }
+
+        public async Task BeforeRequestAsync(CancellationToken cancellationToken)
+        {
+            if (_requestCount >= _maxRequests)
+            {
+                Trip(
+                    "REQUEST_BUDGET",
+                    $"Synchronization reached the hard safety budget of {_maxRequests} API requests.");
+            }
+
+            if (_lastRequestUtc.HasValue)
+            {
+                var elapsed = DateTimeOffset.UtcNow - _lastRequestUtc.Value;
+                var remaining = _minimumSpacing - elapsed;
+
+                if (remaining > TimeSpan.Zero)
+                {
+                    await Task.Delay(remaining, cancellationToken);
+                }
+            }
+
+            _requestCount++;
+            _lastRequestUtc = DateTimeOffset.UtcNow;
+        }
+
+        public void ObserveResponse(SolarApiResponse response)
+        {
+            if (response.HttpStatus == 429)
+            {
+                Trip(
+                    "RATE_LIMIT",
+                    "Solar of Things returned HTTP 429. Synchronization stopped immediately to avoid further requests.");
+            }
+
+            if (response.HttpStatus is 401 or 403)
+            {
+                Trip(
+                    "AUTH_REJECTED",
+                    $"Solar of Things returned HTTP {response.HttpStatus}. Synchronization stopped instead of retrying history pages.");
+            }
+
+            if (response.HttpStatus >= 500)
+            {
+                _consecutiveDangerResponses++;
+
+                if (_consecutiveDangerResponses >= _maxConsecutiveDangerResponses)
+                {
+                    Trip(
+                        "SERVER_FAILURES",
+                        $"Solar of Things returned {_consecutiveDangerResponses} consecutive server errors. Synchronization stopped.");
+                }
+
+                return;
+            }
+
+            if (response.IsSuccess)
+            {
+                _consecutiveDangerResponses = 0;
+            }
+        }
+
+        private void Trip(string reason, string message)
+        {
+            _diagnostics.RecordLocal(
+                "HistorySync",
+                "SafetyCircuitBreaker",
+                "STOP",
+                message,
+                JsonSerializer.Serialize(new
+                {
+                    reason,
+                    requestCount = _requestCount,
+                    maxRequests = _maxRequests,
+                    minimumSpacingMs = _minimumSpacing.TotalMilliseconds
+                }));
+
+            throw new InvalidOperationException(
+                $"{message} Previously downloaded data remains saved.");
+        }
     }
 
     private static DayFetchResult BuildDayFetchResult(
