@@ -7,7 +7,7 @@ namespace SolarOfThings.Core.Installation;
 
 public sealed class InstallationHealthService
 {
-    public const string ContractVersion = "family-manual-v2.0-2026-09-25";
+    public const string ContractVersion = InstallationContextPolicyService.ContextVersion;
 
     private sealed record Rule(
         string CheckKey,
