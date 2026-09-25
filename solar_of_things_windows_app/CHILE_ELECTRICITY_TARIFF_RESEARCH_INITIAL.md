@@ -231,3 +231,88 @@ rather than:
 **one configurable CLP/kWh field**.
 
 This feature should be implemented after the core telemetry, normalization, historical database and reporting pipeline are stable.
+
+
+## 13. Automatic acquisition architecture
+
+The financial module should not normally require the user to type tariff rates manually.
+
+### Recommended acquisition strategy
+
+Use provider-specific **official-source adapters**.
+
+For the configured distributor/service, the adapter should:
+
+1. discover the distributor's official tariff archive/publication page;
+2. identify publications applicable to the user's tariff option, commune/network and date range;
+3. download the official source document;
+4. retain source metadata and a content hash;
+5. parse the applicable tariff table;
+6. normalize the tariff components into local SQL tables;
+7. run structural/consistency validation;
+8. store the parsed schedule as a new immutable version;
+9. mark corrections/retroactive publications as superseding earlier versions without deleting the earlier evidence.
+
+### Why distributor schedules should be preferred for calculation
+
+Official distributors publish final supply tariffs for their service territories.
+
+For example, Enel Distribución publishes a historical archive of 2026 supply-tariff PDFs by month, including retroactive July/August schedules and a September schedule. The tariff PDFs expose residential BT1 rows and rates by commune.
+
+This means the application can often consume the already-composed official end-user tariff instead of independently reconstructing the final rate from every CNE upstream regulatory component.
+
+CNE publications remain essential for:
+- tariff-option rules;
+- regulatory classifications;
+- index values;
+- effective dates;
+- validation/cross-checking;
+- cases where distributor schedules depend on a regulatory rule not self-contained in the distributor table.
+
+### Parsing technology
+
+Do not assume one retrieval format.
+
+An adapter may use:
+- official API/structured data where available;
+- downloadable spreadsheets/CSV if an official source offers them;
+- HTML tables;
+- deterministic PDF table extraction;
+- manual-import fallback.
+
+Avoid OCR for born-digital tariff PDFs unless no structured/text extraction path exists.
+
+### Parser safety
+
+Because official PDF/table layouts can change, every adapter needs:
+- expected headings/columns;
+- row-count/range checks;
+- numeric format validation;
+- unit validation;
+- effective-date validation;
+- duplicate/supersession detection;
+- failure-safe behavior.
+
+A parser failure must stop that tariff version from becoming authoritative.
+
+## 14. Additional bill charges
+
+SEC guidance confirms that electricity bills can include charges for services associated with distribution that are not simply energy supply. Examples include meter rental, connection/disconnection, verification, late-payment-related services and third-party service costs; such items must be identified/desegregated according to the applicable rules.
+
+Therefore full bill reconciliation requires a flexible actual-bill line model in addition to the tariff engine.
+
+The tariff engine should calculate predictable tariff/rule components.
+
+The actual-bill model should preserve any extra charge/credit exactly as it appears on the bill, with a free-text description and optional normalized category.
+
+## 15. Authority and traceability rule
+
+Each estimated bill should be reproducible from:
+- local Solar of Things/grid-import data;
+- utility meter observations where applicable;
+- the exact locally cached tariff schedule versions;
+- user service configuration;
+- the calculation-engine version.
+
+The report/detail view should expose the official tariff source used.
+
