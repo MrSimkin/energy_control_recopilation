@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly SolarOfThingsSessionManager _session;
     private readonly CommissioningProfileRepository _profiles;
     private readonly IServiceProvider _services;
+    private CancellationTokenSource? _syncCancellation;
     private bool _suppressLanguageSelection;
 
     public MainWindow(
