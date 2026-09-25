@@ -27,7 +27,10 @@ public sealed class ApiDiagnosticsStore
             ApiMessage = DiagnosticSanitizer.SanitizeText(entry.ApiMessage),
             RequestJson = DiagnosticSanitizer.SanitizeJson(entry.RequestJson),
             ResponseJson = DiagnosticSanitizer.SanitizeJson(entry.ResponseJson),
-            ExceptionMessage = DiagnosticSanitizer.SanitizeText(entry.ExceptionMessage)
+            RequestHeadersJson = DiagnosticSanitizer.SanitizeJson(entry.RequestHeadersJson),
+            ResponseHeadersJson = DiagnosticSanitizer.SanitizeJson(entry.ResponseHeadersJson),
+            ExceptionMessage = DiagnosticSanitizer.SanitizeText(entry.ExceptionMessage),
+            ExceptionStackTrace = DiagnosticSanitizer.SanitizeText(entry.ExceptionStackTrace)
         };
 
         var path = Path.Combine(
@@ -160,10 +163,27 @@ public sealed class ApiDiagnosticsStore
             sb.AppendLine($"API message: {entry.ApiMessage ?? "-"}");
             sb.AppendLine($"Elapsed ms: {entry.DurationMilliseconds}");
 
+            if (!string.IsNullOrWhiteSpace(entry.RequestHeadersJson))
+            {
+                sb.AppendLine("Sanitized request headers:");
+                sb.AppendLine(entry.RequestHeadersJson);
+            }
+
             if (!string.IsNullOrWhiteSpace(entry.RequestJson))
             {
                 sb.AppendLine("Sanitized request JSON:");
                 sb.AppendLine(entry.RequestJson);
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.ResponseHeadersJson))
+            {
+                sb.AppendLine("Sanitized response headers:");
+                sb.AppendLine(entry.ResponseHeadersJson);
+            }
+
+            if (entry.ResponseLengthBytes.HasValue)
+            {
+                sb.AppendLine($"Response bytes: {entry.ResponseLengthBytes.Value}");
             }
 
             if (!string.IsNullOrWhiteSpace(entry.ResponseJson))
@@ -177,6 +197,11 @@ public sealed class ApiDiagnosticsStore
             {
                 sb.AppendLine($"Exception: {entry.ExceptionType ?? "-"}");
                 sb.AppendLine($"Exception message: {entry.ExceptionMessage ?? "-"}");
+                if (!string.IsNullOrWhiteSpace(entry.ExceptionStackTrace))
+                {
+                    sb.AppendLine("Exception stack trace:");
+                    sb.AppendLine(entry.ExceptionStackTrace);
+                }
             }
         }
 
