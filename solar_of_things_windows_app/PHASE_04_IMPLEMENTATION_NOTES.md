@@ -65,11 +65,50 @@ the recommended inverter changes are currently applied.
 8. P40=60% is only a measured-response contingency for repeated oscillation, not a seasonal default.
 9. Midea 1.5 kW schedule is useful contextual load metadata but is not a control-integration requirement.
 
+## Installation-aware tranche implemented — 2026-09-25
+
+Implemented after the family-manual review:
+
+- SQLite schema v7 `installation_config_check` snapshot;
+- read-only `InstallationHealthService` using latest **local raw history**, with no extra Solar of Things request just to render the UI;
+- expected-state checks for:
+  - SBU source priority;
+  - PYL battery protocol;
+  - OSO solar-only charging priority;
+  - normal BMS communication;
+  - 10% absolute floor;
+  - 20% normal transfer-to-grid threshold;
+  - 50% return-to-battery/SBU threshold;
+  - 50% restart-after-low threshold;
+  - LBU house-first solar priority;
+  - grid connection/injection disabled;
+  - battery equalization disabled;
+- statuses persisted as:
+  - `CONFIG_CONFIRMED`;
+  - `CONFIG_DRIFT`;
+  - `CONFIG_UNRESOLVED`;
+- target normalizer advanced to `hpvinv02.v2`;
+- `acInputVoltage` normalized as `grid_voltage_v` so outage explanations require real grid-availability evidence rather than assuming zero import means outage;
+- latest-household operating-state classifier;
+- Home view now has a plain-language “Qué está pasando ahora” explanation;
+- Battery page is now a real local-data view rather than a placeholder;
+- Battery page distinguishes:
+  - current charge;
+  - estimated stored energy;
+  - estimated ordinary-use energy above the 20% normal grid-transfer reserve;
+  - remaining 20%→10% emergency outage reserve;
+  - 10% protected floor;
+  - charging / supplying house / resting;
+- Data & Updates page now shows a read-only inverter-configuration health summary;
+- all new household-facing labels/tooltips have Spanish-first older-family wording with English alternatives.
+
+The UI does not write inverter settings.
+
 ## Required Phase 4 next steps
 
-### A. Read-only configuration health
+### A. Read-only configuration health — IMPLEMENTED FOUNDATION
 
-Build a versioned installation-policy evaluator from available SiSeLi state fields.
+A versioned installation-policy evaluator now uses locally stored SiSeLi raw-history fields.
 
 Target expected state where evidence is available:
 - SBU source priority;
@@ -91,9 +130,9 @@ Output:
 
 Never write settings.
 
-### B. Battery page semantics
+### B. Battery page semantics — IMPLEMENTED FOUNDATION
 
-Before marking the Battery page complete:
+The first family-facing Battery page is now wired. Before marking it final:
 - show charge percentage in plain language;
 - show estimated stored energy;
 - show estimated ordinary-use energy before normal grid transfer;
@@ -102,9 +141,9 @@ Before marking the Battery page complete:
 - show charging / supplying house / resting in family language;
 - keep voltage/current details secondary.
 
-### C. Behavior classifier
+### C. Behavior classifier — LATEST-STATE FOUNDATION IMPLEMENTED
 
-Using actual timestamps:
+The latest-state classifier is implemented. Phase 5 must extend this over historical time ranges using actual timestamps:
 - battery-normal operation;
 - grid recovery 20→50%;
 - outage emergency reserve;
