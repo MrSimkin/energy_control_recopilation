@@ -1,7 +1,7 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
 Date: 2026-09-25
-Status: PHASE 1 COMPLETE — PHASE 3 IN PROGRESS / PHASE 4 INSTALLATION-AWARE NORMALIZATION IN PROGRESS
+Status: PHASE 1 COMPLETE — PHASE 3 IN PROGRESS / PHASE 4 NORMALIZATION + INSTALLATION CONTEXT IN PROGRESS
 
 This file is the canonical continuity note.
 
@@ -202,7 +202,7 @@ Canonical repo integration:
 
 Roadmap effect:
 - no phase renumbering;
-- Phase 4 is now installation-aware before generic analytics;
+- Phase 4 now separates protocol/device normalization from installation-specific contextual interpretation;
 - current configuration becomes a read-only behavior/compliance contract;
 - battery UI must distinguish stored energy, ordinary-use energy above 20%, emergency 20→10% reserve and protected 10% floor;
 - grid use while recovering from 20% toward 50% can be expected;
@@ -217,7 +217,7 @@ Important protected/unknown areas:
 - second AC output is observed enabled but its physical circuit mapping remains unknown;
 - grid profile/CT/BMS/protection writes remain outside application scope.
 
-The manual **does not invalidate Phase 3 raw history**. It improves interpretation. Versioned normalization can be rebuilt locally without another historical cloud download.
+The manual **does not invalidate or redefine Phase 3 raw history**. Inverter measurements keep their device/protocol meaning. The manual adds a separate contextual layer for expected behavior, reserve semantics and configuration comparison.
 
 Phase 4 work already underway before this manual remains useful, but battery semantics and behavior classification must follow the installation contract before the Battery page is finalized.
 
@@ -239,7 +239,7 @@ The next substantive target-PC validation should verify this combined Phase 4 tr
 
 ## Resume rule
 
-Resume with **Phase 3 raw-history ingestion continuing independently while Phase 4 installation-aware normalization advances**.
+Resume with **Phase 3 raw-history ingestion continuing independently while Phase 4 normalization and installation-context interpretation advance as separate layers**.
 
 Immediate development order:
 1. use `INSTALLATION_BEHAVIOR_CONTRACT.md` as the target-house interpretation authority;
