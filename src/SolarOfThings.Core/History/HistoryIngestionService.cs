@@ -379,8 +379,9 @@ public sealed class HistoryIngestionService
                         values.ValueKind == JsonValueKind.Array &&
                         i < values.GetArrayLength())
                     {
-                        missing = false;
-                        valueJson = values[i].GetRawText();
+                        var value = values[i];
+                        missing = value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+                        valueJson = missing ? null : value.GetRawText();
                     }
 
                     samples.Add(new HistorySample(
