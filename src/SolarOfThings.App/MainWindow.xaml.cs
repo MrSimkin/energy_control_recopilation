@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         _suppressLanguageSelection = false;
 
         CaptureStartModeSelector.SelectedValue = "auto";
+        AnalysisAggregationSelector.SelectedValue = "Day";
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
@@ -366,6 +367,16 @@ public partial class MainWindow : Window
         RefreshAnalysisView();
     }
 
+    private void AnalysisAggregationSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (IsInitialized)
+        {
+            RefreshAnalysisView();
+        }
+    }
+
     private void RefreshAnalysisView(bool initializeRange = false)
     {
         if (!IsInitialized || AnalysisContent is null)
@@ -441,6 +452,11 @@ public partial class MainWindow : Window
                     toWindow.End);
 
         RefreshAnalysisEnergySummary(energySummary);
+        RefreshAnalysisAggregationTable(
+            profile.DeviceId,
+            fromWindow.Start,
+            toWindow.End,
+            timeZone);
 
         var statistics =
             _services.GetRequiredService<HouseholdBehaviorStatisticsService>()
@@ -496,6 +512,39 @@ public partial class MainWindow : Window
         AnalysisUnknownTimeText.Text =
             FormatAnalysisHours(statistics.UncoveredGapMinutes);
         AnalysisStatusText.Text = string.Empty;
+    }
+
+    private void RefreshAnalysisAggregationTable(
+        string deviceId,
+        DateTimeOffset rangeStart,
+        DateTimeOffset rangeEnd,
+        string timeZoneId)
+    {
+        var period = GetSelectedAggregationPeriod();
+
+        var table =
+            _services.GetRequiredService<EnergyAggregationTableService>()
+                .Get(
+                    deviceId,
+                    rangeStart,
+                    rangeEnd,
+                    timeZoneId,
+                    period);
+
+        AnalysisAggregationGrid.ItemsSource = table.Rows;
+    }
+
+    private AggregationPeriod GetSelectedAggregationPeriod()
+    {
+        var raw =
+            AnalysisAggregationSelector.SelectedValue?.ToString();
+
+        return Enum.TryParse<AggregationPeriod>(
+            raw,
+            ignoreCase: true,
+            out var parsed)
+            ? parsed
+            : AggregationPeriod.Day;
     }
 
     private void RefreshAnalysisEnergySummary(EnergyRangeSummary summary)
@@ -588,6 +637,7 @@ public partial class MainWindow : Window
         AnalysisToDatePicker.SelectedDate = null;
         ResetAnalysisValues();
         ResetAnalysisEnergyValues();
+        AnalysisAggregationGrid.ItemsSource = null;
         AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
     }
 
