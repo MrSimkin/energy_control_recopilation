@@ -14,6 +14,8 @@ public sealed class SolarOfThingsSessionManager
     private const string RefreshExpiryKey = "solar.session.refresh-expiry";
     private const string TimeZoneKey = "solar.session.time-zone";
 
+    private static readonly TimeSpan RefreshLeadTime = TimeSpan.FromMinutes(5);
+
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private readonly SolarOfThingsApiClient _api;
     private readonly ISecretStore _secrets;
@@ -24,6 +26,7 @@ public sealed class SolarOfThingsSessionManager
     private string? _password;
     private string _timeZone = "America/Santiago";
     private bool _remember;
+    private DateTimeOffset? _tokensReceivedUtc;
 
     public SolarOfThingsSessionManager(
         SolarOfThingsApiClient api,
@@ -55,6 +58,7 @@ public sealed class SolarOfThingsSessionManager
             cancellationToken);
 
         _tokens = tokens;
+        _tokensReceivedUtc = DateTimeOffset.UtcNow;
         _account = account;
         _password = remember ? password : null;
         _timeZone = timeZone;
@@ -95,6 +99,7 @@ public sealed class SolarOfThingsSessionManager
             null,
             null,
             null);
+        _tokensReceivedUtc = DateTimeOffset.UtcNow;
 
         _account = null;
         _password = null;
@@ -187,6 +192,7 @@ public sealed class SolarOfThingsSessionManager
     public void ResetLocalSession(bool forgetRememberedCredentials)
     {
         _tokens = null;
+        _tokensReceivedUtc = null;
         _remember = false;
 
         if (forgetRememberedCredentials)
@@ -231,6 +237,7 @@ public sealed class SolarOfThingsSessionManager
             accessExpiry,
             refreshExpiry,
             null);
+        _tokensReceivedUtc = null;
 
         _remember = true;
 
@@ -264,7 +271,37 @@ public sealed class SolarOfThingsSessionManager
                 "No Solar of Things session is active. Connect first.");
         }
 
+        if (ShouldRefreshProactively(_tokens))
+        {
+            return await RefreshAsync(cancellationToken);
+        }
+
         return _tokens.AccessToken;
+    }
+
+    private bool ShouldRefreshProactively(SolarSessionTokens tokens)
+    {
+        if (string.IsNullOrWhiteSpace(tokens.RefreshToken))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(tokens.AccessExpiresAt) &&
+            DateTimeOffset.TryParse(tokens.AccessExpiresAt, out var expiresAt))
+        {
+            return DateTimeOffset.UtcNow >= expiresAt.ToUniversalTime() - RefreshLeadTime;
+        }
+
+        if (tokens.AccessExpiresInMilliseconds is > 0 &&
+            _tokensReceivedUtc.HasValue)
+        {
+            var relativeExpiry = _tokensReceivedUtc.Value +
+                                 TimeSpan.FromMilliseconds(tokens.AccessExpiresInMilliseconds.Value);
+
+            return DateTimeOffset.UtcNow >= relativeExpiry - RefreshLeadTime;
+        }
+
+        return false;
     }
 
     private async Task<string> RefreshAsync(CancellationToken cancellationToken)
@@ -289,6 +326,13 @@ public sealed class SolarOfThingsSessionManager
                     cancellationToken);
 
                 _tokens = refreshed;
+                _tokensReceivedUtc = DateTimeOffset.UtcNow;
+
+                _diagnostics.RecordLocal(
+                    "Session",
+                    "ProactiveOrReactiveRefreshComplete",
+                    "SUCCESS",
+                    "Access/refresh token pair rotated successfully.");
 
                 if (_remember)
                 {
