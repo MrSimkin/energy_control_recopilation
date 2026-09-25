@@ -93,14 +93,14 @@
     <sys:String x:Key="UpdateDialog.Message">Conecte y ejecute el commissioning de Solar of Things antes de sincronizar datos.</sys:String>
     <sys:String x:Key="UpdateDialog.Phase3Message">La conexión y el perfil del dispositivo están disponibles. La sincronización histórica completa comienza en la Fase 3.</sys:String>
 
-    <sys:String x:Key="Status.SessionReady">Sesión verificada; commissioning pendiente</sys:String>
+    <sys:String x:Key="Status.SessionReady">Cuenta conectada; falta terminar la configuración</sys:String>
     <sys:String x:Key="Status.SessionStoredUnverified">Cuenta recordada; se comprobará al actualizar</sys:String>
     <sys:String x:Key="Status.LoginRequired">Equipo recordado; falta iniciar sesión</sys:String>
     <sys:String x:Key="Status.Commissioned">Equipo conectado</sys:String>
     <sys:String x:Key="Commissioning.ConnectButton">Conectar Solar of Things</sys:String>
-    <sys:String x:Key="Commissioning.Title">Conexión y commissioning — Solar of Things</sys:String>
-    <sys:String x:Key="Commissioning.Heading">Conexión segura y descubrimiento del equipo</sys:String>
-    <sys:String x:Key="Commissioning.Intro">Todo este proceso ocurre localmente y sólo usa operaciones de lectura. Contraseñas, tokens y secretos no aparecen en los informes diagnósticos.</sys:String>
+    <sys:String x:Key="Commissioning.Title">Conectar el sistema solar — Solar of Things</sys:String>
+    <sys:String x:Key="Commissioning.Heading">Conectar su sistema solar</sys:String>
+    <sys:String x:Key="Commissioning.Intro">La aplicación buscará su estación y su inversor sin cambiar ninguna configuración del equipo. La contraseña queda protegida en este computador.</sys:String>
     <sys:String x:Key="Commissioning.Account">Cuenta Solar of Things</sys:String>
     <sys:String x:Key="Commissioning.Password">Contraseña</sys:String>
     <sys:String x:Key="Commissioning.Remember">Recordar sesión y credenciales en este usuario de Windows (DPAPI)</sys:String>
@@ -118,9 +118,9 @@
     <sys:String x:Key="Commissioning.UseDefaultProtocolCredential">Usar perfil de producción</sys:String>
     <sys:String x:Key="Commissioning.ProtocolDefaultActive">Perfil de producción activo</sys:String>
     <sys:String x:Key="Commissioning.ProtocolOverrideActive">Override local activo</sys:String>
-    <sys:String x:Key="Commissioning.ConnectDiscover">Conectar y descubrir</sys:String>
-    <sys:String x:Key="Commissioning.Run">Ejecutar commissioning</sys:String>
-    <sys:String x:Key="Commissioning.Progress">Progreso / evidencia</sys:String>
+    <sys:String x:Key="Commissioning.ConnectDiscover">Conectar y buscar equipo</sys:String>
+    <sys:String x:Key="Commissioning.Run">Terminar configuración</sys:String>
+    <sys:String x:Key="Commissioning.Progress">Progreso</sys:String>
     <sys:String x:Key="Commissioning.Result">Resultado</sys:String>
     <sys:String x:Key="Commissioning.ServerLogout">Cerrar sesión en Solar of Things</sys:String>
     <sys:String x:Key="Commissioning.ForgetSession">Olvidar sesión local</sys:String>
