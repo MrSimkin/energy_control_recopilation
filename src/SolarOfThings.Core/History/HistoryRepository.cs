@@ -434,18 +434,46 @@ public sealed class HistoryRepository
             }
         }
 
-        using var sampleCommand = connection.CreateCommand();
-        sampleCommand.CommandText = """
-            SELECT COUNT(*)
-            FROM history_sample
-            WHERE device_id = $deviceId;
-            """;
-        sampleCommand.Parameters.AddWithValue("$deviceId", deviceId);
-        var rawSamples = Convert.ToInt32(sampleCommand.ExecuteScalar());
+        DateTimeOffset? firstSampleAtUtc = null;
+        DateTimeOffset? lastSampleAtUtc = null;
+        var rawSamples = 0;
+
+        using (var sampleCommand = connection.CreateCommand())
+        {
+            sampleCommand.CommandText = """
+                SELECT
+                    MIN(recorded_at_utc),
+                    MAX(recorded_at_utc),
+                    COUNT(*)
+                FROM history_sample
+                WHERE device_id = $deviceId;
+                """;
+            sampleCommand.Parameters.AddWithValue("$deviceId", deviceId);
+
+            using var sampleReader = sampleCommand.ExecuteReader();
+            if (sampleReader.Read())
+            {
+                if (!sampleReader.IsDBNull(0) &&
+                    DateTimeOffset.TryParse(sampleReader.GetString(0), out var parsedFirstSample))
+                {
+                    firstSampleAtUtc = parsedFirstSample;
+                }
+
+                if (!sampleReader.IsDBNull(1) &&
+                    DateTimeOffset.TryParse(sampleReader.GetString(1), out var parsedLastSample))
+                {
+                    lastSampleAtUtc = parsedLastSample;
+                }
+
+                rawSamples = sampleReader.IsDBNull(2) ? 0 : sampleReader.GetInt32(2);
+            }
+        }
 
         return new HistoryCoverageSummary(
             firstDate,
             lastDate,
+            firstSampleAtUtc,
+            lastSampleAtUtc,
             complete,
             empty,
             partial,
