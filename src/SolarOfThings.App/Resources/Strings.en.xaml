@@ -75,6 +75,8 @@
     <sys:String x:Key="Analysis.ChartIntro">Compare solar, home use and grid use. Use the mouse wheel to zoom and drag the chart to move around.</sys:String>
     <sys:String x:Key="Analysis.ChartReset">Reset view</sys:String>
     <sys:String x:Key="Tooltip.AnalysisChartReset">Shows the full selected period again after zooming or moving a chart.</sys:String>
+    <sys:String x:Key="Analysis.Chart.Show">Show on chart</sys:String>
+    <sys:String x:Key="Analysis.Chart.NoneSelected">Select at least one option to display the chart.</sys:String>
     <sys:String x:Key="Analysis.Chart.Solar">Solar</sys:String>
     <sys:String x:Key="Analysis.Chart.House">Home</sys:String>
     <sys:String x:Key="Analysis.Chart.Grid">Electric grid</sys:String>
