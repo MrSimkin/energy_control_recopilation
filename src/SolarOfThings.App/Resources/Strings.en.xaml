@@ -85,6 +85,9 @@
     <sys:String x:Key="Analysis.BatteryChart.Average">Average</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.End">At end</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.NoData">There are not enough battery readings for this period.</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.Floor">Protected minimum: {0:N0}%</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.GridTransfer">Normal switch to grid: {0:N0}%</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.Return">Normal return to solar/battery: {0:N0}%</sys:String>
     <sys:String x:Key="Analysis.DetailHeading">Period detail</sys:String>
     <sys:String x:Key="Analysis.DetailIntro">Group the information to compare hours, days, weeks, months or years.</sys:String>
     <sys:String x:Key="Analysis.AggregateBy">Group by</sys:String>
