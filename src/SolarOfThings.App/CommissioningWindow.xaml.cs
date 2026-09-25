@@ -36,6 +36,7 @@ public partial class CommissioningWindow : Window
 
         AccountTextBox.Text = _session.Account ?? string.Empty;
         UpdateProtocolCredentialStatus();
+        UpdateSessionActionState();
     }
 
     private async void ConnectDiscover_Click(object sender, RoutedEventArgs e)
@@ -66,6 +67,7 @@ public partial class CommissioningWindow : Window
                     timeZone);
 
                 AddProgress("Authenticate", "PASS", "Autenticación completada.");
+                UpdateSessionActionState();
             }
 
             var progress = new Progress<CommissioningProgress>(
@@ -284,6 +286,7 @@ public partial class CommissioningWindow : Window
         RefreshTokenInput.Password = string.Empty;
 
         AddProgress("Session", "PASS", "Par de tokens cargado localmente.");
+        UpdateSessionActionState();
     }
 
     private void CopyReport_Click(object sender, RoutedEventArgs e)
@@ -299,10 +302,33 @@ public partial class CommissioningWindow : Window
         window.ShowDialog();
     }
 
+    private async void ServerLogout_Click(object sender, RoutedEventArgs e)
+    {
+        SetBusy(true);
+
+        try
+        {
+            var serverLogoutSucceeded = await _session.LogoutFromServerAsync();
+
+            AddProgress(
+                "Session",
+                serverLogoutSucceeded ? "PASS" : "WARN",
+                serverLogoutSucceeded
+                    ? "Sesión cerrada en Solar of Things y credenciales locales eliminadas."
+                    : "No se confirmó el logout del servidor; la sesión local fue eliminada de todas formas.");
+        }
+        finally
+        {
+            UpdateSessionActionState();
+            SetBusy(false);
+        }
+    }
+
     private void ForgetSession_Click(object sender, RoutedEventArgs e)
     {
         _session.ResetLocalSession(forgetRememberedCredentials: true);
         AddProgress("Session", "PASS", "Sesión local y credenciales recordadas eliminadas.");
+        UpdateSessionActionState();
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
@@ -329,6 +355,12 @@ public partial class CommissioningWindow : Window
         CommissionButton.IsEnabled = !busy &&
                                      _selectedStation is not null &&
                                      DeviceComboBox.SelectedItem is not null;
+        ServerLogoutButton.IsEnabled = !busy && _session.CanServerLogout;
+    }
+
+    private void UpdateSessionActionState()
+    {
+        ServerLogoutButton.IsEnabled = _session.CanServerLogout;
     }
 
     private void UpdateProtocolCredentialStatus()
