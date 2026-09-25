@@ -466,6 +466,25 @@ public partial class MainWindow : Window
 
         try
         {
+            try
+            {
+                var snapshot =
+                    _services.GetRequiredService<CurrentStateSnapshotService>();
+                if (await snapshot.RefreshAsync(
+                        profile,
+                        _syncCancellation.Token))
+                {
+                    EvaluateInstallationHealth(profile);
+                }
+            }
+            catch (Exception snapshotError)
+            {
+                HistorySyncProgressText.Text +=
+                    _localization.CurrentLanguage == "es"
+                        ? $"\nNo se pudo actualizar el contexto actual: {snapshotError.Message}"
+                        : $"\nCurrent context could not be refreshed: {snapshotError.Message}";
+            }
+
             var result = await ingestion.SyncAsync(
                 profile,
                 history.GetSampleCount(profile.DeviceId) == 0,
