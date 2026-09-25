@@ -124,3 +124,26 @@ It should verify in one run:
 Use the existing sanitized diagnostics plus the SQLite corpus/sync audit as development evidence.
 
 Do not begin normalization/aggregation assumptions until the raw target-device corpus is proven.
+
+
+## Backfill safety / user escape controls
+
+The first real multi-month backfill must never depend on an unbounded loop or force the user to kill the process.
+
+Implemented safety rules:
+
+- visible progress bar during historical synchronization;
+- explicit **Stop / Detener** control;
+- cooperative cancellation through the ingestion cancellation token;
+- already committed raw pages/samples remain in SQLite when stopped;
+- a later Update Data resumes from the existing corpus and retries partial historical days rather than discarding prior work;
+- minimum application-level request spacing: 500 ms;
+- hard per-sync history request budget: 750 requests;
+- HTTP 429 immediately stops history synchronization and is not automatically retried by the HTTP client;
+- unresolved HTTP 401/403 stops history synchronization;
+- repeated server-side 5xx responses trip a bounded circuit breaker;
+- three consecutive PARTIAL historical days trip a safety stop;
+- each endpoint also has a finite per-day page cap;
+- all safety stops are recorded in diagnostics/sync audit.
+
+These limits are intentionally conservative for the personal Solar of Things / SiSeLi account. The goal is complete recoverable data, not maximum request throughput.
