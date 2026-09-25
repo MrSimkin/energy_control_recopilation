@@ -267,12 +267,18 @@ public sealed class SolarOfThingsApiClient : IDisposable
 
                 var parsed = ParseResponse((int)response.StatusCode, raw);
 
-                var requestHeaders = request.Headers
-                    .Concat(request.Content?.Headers ?? [])
-                    .ToDictionary(
-                        header => header.Key,
-                        header => string.Join(",", header.Value),
-                        StringComparer.OrdinalIgnoreCase);
+                IEnumerable<KeyValuePair<string, IEnumerable<string>>> requestHeaderPairs =
+                    request.Headers;
+
+                if (request.Content is not null)
+                {
+                    requestHeaderPairs = requestHeaderPairs.Concat(request.Content.Headers);
+                }
+
+                var requestHeaders = requestHeaderPairs.ToDictionary(
+                    header => header.Key,
+                    header => string.Join(",", header.Value),
+                    StringComparer.OrdinalIgnoreCase);
 
                 var responseHeaders = response.Headers
                     .Concat(response.Content.Headers)
