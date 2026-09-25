@@ -384,7 +384,9 @@ public partial class MainWindow : Window
 
         if (!metrics.TryGetValue("battery_soc_pct", out var soc))
         {
-            ResetBatteryView(keepCapacity: true);
+            ResetBatteryView(
+                keepCapacity: true,
+                keepTechnical: true);
             return;
         }
 
@@ -482,13 +484,19 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ResetBatteryView(bool keepCapacity = false)
+    private void ResetBatteryView(
+        bool keepCapacity = false,
+        bool keepTechnical = false)
     {
         BatteryPageChargeText.Text = "— %";
-        BatteryVoltageTechnicalText.Text = "— V";
-        BatteryChargeCurrentTechnicalText.Text = "— A";
-        BatteryDischargeCurrentTechnicalText.Text = "— A";
-        BatteryPowerTechnicalText.Text = "— kW";
+
+        if (!keepTechnical)
+        {
+            BatteryVoltageTechnicalText.Text = "— V";
+            BatteryChargeCurrentTechnicalText.Text = "— A";
+            BatteryDischargeCurrentTechnicalText.Text = "— A";
+            BatteryPowerTechnicalText.Text = "— kW";
+        }
         BatteryStoredEnergyText.Text = "— kWh";
         BatteryOrdinaryEnergyText.Text = "— kWh";
         BatteryEmergencyEnergyText.Text = "— kWh";
