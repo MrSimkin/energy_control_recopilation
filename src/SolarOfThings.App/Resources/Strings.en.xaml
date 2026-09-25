@@ -144,6 +144,16 @@
     <sys:String x:Key="Battery.Unknown">Not enough information</sys:String>
     <sys:String x:Key="Battery.ConfiguredCapacity">Capacity used for this estimate</sys:String>
     <sys:String x:Key="Battery.LastReading">Latest reading</sys:String>
+    <sys:String x:Key="Battery.TechnicalHeading">Technical information</sys:String>
+    <sys:String x:Key="Battery.TechnicalIntro">Inverter details for technical review. They are not needed for normal use of the app.</sys:String>
+    <sys:String x:Key="Battery.Voltage">Battery voltage</sys:String>
+    <sys:String x:Key="Battery.ChargeCurrent">Charging current</sys:String>
+    <sys:String x:Key="Battery.DischargeCurrent">Discharge current</sys:String>
+    <sys:String x:Key="Battery.Power">Battery power</sys:String>
+    <sys:String x:Key="Tooltip.BatteryVoltage">Measured battery voltage reported by the inverter.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryChargeCurrent">Measured charging current. It indicates how much current was entering the battery in that reading.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryDischargeCurrent">Measured discharge current. It indicates how much current was leaving the battery in that reading.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryPowerTechnical">Power estimate derived from voltage and charge/discharge currents. Positive means battery supply; negative means charging.</sys:String>
     <sys:String x:Key="Battery.OrdinaryReserveNote">The home normally changes to grid power near 20%.</sys:String>
     <sys:String x:Key="Battery.EmergencyReserveNote">The 20% to 10% band is kept for grid outages.</sys:String>
     <sys:String x:Key="Tooltip.BatteryRemaining">An estimate of the energy left in the battery. It is calculated from charge percentage and configured usable capacity; it is not a separate measurement.</sys:String>
