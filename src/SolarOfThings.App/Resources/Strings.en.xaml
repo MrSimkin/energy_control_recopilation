@@ -214,6 +214,14 @@
     <sys:String x:Key="Confidence.Unresolved">Unresolved</sys:String>
     <sys:String x:Key="Metric.LocalNormalized">Normalized local data</sys:String>
     <sys:String x:Key="Dashboard.EnergyOverview">Energy Overview</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayHeading">Latest saved day summary</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayDate">Date: {0}</sys:String>
+    <sys:String x:Key="Dashboard.LatestDaySolar">Solar produced</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayHouse">Used by the home</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayGrid">Taken from the grid</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayCoverage">Minimum coverage</sys:String>
+    <sys:String x:Key="Dashboard.LatestDayNoData">There is not yet enough saved data for a daily summary.</sys:String>
+    <sys:String x:Key="Tooltip.DashboardLatestDay">This summary uses the latest day that exists in saved data, even if it is an older date. Long gaps are never filled in.</sys:String>
     <sys:String x:Key="Dashboard.ChartArea">Interactive chart area</sys:String>
     <sys:String x:Key="Dashboard.ChartPending">Charting is added after real telemetry and normalization are proven.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">System Status</sys:String>
