@@ -51,6 +51,25 @@
     <sys:String x:Key="Page.Data.Title">Data</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Local data, synchronization and historical coverage</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">Local historical synchronization is now active through Update Data. Analysis will be built on this validated corpus.</sys:String>
+    <sys:String x:Key="Data.CoverageHeading">What information is saved</sys:String>
+    <sys:String x:Key="Data.CoverageIntro">This page shows how far the information stored on this computer currently reaches.</sys:String>
+    <sys:String x:Key="Data.StoredFrom">Data saved from</sys:String>
+    <sys:String x:Key="Data.StoredTo">Data saved through</sys:String>
+    <sys:String x:Key="Data.DaysReviewed">Days checked</sys:String>
+    <sys:String x:Key="Data.DaysWithIssues">Days with download problems</sys:String>
+    <sys:String x:Key="Data.InstallationDate">Equipment installed</sys:String>
+    <sys:String x:Key="Data.NextDownload">Next download will start from</sys:String>
+    <sys:String x:Key="Data.EmptyDays">Days when Solar of Things returned no readings</sys:String>
+    <sys:String x:Key="Data.PartialDays">Days that still need another try</sys:String>
+    <sys:String x:Key="Data.UnavailableDays">Days automatic downloads will no longer retry</sys:String>
+    <sys:String x:Key="Data.SavedReadings">Saved readings</sys:String>
+    <sys:String x:Key="Data.ReadyReadings">Readings ready to display</sys:String>
+    <sys:String x:Key="Data.None">No data yet</sys:String>
+    <sys:String x:Key="Tooltip.DataDaysReviewed">Includes days downloaded successfully and days when Solar of Things responded successfully but had no readings.</sys:String>
+    <sys:String x:Key="Tooltip.DataIssues">These are days whose download did not finish correctly. The app retries them only a limited number of times.</sys:String>
+    <sys:String x:Key="Tooltip.EmptyDays">This is not an error: Solar of Things responded successfully but returned no readings for that day.</sys:String>
+    <sys:String x:Key="Tooltip.UnavailableDays">After repeated failures the app stops retrying automatically to avoid repeated requests. You can deliberately recheck those dates later.</sys:String>
+
     <sys:String x:Key="Page.Diagnostics.Title">Technical help</sys:String>
     <sys:String x:Key="Page.Diagnostics.Subtitle">Technical diagnostics and internal application state</sys:String>
     <sys:String x:Key="Page.Diagnostics.Placeholder">Current diagnostics are written locally; this view will grow as real integrations are added.</sys:String>
