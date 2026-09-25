@@ -138,80 +138,6 @@ public sealed class HistoryIngestionService
                 ];
             }
 
-            if (fullBackfill && firstSyncDate < today)
-            {
-                var validationDay = today.AddDays(-1);
-                progress?.Report(new(
-                    "CrossSourceValidation",
-                    validationDay,
-                    0,
-                    totalDays,
-                    0,
-                    0,
-                    "Comparando selected-key y record/list en un día reciente completo..."));
-
-                try
-                {
-                    var selectedValidation = await FetchSelectedKeyDayAsync(
-                        profile.DeviceId,
-                        validationDay,
-                        timeZone,
-                        keys,
-                        safety,
-                        cancellationToken);
-
-                    var recordValidation = await FetchRecordListDayAsync(
-                        profile.DeviceId,
-                        validationDay,
-                        timeZone,
-                        safety,
-                        cancellationToken);
-
-                    _diagnostics.RecordLocal(
-                        "HistorySync",
-                        "CrossSourceValidation",
-                        selectedValidation.Complete && recordValidation.Complete
-                            ? "SUCCESS"
-                            : "PARTIAL",
-                        "Compared both raw-history representations on a recent complete local day.",
-                        JsonSerializer.Serialize(new
-                        {
-                            localDate = validationDay.ToString("yyyy-MM-dd"),
-                            selectedKey = new
-                            {
-                                selectedValidation.Complete,
-                                selectedValidation.FrameCount,
-                                selectedValidation.SamplesUpserted,
-                                selectedValidation.Pages,
-                                selectedValidation.MedianGapSeconds,
-                                selectedValidation.P90GapSeconds,
-                                selectedValidation.MaxGapSeconds,
-                                selectedValidation.Error
-                            },
-                            recordList = new
-                            {
-                                recordValidation.Complete,
-                                recordValidation.FrameCount,
-                                recordValidation.SamplesUpserted,
-                                recordValidation.Pages,
-                                recordValidation.MedianGapSeconds,
-                                recordValidation.P90GapSeconds,
-                                recordValidation.MaxGapSeconds,
-                                recordValidation.Error
-                            },
-                            frameDelta = selectedValidation.FrameCount - recordValidation.FrameCount
-                        }));
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _diagnostics.RecordLocal(
-                        "HistorySync",
-                        "CrossSourceValidation",
-                        "WARN",
-                        $"Cross-source validation could not complete; full backfill will continue. {ex.Message}");
-                }
-            }
-
             foreach (var day in orderedSyncDates)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -321,6 +247,80 @@ public sealed class HistoryIngestionService
                 if (daysAttempted < totalDays)
                 {
                     await Task.Delay(100, cancellationToken);
+                }
+            }
+
+            if (fullBackfill && firstSyncDate < today)
+            {
+                var validationDay = today.AddDays(-1);
+                progress?.Report(new(
+                    "CrossSourceValidation",
+                    validationDay,
+                    0,
+                    totalDays,
+                    0,
+                    0,
+                    "Comparando selected-key y record/list en un día reciente completo..."));
+
+                try
+                {
+                    var selectedValidation = await FetchSelectedKeyDayAsync(
+                        profile.DeviceId,
+                        validationDay,
+                        timeZone,
+                        keys,
+                        safety,
+                        cancellationToken);
+
+                    var recordValidation = await FetchRecordListDayAsync(
+                        profile.DeviceId,
+                        validationDay,
+                        timeZone,
+                        safety,
+                        cancellationToken);
+
+                    _diagnostics.RecordLocal(
+                        "HistorySync",
+                        "CrossSourceValidation",
+                        selectedValidation.Complete && recordValidation.Complete
+                            ? "SUCCESS"
+                            : "PARTIAL",
+                        "Compared both raw-history representations on a recent complete local day.",
+                        JsonSerializer.Serialize(new
+                        {
+                            localDate = validationDay.ToString("yyyy-MM-dd"),
+                            selectedKey = new
+                            {
+                                selectedValidation.Complete,
+                                selectedValidation.FrameCount,
+                                selectedValidation.SamplesUpserted,
+                                selectedValidation.Pages,
+                                selectedValidation.MedianGapSeconds,
+                                selectedValidation.P90GapSeconds,
+                                selectedValidation.MaxGapSeconds,
+                                selectedValidation.Error
+                            },
+                            recordList = new
+                            {
+                                recordValidation.Complete,
+                                recordValidation.FrameCount,
+                                recordValidation.SamplesUpserted,
+                                recordValidation.Pages,
+                                recordValidation.MedianGapSeconds,
+                                recordValidation.P90GapSeconds,
+                                recordValidation.MaxGapSeconds,
+                                recordValidation.Error
+                            },
+                            frameDelta = selectedValidation.FrameCount - recordValidation.FrameCount
+                        }));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _diagnostics.RecordLocal(
+                        "HistorySync",
+                        "CrossSourceValidation",
+                        "WARN",
+                        $"Cross-source validation could not complete; full backfill will continue. {ex.Message}");
                 }
             }
 
