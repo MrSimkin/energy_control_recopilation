@@ -197,17 +197,76 @@
                                                        Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Border>
-                                    <Grid Height="245">
-                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="{DynamicResource Dashboard.ChartArea}" FontSize="18" Foreground="#6C757D" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="{DynamicResource Dashboard.ChartPending}"
-                                                       Margin="0,8,0,0"
-                                                       Foreground="#ADB5BD"
-                                                       TextWrapping="Wrap"
-                                                       TextAlignment="Center"
-                                                       MaxWidth="430"/>
-                                        </StackPanel>
-                                    </Grid>
+                                    <StackPanel Margin="16"
+                                                ToolTip="{DynamicResource Tooltip.DashboardLatestDay}">
+                                        <TextBlock Text="{DynamicResource Dashboard.LatestDayHeading}"
+                                                   FontSize="17"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#343A40"/>
+                                        <TextBlock x:Name="DashboardLatestDayDateText"
+                                                   Text="{DynamicResource Dashboard.LatestDayNoData}"
+                                                   FontSize="12"
+                                                   Foreground="#6C757D"
+                                                   Margin="0,4,0,12"
+                                                   TextWrapping="Wrap"/>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                                <TextBlock Text="{DynamicResource Dashboard.LatestDaySolar}"
+                                                           FontSize="12"
+                                                           Foreground="#6C757D"
+                                                           TextWrapping="Wrap"/>
+                                                <TextBlock x:Name="DashboardLatestDaySolarText"
+                                                           Text="— kWh"
+                                                           FontSize="20"
+                                                           FontWeight="Bold"
+                                                           Margin="0,5,0,0"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                                <TextBlock Text="{DynamicResource Dashboard.LatestDayHouse}"
+                                                           FontSize="12"
+                                                           Foreground="#6C757D"
+                                                           TextWrapping="Wrap"/>
+                                                <TextBlock x:Name="DashboardLatestDayHouseText"
+                                                           Text="— kWh"
+                                                           FontSize="20"
+                                                           FontWeight="Bold"
+                                                           Margin="0,5,0,0"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                                                <TextBlock Text="{DynamicResource Dashboard.LatestDayGrid}"
+                                                           FontSize="12"
+                                                           Foreground="#6C757D"
+                                                           TextWrapping="Wrap"/>
+                                                <TextBlock x:Name="DashboardLatestDayGridText"
+                                                           Text="— kWh"
+                                                           FontSize="20"
+                                                           FontWeight="Bold"
+                                                           Margin="0,5,0,0"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="3">
+                                                <TextBlock Text="{DynamicResource Dashboard.LatestDayCoverage}"
+                                                           FontSize="12"
+                                                           Foreground="#6C757D"
+                                                           TextWrapping="Wrap"/>
+                                                <TextBlock x:Name="DashboardLatestDayCoverageText"
+                                                           Text="— %"
+                                                           FontSize="20"
+                                                           FontWeight="Bold"
+                                                           Margin="0,5,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 
