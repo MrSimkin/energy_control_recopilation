@@ -62,12 +62,49 @@
     <sys:String x:Key="Status.Never">Nunca</sys:String>
     <sys:String x:Key="Status.Phase">Fase</sys:String>
     <sys:String x:Key="Status.Phase1">1 — Esqueleto técnico</sys:String>
+    <sys:String x:Key="Status.Phase2">2 — Conexión y commissioning</sys:String>
     <sys:String x:Key="Status.Database">Base de datos:</sys:String>
     <sys:String x:Key="Status.SpecFrozen">Especificación v1 + cambio de idioma 2026-09-25</sys:String>
 
     <sys:String x:Key="Placeholder.Heading">Sección preparada</sys:String>
-    <sys:String x:Key="Placeholder.NoFakeData">No se muestran datos de energía inventados durante la Fase 1.</sys:String>
+    <sys:String x:Key="Placeholder.NoFakeData">No se muestran datos de energía inventados. Las capacidades reales se descubren desde su cuenta/dispositivo.</sys:String>
 
     <sys:String x:Key="UpdateDialog.Title">Actualizar datos</sys:String>
-    <sys:String x:Key="UpdateDialog.Message">La sincronización con Solar of Things se incorpora en la Fase 2.&#10;&#10;La base de datos local y el esqueleto de la aplicación están activos.</sys:String>
+    <sys:String x:Key="UpdateDialog.Message">Conecte y ejecute el commissioning de Solar of Things antes de sincronizar datos.</sys:String>
+    <sys:String x:Key="UpdateDialog.Phase3Message">La conexión y el perfil del dispositivo están disponibles. La sincronización histórica completa comienza en la Fase 3.</sys:String>
+
+    <sys:String x:Key="Status.SessionReady">Sesión disponible; commissioning pendiente</sys:String>
+    <sys:String x:Key="Status.Commissioned">Commissioning completado</sys:String>
+    <sys:String x:Key="Commissioning.ConnectButton">Conectar Solar of Things</sys:String>
+    <sys:String x:Key="Commissioning.Title">Conexión y commissioning — Solar of Things</sys:String>
+    <sys:String x:Key="Commissioning.Heading">Conexión segura y descubrimiento del equipo</sys:String>
+    <sys:String x:Key="Commissioning.Intro">Todo este proceso ocurre localmente y sólo usa operaciones de lectura. Contraseñas, tokens y secretos no aparecen en los informes diagnósticos.</sys:String>
+    <sys:String x:Key="Commissioning.Account">Cuenta Solar of Things</sys:String>
+    <sys:String x:Key="Commissioning.Password">Contraseña</sys:String>
+    <sys:String x:Key="Commissioning.Remember">Recordar sesión y credenciales en este usuario de Windows (DPAPI)</sys:String>
+    <sys:String x:Key="Commissioning.TimeZone">Zona horaria IANA</sys:String>
+    <sys:String x:Key="Commissioning.SessionBootstrap">Alternativa avanzada: sesión existente</sys:String>
+    <sys:String x:Key="Commissioning.SessionBootstrapHint">Puede usar un access token/refresh token obtenidos localmente. Nunca se incluirán en el diagnóstico exportado.</sys:String>
+    <sys:String x:Key="Commissioning.AccessToken">Access token</sys:String>
+    <sys:String x:Key="Commissioning.RefreshToken">Refresh token</sys:String>
+    <sys:String x:Key="Commissioning.UseTokens">Usar par de tokens</sys:String>
+    <sys:String x:Key="Commissioning.ProtocolCredential">Avanzado — credencial del cliente IoT Open</sys:String>
+    <sys:String x:Key="Commissioning.ProtocolCredentialHint">El login cuenta/contraseña requiere material de cliente IoT Open. No se guarda en GitHub: se almacena sólo en Windows DPAPI. También puede importarse desde variables de entorno locales.</sys:String>
+    <sys:String x:Key="Commissioning.EncryptedSecret">Secret cifrado del cliente</sys:String>
+    <sys:String x:Key="Commissioning.SaveProtocolCredential">Guardar localmente</sys:String>
+    <sys:String x:Key="Commissioning.ImportEnvironment">Importar desde entorno</sys:String>
+    <sys:String x:Key="Commissioning.ConnectDiscover">Conectar y descubrir</sys:String>
+    <sys:String x:Key="Commissioning.Run">Ejecutar commissioning</sys:String>
+    <sys:String x:Key="Commissioning.Progress">Progreso / evidencia</sys:String>
+    <sys:String x:Key="Commissioning.Result">Resultado</sys:String>
+    <sys:String x:Key="Commissioning.ForgetSession">Olvidar sesión local</sys:String>
+    <sys:String x:Key="Diagnostics.Title">Diagnóstico de desarrollo sanitizado</sys:String>
+    <sys:String x:Key="Diagnostics.Heading">Diagnóstico técnico para desarrollo</sys:String>
+    <sys:String x:Key="Diagnostics.SecurityNotice">Este informe conserva evidencia técnica detallada, pero redacta automáticamente contraseñas, hashes de contraseña, tokens, cookies, secretos reutilizables y firmas.</sys:String>
+    <sys:String x:Key="Diagnostics.Refresh">Actualizar</sys:String>
+    <sys:String x:Key="Diagnostics.CopyReport">Copiar informe diagnóstico</sys:String>
+    <sys:String x:Key="Diagnostics.SaveReport">Guardar informe</sys:String>
+    <sys:String x:Key="Diagnostics.OpenLogs">Abrir carpeta Logs</sys:String>
+    <sys:String x:Key="Diagnostics.OpenWindow">Abrir diagnóstico técnico</sys:String>
+    <sys:String x:Key="Common.Close">Cerrar</sys:String>
 </ResourceDictionary>

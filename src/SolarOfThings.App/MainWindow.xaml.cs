@@ -1,8 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Microsoft.Extensions.DependencyInjection;
 using SolarOfThings.App.Localization;
+using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Infrastructure;
+using SolarOfThings.Core.SolarOfThings;
 
 namespace SolarOfThings.App;
 
@@ -12,12 +15,23 @@ public partial class MainWindow : Window
 
     private readonly AppPaths _paths;
     private readonly LocalizationService _localization;
+    private readonly SolarOfThingsSessionManager _session;
+    private readonly CommissioningProfileRepository _profiles;
+    private readonly IServiceProvider _services;
     private bool _suppressLanguageSelection;
 
-    public MainWindow(AppPaths paths, LocalizationService localization)
+    public MainWindow(
+        AppPaths paths,
+        LocalizationService localization,
+        SolarOfThingsSessionManager session,
+        CommissioningProfileRepository profiles,
+        IServiceProvider services)
     {
         _paths = paths;
         _localization = localization;
+        _session = session;
+        _profiles = profiles;
+        _services = services;
 
         InitializeComponent();
 
@@ -27,6 +41,7 @@ public partial class MainWindow : Window
         LanguageSelector.SelectedValue = _localization.CurrentLanguage;
         _suppressLanguageSelection = false;
 
+        RefreshConnectionStatus();
         ShowPage("Dashboard");
     }
 
@@ -79,6 +94,11 @@ public partial class MainWindow : Window
             PlaceholderTitle.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Title");
             PlaceholderDescription.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Placeholder");
         }
+
+        ConnectionToolsPanel.Visibility =
+            pageKey is "Settings" or "Diagnostics"
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -89,14 +109,67 @@ public partial class MainWindow : Window
         }
 
         _localization.SetLanguage(language);
+        RefreshConnectionStatus();
     }
 
     private void UpdateData_Click(object sender, RoutedEventArgs e)
     {
+        var profile = _profiles.Get();
+
+        if (profile is null)
+        {
+            OpenCommissioningWindow();
+            return;
+        }
+
         MessageBox.Show(
-            _localization.GetString("UpdateDialog.Message"),
+            _localization.GetString("UpdateDialog.Phase3Message"),
             _localization.GetString("UpdateDialog.Title"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+    }
+
+    private void ConnectSolar_Click(object sender, RoutedEventArgs e)
+    {
+        OpenCommissioningWindow();
+    }
+
+    private void OpenDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        var window = _services.GetRequiredService<DeveloperDiagnosticsWindow>();
+        window.Owner = this;
+        window.ShowDialog();
+    }
+
+    private void OpenCommissioningWindow()
+    {
+        var window = _services.GetRequiredService<CommissioningWindow>();
+        window.Owner = this;
+        window.ShowDialog();
+
+        RefreshConnectionStatus();
+    }
+
+    private void RefreshConnectionStatus()
+    {
+        var profile = _profiles.Get();
+
+        if (profile is not null)
+        {
+            SolarStatusText.Text =
+                $"{_localization.GetString("Status.Commissioned")}: {profile.DeviceName ?? profile.DeviceId}";
+            SolarStatusText.Foreground = Brushes.Green;
+            return;
+        }
+
+        if (_session.HasSession)
+        {
+            SolarStatusText.SetResourceReference(TextBlock.TextProperty, "Status.SessionReady");
+            SolarStatusText.Foreground = Brushes.DarkOrange;
+            return;
+        }
+
+        SolarStatusText.SetResourceReference(TextBlock.TextProperty, "Status.NotConnected");
+        SolarStatusText.Foreground = Brushes.Red;
     }
 }

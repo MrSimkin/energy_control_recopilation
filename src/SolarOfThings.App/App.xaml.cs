@@ -1,12 +1,16 @@
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SolarOfThings.App.Localization;
+using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Data;
 using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
+using SolarOfThings.Core.SolarOfThings;
 
 namespace SolarOfThings.App;
 
@@ -24,9 +28,17 @@ public partial class App : Application
         builder.Services.AddSingleton<SqliteDatabase>();
         builder.Services.AddSingleton<AppSettingsRepository>();
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
+        builder.Services.AddSingleton<ApiDiagnosticsStore>();
         builder.Services.AddSingleton<ISecretStore, DpapiFileSecretStore>();
+        builder.Services.AddSingleton<IotOpenCredentialStore>();
+        builder.Services.AddSingleton<SolarOfThingsApiClient>();
+        builder.Services.AddSingleton<SolarOfThingsSessionManager>();
+        builder.Services.AddSingleton<CommissioningProfileRepository>();
+        builder.Services.AddSingleton<CommissioningService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
+        builder.Services.AddTransient<CommissioningWindow>();
+        builder.Services.AddTransient<DeveloperDiagnosticsWindow>();
 
         _host = builder.Build();
 
@@ -38,6 +50,19 @@ public partial class App : Application
 
         var diagnostics = _host.Services.GetRequiredService<DiagnosticsFileWriter>();
         diagnostics.Write("Information", "ApplicationStarted", "Application infrastructure initialized.");
+
+        var apiDiagnostics = _host.Services.GetRequiredService<ApiDiagnosticsStore>();
+        apiDiagnostics.RecordLocal(
+            "Application",
+            "Startup",
+            "SUCCESS",
+            "Application started.",
+            JsonSerializer.Serialize(new
+            {
+                schemaVersion = database.GetSchemaVersion(),
+                os = RuntimeInformation.OSDescription,
+                architecture = RuntimeInformation.ProcessArchitecture.ToString()
+            }));
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();

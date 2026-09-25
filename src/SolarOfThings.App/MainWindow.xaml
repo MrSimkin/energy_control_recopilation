@@ -186,13 +186,18 @@
                                     </Border>
                                     <StackPanel Margin="16">
                                         <TextBlock Text="{DynamicResource Status.SolarOfThings}" Foreground="#6C757D"/>
-                                        <TextBlock Text="{DynamicResource Status.NotConnected}" FontWeight="SemiBold" Foreground="#DC3545" Margin="0,2,0,14"/>
+                                        <TextBlock x:Name="SolarStatusText" Text="{DynamicResource Status.NotConnected}" FontWeight="SemiBold" Foreground="#DC3545" Margin="0,2,0,6"/>
+                                        <Button Content="{DynamicResource Commissioning.ConnectButton}"
+                                                Padding="10,5"
+                                                Margin="0,0,0,14"
+                                                HorizontalAlignment="Left"
+                                                Click="ConnectSolar_Click"/>
                                         <TextBlock Text="{DynamicResource Status.LocalDatabase}" Foreground="#6C757D"/>
                                         <TextBlock Text="{DynamicResource Status.Ready}" FontWeight="SemiBold" Foreground="#28A745" Margin="0,2,0,14"/>
                                         <TextBlock Text="{DynamicResource Status.LastUpdate}" Foreground="#6C757D"/>
                                         <TextBlock x:Name="LastUpdatedText" Text="{DynamicResource Status.Never}" FontWeight="SemiBold" Foreground="#343A40" Margin="0,2,0,14"/>
                                         <TextBlock Text="{DynamicResource Status.Phase}" Foreground="#6C757D"/>
-                                        <TextBlock Text="{DynamicResource Status.Phase1}" FontWeight="SemiBold" Foreground="#343A40" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{DynamicResource Status.Phase2}" FontWeight="SemiBold" Foreground="#343A40" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -207,6 +212,19 @@
                             <TextBlock x:Name="PlaceholderTitle" FontSize="26" FontWeight="SemiBold" Foreground="#343A40" Margin="0,12,0,0" HorizontalAlignment="Center"/>
                             <TextBlock x:Name="PlaceholderDescription" FontSize="14" Foreground="#6C757D" Margin="0,12,0,0" TextWrapping="Wrap" TextAlignment="Center"/>
                             <TextBlock Text="{DynamicResource Placeholder.NoFakeData}" FontSize="12" Foreground="#ADB5BD" Margin="0,20,0,0" TextWrapping="Wrap" TextAlignment="Center"/>
+                            <StackPanel x:Name="ConnectionToolsPanel"
+                                        Visibility="Collapsed"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,22,0,0">
+                                <Button Content="{DynamicResource Commissioning.ConnectButton}"
+                                        Padding="12,6"
+                                        Click="ConnectSolar_Click"/>
+                                <Button Content="{DynamicResource Diagnostics.OpenWindow}"
+                                        Padding="12,6"
+                                        Margin="8,0,0,0"
+                                        Click="OpenDiagnostics_Click"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Grid>
