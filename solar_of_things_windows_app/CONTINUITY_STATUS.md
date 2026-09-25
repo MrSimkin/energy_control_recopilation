@@ -128,7 +128,16 @@ The development diagnostic stream records endpoint/method, sanitized request/res
 
 The reusable IoT Open application credential remains intentionally absent from source control. The program accepts it only through local Windows-protected configuration/environment bootstrap; an existing access/refresh token pair can also bootstrap a local development session.
 
-Phase 2 is not complete until the build is green and read-only commissioning is validated against the user's real account/device.
+Phase 2 implementation tranche passed Windows CI in run `36177864396` from source commit `a013708164b593bc1d072f94eec083216a4181c2`.
+
+Portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`
+- artifact ID: `10883196259`
+- SHA-256: `9879c97adeb37b025e95c595b566e4a7939d0342b6c7745fc7bcfad0a5add9ac`
+
+CI validated compile, SQLite schema v2, IoT Open signing vector, commissioning-profile persistence, DPAPI, and diagnostic body/header redaction.
+
+Phase 2 is not complete until read-only commissioning is validated against the user's real account/device and safe reconnect/session behavior is proven.
 
 Phase 2 scope:
 - Solar of Things authentication;
