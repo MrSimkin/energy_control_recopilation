@@ -69,6 +69,12 @@ The application is read-only. These values are an expected-state contract for in
 | P41 | minimum restart SOC | 50% | restart after low-battery shutdown |
 | P43 | solar allocation priority | LBU | house/load before battery charging |
 | P44 | grid export permission | Grd / disabled | zero export is mandatory |
+| P30 | battery equalization | disabled | LiFePO4: equalization must remain disabled |
+| P36 | immediate equalization | disabled | must not be triggered for this battery |
+| P50 | grid profile | PAL observed | installer-only / do not optimize by trial |
+| P57 | external CT function | disabled in menu; external zero-export hardware confirmed separately | do not infer physical CT topology from this program alone |
+| P60 | second AC output | enabled/observed | physical circuits connected to it remain unknown |
+| P70 | stored nominal power | 6.5 kW observed | service parameter; do not treat as a user setting |
 
 ### P23 overload bypass
 
@@ -205,7 +211,7 @@ Technical codes remain available only in Technical Help / diagnostics.
 
 - exact inverter firmware version;
 - exact CT / zero-export meter model and wiring;
-- exact use of the second AC output;
+- exact use of the second AC output (P60 is observed enabled, but the physical circuits on it are not known);
 - PV orientation;
 - PV inclination;
 - shading;
