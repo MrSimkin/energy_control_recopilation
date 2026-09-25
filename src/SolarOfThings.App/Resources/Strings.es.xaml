@@ -85,6 +85,9 @@
     <sys:String x:Key="Analysis.BatteryChart.Average">Promedio</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.End">Al cierre</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.NoData">No hay suficientes lecturas de batería para este período.</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.Floor">Reserva mínima: {0:N0}%</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.GridTransfer">Cambio normal a red: {0:N0}%</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.Return">Retorno normal a sol/batería: {0:N0}%</sys:String>
     <sys:String x:Key="Analysis.DetailHeading">Detalle del período</sys:String>
     <sys:String x:Key="Analysis.DetailIntro">Agrupe la información para comparar horas, días, semanas, meses o años.</sys:String>
     <sys:String x:Key="Analysis.AggregateBy">Agrupar por</sys:String>
