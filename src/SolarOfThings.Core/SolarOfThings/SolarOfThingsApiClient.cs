@@ -83,6 +83,12 @@ public sealed class SolarOfThingsApiClient : IDisposable
             ["Referer"] = "https://solar.siseli.com/"
         };
 
+        _diagnostics.RecordLocal(
+            "Login",
+            "ClientProfile",
+            "INFO",
+            $"Using IoT Open client profile: {credential.Source}.");
+
         var response = await SendAsync(
             "Login",
             "Authenticate",
@@ -132,13 +138,39 @@ public sealed class SolarOfThingsApiClient : IDisposable
 
         var response = await SendAsync(
             "Session",
-            "RefreshToken",
+            "RefreshTokenPair",
             HttpMethod.Post,
             "login/refresh/access/token",
             body,
-            headers: null,
+            headers: new Dictionary<string, string>
+            {
+                ["Origin"] = "https://solar.siseli.com",
+                ["Referer"] = "https://solar.siseli.com/"
+            },
             token: null,
             cancellationToken);
+
+        if (!response.IsSuccess)
+        {
+            var fallbackBody = SerializeCompact(new
+            {
+                refreshToken
+            });
+
+            response = await SendAsync(
+                "Session",
+                "RefreshTokenOnlyFallback",
+                HttpMethod.Post,
+                "login/refresh/access/token",
+                fallbackBody,
+                headers: new Dictionary<string, string>
+                {
+                    ["Origin"] = "https://solar.siseli.com",
+                    ["Referer"] = "https://solar.siseli.com/"
+                },
+                token: null,
+                cancellationToken);
+        }
 
         EnsureSuccess(response, "Solar of Things token refresh failed.");
 
