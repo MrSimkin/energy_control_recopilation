@@ -64,6 +64,18 @@ try
         throw new InvalidOperationException("IOT Open signing test vector failed.");
     }
 
+    var logoutBody = SolarOfThingsApiClient.SerializeCompact(new
+    {
+        accessToken = "ACCESS",
+        userId = "491513787113766912"
+    });
+
+    if (logoutBody != "{\"accessToken\":\"ACCESS\",\"userId\":\"491513787113766912\"}")
+    {
+        throw new InvalidOperationException(
+            "Logout contract did not preserve accessToken/userId names and string userId.");
+    }
+
     var profileRepo = new CommissioningProfileRepository(database);
     var profile = new CommissioningProfile(
         "station-1",
