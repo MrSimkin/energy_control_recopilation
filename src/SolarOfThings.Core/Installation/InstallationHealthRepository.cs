@@ -12,6 +12,30 @@ public sealed class InstallationHealthRepository
         _database = database;
     }
 
+    public InstallationStateSnapshot? GetLatestStateSnapshot(string deviceId)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT response_json, retrieved_utc
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation = 'LatestStateSnapshot'
+            ORDER BY capture_id DESC
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read() ||
+            !DateTimeOffset.TryParse(reader.GetString(1), out var retrievedAt))
+        {
+            return null;
+        }
+
+        return new InstallationStateSnapshot(retrievedAt, reader.GetString(0));
+    }
+
     public IReadOnlyDictionary<string, RawInstallationValue> GetLatestRawValues(
         string deviceId,
         IReadOnlyCollection<string> attributeKeys)
