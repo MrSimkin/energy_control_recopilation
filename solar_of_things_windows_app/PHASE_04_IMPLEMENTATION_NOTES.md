@@ -98,8 +98,9 @@ Implemented after the family-manual review:
   - `CONFIG_CONFIRMED`;
   - `CONFIG_DRIFT`;
   - `CONFIG_UNRESOLVED`;
-- target normalizer advanced to `hpvinv02.v2`;
+- target normalizer advanced through `hpvinv02.v3`;
 - `acInputVoltage` normalized as `grid_voltage_v` so outage explanations require real grid-availability evidence rather than assuming zero import means outage;
+- measured directional currents preserved independently as `battery_charge_current_a` and `battery_discharge_current_a`;
 - latest-household operating-state classifier;
 - Home view now has a plain-language “Qué está pasando ahora” explanation;
 - Battery page is now a real local-data view rather than a placeholder;
