@@ -478,6 +478,11 @@ public sealed class CommissioningService
             ExtractString(deviceData, "dtuId", "dtuID", "dtuDtuid", "certificateDtuID"),
             ExtractString(deviceData, "gatherProtocolNumber", "protocolNo", "protocolNumber"),
             ExtractString(deviceData, "softwareVersion", "version", "firmwareVersion"),
+            ExtractString(deviceData, "deviceSortKey"),
+            ExtractString(deviceData, "deviceTypeNumber"),
+            ExtractDecimal(deviceData, "ratedPower"),
+            ExtractBool(deviceData, "isOnline"),
+            ExtractDateTimeOffset(deviceData, "lastDataAt"),
             selectedDataSource,
             gatherStatus,
             attributeCount,
@@ -517,6 +522,11 @@ public sealed class CommissioningService
                 profile.DtuId,
                 profile.GatherProtocolNumber,
                 profile.SoftwareVersion,
+                profile.DeviceSortKey,
+                profile.DeviceTypeNumber,
+                profile.RatedPower,
+                profile.IsOnline,
+                profile.LastDataAt,
                 profile.DataSource,
                 profile.GatherAttributesStatus,
                 profile.GatherAttributeCount,
@@ -606,6 +616,36 @@ public sealed class CommissioningService
         string fallback)
     {
         return ExtractString(element, primary, secondary) ?? fallback;
+    }
+
+    private static decimal? ExtractDecimal(JsonElement element, params string[] names)
+    {
+        var value = ExtractString(element, names);
+        return decimal.TryParse(
+            value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static bool? ExtractBool(JsonElement element, params string[] names)
+    {
+        var value = ExtractString(element, names);
+        return bool.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private static DateTimeOffset? ExtractDateTimeOffset(JsonElement element, params string[] names)
+    {
+        var value = ExtractString(element, names);
+        return DateTimeOffset.TryParse(
+            value,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind,
+            out var parsed)
+            ? parsed
+            : null;
     }
 
     private static bool IsEffectivelyEmpty(JsonElement data)
