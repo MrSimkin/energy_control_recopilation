@@ -58,6 +58,8 @@
     <sys:String x:Key="Battery.Unknown">Sin información suficiente</sys:String>
     <sys:String x:Key="Battery.ConfiguredCapacity">Capacidad usada para calcular la estimación</sys:String>
     <sys:String x:Key="Battery.LastReading">Última lectura</sys:String>
+    <sys:String x:Key="Battery.OrdinaryReserveNote">La casa normalmente cambia a la red cerca del 20%.</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserveNote">Entre 20% y 10% se conserva una reserva para cortes.</sys:String>
     <sys:String x:Key="Tooltip.BatteryRemaining">Estimación de la energía que queda en la batería. Se calcula multiplicando el porcentaje de carga por la capacidad útil configurada; no es una medición independiente.</sys:String>
     <sys:String x:Key="Tooltip.BatteryActivity">Indica si la batería está recibiendo energía, entregando energía o prácticamente en reposo según las lecturas del inversor.</sys:String>
 
@@ -83,6 +85,12 @@
     <sys:String x:Key="Data.UnavailableDays">Días que ya no se reintentarán automáticamente</sys:String>
     <sys:String x:Key="Data.SavedReadings">Lecturas guardadas</sys:String>
     <sys:String x:Key="Data.ReadyReadings">Lecturas listas para mostrar</sys:String>
+    <sys:String x:Key="Data.ConfigurationHealth">Configuración del inversor</sys:String>
+    <sys:String x:Key="Data.ConfigurationConfirmed">Coincide con la configuración familiar</sys:String>
+    <sys:String x:Key="Data.ConfigurationDrift">Hay valores distintos que conviene revisar</sys:String>
+    <sys:String x:Key="Data.ConfigurationUnresolved">Aún faltan datos para comprobar todo</sys:String>
+    <sys:String x:Key="Data.ConfigurationDetail">{0} comprobados · {1} distintos · {2} sin confirmar</sys:String>
+    <sys:String x:Key="Tooltip.ConfigurationHealth">La aplicación sólo compara lecturas con la configuración esperada. No cambia ningún ajuste del inversor.</sys:String>
     <sys:String x:Key="Data.None">Sin datos todavía</sys:String>
     <sys:String x:Key="Tooltip.DataDaysReviewed">Incluye los días descargados correctamente y los días en que Solar of Things respondió correctamente pero no tenía lecturas.</sys:String>
     <sys:String x:Key="Tooltip.DataIssues">Son días cuya descarga no terminó correctamente. La aplicación los volverá a intentar de forma limitada y segura.</sys:String>
@@ -111,6 +119,20 @@
     <sys:String x:Key="Dashboard.ChartArea">Área de gráfico interactivo</sys:String>
     <sys:String x:Key="Dashboard.ChartPending">Los gráficos se añadirán después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">Estado del sistema</sys:String>
+    <sys:String x:Key="Dashboard.OperatingState">Qué está pasando ahora</sys:String>
+    <sys:String x:Key="Operating.NO_DATA">Aún no hay datos suficientes para explicar el estado de la casa.</sys:String>
+    <sys:String x:Key="Operating.SOLAR_PRIMARY">La casa está usando principalmente energía solar.</sys:String>
+    <sys:String x:Key="Operating.SOLAR_AND_CHARGING">El sol está alimentando la casa y cargando la batería.</sys:String>
+    <sys:String x:Key="Operating.BATTERY_SUPPLY">La batería está ayudando a alimentar la casa.</sys:String>
+    <sys:String x:Key="Operating.GRID_RECOVERY">La casa está usando la red mientras el sol recupera la batería hacia el 50%.</sys:String>
+    <sys:String x:Key="Operating.GRID_LOW_SOC">La casa está usando la red y la batería todavía está bajo el nivel normal de retorno.</sys:String>
+    <sys:String x:Key="Operating.GRID_SUPPLY">La casa está usando energía de la red eléctrica.</sys:String>
+    <sys:String x:Key="Operating.OUTAGE_BATTERY">La red no está disponible; la batería está manteniendo la casa.</sys:String>
+    <sys:String x:Key="Operating.OUTAGE_EMERGENCY_RESERVE">Corte de red: la casa está usando la reserva de emergencia de la batería.</sys:String>
+    <sys:String x:Key="Operating.OUTAGE_PROTECTED_FLOOR">Corte de red: la batería está cerca de su reserva mínima protegida.</sys:String>
+    <sys:String x:Key="Operating.BATTERY_CHARGING">La batería está cargando.</sys:String>
+    <sys:String x:Key="Operating.MIXED">La casa está usando una combinación de fuentes de energía.</sys:String>
+    <sys:String x:Key="Operating.LastReading">Lectura: {0}</sys:String>
     <sys:String x:Key="Status.SolarOfThings">Solar of Things</sys:String>
     <sys:String x:Key="Status.NotConnected">Aún no conectado</sys:String>
     <sys:String x:Key="Status.LocalDatabase">Datos guardados en este computador</sys:String>
