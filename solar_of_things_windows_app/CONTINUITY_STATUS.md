@@ -137,7 +137,17 @@ Portable artifact:
 
 CI validated compile, SQLite schema v2, IoT Open signing vector, commissioning-profile persistence, DPAPI, and diagnostic body/header redaction.
 
-Phase 2 is not complete until read-only commissioning is validated against the user's real account/device and safe reconnect/session behavior is proven.
+First real-account checkpoint on 2026-09-25:
+- existing-token local session bootstrap: PASS;
+- station discovery against production: PASS;
+- device discovery against production: PASS;
+- one station and one device found;
+- exact large platform IDs remained lossless strings;
+- credential/token redaction: PASS.
+
+The first exported report revealed that raw platform responses also contain unnecessary personal account/location metadata. Diagnostic privacy hardening was therefore added before requesting the next report.
+
+Phase 2 is not complete until the remaining read-only capability probes and safe reconnect/session behavior are validated against the user's real account/device.
 
 Phase 2 scope:
 - Solar of Things authentication;
