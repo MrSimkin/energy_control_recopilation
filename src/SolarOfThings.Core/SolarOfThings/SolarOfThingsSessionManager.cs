@@ -1,0 +1,387 @@
+using System.Text.Json;
+using SolarOfThings.Core.Diagnostics;
+using SolarOfThings.Core.Security;
+
+namespace SolarOfThings.Core.SolarOfThings;
+
+public sealed class SolarOfThingsSessionManager
+{
+    private const string AccessTokenKey = "solar.session.access-token";
+    private const string RefreshTokenKey = "solar.session.refresh-token";
+    private const string AccountKey = "solar.session.account";
+    private const string PasswordKey = "solar.session.password";
+    private const string AccessExpiryKey = "solar.session.access-expiry";
+    private const string RefreshExpiryKey = "solar.session.refresh-expiry";
+    private const string TimeZoneKey = "solar.session.time-zone";
+
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private readonly SolarOfThingsApiClient _api;
+    private readonly ISecretStore _secrets;
+    private readonly ApiDiagnosticsStore _diagnostics;
+
+    private SolarSessionTokens? _tokens;
+    private string? _account;
+    private string? _password;
+    private string _timeZone = "America/Santiago";
+    private bool _remember;
+
+    public SolarOfThingsSessionManager(
+        SolarOfThingsApiClient api,
+        ISecretStore secrets,
+        ApiDiagnosticsStore diagnostics)
+    {
+        _api = api;
+        _secrets = secrets;
+        _diagnostics = diagnostics;
+        TryRestore();
+    }
+
+    public bool HasSession => _tokens is not null &&
+                              !string.IsNullOrWhiteSpace(_tokens.AccessToken);
+
+    public string? Account => _account;
+
+    public async Task LoginAsync(
+        string account,
+        string password,
+        bool remember,
+        string timeZone,
+        CancellationToken cancellationToken = default)
+    {
+        var tokens = await _api.LoginAsync(
+            account,
+            password,
+            timeZone,
+            cancellationToken);
+
+        _tokens = tokens;
+        _account = account;
+        _password = remember ? password : null;
+        _timeZone = timeZone;
+        _remember = remember;
+
+        if (remember)
+        {
+            PersistSession(account, password, timeZone, tokens);
+        }
+        else
+        {
+            DeletePersistedSession();
+        }
+
+        _diagnostics.RecordLocal(
+            "Session",
+            "LoginComplete",
+            "SUCCESS",
+            "Account/password login completed.",
+            JsonSerializer.Serialize(new
+            {
+                remember,
+                accessExpiryKnown = !string.IsNullOrWhiteSpace(tokens.AccessExpiresAt) ||
+                                    tokens.AccessExpiresInMilliseconds.HasValue,
+                refreshTokenReturned = !string.IsNullOrWhiteSpace(tokens.RefreshToken)
+            }));
+    }
+
+    public void UseTokenPair(
+        string accessToken,
+        string refreshToken,
+        bool remember,
+        string timeZone)
+    {
+        _tokens = new SolarSessionTokens(
+            accessToken,
+            refreshToken,
+            null,
+            null,
+            null);
+
+        _account = null;
+        _password = null;
+        _timeZone = timeZone;
+        _remember = remember;
+
+        if (remember)
+        {
+            PersistTokenOnlySession(_tokens, timeZone);
+        }
+        else
+        {
+            DeletePersistedSession();
+        }
+
+        _diagnostics.RecordLocal(
+            "Session",
+            "ManualTokenPair",
+            "SUCCESS",
+            "Existing token pair loaded locally. Token values are never written to diagnostics.");
+    }
+
+    public async Task<SolarApiResponse> GetAsync(
+        string operation,
+        string step,
+        string pathAndQuery,
+        string timeZone,
+        CancellationToken cancellationToken = default)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var response = await _api.GetAuthorizedAsync(
+            operation,
+            step,
+            pathAndQuery,
+            token,
+            timeZone,
+            cancellationToken);
+
+        if (IsAuthExpired(response))
+        {
+            token = await RefreshAsync(cancellationToken);
+            response = await _api.GetAuthorizedAsync(
+                operation,
+                step,
+                pathAndQuery,
+                token,
+                timeZone,
+                cancellationToken);
+        }
+
+        return response;
+    }
+
+    public async Task<SolarApiResponse> PostAsync(
+        string operation,
+        string step,
+        string pathAndQuery,
+        object? body,
+        string timeZone,
+        CancellationToken cancellationToken = default)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var response = await _api.PostAuthorizedAsync(
+            operation,
+            step,
+            pathAndQuery,
+            body,
+            token,
+            timeZone,
+            cancellationToken);
+
+        if (IsAuthExpired(response))
+        {
+            token = await RefreshAsync(cancellationToken);
+            response = await _api.PostAuthorizedAsync(
+                operation,
+                step,
+                pathAndQuery,
+                body,
+                token,
+                timeZone,
+                cancellationToken);
+        }
+
+        return response;
+    }
+
+    public void ResetLocalSession(bool forgetRememberedCredentials)
+    {
+        _tokens = null;
+        _remember = false;
+
+        if (forgetRememberedCredentials)
+        {
+            _account = null;
+            _password = null;
+            DeletePersistedSession();
+        }
+
+        _diagnostics.RecordLocal(
+            "Session",
+            "Reset",
+            "SUCCESS",
+            forgetRememberedCredentials
+                ? "Local session and remembered account credentials removed."
+                : "In-memory local session reset.");
+    }
+
+    private bool TryRestore()
+    {
+        if (!_secrets.TryRead(AccessTokenKey, out var access) ||
+            string.IsNullOrWhiteSpace(access))
+        {
+            return false;
+        }
+
+        _secrets.TryRead(RefreshTokenKey, out var refresh);
+        _secrets.TryRead(AccessExpiryKey, out var accessExpiry);
+        _secrets.TryRead(RefreshExpiryKey, out var refreshExpiry);
+        _secrets.TryRead(AccountKey, out _account);
+        _secrets.TryRead(PasswordKey, out _password);
+        _secrets.TryRead(TimeZoneKey, out var timeZone);
+
+        if (!string.IsNullOrWhiteSpace(timeZone))
+        {
+            _timeZone = timeZone;
+        }
+
+        _tokens = new SolarSessionTokens(
+            access,
+            refresh ?? string.Empty,
+            accessExpiry,
+            refreshExpiry,
+            null);
+
+        _remember = true;
+
+        _diagnostics.RecordLocal(
+            "Session",
+            "Restore",
+            "SUCCESS",
+            "Protected remembered session restored from local Windows storage.");
+
+        return true;
+    }
+
+    private async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
+    {
+        if (_tokens is null || string.IsNullOrWhiteSpace(_tokens.AccessToken))
+        {
+            if (!string.IsNullOrWhiteSpace(_account) &&
+                !string.IsNullOrWhiteSpace(_password))
+            {
+                await LoginAsync(
+                    _account,
+                    _password,
+                    _remember,
+                    _timeZone,
+                    cancellationToken);
+
+                return _tokens!.AccessToken;
+            }
+
+            throw new SolarApiException(
+                "No Solar of Things session is active. Connect first.");
+        }
+
+        return _tokens.AccessToken;
+    }
+
+    private async Task<string> RefreshAsync(CancellationToken cancellationToken)
+    {
+        await _refreshLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (_tokens is null ||
+                string.IsNullOrWhiteSpace(_tokens.AccessToken) ||
+                string.IsNullOrWhiteSpace(_tokens.RefreshToken))
+            {
+                throw new SolarApiException(
+                    "The session cannot be refreshed because a complete token pair is unavailable.");
+            }
+
+            try
+            {
+                var refreshed = await _api.RefreshAsync(
+                    _tokens.AccessToken,
+                    _tokens.RefreshToken,
+                    cancellationToken);
+
+                _tokens = refreshed;
+
+                if (_remember)
+                {
+                    if (!string.IsNullOrWhiteSpace(_account) &&
+                        !string.IsNullOrWhiteSpace(_password))
+                    {
+                        PersistSession(_account, _password, _timeZone, refreshed);
+                    }
+                    else
+                    {
+                        PersistTokenOnlySession(refreshed, _timeZone);
+                    }
+                }
+
+                return refreshed.AccessToken;
+            }
+            catch when (!string.IsNullOrWhiteSpace(_account) &&
+                        !string.IsNullOrWhiteSpace(_password))
+            {
+                await LoginAsync(
+                    _account,
+                    _password,
+                    _remember,
+                    _timeZone,
+                    cancellationToken);
+
+                return _tokens!.AccessToken;
+            }
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    private static bool IsAuthExpired(SolarApiResponse response)
+    {
+        if (response.HttpStatus is 401 or 403)
+        {
+            return true;
+        }
+
+        return response.Code is "9" or "401" or "1001" or "1002";
+    }
+
+    private void PersistSession(
+        string account,
+        string password,
+        string timeZone,
+        SolarSessionTokens tokens)
+    {
+        _secrets.Save(AccountKey, account);
+        _secrets.Save(PasswordKey, password);
+        PersistTokenOnlySession(tokens, timeZone);
+    }
+
+    private void PersistTokenOnlySession(
+        SolarSessionTokens tokens,
+        string timeZone)
+    {
+        _secrets.Save(AccessTokenKey, tokens.AccessToken);
+        _secrets.Save(TimeZoneKey, timeZone);
+
+        if (!string.IsNullOrWhiteSpace(tokens.RefreshToken))
+        {
+            _secrets.Save(RefreshTokenKey, tokens.RefreshToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(tokens.AccessExpiresAt))
+        {
+            _secrets.Save(AccessExpiryKey, tokens.AccessExpiresAt);
+        }
+
+        if (!string.IsNullOrWhiteSpace(tokens.RefreshExpiresAt))
+        {
+            _secrets.Save(RefreshExpiryKey, tokens.RefreshExpiresAt);
+        }
+    }
+
+    private void DeletePersistedSession()
+    {
+        foreach (var key in new[]
+        {
+            AccessTokenKey,
+            RefreshTokenKey,
+            AccountKey,
+            PasswordKey,
+            AccessExpiryKey,
+            RefreshExpiryKey,
+            TimeZoneKey
+        })
+        {
+            _secrets.Delete(key);
+        }
+    }
+}
