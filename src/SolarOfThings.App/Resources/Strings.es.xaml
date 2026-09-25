@@ -77,6 +77,7 @@
     <sys:String x:Key="Analysis.Chart.House">Casa</sys:String>
     <sys:String x:Key="Analysis.Chart.Grid">Red eléctrica</sys:String>
     <sys:String x:Key="Analysis.Chart.NoData">No hay suficientes datos para dibujar este período.</sys:String>
+    <sys:String x:Key="Analysis.Chart.LowCoverage">Atención: uno o más períodos tienen menos de 80% de información. Revise la columna “Cobertura mín.” antes de comparar esos valores.</sys:String>
     <sys:String x:Key="Analysis.BatteryChartHeading">Carga de la batería por período</sys:String>
     <sys:String x:Key="Analysis.BatteryChartIntro">Muestra el nivel promedio y el nivel al cierre de cada período. Se mantiene separado del gráfico de energía porque usa porcentaje.</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.Average">Promedio</sys:String>
