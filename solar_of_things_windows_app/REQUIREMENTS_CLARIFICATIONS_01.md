@@ -231,3 +231,29 @@ WPF has been proposed but is **not yet approved by the user**.
 User requests a plain-language explanation of WPF before accepting that UI technology.
 
 Other candidate architecture choices should be evaluated only if they provide a concrete advantage for this Windows-only, local PostgreSQL, interactive-chart/reporting application.
+
+
+## 14. UI visual direction — approved reference
+
+The user provided AdminLTE Dashboard v3 as a **visual/UX reference**, not as a template to copy exactly:
+
+`https://adminlte.io/themes/v4/index3.html`
+
+Desired direction:
+
+- traditional/professional dashboard application;
+- compact and information-dense;
+- persistent left-side navigation;
+- clear top-level summary cards;
+- tables and charts visible together where useful;
+- conventional desktop controls and filters;
+- restrained spacing;
+- good visual hierarchy;
+- mouse/keyboard-friendly;
+- no touch-first oversized controls;
+- avoid Microsoft Store / WinUI / Fluent-style visual language;
+- avoid excessive whitespace and oversized rounded-card design.
+
+The reference is flexible: the application should feel **similar in organization and density**, not be a pixel-perfect AdminLTE clone.
+
+WPF remains an appropriate UI technology for reproducing this style using native desktop controls, custom styles/templates and chart components without embedding a web frontend.
