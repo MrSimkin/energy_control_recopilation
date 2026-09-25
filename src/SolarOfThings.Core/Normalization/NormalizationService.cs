@@ -681,23 +681,17 @@ public sealed class NormalizationService
                 updated_utc = excluded.updated_utc;
             """;
 
-        foreach (var name in new[]
-        {
-            "$deviceId",
-            "$metricKey",
-            "$recordedAtUtc",
-            "$normalizedValue",
-            "$normalizedUnit",
-            "$sourceAttributeKey",
-            "$sourceValueJson",
-            "$ruleVersion",
-            "$confidence",
-            "$quality",
-            "$updatedUtc"
-        })
-        {
-            command.Parameters.Add(name, SqliteType.Text);
-        }
+        command.Parameters.Add("$deviceId", SqliteType.Text);
+        command.Parameters.Add("$metricKey", SqliteType.Text);
+        command.Parameters.Add("$recordedAtUtc", SqliteType.Text);
+        command.Parameters.Add("$normalizedValue", SqliteType.Real);
+        command.Parameters.Add("$normalizedUnit", SqliteType.Text);
+        command.Parameters.Add("$sourceAttributeKey", SqliteType.Text);
+        command.Parameters.Add("$sourceValueJson", SqliteType.Text);
+        command.Parameters.Add("$ruleVersion", SqliteType.Text);
+        command.Parameters.Add("$confidence", SqliteType.Text);
+        command.Parameters.Add("$quality", SqliteType.Text);
+        command.Parameters.Add("$updatedUtc", SqliteType.Text);
 
         command.Prepare();
         return command;
