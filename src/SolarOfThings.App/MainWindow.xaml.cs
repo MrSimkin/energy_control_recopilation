@@ -77,19 +77,35 @@ public partial class MainWindow : Window
 
         try
         {
+            var normalizedRebuilt = false;
+
             if (!normalized.HasRuleVersion(
                     profile.DeviceId,
                     NormalizationService.RuleVersion))
             {
                 var normalizer = _services.GetRequiredService<NormalizationService>();
                 await normalizer.RebuildAsync(profile);
+                normalizedRebuilt = true;
+            }
+
+            var behaviorRepository =
+                _services.GetRequiredService<HouseholdBehaviorRepository>();
+
+            if (normalizedRebuilt ||
+                !behaviorRepository.HasContextVersion(
+                    profile.DeviceId,
+                    InstallationContextPolicyService.ContextVersion))
+            {
+                var behavior =
+                    _services.GetRequiredService<HouseholdBehaviorService>();
+                await behavior.RebuildAsync(profile.DeviceId);
             }
 
             EvaluateInstallationHealth(profile);
         }
         catch
         {
-            // Detailed normalization/configuration failures are kept in local diagnostics.
+            // Detailed rebuild/configuration failures are kept in local diagnostics.
             // User-facing views remain conservative rather than guessing.
         }
 
@@ -547,6 +563,16 @@ public partial class MainWindow : Window
 
                     var normalizer = _services.GetRequiredService<NormalizationService>();
                     await normalizer.RebuildAsync(profile);
+
+                    HistorySyncProgressText.Text +=
+                        _localization.CurrentLanguage == "es"
+                            ? "\nInterpretando comportamiento local..."
+                            : "\nInterpreting local household behavior...";
+
+                    var behavior =
+                        _services.GetRequiredService<HouseholdBehaviorService>();
+                    await behavior.RebuildAsync(profile.DeviceId);
+
                     EvaluateInstallationHealth(profile);
                     RefreshDashboardMetrics();
                     RefreshBatteryView();
