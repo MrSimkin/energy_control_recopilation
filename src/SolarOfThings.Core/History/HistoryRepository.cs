@@ -220,6 +220,22 @@ public sealed class HistoryRepository
         return DateTimeOffset.TryParse(raw, out var parsed) ? parsed : null;
     }
 
+    public DateTimeOffset? GetLastSuccessfulSyncUtc()
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT completed_utc
+            FROM sync_run
+            WHERE status IN ('SUCCESS', 'PARTIAL')
+              AND completed_utc IS NOT NULL
+            ORDER BY sync_run_id DESC
+            LIMIT 1;
+            """;
+        var raw = command.ExecuteScalar()?.ToString();
+        return DateTimeOffset.TryParse(raw, out var parsed) ? parsed : null;
+    }
+
     public int GetSampleCount(string deviceId)
     {
         using var connection = _database.OpenConnection();
