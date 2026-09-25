@@ -61,14 +61,15 @@ public sealed class HistoryIngestionService
             syncDates.Add(day);
         }
 
+        IReadOnlyList<DateOnly> retryDates = [];
+
         if (!fullBackfill)
         {
-            foreach (var partialDate in _history.GetPartialDates(profile.DeviceId))
+            retryDates = _history.GetRetryDates(profile.DeviceId, today);
+
+            foreach (var retryDate in retryDates)
             {
-                if (partialDate <= today)
-                {
-                    syncDates.Add(partialDate);
-                }
+                syncDates.Add(retryDate);
             }
         }
 
@@ -77,6 +78,20 @@ public sealed class HistoryIngestionService
         var firstSyncDate = totalDays > 0 ? orderedSyncDates[0] : today;
         var lastSyncDate = totalDays > 0 ? orderedSyncDates[^1] : today;
 
+        _diagnostics.RecordLocal(
+            "HistorySync",
+            "ResumePlan",
+            "SUCCESS",
+            $"Planned {totalDays} local day(s) from {firstSyncDate:yyyy-MM-dd} through {lastSyncDate:yyyy-MM-dd}.",
+            JsonSerializer.Serialize(new
+            {
+                fullBackfill,
+                requestedStartDate = requestedStartDate?.ToString("yyyy-MM-dd"),
+                firstSyncDate = firstSyncDate.ToString("yyyy-MM-dd"),
+                lastSyncDate = lastSyncDate.ToString("yyyy-MM-dd"),
+                retryDates = retryDates.Select(date => date.ToString("yyyy-MM-dd")).ToArray()
+            }));
+
         var syncRunId = _history.StartSyncRun(JsonSerializer.Serialize(new
         {
             mode = fullBackfill ? "full-backfill" : "incremental",
@@ -84,9 +99,7 @@ public sealed class HistoryIngestionService
             profile.DeviceId,
             from = firstSyncDate.ToString("yyyy-MM-dd"),
             to = lastSyncDate.ToString("yyyy-MM-dd"),
-            retryPartialDays = !fullBackfill
-                ? _history.GetPartialDates(profile.DeviceId).Count
-                : 0,
+            retryUnresolvedDays = retryDates.Count,
             timeZone
         }));
 
@@ -433,22 +446,33 @@ public sealed class HistoryIngestionService
             return requested;
         }
 
+        var automaticLowerBound = installedDate ?? today.AddDays(-120);
+
         if (!fullBackfill)
         {
+            var lastClosedDay = today.AddDays(-1);
+            var firstUntracked = _history.GetEarliestUntrackedDate(
+                profile.DeviceId,
+                automaticLowerBound,
+                lastClosedDay);
+
+            if (firstUntracked.HasValue)
+            {
+                return firstUntracked.Value;
+            }
+
             var newest = _history.GetNewestTimestamp(profile.DeviceId);
             if (newest.HasValue)
             {
                 var local = SolarApiTime.GetLocalDate(newest.Value, timeZone);
-                return local.AddDays(-1);
+                var overlap = local.AddDays(-1);
+                return overlap < automaticLowerBound
+                    ? automaticLowerBound
+                    : overlap;
             }
         }
 
-        if (installedDate.HasValue)
-        {
-            return installedDate.Value;
-        }
-
-        return today.AddDays(-120);
+        return automaticLowerBound;
     }
 
     private async Task<DayFetchResult> FetchSelectedKeyDayAsync(
