@@ -215,6 +215,7 @@
     <sys:String x:Key="Metric.LocalNormalized">Normalized local data</sys:String>
     <sys:String x:Key="Dashboard.EnergyOverview">Energy Overview</sys:String>
     <sys:String x:Key="Dashboard.LatestDayHeading">Latest saved day summary</sys:String>
+    <sys:String x:Key="Dashboard.OpenHistory">View history &amp; charts</sys:String>
     <sys:String x:Key="Dashboard.LatestDayDate">Date: {0}</sys:String>
     <sys:String x:Key="Dashboard.LatestDaySolar">Solar produced</sys:String>
     <sys:String x:Key="Dashboard.LatestDayHouse">Used by the home</sys:String>
