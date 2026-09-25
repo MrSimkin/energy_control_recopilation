@@ -10,6 +10,8 @@ public sealed record InstallationContextPolicy(
 
 public sealed class InstallationContextPolicyService
 {
+    public const string ContextVersion = "family-manual-v2.0-2026-09-25";
+
     public InstallationContextPolicy Current { get; } = new(
         NormalGridTransferSocPercent: 20,
         EmergencyFloorSocPercent: 10,
