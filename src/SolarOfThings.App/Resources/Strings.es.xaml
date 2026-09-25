@@ -51,6 +51,25 @@
     <sys:String x:Key="Page.Data.Title">Datos</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">La sincronización histórica local ya está activa mediante “Actualizar datos”. El análisis se construirá sobre este corpus validado.</sys:String>
+    <sys:String x:Key="Data.CoverageHeading">Qué información está guardada</sys:String>
+    <sys:String x:Key="Data.CoverageIntro">Aquí puede revisar hasta qué fecha hay información guardada en este computador.</sys:String>
+    <sys:String x:Key="Data.StoredFrom">Datos guardados desde</sys:String>
+    <sys:String x:Key="Data.StoredTo">Datos guardados hasta</sys:String>
+    <sys:String x:Key="Data.DaysReviewed">Días revisados</sys:String>
+    <sys:String x:Key="Data.DaysWithIssues">Días con problemas de descarga</sys:String>
+    <sys:String x:Key="Data.InstallationDate">Equipo instalado</sys:String>
+    <sys:String x:Key="Data.NextDownload">La próxima descarga empezará desde</sys:String>
+    <sys:String x:Key="Data.EmptyDays">Días en que Solar of Things no entregó datos</sys:String>
+    <sys:String x:Key="Data.PartialDays">Días que necesitan volver a intentarse</sys:String>
+    <sys:String x:Key="Data.UnavailableDays">Días que ya no se reintentarán automáticamente</sys:String>
+    <sys:String x:Key="Data.SavedReadings">Lecturas guardadas</sys:String>
+    <sys:String x:Key="Data.ReadyReadings">Lecturas listas para mostrar</sys:String>
+    <sys:String x:Key="Data.None">Sin datos todavía</sys:String>
+    <sys:String x:Key="Tooltip.DataDaysReviewed">Incluye los días descargados correctamente y los días en que Solar of Things respondió correctamente pero no tenía lecturas.</sys:String>
+    <sys:String x:Key="Tooltip.DataIssues">Son días cuya descarga no terminó correctamente. La aplicación los volverá a intentar de forma limitada y segura.</sys:String>
+    <sys:String x:Key="Tooltip.EmptyDays">No es un error: Solar of Things respondió correctamente, pero ese día no entregó lecturas.</sys:String>
+    <sys:String x:Key="Tooltip.UnavailableDays">Después de varios intentos fallidos, la aplicación deja de insistir automáticamente para evitar solicitudes repetidas. Usted puede revisarlos manualmente más adelante.</sys:String>
+
     <sys:String x:Key="Page.Diagnostics.Title">Ayuda técnica</sys:String>
     <sys:String x:Key="Page.Diagnostics.Subtitle">Diagnóstico técnico y estado interno de la aplicación</sys:String>
     <sys:String x:Key="Page.Diagnostics.Placeholder">Los diagnósticos actuales se escriben localmente; esta vista crecerá a medida que se incorporen integraciones reales.</sys:String>
