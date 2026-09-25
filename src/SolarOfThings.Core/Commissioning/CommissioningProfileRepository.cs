@@ -31,6 +31,11 @@ public sealed class CommissioningProfileRepository
                 dtu_id,
                 gather_protocol_number,
                 software_version,
+                device_sort_key,
+                device_type_number,
+                rated_power,
+                is_online,
+                last_data_at,
                 data_source,
                 gather_attributes_status,
                 gather_attribute_count,
@@ -58,6 +63,11 @@ public sealed class CommissioningProfileRepository
                 $dtuId,
                 $gatherProtocolNumber,
                 $softwareVersion,
+                $deviceSortKey,
+                $deviceTypeNumber,
+                $ratedPower,
+                $isOnline,
+                $lastDataAt,
                 $dataSource,
                 $gatherAttributesStatus,
                 $gatherAttributeCount,
@@ -84,6 +94,11 @@ public sealed class CommissioningProfileRepository
                 dtu_id = excluded.dtu_id,
                 gather_protocol_number = excluded.gather_protocol_number,
                 software_version = excluded.software_version,
+                device_sort_key = excluded.device_sort_key,
+                device_type_number = excluded.device_type_number,
+                rated_power = excluded.rated_power,
+                is_online = excluded.is_online,
+                last_data_at = excluded.last_data_at,
                 data_source = excluded.data_source,
                 gather_attributes_status = excluded.gather_attributes_status,
                 gather_attribute_count = excluded.gather_attribute_count,
@@ -110,6 +125,11 @@ public sealed class CommissioningProfileRepository
         command.Parameters.AddWithValue("$dtuId", Db(profile.DtuId));
         command.Parameters.AddWithValue("$gatherProtocolNumber", Db(profile.GatherProtocolNumber));
         command.Parameters.AddWithValue("$softwareVersion", Db(profile.SoftwareVersion));
+        command.Parameters.AddWithValue("$deviceSortKey", Db(profile.DeviceSortKey));
+        command.Parameters.AddWithValue("$deviceTypeNumber", Db(profile.DeviceTypeNumber));
+        command.Parameters.AddWithValue("$ratedPower", profile.RatedPower.HasValue ? profile.RatedPower.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$isOnline", profile.IsOnline.HasValue ? (profile.IsOnline.Value ? 1 : 0) : DBNull.Value);
+        command.Parameters.AddWithValue("$lastDataAt", profile.LastDataAt.HasValue ? profile.LastDataAt.Value.ToString("O") : DBNull.Value);
         command.Parameters.AddWithValue("$dataSource", Db(profile.DataSource));
         command.Parameters.AddWithValue("$gatherAttributesStatus", profile.GatherAttributesStatus);
         command.Parameters.AddWithValue("$gatherAttributeCount", profile.GatherAttributeCount);
@@ -151,6 +171,11 @@ public sealed class CommissioningProfileRepository
             NullableString(reader, "dtu_id"),
             NullableString(reader, "gather_protocol_number"),
             NullableString(reader, "software_version"),
+            NullableString(reader, "device_sort_key"),
+            NullableString(reader, "device_type_number"),
+            NullableDecimal(reader, "rated_power"),
+            NullableBool(reader, "is_online"),
+            NullableDateTimeOffset(reader, "last_data_at"),
             NullableString(reader, "data_source"),
             reader.GetString(reader.GetOrdinal("gather_attributes_status")),
             reader.GetInt32(reader.GetOrdinal("gather_attribute_count")),
@@ -173,5 +198,30 @@ public sealed class CommissioningProfileRepository
     {
         var ordinal = reader.GetOrdinal(column);
         return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+    }
+
+    private static decimal? NullableDecimal(SqliteDataReader reader, string column)
+    {
+        var ordinal = reader.GetOrdinal(column);
+        return reader.IsDBNull(ordinal) ? null : Convert.ToDecimal(reader.GetValue(ordinal));
+    }
+
+    private static bool? NullableBool(SqliteDataReader reader, string column)
+    {
+        var ordinal = reader.GetOrdinal(column);
+        return reader.IsDBNull(ordinal) ? null : reader.GetInt64(ordinal) != 0;
+    }
+
+    private static DateTimeOffset? NullableDateTimeOffset(SqliteDataReader reader, string column)
+    {
+        var ordinal = reader.GetOrdinal(column);
+        if (reader.IsDBNull(ordinal))
+        {
+            return null;
+        }
+
+        return DateTimeOffset.TryParse(reader.GetString(ordinal), out var value)
+            ? value
+            : null;
     }
 }
