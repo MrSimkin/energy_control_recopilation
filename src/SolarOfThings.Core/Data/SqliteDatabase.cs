@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     private readonly AppPaths _paths;
 
@@ -49,6 +49,12 @@ public sealed class SqliteDatabase
         if (current < 3)
         {
             ApplyMigration3(connection);
+            current = 3;
+        }
+
+        if (current < 4)
+        {
+            ApplyMigration4(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -179,6 +185,65 @@ public sealed class SqliteDatabase
             transaction,
             3,
             "Promote device identity, rated power, online state and source freshness metadata.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration4(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            CREATE TABLE history_sample (
+                device_id TEXT NOT NULL,
+                attribute_key TEXT NOT NULL,
+                recorded_at_utc TEXT NOT NULL,
+                value_json TEXT NULL,
+                is_missing INTEGER NOT NULL DEFAULT 0,
+                source TEXT NOT NULL,
+                retrieved_utc TEXT NOT NULL,
+                PRIMARY KEY(device_id, attribute_key, recorded_at_utc)
+            );
+
+            CREATE INDEX ix_history_sample_device_time
+                ON history_sample(device_id, recorded_at_utc);
+
+            CREATE TABLE history_day_status (
+                device_id TEXT NOT NULL,
+                local_date TEXT NOT NULL,
+                timezone TEXT NOT NULL,
+                source TEXT NOT NULL,
+                status TEXT NOT NULL,
+                frame_count INTEGER NOT NULL,
+                page_count INTEGER NOT NULL,
+                first_at_utc TEXT NULL,
+                last_at_utc TEXT NULL,
+                detail_json TEXT NULL,
+                updated_utc TEXT NOT NULL,
+                PRIMARY KEY(device_id, local_date)
+            );
+
+            CREATE TABLE raw_api_capture (
+                capture_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                operation TEXT NOT NULL,
+                device_id TEXT NULL,
+                local_date TEXT NULL,
+                source TEXT NOT NULL,
+                page INTEGER NULL,
+                request_json TEXT NULL,
+                response_json TEXT NOT NULL,
+                retrieved_utc TEXT NOT NULL
+            );
+
+            CREATE INDEX ix_raw_api_capture_device_date
+                ON raw_api_capture(device_id, local_date, operation);
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            4,
+            "Phase 3 raw history corpus, daily completeness and raw API capture.");
 
         transaction.Commit();
     }

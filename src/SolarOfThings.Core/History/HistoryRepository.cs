@@ -1,0 +1,203 @@
+using Microsoft.Data.Sqlite;
+using SolarOfThings.Core.Data;
+
+namespace SolarOfThings.Core.History;
+
+public sealed class HistoryRepository
+{
+    private readonly SqliteDatabase _database;
+
+    public HistoryRepository(SqliteDatabase database)
+    {
+        _database = database;
+    }
+
+    public int UpsertSamples(IEnumerable<HistorySample> samples)
+    {
+        using var connection = _database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        var count = 0;
+
+        foreach (var sample in samples)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO history_sample (
+                    device_id,
+                    attribute_key,
+                    recorded_at_utc,
+                    value_json,
+                    is_missing,
+                    source,
+                    retrieved_utc
+                )
+                VALUES (
+                    $deviceId,
+                    $attributeKey,
+                    $recordedAtUtc,
+                    $valueJson,
+                    $isMissing,
+                    $source,
+                    $retrievedUtc
+                )
+                ON CONFLICT(device_id, attribute_key, recorded_at_utc) DO UPDATE SET
+                    value_json = CASE
+                        WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
+                            THEN history_sample.value_json
+                        ELSE excluded.value_json
+                    END,
+                    is_missing = CASE
+                        WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
+                            THEN history_sample.is_missing
+                        ELSE excluded.is_missing
+                    END,
+                    source = CASE
+                        WHEN excluded.is_missing = 1 AND history_sample.is_missing = 0
+                            THEN history_sample.source
+                        ELSE excluded.source
+                    END,
+                    retrieved_utc = excluded.retrieved_utc;
+                """;
+            command.Parameters.AddWithValue("$deviceId", sample.DeviceId);
+            command.Parameters.AddWithValue("$attributeKey", sample.AttributeKey);
+            command.Parameters.AddWithValue("$recordedAtUtc", sample.RecordedAtUtc.ToUniversalTime().ToString("O"));
+            command.Parameters.AddWithValue("$valueJson", sample.ValueJson is null ? DBNull.Value : sample.ValueJson);
+            command.Parameters.AddWithValue("$isMissing", sample.IsMissing ? 1 : 0);
+            command.Parameters.AddWithValue("$source", sample.Source);
+            command.Parameters.AddWithValue("$retrievedUtc", sample.RetrievedUtc.ToUniversalTime().ToString("O"));
+            count += command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return count;
+    }
+
+    public void SaveDayStatus(HistoryDayStatus status)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO history_day_status (
+                device_id,
+                local_date,
+                timezone,
+                source,
+                status,
+                frame_count,
+                page_count,
+                first_at_utc,
+                last_at_utc,
+                detail_json,
+                updated_utc
+            )
+            VALUES (
+                $deviceId,
+                $localDate,
+                $timezone,
+                $source,
+                $status,
+                $frameCount,
+                $pageCount,
+                $firstAtUtc,
+                $lastAtUtc,
+                $detailJson,
+                $updatedUtc
+            )
+            ON CONFLICT(device_id, local_date) DO UPDATE SET
+                timezone = excluded.timezone,
+                source = excluded.source,
+                status = excluded.status,
+                frame_count = excluded.frame_count,
+                page_count = excluded.page_count,
+                first_at_utc = excluded.first_at_utc,
+                last_at_utc = excluded.last_at_utc,
+                detail_json = excluded.detail_json,
+                updated_utc = excluded.updated_utc;
+            """;
+        command.Parameters.AddWithValue("$deviceId", status.DeviceId);
+        command.Parameters.AddWithValue("$localDate", status.LocalDate.ToString("yyyy-MM-dd"));
+        command.Parameters.AddWithValue("$timezone", status.TimeZone);
+        command.Parameters.AddWithValue("$source", status.Source);
+        command.Parameters.AddWithValue("$status", status.Status);
+        command.Parameters.AddWithValue("$frameCount", status.FrameCount);
+        command.Parameters.AddWithValue("$pageCount", status.PageCount);
+        command.Parameters.AddWithValue("$firstAtUtc", status.FirstAtUtc?.ToUniversalTime().ToString("O") ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$lastAtUtc", status.LastAtUtc?.ToUniversalTime().ToString("O") ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$detailJson", status.DetailJson ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$updatedUtc", status.UpdatedUtc.ToUniversalTime().ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
+    public void CaptureRaw(
+        string operation,
+        string? deviceId,
+        DateOnly? localDate,
+        string source,
+        int? page,
+        string? requestJson,
+        string responseJson,
+        DateTimeOffset retrievedUtc)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO raw_api_capture (
+                operation,
+                device_id,
+                local_date,
+                source,
+                page,
+                request_json,
+                response_json,
+                retrieved_utc
+            )
+            VALUES (
+                $operation,
+                $deviceId,
+                $localDate,
+                $source,
+                $page,
+                $requestJson,
+                $responseJson,
+                $retrievedUtc
+            );
+            """;
+        command.Parameters.AddWithValue("$operation", operation);
+        command.Parameters.AddWithValue("$deviceId", deviceId ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$localDate", localDate?.ToString("yyyy-MM-dd") ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$source", source);
+        command.Parameters.AddWithValue("$page", page ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$requestJson", requestJson ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$responseJson", responseJson);
+        command.Parameters.AddWithValue("$retrievedUtc", retrievedUtc.ToUniversalTime().ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
+    public DateTimeOffset? GetNewestTimestamp(string deviceId)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT MAX(recorded_at_utc)
+            FROM history_sample
+            WHERE device_id = $deviceId;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        var raw = command.ExecuteScalar()?.ToString();
+        return DateTimeOffset.TryParse(raw, out var parsed) ? parsed : null;
+    }
+
+    public int GetSampleCount(string deviceId)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM history_sample
+            WHERE device_id = $deviceId;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+}
