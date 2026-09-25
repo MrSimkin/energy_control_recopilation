@@ -6,6 +6,7 @@ using SolarOfThings.App.Localization;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.History;
+using SolarOfThings.Core.Normalization;
 using SolarOfThings.Core.SolarOfThings;
 
 namespace SolarOfThings.App;
@@ -46,7 +47,119 @@ public partial class MainWindow : Window
         CaptureStartModeSelector.SelectedValue = "auto";
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
+        RefreshDashboardMetrics();
         ShowPage("Dashboard");
+        Loaded += MainWindow_Loaded;
+    }
+
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            return;
+        }
+
+        var history = _services.GetRequiredService<HistoryRepository>();
+        var normalized = _services.GetRequiredService<NormalizationRepository>();
+
+        if (history.GetSampleCount(profile.DeviceId) == 0 ||
+            normalized.HasRuleVersion(
+                profile.DeviceId,
+                NormalizationService.RuleVersion))
+        {
+            RefreshDashboardMetrics();
+            return;
+        }
+
+        try
+        {
+            var normalizer = _services.GetRequiredService<NormalizationService>();
+            await normalizer.RebuildAsync(profile);
+            RefreshDashboardMetrics();
+        }
+        catch
+        {
+            // Diagnostics are recorded by the normalization service.
+            // Keep the dashboard unavailable rather than showing guessed values.
+        }
+    }
+
+    private void RefreshDashboardMetrics()
+    {
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            ResetDashboardMetrics();
+            return;
+        }
+
+        var repository = _services.GetRequiredService<NormalizationRepository>();
+        var metrics = repository.GetLatestMetrics(profile.DeviceId);
+
+        SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
+        SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
+        SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
+        SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
+    }
+
+    private void SetPowerMetric(
+        IReadOnlyDictionary<string, NormalizedMetricValue> metrics,
+        string key,
+        TextBlock valueText,
+        TextBlock metaText)
+    {
+        if (!metrics.TryGetValue(key, out var metric))
+        {
+            valueText.Text = "— kW";
+            metaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
+            return;
+        }
+
+        valueText.Text = $"{metric.Value / 1000.0:F3} kW";
+        metaText.Text = FormatMetricMetadata(metric);
+    }
+
+    private void SetSocMetric(
+        IReadOnlyDictionary<string, NormalizedMetricValue> metrics,
+        string key,
+        TextBlock valueText,
+        TextBlock metaText)
+    {
+        if (!metrics.TryGetValue(key, out var metric))
+        {
+            valueText.Text = "— %";
+            metaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
+            return;
+        }
+
+        valueText.Text = $"{metric.Value:F0} %";
+        metaText.Text = FormatMetricMetadata(metric);
+    }
+
+    private string FormatMetricMetadata(NormalizedMetricValue metric)
+    {
+        var confidence = metric.Confidence switch
+        {
+            "CONFIRMED" => _localization.GetString("Confidence.Confirmed"),
+            "PROBABLE" => _localization.GetString("Confidence.Probable"),
+            _ => _localization.GetString("Confidence.Unresolved")
+        };
+
+        return $"{confidence} · {metric.RecordedAtUtc.ToLocalTime():dd-MM HH:mm}";
+    }
+
+    private void ResetDashboardMetrics()
+    {
+        PvPowerValueText.Text = "— kW";
+        HouseLoadValueText.Text = "— kW";
+        BatterySocValueText.Text = "— %";
+        GridImportValueText.Text = "— kW";
+
+        PvPowerMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
+        HouseLoadMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
+        BatterySocMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
+        GridImportMetaText.SetResourceReference(TextBlock.TextProperty, "Metric.AwaitingSync");
     }
 
     private void Navigation_Click(object sender, RoutedEventArgs e)
@@ -115,6 +228,7 @@ public partial class MainWindow : Window
         _localization.SetLanguage(language);
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
+        RefreshDashboardMetrics();
     }
 
     private async void UpdateData_Click(object sender, RoutedEventArgs e)
@@ -205,6 +319,26 @@ public partial class MainWindow : Window
         }
         finally
         {
+            try
+            {
+                if (history.GetSampleCount(profile.DeviceId) > 0)
+                {
+                    HistorySyncProgressText.Text +=
+                        _localization.CurrentLanguage == "es"
+                            ? "\nNormalizando corpus local..."
+                            : "\nNormalizing local corpus...";
+
+                    var normalizer = _services.GetRequiredService<NormalizationService>();
+                    await normalizer.RebuildAsync(profile);
+                    RefreshDashboardMetrics();
+                }
+            }
+            catch (Exception normalizationError)
+            {
+                HistorySyncProgressText.Text +=
+                    $"\nNormalization: {normalizationError.Message}";
+            }
+
             StopHistorySyncButton.IsEnabled = false;
             StopHistorySyncButton.Visibility = Visibility.Collapsed;
             button.IsEnabled = true;
