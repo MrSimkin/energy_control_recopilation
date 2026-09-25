@@ -215,6 +215,7 @@
     <sys:String x:Key="Metric.LocalNormalized">Dato local normalizado</sys:String>
     <sys:String x:Key="Dashboard.EnergyOverview">Resumen de energía</sys:String>
     <sys:String x:Key="Dashboard.LatestDayHeading">Resumen del último día guardado</sys:String>
+    <sys:String x:Key="Dashboard.OpenHistory">Ver historial y gráficos</sys:String>
     <sys:String x:Key="Dashboard.LatestDayDate">Fecha: {0}</sys:String>
     <sys:String x:Key="Dashboard.LatestDaySolar">Solar producido</sys:String>
     <sys:String x:Key="Dashboard.LatestDayHouse">Usado por la casa</sys:String>
