@@ -566,6 +566,98 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
+
+                        <Border Style="{StaticResource CardStyle}"
+                                Margin="0,18,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Analysis.DetailHeading}"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Foreground="#343A40"/>
+                                <TextBlock Text="{DynamicResource Analysis.DetailIntro}"
+                                           FontSize="13"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,10"
+                                           TextWrapping="Wrap"/>
+
+                                <StackPanel Orientation="Horizontal"
+                                            Margin="0,0,0,10">
+                                    <TextBlock Text="{DynamicResource Analysis.AggregateBy}"
+                                               VerticalAlignment="Center"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="AnalysisAggregationSelector"
+                                              Width="150"
+                                              SelectedValuePath="Tag"
+                                              SelectionChanged="AnalysisAggregationSelector_SelectionChanged">
+                                        <ComboBoxItem Tag="Hour"
+                                                      Content="{DynamicResource Analysis.Aggregation.Hour}"/>
+                                        <ComboBoxItem Tag="Day"
+                                                      Content="{DynamicResource Analysis.Aggregation.Day}"/>
+                                        <ComboBoxItem Tag="Week"
+                                                      Content="{DynamicResource Analysis.Aggregation.Week}"/>
+                                        <ComboBoxItem Tag="Month"
+                                                      Content="{DynamicResource Analysis.Aggregation.Month}"/>
+                                        <ComboBoxItem Tag="Year"
+                                                      Content="{DynamicResource Analysis.Aggregation.Year}"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <DataGrid x:Name="AnalysisAggregationGrid"
+                                          Height="360"
+                                          IsReadOnly="True"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          CanUserReorderColumns="True"
+                                          CanUserSortColumns="True"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="Horizontal"
+                                          AlternatingRowBackground="#F8F9FA"
+                                          BorderBrush="#DEE2E6"
+                                          BorderThickness="1"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Auto"
+                                          ToolTip="{DynamicResource Tooltip.AnalysisDetailCoverage}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.Period}"
+                                                            Binding="{Binding LocalLabel}"
+                                                            Width="150"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.SolarKwh}"
+                                                            Binding="{Binding PvEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Width="110"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.HouseKwh}"
+                                                            Binding="{Binding HouseEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Width="110"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.GridKwh}"
+                                                            Binding="{Binding GridImportEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Width="105"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.BatteryOutKwh}"
+                                                            Binding="{Binding BatteryDischargedEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Width="150"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.BatteryInKwh}"
+                                                            Binding="{Binding BatteryChargedEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Width="150"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.SocAverage}"
+                                                            Binding="{Binding SocAveragePercent, StringFormat={}{0:N1}, TargetNullValue=—}"
+                                                            Width="115"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.SocMinimum}"
+                                                            Binding="{Binding SocMinimumPercent, StringFormat={}{0:N1}, TargetNullValue=—}"
+                                                            Width="115"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.SocMaximum}"
+                                                            Binding="{Binding SocMaximumPercent, StringFormat={}{0:N1}, TargetNullValue=—}"
+                                                            Width="115"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.SocEnd}"
+                                                            Binding="{Binding SocEndingPercent, StringFormat={}{0:N1}, TargetNullValue=—}"
+                                                            Width="125"/>
+                                        <DataGridTextColumn Header="{DynamicResource Analysis.Column.Coverage}"
+                                                            Binding="{Binding MinimumAvailableCoveragePercent, StringFormat={}{0:N1}}"
+                                                            Width="125"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 
