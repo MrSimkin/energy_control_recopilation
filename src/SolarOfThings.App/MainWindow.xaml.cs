@@ -414,6 +414,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void AnalysisResetCharts_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        AnalysisEnergyPlot.Plot.Axes.AutoScale();
+        AnalysisBatteryPlot.Plot.Axes.AutoScale();
+        AnalysisEnergyPlot.Plot.Axes.SetLimitsY(
+            bottom: 0,
+            top: AnalysisEnergyPlot.Plot.Axes.GetLimits().Top);
+        AnalysisBatteryPlot.Plot.Axes.SetLimitsY(0, 100);
+        AnalysisEnergyPlot.Refresh();
+        AnalysisBatteryPlot.Refresh();
+    }
+
     private void RefreshAnalysisView(bool initializeRange = false)
     {
         if (!IsInitialized || AnalysisContent is null)
