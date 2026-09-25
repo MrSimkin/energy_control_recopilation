@@ -104,7 +104,7 @@ Exit criterion:
 
 ---
 
-# Phase 1 — Technical Skeleton / Proof of Architecture
+# Phase 1 — Technical Skeleton / Proof of Architecture — CI PASS / LOCAL UI CHECK PENDING
 
 Goal: prove the chosen desktop stack and project structure before building business logic.
 
