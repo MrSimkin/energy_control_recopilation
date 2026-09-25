@@ -20,7 +20,8 @@ public sealed record SolarSessionTokens(
     string RefreshToken,
     string? AccessExpiresAt,
     string? RefreshExpiresAt,
-    long? AccessExpiresInMilliseconds);
+    long? AccessExpiresInMilliseconds,
+    string? UserId = null);
 
 public sealed class SolarApiException : Exception
 {
