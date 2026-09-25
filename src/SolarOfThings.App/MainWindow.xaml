@@ -199,10 +199,24 @@
                                     </Border>
                                     <StackPanel Margin="16"
                                                 ToolTip="{DynamicResource Tooltip.DashboardLatestDay}">
-                                        <TextBlock Text="{DynamicResource Dashboard.LatestDayHeading}"
-                                                   FontSize="17"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#343A40"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{DynamicResource Dashboard.LatestDayHeading}"
+                                                       FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#343A40"
+                                                       VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1"
+                                                    Content="{DynamicResource Dashboard.OpenHistory}"
+                                                    Tag="Analysis"
+                                                    Padding="10,5"
+                                                    Margin="12,0,0,0"
+                                                    Click="Navigation_Click"/>
+                                        </Grid>
                                         <TextBlock x:Name="DashboardLatestDayDateText"
                                                    Text="{DynamicResource Dashboard.LatestDayNoData}"
                                                    FontSize="12"
