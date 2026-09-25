@@ -839,6 +839,27 @@ public partial class MainWindow : Window
             ending.MarkerSize = 5;
         }
 
+        var policy =
+            _services.GetRequiredService<InstallationContextPolicyService>().Current;
+
+        var floor = plot.Add.HorizontalLine(
+            policy.EmergencyFloorSocPercent);
+        floor.LegendText = string.Format(
+            _localization.GetString("Analysis.BatteryChart.Floor"),
+            policy.EmergencyFloorSocPercent);
+
+        var gridTransfer = plot.Add.HorizontalLine(
+            policy.NormalGridTransferSocPercent);
+        gridTransfer.LegendText = string.Format(
+            _localization.GetString("Analysis.BatteryChart.GridTransfer"),
+            policy.NormalGridTransferSocPercent);
+
+        var normalReturn = plot.Add.HorizontalLine(
+            policy.ReturnToBatterySocPercent);
+        normalReturn.LegendText = string.Format(
+            _localization.GetString("Analysis.BatteryChart.Return"),
+            policy.ReturnToBatterySocPercent);
+
         var tickGenerator =
             new ScottPlot.TickGenerators.NumericManual();
 
