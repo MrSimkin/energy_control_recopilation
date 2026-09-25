@@ -35,14 +35,20 @@ public sealed class HistoryIngestionService
         CommissioningProfile profile,
         bool fullBackfill,
         IProgress<HistorySyncProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        DateOnly? requestedStartDate = null)
     {
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
             : profile.StationTimeZone;
 
         var today = SolarApiTime.GetLocalDate(DateTimeOffset.UtcNow, timeZone);
-        var startDate = DetermineStartDate(profile, today, timeZone, fullBackfill);
+        var startDate = DetermineStartDate(
+            profile,
+            today,
+            timeZone,
+            fullBackfill,
+            requestedStartDate);
         if (startDate > today)
         {
             startDate = today;
@@ -74,6 +80,7 @@ public sealed class HistoryIngestionService
         var syncRunId = _history.StartSyncRun(JsonSerializer.Serialize(new
         {
             mode = fullBackfill ? "full-backfill" : "incremental",
+            requestedStartDate = requestedStartDate?.ToString("yyyy-MM-dd"),
             profile.DeviceId,
             from = firstSyncDate.ToString("yyyy-MM-dd"),
             to = lastSyncDate.ToString("yyyy-MM-dd"),
@@ -382,12 +389,50 @@ public sealed class HistoryIngestionService
         }
     }
 
+    public DateOnly GetSuggestedAutomaticStartDate(CommissioningProfile profile)
+    {
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var today = SolarApiTime.GetLocalDate(DateTimeOffset.UtcNow, timeZone);
+        return DetermineStartDate(
+            profile,
+            today,
+            timeZone,
+            _history.GetSampleCount(profile.DeviceId) == 0,
+            requestedStartDate: null);
+    }
+
     private DateOnly DetermineStartDate(
         CommissioningProfile profile,
         DateOnly today,
         string timeZone,
-        bool fullBackfill)
+        bool fullBackfill,
+        DateOnly? requestedStartDate)
     {
+        var installed = ReadInstalledAt(profile.DeviceJson);
+        var installedDate = installed.HasValue
+            ? SolarApiTime.GetLocalDate(installed.Value, timeZone)
+            : (DateOnly?)null;
+
+        if (requestedStartDate.HasValue)
+        {
+            var requested = requestedStartDate.Value;
+
+            if (requested > today)
+            {
+                requested = today;
+            }
+
+            if (installedDate.HasValue && requested < installedDate.Value)
+            {
+                requested = installedDate.Value;
+            }
+
+            return requested;
+        }
+
         if (!fullBackfill)
         {
             var newest = _history.GetNewestTimestamp(profile.DeviceId);
@@ -398,10 +443,9 @@ public sealed class HistoryIngestionService
             }
         }
 
-        var installed = ReadInstalledAt(profile.DeviceJson);
-        if (installed.HasValue)
+        if (installedDate.HasValue)
         {
-            return SolarApiTime.GetLocalDate(installed.Value, timeZone);
+            return installedDate.Value;
         }
 
         return today.AddDays(-120);
