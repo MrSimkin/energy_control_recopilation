@@ -100,7 +100,8 @@ public sealed class HistoryRepository
                 first_at_utc,
                 last_at_utc,
                 detail_json,
-                updated_utc
+                updated_utc,
+                retry_count
             )
             VALUES (
                 $deviceId,
@@ -113,7 +114,8 @@ public sealed class HistoryRepository
                 $firstAtUtc,
                 $lastAtUtc,
                 $detailJson,
-                $updatedUtc
+                $updatedUtc,
+                CASE WHEN $status = 'PARTIAL' THEN 1 ELSE 0 END
             )
             ON CONFLICT(device_id, local_date) DO UPDATE SET
                 timezone = excluded.timezone,
@@ -124,7 +126,14 @@ public sealed class HistoryRepository
                 first_at_utc = excluded.first_at_utc,
                 last_at_utc = excluded.last_at_utc,
                 detail_json = excluded.detail_json,
-                updated_utc = excluded.updated_utc;
+                updated_utc = excluded.updated_utc,
+                retry_count = CASE
+                    WHEN excluded.status = 'PARTIAL'
+                        THEN history_day_status.retry_count + 1
+                    WHEN excluded.status = 'UNAVAILABLE'
+                        THEN history_day_status.retry_count
+                    ELSE 0
+                END;
             """;
         command.Parameters.AddWithValue("$deviceId", status.DeviceId);
         command.Parameters.AddWithValue("$localDate", status.LocalDate.ToString("yyyy-MM-dd"));
@@ -274,7 +283,7 @@ public sealed class HistoryRepository
             FROM history_day_status
             WHERE device_id = $deviceId
               AND local_date <= $throughDate
-              AND status NOT IN ('COMPLETE', 'EMPTY')
+              AND status IN ('PARTIAL', 'OPEN')
             ORDER BY local_date;
             """;
         command.Parameters.AddWithValue("$deviceId", deviceId);
@@ -319,6 +328,26 @@ public sealed class HistoryRepository
         }
 
         return result;
+    }
+
+    public int GetRetryCount(string deviceId, DateOnly localDate)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COALESCE(retry_count, 0)
+            FROM history_day_status
+            WHERE device_id = $deviceId
+              AND local_date = $localDate
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        command.Parameters.AddWithValue("$localDate", localDate.ToString("yyyy-MM-dd"));
+
+        var value = command.ExecuteScalar();
+        return value is null || value is DBNull
+            ? 0
+            : Convert.ToInt32(value);
     }
 
     public DateTimeOffset? GetNewestTimestamp(string deviceId)
