@@ -53,7 +53,7 @@ public sealed class SqliteDatabase
         return GetSchemaVersion(connection);
     }
 
-    private SqliteConnection OpenConnection()
+    internal SqliteConnection OpenConnection()
     {
         var builder = new SqliteConnectionStringBuilder
         {
