@@ -217,6 +217,83 @@ public sealed class HistoryRepository
         command.ExecuteNonQuery();
     }
 
+    public DateOnly? GetEarliestUntrackedDate(
+        string deviceId,
+        DateOnly fromDate,
+        DateOnly throughDate)
+    {
+        if (fromDate > throughDate)
+        {
+            return null;
+        }
+
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT local_date
+            FROM history_day_status
+            WHERE device_id = $deviceId
+              AND local_date >= $fromDate
+              AND local_date <= $throughDate;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        command.Parameters.AddWithValue("$fromDate", fromDate.ToString("yyyy-MM-dd"));
+        command.Parameters.AddWithValue("$throughDate", throughDate.ToString("yyyy-MM-dd"));
+
+        var tracked = new HashSet<DateOnly>();
+        using (var reader = command.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                if (DateOnly.TryParse(reader.GetString(0), out var date))
+                {
+                    tracked.Add(date);
+                }
+            }
+        }
+
+        for (var day = fromDate; day <= throughDate; day = day.AddDays(1))
+        {
+            if (!tracked.Contains(day))
+            {
+                return day;
+            }
+        }
+
+        return null;
+    }
+
+    public IReadOnlyList<DateOnly> GetRetryDates(
+        string deviceId,
+        DateOnly throughDate)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT local_date
+            FROM history_day_status
+            WHERE device_id = $deviceId
+              AND local_date <= $throughDate
+              AND status NOT IN ('COMPLETE', 'EMPTY')
+            ORDER BY local_date;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        command.Parameters.AddWithValue("$throughDate", throughDate.ToString("yyyy-MM-dd"));
+
+        using var reader = command.ExecuteReader();
+        var result = new List<DateOnly>();
+
+        while (reader.Read())
+        {
+            if (DateOnly.TryParse(reader.GetString(0), out var date))
+            {
+                result.Add(date);
+            }
+        }
+
+        return result;
+    }
+
     public IReadOnlyList<DateOnly> GetPartialDates(string deviceId)
     {
         using var connection = _database.OpenConnection();
