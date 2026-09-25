@@ -628,6 +628,29 @@
                         <Border Style="{StaticResource CardStyle}"
                                 Margin="0,18,0,0">
                             <StackPanel>
+                                <TextBlock Text="{DynamicResource Analysis.BatteryChartHeading}"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Foreground="#343A40"/>
+                                <TextBlock Text="{DynamicResource Analysis.BatteryChartIntro}"
+                                           FontSize="13"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,10"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="AnalysisBatteryChartStatusText"
+                                           Text=""
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,0,0,6"
+                                           TextWrapping="Wrap"/>
+                                <ScottPlot:WpfPlot x:Name="AnalysisBatteryPlot"
+                                                  Height="300"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}"
+                                Margin="0,18,0,0">
+                            <StackPanel>
                                 <TextBlock Text="{DynamicResource Analysis.DetailHeading}"
                                            FontSize="18"
                                            FontWeight="SemiBold"
