@@ -2,13 +2,13 @@
 
 Date: 2026-09-24
 
-Status: CANONICAL V1 — READY FOR USER REVIEW / FREEZE
+Status: CANONICAL V1 — APPROVED / FROZEN
 
 ## 0. Purpose and authority
 
 This document consolidates the approved requirements, research conclusions, gap-review decisions, and implementation defaults for the Solar of Things Windows application.
 
-Once approved/frozen, this document becomes the primary product/functional authority for implementation. Earlier requirements and clarification files remain historical evidence of how decisions were reached.
+This document is approved/frozen and is the primary product/functional authority for implementation. Earlier requirements and clarification files remain historical evidence of how decisions were reached.
 
 Source authority:
 - solar_of_things_api_research/
@@ -1402,3 +1402,12 @@ The product is a local Windows household-energy analysis application that:
 - keeps the underlying SQL data accessible for independent querying.
 
 The application prioritizes correctness, traceability, local ownership of data, and understandable presentation over real-time operation or decorative UI.
+
+
+---
+
+# 47. Approval record
+
+Approved by the user/product owner on 2026-09-24.
+
+Phase 0 is complete. Subsequent requirement changes follow the classification in Section 44.
