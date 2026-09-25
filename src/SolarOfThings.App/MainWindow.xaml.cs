@@ -588,6 +588,19 @@ public partial class MainWindow : Window
         window.Owner = this;
         window.ShowDialog();
 
+        var refreshedProfile = _profiles.Get();
+        if (refreshedProfile is not null)
+        {
+            try
+            {
+                EvaluateInstallationHealth(refreshedProfile);
+            }
+            catch
+            {
+                // Contextual configuration health is non-blocking.
+            }
+        }
+
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
         RefreshDataCoverageView();
