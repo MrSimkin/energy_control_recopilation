@@ -77,6 +77,11 @@ try
         "dtu",
         "protocol",
         "firmware",
+        "pvInverter",
+        "208",
+        6200m,
+        true,
+        DateTimeOffset.Parse("2026-09-25T19:15:55Z"),
         "1",
         "SUPPORTED",
         12,
@@ -95,7 +100,12 @@ try
     var loadedProfile = profileRepo.Get();
     if (loadedProfile?.DeviceId != "device-1" ||
         loadedProfile.DataSource != "1" ||
-        loadedProfile.GatherAttributeCount != 12)
+        loadedProfile.GatherAttributeCount != 12 ||
+        loadedProfile.DeviceSortKey != "pvInverter" ||
+        loadedProfile.DeviceTypeNumber != "208" ||
+        loadedProfile.RatedPower != 6200m ||
+        loadedProfile.IsOnline != true ||
+        loadedProfile.LastDataAt != DateTimeOffset.Parse("2026-09-25T19:15:55Z"))
     {
         throw new InvalidOperationException("Commissioning profile round-trip failed.");
     }
@@ -199,7 +209,8 @@ try
 
     Console.WriteLine(
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
-        "settings, diagnostics/redaction, IOT Open signing, commissioning profile and protected secret storage are operational.");
+        "settings, diagnostics/redaction, production client profile, IOT Open signing, " +
+        "commissioning metadata/profile and protected secret storage are operational.");
 }
 finally
 {
