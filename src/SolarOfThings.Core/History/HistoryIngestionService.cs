@@ -44,13 +44,38 @@ public sealed class HistoryIngestionService
             startDate = today;
         }
 
-        var totalDays = today.DayNumber - startDate.DayNumber + 1;
+        var syncDates = new SortedSet<DateOnly>();
+
+        for (var day = startDate; day <= today; day = day.AddDays(1))
+        {
+            syncDates.Add(day);
+        }
+
+        if (!fullBackfill)
+        {
+            foreach (var partialDate in _history.GetPartialDates(profile.DeviceId))
+            {
+                if (partialDate <= today)
+                {
+                    syncDates.Add(partialDate);
+                }
+            }
+        }
+
+        var orderedSyncDates = syncDates.ToArray();
+        var totalDays = orderedSyncDates.Length;
+        var firstSyncDate = totalDays > 0 ? orderedSyncDates[0] : today;
+        var lastSyncDate = totalDays > 0 ? orderedSyncDates[^1] : today;
+
         var syncRunId = _history.StartSyncRun(JsonSerializer.Serialize(new
         {
             mode = fullBackfill ? "full-backfill" : "incremental",
             profile.DeviceId,
-            from = startDate.ToString("yyyy-MM-dd"),
-            to = today.ToString("yyyy-MM-dd"),
+            from = firstSyncDate.ToString("yyyy-MM-dd"),
+            to = lastSyncDate.ToString("yyyy-MM-dd"),
+            retryPartialDays = !fullBackfill
+                ? _history.GetPartialDates(profile.DeviceId).Count
+                : 0,
             timeZone
         }));
 
@@ -83,7 +108,7 @@ public sealed class HistoryIngestionService
                 ];
             }
 
-            if (fullBackfill && startDate < today)
+            if (fullBackfill && firstSyncDate < today)
             {
                 var validationDay = today.AddDays(-1);
                 progress?.Report(new(
@@ -155,7 +180,7 @@ public sealed class HistoryIngestionService
                 }
             }
 
-            for (var day = startDate; day <= today; day = day.AddDays(1))
+            foreach (var day in orderedSyncDates)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 daysAttempted++;
@@ -247,7 +272,7 @@ public sealed class HistoryIngestionService
                         ? $"{day:yyyy-MM-dd}: {result.FrameCount} frames."
                         : $"{day:yyyy-MM-dd}: parcial — {result.Error ?? "sin detalle"}"));
 
-                if (day < today)
+                if (daysAttempted < totalDays)
                 {
                     await Task.Delay(100, cancellationToken);
                 }
@@ -260,8 +285,8 @@ public sealed class HistoryIngestionService
                 frames,
                 samples,
                 pages,
-                startDate,
-                today,
+                firstSyncDate,
+                lastSyncDate,
                 source);
 
             _history.CompleteSyncRun(
@@ -288,8 +313,8 @@ public sealed class HistoryIngestionService
                 frames,
                 samples,
                 pages,
-                startDate,
-                today,
+                firstSyncDate,
+                lastSyncDate,
                 source);
 
             _history.CompleteSyncRun(
@@ -308,8 +333,8 @@ public sealed class HistoryIngestionService
                 frames,
                 samples,
                 pages,
-                startDate,
-                today,
+                firstSyncDate,
+                lastSyncDate,
                 source);
 
             _history.CompleteSyncRun(
