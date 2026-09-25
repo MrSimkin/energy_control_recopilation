@@ -433,6 +433,15 @@ public partial class MainWindow : Window
         var fromWindow = SolarApiTime.GetLocalDayWindow(fromDate, timeZone);
         var toWindow = SolarApiTime.GetLocalDayWindow(toDate, timeZone);
 
+        var energySummary =
+            _services.GetRequiredService<EnergyRangeStatisticsService>()
+                .Get(
+                    profile.DeviceId,
+                    fromWindow.Start,
+                    toWindow.End);
+
+        RefreshAnalysisEnergySummary(energySummary);
+
         var statistics =
             _services.GetRequiredService<HouseholdBehaviorStatisticsService>()
                 .Get(
@@ -489,6 +498,64 @@ public partial class MainWindow : Window
         AnalysisStatusText.Text = string.Empty;
     }
 
+    private void RefreshAnalysisEnergySummary(EnergyRangeSummary summary)
+    {
+        SetAnalysisEnergyValue(
+            AnalysisPvEnergyText,
+            summary.PvPower,
+            summary.PvEnergyKwh);
+        SetAnalysisEnergyValue(
+            AnalysisHouseEnergyText,
+            summary.HouseLoadPower,
+            summary.HouseEnergyKwh);
+        SetAnalysisEnergyValue(
+            AnalysisGridEnergyText,
+            summary.GridImportPower,
+            summary.GridImportEnergyKwh);
+
+        if (summary.BatteryPower.SampleCount >= 2)
+        {
+            AnalysisBatteryDeliveredText.Text = string.Format(
+                _localization.GetString("Analysis.BatteryDelivered"),
+                summary.BatteryDischargedEnergyKwh);
+            AnalysisBatteryReceivedText.Text = string.Format(
+                _localization.GetString("Analysis.BatteryReceived"),
+                summary.BatteryChargedEnergyKwh);
+        }
+        else
+        {
+            AnalysisBatteryDeliveredText.Text = "—";
+            AnalysisBatteryReceivedText.Text = "—";
+        }
+
+        var coverages = new[]
+            {
+                summary.PvPower,
+                summary.HouseLoadPower,
+                summary.GridImportPower,
+                summary.BatteryPower
+            }
+            .Where(metric => metric.SampleCount >= 2)
+            .Select(metric => metric.CoveragePercent)
+            .ToArray();
+
+        AnalysisEnergyCoverageText.Text = coverages.Length > 0
+            ? string.Format(
+                _localization.GetString("Analysis.EnergyCoverage"),
+                coverages.Min())
+            : string.Empty;
+    }
+
+    private static void SetAnalysisEnergyValue(
+        TextBlock target,
+        PowerMetricStatistics metric,
+        double energyKwh)
+    {
+        target.Text = metric.SampleCount >= 2
+            ? $"{energyKwh:N2} kWh"
+            : "— kWh";
+    }
+
     private static double GetStateDuration(
         HouseholdBehaviorStatistics statistics,
         params string[] stateKeys)
@@ -520,7 +587,18 @@ public partial class MainWindow : Window
         AnalysisFromDatePicker.SelectedDate = null;
         AnalysisToDatePicker.SelectedDate = null;
         ResetAnalysisValues();
+        ResetAnalysisEnergyValues();
         AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
+    }
+
+    private void ResetAnalysisEnergyValues()
+    {
+        AnalysisPvEnergyText.Text = "— kWh";
+        AnalysisHouseEnergyText.Text = "— kWh";
+        AnalysisGridEnergyText.Text = "— kWh";
+        AnalysisBatteryDeliveredText.Text = "—";
+        AnalysisBatteryReceivedText.Text = "—";
+        AnalysisEnergyCoverageText.Text = string.Empty;
     }
 
     private void ResetAnalysisValues()
