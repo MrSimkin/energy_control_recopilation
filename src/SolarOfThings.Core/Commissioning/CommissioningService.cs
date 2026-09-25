@@ -1,5 +1,6 @@
 using System.Text.Json;
 using SolarOfThings.Core.Diagnostics;
+using SolarOfThings.Core.History;
 using SolarOfThings.Core.SolarOfThings;
 
 namespace SolarOfThings.Core.Commissioning;
@@ -8,15 +9,18 @@ public sealed class CommissioningService
 {
     private readonly SolarOfThingsSessionManager _session;
     private readonly CommissioningProfileRepository _profiles;
+    private readonly HistoryRepository _history;
     private readonly ApiDiagnosticsStore _diagnostics;
 
     public CommissioningService(
         SolarOfThingsSessionManager session,
         CommissioningProfileRepository profiles,
+        HistoryRepository history,
         ApiDiagnosticsStore diagnostics)
     {
         _session = session;
         _profiles = profiles;
+        _history = history;
         _diagnostics = diagnostics;
     }
 
@@ -315,6 +319,17 @@ public sealed class CommissioningService
             {
                 selectedDataSource = dataSource;
                 latestStatus = "SUPPORTED";
+
+                _history.CaptureRaw(
+                    "LatestStateSnapshot",
+                    device.Id,
+                    null,
+                    "state/latest/v1",
+                    null,
+                    null,
+                    latest.Data.GetRawText(),
+                    DateTimeOffset.UtcNow);
+
                 break;
             }
 
