@@ -45,6 +45,15 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
+        AnalysisEnergyPlot.Plot.Axes.Link(
+            AnalysisBatteryPlot,
+            x: true,
+            y: false);
+        AnalysisBatteryPlot.Plot.Axes.Link(
+            AnalysisEnergyPlot,
+            x: true,
+            y: false);
+
         DatabasePathText.Text = _paths.DatabasePath;
 
         _suppressLanguageSelection = true;
