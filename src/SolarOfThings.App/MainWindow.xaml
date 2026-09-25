@@ -254,6 +254,102 @@
                     </StackPanel>
                 </ScrollViewer>
 
+                <ScrollViewer x:Name="DataContent"
+                              Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Data.CoverageHeading}"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Data.CoverageIntro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,5,0,16"
+                                   TextWrapping="Wrap"/>
+
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Data.StoredFrom}" FontSize="13" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="DataStoredFromText" Text="—" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Data.StoredTo}" FontSize="13" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="DataStoredToText" Text="—" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource CardStyle}" ToolTip="{DynamicResource Tooltip.DataDaysReviewed}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Data.DaysReviewed}" FontSize="13" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="DataReviewedDaysText" Text="0" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0" ToolTip="{DynamicResource Tooltip.DataIssues}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Data.DaysWithIssues}" FontSize="13" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="DataIssueDaysText" Text="0" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,24,0">
+                                    <TextBlock Text="{DynamicResource Data.InstallationDate}" Foreground="#6C757D" FontSize="13"/>
+                                    <TextBlock x:Name="DataInstallationDateText" Text="—" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,14"/>
+
+                                    <TextBlock Text="{DynamicResource Data.NextDownload}" Foreground="#6C757D" FontSize="13"/>
+                                    <TextBlock x:Name="DataNextDownloadText" Text="—" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,14"/>
+
+                                    <TextBlock Text="{DynamicResource Data.SavedReadings}" Foreground="#6C757D" FontSize="13"/>
+                                    <TextBlock x:Name="DataSavedReadingsText" Text="0" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,14"/>
+
+                                    <TextBlock Text="{DynamicResource Data.ReadyReadings}" Foreground="#6C757D" FontSize="13"/>
+                                    <TextBlock x:Name="DataReadyReadingsText" Text="0" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,0"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{DynamicResource Data.EmptyDays}"
+                                               Foreground="#6C757D"
+                                               FontSize="13"
+                                               ToolTip="{DynamicResource Tooltip.EmptyDays}"/>
+                                    <TextBlock x:Name="DataEmptyDaysText" Text="0" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,14"/>
+
+                                    <TextBlock Text="{DynamicResource Data.PartialDays}"
+                                               Foreground="#6C757D"
+                                               FontSize="13"
+                                               ToolTip="{DynamicResource Tooltip.DataIssues}"/>
+                                    <TextBlock x:Name="DataPartialDaysText" Text="0" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,14"/>
+
+                                    <TextBlock Text="{DynamicResource Data.UnavailableDays}"
+                                               Foreground="#6C757D"
+                                               FontSize="13"
+                                               ToolTip="{DynamicResource Tooltip.UnavailableDays}"/>
+                                    <TextBlock x:Name="DataUnavailableDaysText" Text="0" FontWeight="SemiBold" FontSize="16" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <Grid x:Name="PlaceholderContent" Visibility="Collapsed" Margin="20">
                     <Border Style="{StaticResource CardStyle}" Margin="0">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="640">
