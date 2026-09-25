@@ -45,6 +45,7 @@ public partial class App : Application
         builder.Services.AddSingleton<NormalizationService>();
         builder.Services.AddSingleton<InstallationHealthRepository>();
         builder.Services.AddSingleton<InstallationHealthService>();
+        builder.Services.AddSingleton<CurrentStateSnapshotService>();
         builder.Services.AddSingleton<HouseholdOperatingStateService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
