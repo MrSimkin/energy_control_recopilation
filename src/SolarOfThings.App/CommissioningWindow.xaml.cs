@@ -245,6 +245,18 @@ public partial class CommissioningWindow : Window
         }
     }
 
+    private void UseDefaultProtocolCredential_Click(object sender, RoutedEventArgs e)
+    {
+        _credentialStore.Delete();
+        UpdateProtocolCredentialStatus();
+
+        _diagnostics.RecordLocal(
+            "ProtocolCredential",
+            "UsePortalDefault",
+            "SUCCESS",
+            "Returned to the built-in production portal client profile.");
+    }
+
     private void UseTokenPair_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(AccessTokenInput.Password))
@@ -316,8 +328,12 @@ public partial class CommissioningWindow : Window
 
     private void UpdateProtocolCredentialStatus()
     {
-        ProtocolCredentialStatus.Text = _credentialStore.TryRead(out _)
-            ? "Configurada localmente"
-            : "No configurada";
+        var resourceKey = _credentialStore.HasLocalOverride
+            ? "Commissioning.ProtocolOverrideActive"
+            : "Commissioning.ProtocolDefaultActive";
+
+        ProtocolCredentialStatus.SetResourceReference(
+            TextBlock.TextProperty,
+            resourceKey);
     }
 }
