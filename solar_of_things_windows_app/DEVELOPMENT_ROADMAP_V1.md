@@ -104,9 +104,11 @@ Exit criterion:
 
 ---
 
-# Phase 1 — Technical Skeleton / Proof of Architecture — CI PASS / LOCAL UI CHECK PENDING
+# Phase 1 — Technical Skeleton / Proof of Architecture — PAUSED / IN PROGRESS — CI PASS / LOCAL UI CHECK PENDING
 
 Goal: prove the chosen desktop stack and project structure before building business logic.
+
+Current checkpoint: core architecture validated by Windows CI; remaining work is actual Windows 11 installed/portable behavior validation and the Phase 1 acceptance receipt. See `CONTINUITY_STATUS.md`.
 
 Build:
 
