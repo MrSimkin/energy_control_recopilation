@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
+        RefreshDataCoverageView();
         ShowPage("Dashboard");
         Loaded += MainWindow_Loaded;
     }
@@ -203,10 +204,20 @@ public partial class MainWindow : Window
         PageSubtitle.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Subtitle");
 
         var isDashboard = string.Equals(pageKey, "Dashboard", StringComparison.Ordinal);
-        DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
-        PlaceholderContent.Visibility = isDashboard ? Visibility.Collapsed : Visibility.Visible;
+        var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
 
-        if (!isDashboard)
+        DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
+        DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
+        PlaceholderContent.Visibility =
+            !isDashboard && !isData
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        if (isData)
+        {
+            RefreshDataCoverageView();
+        }
+        else if (!isDashboard)
         {
             PlaceholderTitle.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Title");
             PlaceholderDescription.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Placeholder");
@@ -229,6 +240,7 @@ public partial class MainWindow : Window
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
+        RefreshDataCoverageView();
     }
 
     private async void UpdateData_Click(object sender, RoutedEventArgs e)
@@ -347,6 +359,7 @@ public partial class MainWindow : Window
             _syncCancellation = null;
             RefreshCaptureStartOptions();
             RefreshConnectionStatus();
+            RefreshDataCoverageView();
         }
     }
 
@@ -385,6 +398,8 @@ public partial class MainWindow : Window
 
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
+        RefreshDataCoverageView();
+        RefreshDashboardMetrics();
     }
 
     private void CaptureStartModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -465,6 +480,81 @@ public partial class MainWindow : Window
                 ? resumeText
                 : $"{installationText}\n{resumeText}";
         }
+    }
+
+    private void RefreshDataCoverageView()
+    {
+        if (!IsInitialized || DataContent is null)
+        {
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            var none = _localization.GetString("Data.None");
+            DataStoredFromText.Text = none;
+            DataStoredToText.Text = none;
+            DataReviewedDaysText.Text = "0";
+            DataIssueDaysText.Text = "0";
+            DataInstallationDateText.Text = none;
+            DataNextDownloadText.Text = none;
+            DataEmptyDaysText.Text = "0";
+            DataPartialDaysText.Text = "0";
+            DataUnavailableDaysText.Text = "0";
+            DataSavedReadingsText.Text = "0";
+            DataReadyReadingsText.Text = "0";
+            return;
+        }
+
+        var history = _services.GetRequiredService<HistoryRepository>();
+        var normalized = _services.GetRequiredService<NormalizationRepository>();
+        var ingestion = _services.GetRequiredService<HistoryIngestionService>();
+        var coverage = history.GetCoverageSummary(profile.DeviceId);
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        DataStoredFromText.Text = coverage.FirstSampleAtUtc.HasValue
+            ? SolarApiTime.GetLocalDate(
+                coverage.FirstSampleAtUtc.Value,
+                timeZone).ToString("dd-MM-yyyy")
+            : _localization.GetString("Data.None");
+
+        DataStoredToText.Text = coverage.LastSampleAtUtc.HasValue
+            ? SolarApiTime.GetLocalDate(
+                coverage.LastSampleAtUtc.Value,
+                timeZone).ToString("dd-MM-yyyy")
+            : _localization.GetString("Data.None");
+
+        var reviewedDays =
+            coverage.CompleteDays +
+            coverage.EmptyDays +
+            coverage.OpenDays;
+
+        var issueDays =
+            coverage.PartialDays +
+            coverage.UnavailableDays;
+
+        DataReviewedDaysText.Text = reviewedDays.ToString("N0");
+        DataIssueDaysText.Text = issueDays.ToString("N0");
+
+        var installationDate = ingestion.GetInstallationDate(profile);
+        DataInstallationDateText.Text = installationDate.HasValue
+            ? installationDate.Value.ToString("dd-MM-yyyy")
+            : _localization.GetString("Data.None");
+
+        DataNextDownloadText.Text =
+            ingestion.GetSuggestedAutomaticStartDate(profile)
+                .ToString("dd-MM-yyyy");
+
+        DataEmptyDaysText.Text = coverage.EmptyDays.ToString("N0");
+        DataPartialDaysText.Text = coverage.PartialDays.ToString("N0");
+        DataUnavailableDaysText.Text = coverage.UnavailableDays.ToString("N0");
+        DataSavedReadingsText.Text = coverage.RawSampleCount.ToString("N0");
+        DataReadyReadingsText.Text =
+            normalized.GetNormalizedSampleCount(profile.DeviceId).ToString("N0");
     }
 
     private void RefreshConnectionStatus()
