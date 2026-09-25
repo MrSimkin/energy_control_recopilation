@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly IServiceProvider _services;
     private CancellationTokenSource? _syncCancellation;
     private bool _suppressLanguageSelection;
+    private bool _suppressAnalysisRangeSelection;
 
     public MainWindow(
         AppPaths paths,
@@ -48,6 +49,11 @@ public partial class MainWindow : Window
         _suppressLanguageSelection = false;
 
         CaptureStartModeSelector.SelectedValue = "auto";
+
+        _suppressAnalysisRangeSelection = true;
+        AnalysisRangePresetSelector.SelectedValue = "all";
+        _suppressAnalysisRangeSelection = false;
+
         AnalysisAggregationSelector.SelectedValue = "Day";
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
@@ -367,6 +373,37 @@ public partial class MainWindow : Window
         RefreshAnalysisView();
     }
 
+    private void AnalysisRangePresetSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_suppressAnalysisRangeSelection || !IsInitialized)
+        {
+            return;
+        }
+
+        if (ApplyAnalysisRangePreset())
+        {
+            RefreshAnalysisView();
+        }
+    }
+
+    private void AnalysisDatePicker_SelectedDateChanged(
+        object? sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_suppressAnalysisRangeSelection ||
+            !IsInitialized ||
+            AnalysisRangePresetSelector is null)
+        {
+            return;
+        }
+
+        _suppressAnalysisRangeSelection = true;
+        AnalysisRangePresetSelector.SelectedValue = "custom";
+        _suppressAnalysisRangeSelection = false;
+    }
+
     private void AnalysisAggregationSelector_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
@@ -413,16 +450,29 @@ public partial class MainWindow : Window
             coverage.LastSampleAtUtc.Value,
             timeZone);
 
-        if (initializeRange || !AnalysisFromDatePicker.SelectedDate.HasValue)
+        if (initializeRange)
         {
+            _suppressAnalysisRangeSelection = true;
+            AnalysisRangePresetSelector.SelectedValue = "all";
             AnalysisFromDatePicker.SelectedDate =
                 firstLocalDate.ToDateTime(TimeOnly.MinValue);
-        }
-
-        if (initializeRange || !AnalysisToDatePicker.SelectedDate.HasValue)
-        {
             AnalysisToDatePicker.SelectedDate =
                 lastLocalDate.ToDateTime(TimeOnly.MinValue);
+            _suppressAnalysisRangeSelection = false;
+        }
+        else
+        {
+            if (!AnalysisFromDatePicker.SelectedDate.HasValue)
+            {
+                AnalysisFromDatePicker.SelectedDate =
+                    firstLocalDate.ToDateTime(TimeOnly.MinValue);
+            }
+
+            if (!AnalysisToDatePicker.SelectedDate.HasValue)
+            {
+                AnalysisToDatePicker.SelectedDate =
+                    lastLocalDate.ToDateTime(TimeOnly.MinValue);
+            }
         }
 
         var fromDate = DateOnly.FromDateTime(
@@ -512,6 +562,89 @@ public partial class MainWindow : Window
         AnalysisUnknownTimeText.Text =
             FormatAnalysisHours(statistics.UncoveredGapMinutes);
         AnalysisStatusText.Text = string.Empty;
+    }
+
+    private bool ApplyAnalysisRangePreset()
+    {
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            return false;
+        }
+
+        var history =
+            _services.GetRequiredService<HistoryRepository>();
+        var coverage =
+            history.GetCoverageSummary(profile.DeviceId);
+
+        if (!coverage.FirstSampleAtUtc.HasValue ||
+            !coverage.LastSampleAtUtc.HasValue)
+        {
+            return false;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var firstLocalDate = SolarApiTime.GetLocalDate(
+            coverage.FirstSampleAtUtc.Value,
+            timeZone);
+        var lastLocalDate = SolarApiTime.GetLocalDate(
+            coverage.LastSampleAtUtc.Value,
+            timeZone);
+
+        var preset =
+            AnalysisRangePresetSelector.SelectedValue?.ToString() ??
+            "custom";
+
+        if (string.Equals(
+                preset,
+                "custom",
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var resolver =
+            _services.GetRequiredService<TimeRangeSelectionService>();
+
+        ResolvedTimeRange resolved = preset switch
+        {
+            "latest-day" =>
+                resolver.ForDay(lastLocalDate, timeZone),
+            "rolling-7" =>
+                resolver.ForRolling7Days(lastLocalDate, timeZone),
+            "latest-week" =>
+                resolver.ForCalendarWeek(lastLocalDate, timeZone),
+            "latest-month" =>
+                resolver.ForMonth(
+                    lastLocalDate.Year,
+                    lastLocalDate.Month,
+                    timeZone),
+            "latest-year" =>
+                resolver.ForYear(
+                    lastLocalDate.Year,
+                    timeZone),
+            "rolling-12-months" =>
+                resolver.ForRolling12Months(
+                    lastLocalDate,
+                    timeZone),
+            _ =>
+                resolver.ForArbitraryDateRange(
+                    firstLocalDate,
+                    lastLocalDate,
+                    timeZone)
+        };
+
+        _suppressAnalysisRangeSelection = true;
+        AnalysisFromDatePicker.SelectedDate =
+            resolved.LocalStartDate.ToDateTime(TimeOnly.MinValue);
+        AnalysisToDatePicker.SelectedDate =
+            resolved.LocalEndDate.ToDateTime(TimeOnly.MinValue);
+        _suppressAnalysisRangeSelection = false;
+
+        return true;
     }
 
     private void RefreshAnalysisAggregationTable(
