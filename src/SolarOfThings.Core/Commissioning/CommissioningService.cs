@@ -199,12 +199,20 @@ public sealed class CommissioningService
             $"station/details?stationId={Uri.EscapeDataString(station.Id)}",
             requestedTimeZone,
             cancellationToken);
-        SolarOfThingsApiClient.EnsureSuccess(stationDetails, "Station details failed.");
-        progress?.Report(new("StationDetails", "PASS", "Detalle de estación disponible."));
-
-        var stationData = stationDetails.Data.ValueKind == JsonValueKind.Object
-            ? stationDetails.Data
-            : ParseRawItem(station.RawJson);
+        JsonElement stationData;
+        if (stationDetails.IsSuccess && stationDetails.Data.ValueKind == JsonValueKind.Object)
+        {
+            stationData = stationDetails.Data;
+            progress?.Report(new("StationDetails", "PASS", "Detalle de estación disponible."));
+        }
+        else
+        {
+            stationData = ParseRawItem(station.RawJson);
+            progress?.Report(new(
+                "StationDetails",
+                "WARN",
+                $"Detalle de estación no disponible ({stationDetails.Code ?? stationDetails.HttpStatus.ToString()}); se continúa con el payload de station/list."));
+        }
 
         var stationTimeZone = ExtractString(
             stationData,
@@ -220,12 +228,20 @@ public sealed class CommissioningService
             $"device/details?deviceId={Uri.EscapeDataString(device.Id)}",
             stationTimeZone,
             cancellationToken);
-        SolarOfThingsApiClient.EnsureSuccess(deviceDetails, "Device details failed.");
-        progress?.Report(new("DeviceDetails", "PASS", "Identidad de dispositivo disponible."));
-
-        var deviceData = deviceDetails.Data.ValueKind == JsonValueKind.Object
-            ? deviceDetails.Data
-            : ParseRawItem(device.RawJson);
+        JsonElement deviceData;
+        if (deviceDetails.IsSuccess && deviceDetails.Data.ValueKind == JsonValueKind.Object)
+        {
+            deviceData = deviceDetails.Data;
+            progress?.Report(new("DeviceDetails", "PASS", "Identidad de dispositivo disponible."));
+        }
+        else
+        {
+            deviceData = ParseRawItem(device.RawJson);
+            progress?.Report(new(
+                "DeviceDetails",
+                "WARN",
+                $"Detalle de dispositivo no disponible ({deviceDetails.Code ?? deviceDetails.HttpStatus.ToString()}); se continúa con el payload de device/list."));
+        }
 
         progress?.Report(new("GatherAttributes", "RUNNING", "Descubriendo catálogo real de atributos..."));
         var attributesResponse = await _session.GetAsync(
@@ -439,7 +455,7 @@ public sealed class CommissioningService
             ExtractString(deviceData, "name", "deviceName") ?? device.DisplayName,
             ExtractString(deviceData, "serialNumber", "deviceSerialNumber"),
             ExtractString(deviceData, "model", "deviceModel", "modelName"),
-            ExtractString(deviceData, "manufacturer", "manufacturerName"),
+            ExtractString(deviceData, "manufacturer", "manufacturerName", "deviceManufacturerName"),
             ExtractString(deviceData, "dtuId", "dtuID", "dtuDtuid", "certificateDtuID"),
             ExtractString(deviceData, "gatherProtocolNumber", "protocolNo", "protocolNumber"),
             ExtractString(deviceData, "softwareVersion", "version", "firmwareVersion"),
