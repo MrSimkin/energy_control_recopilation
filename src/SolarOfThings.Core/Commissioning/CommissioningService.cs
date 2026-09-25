@@ -415,14 +415,33 @@ public sealed class CommissioningService
             $"Resultado agregado: {aggregateStatus}."));
 
         progress?.Report(new("Alarms", "RUNNING", "Probando consulta de alarmas en modo lectura..."));
+
+        var alarmTo = DateTimeOffset.Now;
+        var alarmFrom = alarmTo.AddDays(-7);
+        var deviceSerialNumber = ExtractString(
+            deviceData,
+            "serialNumber",
+            "deviceSerialNumber");
+        var certificateDtuId = ExtractString(
+            deviceData,
+            "certificateDtuID",
+            "dtuDtuid",
+            "dtuId",
+            "dtuID");
+
         var alarms = await _session.PostAsync(
             "Commissioning",
             "AlarmCapability",
             "alarm/query/list",
             new
             {
+                certificateDtuID = certificateDtuId,
+                deviceSerialNumber,
+                fromTime = alarmFrom.ToString("O"),
+                toTime = alarmTo.ToString("O"),
+                orderByCreatedTimeDesc = true,
                 page = 1,
-                count = 1
+                count = 20
             },
             stationTimeZone,
             cancellationToken);
