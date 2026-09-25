@@ -305,6 +305,24 @@ Validated checkpoints already green:
 
 The next manual target-PC validation remains one **combined Phase 4–6 test**, not a micro-test for each addition.
 
+## Combined Phase 4–6 target-PC candidate — CI PASS
+
+Windows Build:
+- run ID: `36202641150` (run 271);
+- source commit: `b1e71151f4acf19c00aae4719ebcf4d1b465ce32`;
+- conclusion: **SUCCESS**.
+
+Portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10892690906`;
+- size: 74,848,255 bytes;
+- SHA-256: `a7e1a6a70f7b90e56aa9eeb23af0f454a913db477713a0b6e6ac8d8f6e4e66b1`;
+- expires: 2026-12-24.
+
+This is the intended single combined Windows validation candidate for the current Phase 4–6 tranche.
+
+The test must reuse/preserve the existing portable `Data\energy.db` corpus. It does **not** require completing the full historical backfill. A short Update Data continuation followed by safe Stop is sufficient to verify the resume frontier.
+
 ## Resume rule
 
 Resume with **Phase 3 backfill continuing independently while the Phase 4–6 local analysis stack advances**.
