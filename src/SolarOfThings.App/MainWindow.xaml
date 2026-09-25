@@ -269,7 +269,7 @@
                                                 Click="StopHistorySync_Click"/>
 
                                         <TextBlock Text="{DynamicResource Status.Phase}" Foreground="#6C757D"/>
-                                        <TextBlock Text="{DynamicResource Status.Phase3}" FontWeight="SemiBold" Foreground="#343A40" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{DynamicResource Status.Phase4}" FontWeight="SemiBold" Foreground="#343A40" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
