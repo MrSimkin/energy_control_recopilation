@@ -103,6 +103,7 @@
                             Foreground="White"
                             BorderThickness="0"
                             Cursor="Hand"
+                            ToolTip="{DynamicResource Tooltip.UpdateData}"
                             Click="UpdateData_Click"
                             Content="{DynamicResource Action.UpdateData}"/>
                 </Grid>
@@ -121,35 +122,35 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" Style="{StaticResource CardStyle}" BorderBrush="#17A2B8" BorderThickness="4,1,1,1">
+                            <Border Grid.Column="0" Style="{StaticResource CardStyle}" BorderBrush="#17A2B8" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.PvPower}">
                                 <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.PvPower}" Foreground="#6C757D" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{DynamicResource Metric.PvPower}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
                                     <TextBlock x:Name="PvPowerValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="PvPowerMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#ADB5BD" FontSize="11" Margin="0,6,0,0"/>
+                                    <TextBlock x:Name="PvPowerMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" BorderBrush="#28A745" BorderThickness="4,1,1,1">
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" BorderBrush="#28A745" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.HouseLoad}">
                                 <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.HouseLoad}" Foreground="#6C757D" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{DynamicResource Metric.HouseLoad}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
                                     <TextBlock x:Name="HouseLoadValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="HouseLoadMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#ADB5BD" FontSize="11" Margin="0,6,0,0"/>
+                                    <TextBlock x:Name="HouseLoadMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="2" Style="{StaticResource CardStyle}" BorderBrush="#FFC107" BorderThickness="4,1,1,1">
+                            <Border Grid.Column="2" Style="{StaticResource CardStyle}" BorderBrush="#FFC107" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.BatterySoc}">
                                 <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.BatterySoc}" Foreground="#6C757D" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{DynamicResource Metric.BatterySoc}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
                                     <TextBlock x:Name="BatterySocValueText" Text="— %" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="BatterySocMetaText" Text="{DynamicResource Metric.ConfiguredCapacity}" Foreground="#ADB5BD" FontSize="11" Margin="0,6,0,0"/>
+                                    <TextBlock x:Name="BatterySocMetaText" Text="{DynamicResource Metric.ConfiguredCapacity}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0" BorderBrush="#6C757D" BorderThickness="4,1,1,1">
+                            <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0" BorderBrush="#6C757D" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.GridImport}">
                                 <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.GridImport}" Foreground="#6C757D" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{DynamicResource Metric.GridImport}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
                                     <TextBlock x:Name="GridImportValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="GridImportMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#ADB5BD" FontSize="11" Margin="0,6,0,0"/>
+                                    <TextBlock x:Name="GridImportMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -201,6 +202,7 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
                                             <ComboBox x:Name="CaptureStartModeSelector"
                                                       Width="190"
+                                                      ToolTip="{DynamicResource Tooltip.CaptureStart}"
                                                       SelectedValuePath="Tag"
                                                       SelectionChanged="CaptureStartModeSelector_SelectionChanged">
                                                 <ComboBoxItem Tag="auto" Content="{DynamicResource DataSync.StartModeAuto}"/>
@@ -208,6 +210,7 @@
                                             </ComboBox>
                                             <DatePicker x:Name="ManualCaptureStartDatePicker"
                                                         Width="135"
+                                                        ToolTip="{DynamicResource Tooltip.CaptureStart}"
                                                         Margin="8,0,0,0"
                                                         IsEnabled="False"/>
                                         </StackPanel>
@@ -235,6 +238,7 @@
                                                    Visibility="Collapsed"/>
                                         <Button x:Name="StopHistorySyncButton"
                                                 Content="{DynamicResource Action.StopSync}"
+                                                ToolTip="{DynamicResource Tooltip.StopSync}"
                                                 Padding="10,5"
                                                 Margin="0,7,0,14"
                                                 HorizontalAlignment="Left"
