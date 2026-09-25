@@ -105,6 +105,8 @@
     <sys:String x:Key="Page.Settings.Placeholder">La preferencia de idioma ya está activa. Las demás opciones se añadirán cuando sean necesarias.</sys:String>
 
     <sys:String x:Key="Dashboard.Overview">Última información disponible</sys:String>
+    <sys:String x:Key="Dashboard.FreshnessRecent">Lectura reciente: {0}</sys:String>
+    <sys:String x:Key="Dashboard.FreshnessStale">Atención: la última lectura guardada es del {0}. No representa necesariamente el estado actual.</sys:String>
     <sys:String x:Key="Metric.PvPower">PRODUCCIÓN SOLAR</sys:String>
     <sys:String x:Key="Metric.HouseLoad">CONSUMO DE LA CASA</sys:String>
     <sys:String x:Key="Metric.BatterySoc">CARGA DE LA BATERÍA</sys:String>
