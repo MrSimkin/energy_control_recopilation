@@ -408,7 +408,21 @@ public partial class MainWindow : Window
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (IsInitialized)
+        if (IsInitialized &&
+            AnalysisContent is not null)
+        {
+            RefreshAnalysisView();
+        }
+    }
+
+    private void AnalysisChartMetricSelection_Changed(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (IsInitialized &&
+            AnalysisContent is not null &&
+            AnalysisFromDatePicker is not null &&
+            AnalysisToDatePicker is not null)
         {
             RefreshAnalysisView();
         }
@@ -697,58 +711,83 @@ public partial class MainWindow : Window
             return;
         }
 
-        AnalysisChartStatusText.Text = rows.Any(
-                row => row.MinimumAvailableCoveragePercent < 80)
+        var selectedSeries =
+            new List<(double[] Values, string Label)>();
+
+        if (AnalysisShowSolarCheckBox.IsChecked == true)
+        {
+            selectedSeries.Add((
+                rows.Select(row => row.PvEnergyKwh).ToArray(),
+                _localization.GetString("Analysis.Chart.Solar")));
+        }
+
+        if (AnalysisShowHouseCheckBox.IsChecked == true)
+        {
+            selectedSeries.Add((
+                rows.Select(row => row.HouseEnergyKwh).ToArray(),
+                _localization.GetString("Analysis.Chart.House")));
+        }
+
+        if (AnalysisShowGridCheckBox.IsChecked == true)
+        {
+            selectedSeries.Add((
+                rows.Select(row => row.GridImportEnergyKwh).ToArray(),
+                _localization.GetString("Analysis.Chart.Grid")));
+        }
+
+        if (selectedSeries.Count == 0)
+        {
+            AnalysisChartStatusText.Text =
+                _localization.GetString("Analysis.Chart.NoneSelected");
+            AnalysisChartStatusText.Foreground = Brushes.Gray;
+            AnalysisEnergyPlot.Refresh();
+            return;
+        }
+
+        var lowCoverage = rows.Any(
+            row => row.MinimumAvailableCoveragePercent < 80);
+
+        AnalysisChartStatusText.Text = lowCoverage
             ? _localization.GetString("Analysis.Chart.LowCoverage")
             : string.Empty;
-
-        AnalysisChartStatusText.Foreground = rows.Any(
-                row => row.MinimumAvailableCoveragePercent < 80)
-            ? Brushes.DarkOrange
-            : Brushes.Gray;
+        AnalysisChartStatusText.Foreground =
+            lowCoverage ? Brushes.DarkOrange : Brushes.Gray;
 
         var positions =
             Enumerable.Range(0, rows.Count)
                 .Select(index => (double)index)
                 .ToArray();
 
-        var solarPositions =
-            positions.Select(position => position - 0.26).ToArray();
-        var housePositions = positions;
-        var gridPositions =
-            positions.Select(position => position + 0.26).ToArray();
-
-        var solar = plot.Add.Bars(
-            solarPositions,
-            rows.Select(row => row.PvEnergyKwh).ToArray());
-        solar.LegendText =
-            _localization.GetString("Analysis.Chart.Solar");
-
-        var house = plot.Add.Bars(
-            housePositions,
-            rows.Select(row => row.HouseEnergyKwh).ToArray());
-        house.LegendText =
-            _localization.GetString("Analysis.Chart.House");
-
-        var grid = plot.Add.Bars(
-            gridPositions,
-            rows.Select(row => row.GridImportEnergyKwh).ToArray());
-        grid.LegendText =
-            _localization.GetString("Analysis.Chart.Grid");
-
-        foreach (var bar in solar.Bars)
+        var barWidth = selectedSeries.Count switch
         {
-            bar.Size = 0.22;
-        }
+            1 => 0.55,
+            2 => 0.32,
+            _ => 0.22
+        };
+        var spacing = barWidth + 0.04;
 
-        foreach (var bar in house.Bars)
+        for (var seriesIndex = 0;
+             seriesIndex < selectedSeries.Count;
+             seriesIndex++)
         {
-            bar.Size = 0.22;
-        }
+            var offset =
+                (seriesIndex -
+                 (selectedSeries.Count - 1) / 2.0) *
+                spacing;
 
-        foreach (var bar in grid.Bars)
-        {
-            bar.Size = 0.22;
+            var seriesPositions =
+                positions.Select(position => position + offset).ToArray();
+
+            var bars = plot.Add.Bars(
+                seriesPositions,
+                selectedSeries[seriesIndex].Values);
+            bars.LegendText =
+                selectedSeries[seriesIndex].Label;
+
+            foreach (var bar in bars.Bars)
+            {
+                bar.Size = barWidth;
+            }
         }
 
         var tickGenerator =
