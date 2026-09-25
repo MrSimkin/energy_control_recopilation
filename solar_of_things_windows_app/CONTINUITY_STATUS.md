@@ -9,11 +9,15 @@ This file is the canonical continuity note for resuming the project after the us
 
 - Repository: `MrSimkin/energy_control_recopilation`
 - Canonical branch: `main`
-- State validated immediately before this consolidation against commit:
-  `b8f3ced4e9f60784c9c2fa1b9ab020600e732c60`
-- That commit records: **Phase 1 CI validation and completed infrastructure**.
+- Latest pre-pause Phase 1 status commit:
+  `e9d5faa6332bf3ae96c72bbec41e7bf974e3e5e5`
+  — records **CI PASS / LOCAL UI CHECK PENDING** in the roadmap.
+- Formal Phase 1 validation receipt commit:
+  `91b25c7f22aa1ccb0e58a6c0c849113318ca237f`
+- Validated CI source commit:
+  `778abaab896d6e211fdc658aa56e80bb6947e7bd`
 
-Any commits after that point made solely for this pause/consolidation are documentation/status commits and do not advance implementation.
+Commits created after the user-requested pause are consolidation/status-only and do not advance implementation.
 
 ## Completed before pause
 
@@ -104,24 +108,40 @@ Implemented/validated:
 - GitHub Actions Windows build/smoke workflow;
 - database schema starter documentation.
 
-CI proof:
+Formal CI proof:
 
-GitHub Actions Windows run:
+`PHASE_01_VALIDATION_RECEIPT.md`
 
-`36085579691`
+Latest validation run:
 
-passed.
+`36085763308`
+
+Source commit:
+
+`778abaab896d6e211fdc658aa56e80bb6947e7bd`
+
+Conclusion: SUCCESS.
 
 Validated by CI:
 - .NET 10 restore;
-- Release build;
-- WPF compilation;
+- Release WPF x64 build;
 - SQLite DB creation;
-- migration to schema v1;
-- settings round-trip;
+- schema migration v1;
+- WAL-capable DB foundation;
+- settings SQL round-trip;
 - JSONL diagnostics;
-- DPAPI secret save/read/delete;
-- clean smoke-test DB teardown.
+- Windows DPAPI secret save/read/delete;
+- pooled SQLite cleanup;
+- self-contained win-x64 publish;
+- portable-mode marker;
+- artifact upload.
+
+Portable development artifact:
+- `SolarEnergyMonitor-win-x64-dev`
+- Artifact ID: `10843334570`
+- approximately 66.7 MB
+
+This artifact is a development/test build, not a v1 release.
 
 Source structure currently present:
 
@@ -141,12 +161,18 @@ Supporting project files:
 
 Do **not** repeat already validated architecture work unless evidence shows it is broken.
 
-Remaining Phase 1 tasks:
+Remaining Phase 1 task:
 
-1. confirm installed/portable folder behavior on an actual Windows 11 x64 machine;
-2. perform manual UI/portable artifact inspection as needed;
-3. finalize the Phase 1 acceptance receipt;
-4. only then move to Phase 2.
+Perform the manual Windows 11 x64 checkpoint documented in `PHASE_01_VALIDATION_RECEIPT.md`:
+
+1. launch the portable development artifact;
+2. confirm the AdminLTE-inspired shell renders acceptably;
+3. confirm no unexpected permission/elevation prompt;
+4. confirm portable `Data\energy.db`, `Backups\`, and `Logs\` behavior;
+5. confirm displayed database path;
+6. confirm clean shutdown.
+
+The formal CI validation receipt already exists. After this manual checkpoint, record Phase 1 final acceptance/closure and then proceed to Phase 2.
 
 ## What has NOT started
 
@@ -172,9 +198,10 @@ When the project resumes:
 2. read `PRODUCT_FUNCTIONAL_SPEC_V1.md`;
 3. read the Phase 1 section of `DEVELOPMENT_ROADMAP_V1.md`;
 4. read `PHASE_01_IMPLEMENTATION_NOTES.md`;
-5. inspect current `main` only as needed to verify no external changes;
-6. continue from the **remaining Phase 1 validation/acceptance tasks**;
-7. do not restart Phase 0 or rebuild the already CI-validated Phase 1 foundation from scratch.
+5. read `PHASE_01_VALIDATION_RECEIPT.md`;
+6. inspect current `main` only as needed to verify no external changes;
+7. continue with the **single remaining manual Phase 1 Windows 11 checkpoint**;
+8. do not restart Phase 0 or rebuild the already CI-validated Phase 1 foundation from scratch.
 
 ## Scope guard
 
