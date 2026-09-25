@@ -19,7 +19,8 @@ Implemented:
 - 32-character random hexadecimal nonce;
 - signed `POST /login/account`;
 - authenticated `IOT-Token` calls;
-- current preferred refresh body `{ accessToken, refreshToken }`;
+- preferred refresh body `{ accessToken, refreshToken }` with `{ refreshToken }` compatibility fallback;
+- proactive refresh five minutes before known expiry;
 - single-flight refresh;
 - bounded transient retry;
 - Windows DPAPI protected session/credential storage;
@@ -30,15 +31,17 @@ No user password, token or reusable client secret is stored in SQLite.
 
 ## IoT Open client material
 
-The research deliberately did not commit a reusable application secret.
+The production web-client ecosystem exposes the client App ID and encrypted client secret as public client-side material. The Windows app now carries that same encrypted production client profile so normal account/password login does not require manual DevTools token extraction.
 
-The application therefore supports local-only configuration:
+Supported client-profile behavior:
 
-- App ID + encrypted client secret stored with Windows DPAPI;
+- built-in production client profile = normal default;
+- App ID + encrypted/plain client secret can be overridden locally using Windows DPAPI;
 - local environment import using `SOLAR_OF_THINGS_APP_ID` plus `SOLAR_OF_THINGS_APP_SECRET_ENC` or `SOLAR_OF_THINGS_APP_SECRET`;
-- existing access/refresh token pair as an advanced development bootstrap.
+- one-click return to the built-in production profile;
+- existing access/refresh token pair remains an advanced development bootstrap.
 
-No client-secret value is written to source control or diagnostics.
+User account passwords/tokens are never committed to source control or written to diagnostic exports.
 
 ## Commissioning implementation
 
@@ -55,7 +58,7 @@ Read-only workflow:
 9. narrow recent selected-key history capability probe;
 10. daily aggregate capability probe;
 11. alarm-query capability probe;
-12. persist capability profile in SQLite schema v2.
+12. persist capability profile in SQLite schema v3.
 
 All Solar of Things IDs are handled as strings to avoid JavaScript-style precision loss.
 
@@ -112,7 +115,7 @@ UI actions:
 
 Smoke-test coverage now includes:
 
-- database schema v2;
+- database schema v3 and v2→v3 migration path;
 - deterministic IoT Open body-hash/signing vector;
 - commissioning-profile SQLite round trip;
 - diagnostic redaction test proving tokens/passwords do not survive while device metadata remains;
@@ -180,3 +183,37 @@ Before requesting another pasted report, diagnostics were hardened to redact per
 Device/station IDs and non-secret technical device metadata remain available because they are needed for protocol debugging.
 
 Commissioning was also made tolerant of a failure/mismatch in station/device detail endpoints: it now falls back to the already-valid list payloads and continues later capability probes so one optional endpoint cannot prematurely end the diagnostic run.
+
+
+## Phase 2 development advance after first live discovery
+
+The first production response exposed additional device metadata that is now promoted into the structured commissioning profile:
+
+- device sort key;
+- device type number;
+- rated power;
+- online state;
+- source freshness via `lastDataAt`.
+
+The raw payload remains preserved as well.
+
+The alarm capability probe now supplies the discovered device serial/DTU context and a bounded recent time window.
+
+Station/device detail endpoint failures are non-fatal during commissioning: list payloads are used as fallback evidence so later capability probes still execute.
+
+## Latest automated validation — PASS
+
+Workflow:
+- Windows Build
+- run `36180218439`
+- source commit `a357acce1b299b5b743275675bc094f775053ca6`
+- conclusion: **SUCCESS**
+
+Artifact:
+- `SolarEnergyMonitor-win-x64-dev`
+- ID `10883354925`
+- SHA-256 `cea58c38ef384712a9e1ada3a0137ccafb6d80ec96018a50c384612cc572df1a`
+
+This supersedes the earlier Phase 2 development artifact for live testing.
+
+Next live test should use normal account/password login and run the entire read-only commissioning sequence.
