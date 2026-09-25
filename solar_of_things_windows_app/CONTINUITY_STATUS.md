@@ -1,7 +1,7 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
 Date: 2026-09-25
-Status: PHASE 1 COMPLETE — PHASE 3 IN PROGRESS / PHASE 4 NORMALIZATION + INSTALLATION CONTEXT IN PROGRESS
+Status: PHASE 1 COMPLETE — PHASE 3 BACKFILL IN PROGRESS / PHASE 4–6 ANALYSIS STACK IN PROGRESS
 
 This file is the canonical continuity note.
 
@@ -237,18 +237,60 @@ These views use local raw/normalized data and do not add background Solar of Thi
 
 The next substantive target-PC validation should verify this combined Phase 4 tranche together; do not ask for a separate micro-test for each individual UI/card change.
 
+## Phase 5/6 statistics + interactive analysis checkpoint — 2026-09-25
+
+Implemented after the installation-context separation was clarified:
+
+- raw and normalized physical calculations remain household-setup independent;
+- household manual/settings remain a separate context layer except battery reserve/capacity presentation;
+- schema v8 contextual behavior samples remain separate from normalized metrics;
+- canonical time-range resolver;
+- hour/day/week/month/year aggregation;
+- real-timestamp power integration with long-gap exclusion;
+- SOC min/max/time-weighted average/end with coverage;
+- deterministic CI smoke vector with intentional 30-minute hole;
+- run 221 PASS proves the hole is not bridged;
+- History & Charts real date-range UI;
+- quick range presets with visible exact dates;
+- contextual duration summaries;
+- physical energy summaries with coverage;
+- auditable aggregation table;
+- ScottPlot.WPF interactive chart dependency;
+- solar/house/grid energy chart;
+- separate battery SOC chart;
+- low-coverage warnings;
+- reset-view control;
+- battery 10/20/50 contextual reference lines;
+- source-selection metric picker is the current code checkpoint.
+
+Important separation:
+
+- charts consume the same `EnergyAggregationTable` rows as the detailed table;
+- no chart has a separate raw-calculation path;
+- household setup does not change PV/house/grid arithmetic;
+- 10/20/50 battery lines are visual/contextual overlays only.
+
+Do not ask the user to manually validate each intermediate chart commit.
+The next manual test is one combined Phase 4–6 checkpoint using the existing real `Data\energy.db`.
 ## Resume rule
 
-Resume with **Phase 3 raw-history ingestion continuing independently while Phase 4 normalization and installation-context interpretation advance as separate layers**.
+Resume with **Phase 3 backfill continuing independently while the Phase 4–6 local analysis stack advances**.
 
-Immediate development order:
-1. use `INSTALLATION_BEHAVIOR_CONTRACT.md` as the target-house interpretation authority;
-2. keep Phase 3 raw data immutable/auditable and continue filling missing history as needed;
-3. add read-only configuration/baseline interpretation and drift states;
-4. finish normalized target-device metrics;
-5. correct/finalize Battery UI around 20% normal reserve, 10% outage floor and 50% recovery/restart semantics;
-6. only then expand aggregation/statistics and broader household analysis.
+Canonical architecture:
+1. raw SiSeLi evidence;
+2. normalized physical metrics independent of household setup;
+3. timestamp-aware statistics/aggregation independent of household setup;
+4. separate household-context interpretation and battery reserve presentation;
+5. charts/tables built from the same aggregation rows.
 
-Do not perform another micro-test merely for manual integration. The next target-machine test should validate a substantive combined tranche.
+Immediate order after the current combined checkpoint:
+1. validate the latest metric-picker build in CI;
+2. perform one substantive target-PC Phase 4–6 validation using the existing database;
+3. fix only concrete real-data/UI issues found;
+4. continue Phase 6 chart interaction/analysis UX;
+5. keep evidence-dependent flow-attribution percentages deferred until validated;
+6. continue historical backfill independently as convenient.
+
+Do not perform micro-tests for individual cards/charts.
 
 Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
