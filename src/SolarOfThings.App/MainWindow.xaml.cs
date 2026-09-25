@@ -114,7 +114,7 @@ public partial class MainWindow : Window
         RefreshConnectionStatus();
     }
 
-    private void UpdateData_Click(object sender, RoutedEventArgs e)
+    private async void UpdateData_Click(object sender, RoutedEventArgs e)
     {
         var profile = _profiles.Get();
 
