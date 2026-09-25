@@ -281,6 +281,8 @@ public partial class MainWindow : Window
         var configuration = _services.GetRequiredService<BatteryConfigurationService>().Get();
         var policy = _services.GetRequiredService<InstallationContextPolicyService>().Current;
 
+        RefreshBatteryTechnicalMetrics(metrics);
+
         BatteryConfiguredCapacityText.Text =
             $"{configuration.UsableCapacityKwh:F3} kWh";
 
@@ -348,9 +350,49 @@ public partial class MainWindow : Window
         }
     }
 
+    private void RefreshBatteryTechnicalMetrics(
+        IReadOnlyDictionary<string, NormalizedMetricValue> metrics)
+    {
+        BatteryVoltageTechnicalText.Text =
+            metrics.TryGetValue("battery_voltage_v", out var voltage)
+                ? $"{voltage.Value:F1} V"
+                : "— V";
+
+        BatteryChargeCurrentTechnicalText.Text =
+            metrics.TryGetValue("battery_charge_current_a", out var chargeCurrent)
+                ? $"{chargeCurrent.Value:F1} A"
+                : "— A";
+
+        BatteryDischargeCurrentTechnicalText.Text =
+            metrics.TryGetValue("battery_discharge_current_a", out var dischargeCurrent)
+                ? $"{dischargeCurrent.Value:F1} A"
+                : "— A";
+
+        if (metrics.TryGetValue("battery_power_w", out var batteryPower))
+        {
+            var prefix = string.Equals(
+                batteryPower.Confidence,
+                "CONFIRMED",
+                StringComparison.Ordinal)
+                ? string.Empty
+                : "≈ ";
+
+            BatteryPowerTechnicalText.Text =
+                $"{prefix}{batteryPower.Value / 1000.0:F2} kW";
+        }
+        else
+        {
+            BatteryPowerTechnicalText.Text = "— kW";
+        }
+    }
+
     private void ResetBatteryView(bool keepCapacity = false)
     {
         BatteryPageChargeText.Text = "— %";
+        BatteryVoltageTechnicalText.Text = "— V";
+        BatteryChargeCurrentTechnicalText.Text = "— A";
+        BatteryDischargeCurrentTechnicalText.Text = "— A";
+        BatteryPowerTechnicalText.Text = "— kW";
         BatteryStoredEnergyText.Text = "— kWh";
         BatteryOrdinaryEnergyText.Text = "— kWh";
         BatteryEmergencyEnergyText.Text = "— kWh";
