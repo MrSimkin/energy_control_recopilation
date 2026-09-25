@@ -41,3 +41,15 @@ public sealed record HistorySyncResult(
     DateOnly? FirstDate,
     DateOnly? LastDate,
     string Source);
+
+
+public sealed record HistoryCoverageSummary(
+    DateOnly? FirstTrackedDate,
+    DateOnly? LastTrackedDate,
+    int CompleteDays,
+    int EmptyDays,
+    int PartialDays,
+    int UnavailableDays,
+    int OpenDays,
+    int TotalTrackedDays,
+    int RawSampleCount);
