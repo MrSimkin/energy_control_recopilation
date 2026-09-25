@@ -20,7 +20,8 @@
     <sys:String x:Key="DataSync.StartModeLabel">Inicio de captura</sys:String>
     <sys:String x:Key="DataSync.StartModeAuto">Automático (recomendado)</sys:String>
     <sys:String x:Key="DataSync.StartModeManual">Manual</sys:String>
-    <sys:String x:Key="DataSync.AutomaticFrom">Automático: desde {0} (fecha de instalación / continuidad local)</sys:String>
+    <sys:String x:Key="DataSync.InstallationDate">Fecha de instalación: {0}</sys:String>
+    <sys:String x:Key="DataSync.AutomaticResumeFrom">Próximo inicio automático: {0}</sys:String>
     <sys:String x:Key="DataSync.ManualHint">Elija una fecha de inicio. Nunca se borran datos ya capturados.</sys:String>
     <sys:String x:Key="Language.Label">Idioma</sys:String>
     <sys:String x:Key="Language.Spanish">Español</sys:String>
@@ -81,7 +82,9 @@
     <sys:String x:Key="UpdateDialog.Message">Conecte y ejecute el commissioning de Solar of Things antes de sincronizar datos.</sys:String>
     <sys:String x:Key="UpdateDialog.Phase3Message">La conexión y el perfil del dispositivo están disponibles. La sincronización histórica completa comienza en la Fase 3.</sys:String>
 
-    <sys:String x:Key="Status.SessionReady">Sesión disponible; commissioning pendiente</sys:String>
+    <sys:String x:Key="Status.SessionReady">Sesión verificada; commissioning pendiente</sys:String>
+    <sys:String x:Key="Status.SessionStoredUnverified">Perfil disponible; sesión guardada aún no verificada</sys:String>
+    <sys:String x:Key="Status.LoginRequired">Perfil local disponible; se requiere iniciar sesión</sys:String>
     <sys:String x:Key="Status.Commissioned">Commissioning completado</sys:String>
     <sys:String x:Key="Commissioning.ConnectButton">Conectar Solar of Things</sys:String>
     <sys:String x:Key="Commissioning.Title">Conexión y commissioning — Solar of Things</sys:String>
