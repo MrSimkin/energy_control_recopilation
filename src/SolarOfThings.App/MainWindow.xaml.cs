@@ -127,6 +127,33 @@ public partial class MainWindow : Window
         await RunHistorySyncAsync(profile);
     }
 
+    private async Task RunHistorySyncAsync(CommissioningProfile profile)
+    {
+        var history = _services.GetRequiredService<HistoryRepository>();
+        var ingestion = _services.GetRequiredService<HistoryIngestionService>();
+
+        LastUpdatedText.Text = _localization.CurrentLanguage == "es"
+            ? "Actualizando..."
+            : "Updating...";
+
+        try
+        {
+            var result = await ingestion.SyncAsync(
+                profile,
+                history.GetSampleCount(profile.DeviceId) == 0);
+
+            LastUpdatedText.Text =
+                $"{result.DaysCompleted}/{result.DaysAttempted} días · {result.Frames} frames · {result.SamplesUpserted} muestras";
+        }
+        catch (Exception ex)
+        {
+            LastUpdatedText.Text = _localization.CurrentLanguage == "es"
+                ? "Error de actualización"
+                : "Update error";
+            MessageBox.Show(ex.Message, _localization.GetString("UpdateDialog.Title"));
+        }
+    }
+
     private void ConnectSolar_Click(object sender, RoutedEventArgs e)
     {
         OpenCommissioningWindow();
