@@ -28,6 +28,7 @@ public sealed class SolarOfThingsSessionManager
     private string _timeZone = "America/Santiago";
     private bool _remember;
     private DateTimeOffset? _tokensReceivedUtc;
+    private bool _isVerified;
 
     public SolarOfThingsSessionManager(
         SolarOfThingsApiClient api,
@@ -44,6 +45,7 @@ public sealed class SolarOfThingsSessionManager
                               !string.IsNullOrWhiteSpace(_tokens.AccessToken);
 
     public string? Account => _account;
+    public bool IsSessionVerified => HasSession && _isVerified;
     public bool CanServerLogout =>
         _tokens is not null &&
         !string.IsNullOrWhiteSpace(_tokens.AccessToken) &&
@@ -68,6 +70,7 @@ public sealed class SolarOfThingsSessionManager
         _password = remember ? password : null;
         _timeZone = timeZone;
         _remember = remember;
+        _isVerified = true;
 
         if (remember)
         {
@@ -111,6 +114,7 @@ public sealed class SolarOfThingsSessionManager
         _password = null;
         _timeZone = timeZone;
         _remember = remember;
+        _isVerified = false;
 
         if (remember)
         {
@@ -147,6 +151,7 @@ public sealed class SolarOfThingsSessionManager
 
         if (IsAuthExpired(response))
         {
+            _isVerified = false;
             token = await RefreshAsync(cancellationToken);
             response = await _api.GetAuthorizedAsync(
                 operation,
@@ -157,6 +162,7 @@ public sealed class SolarOfThingsSessionManager
                 cancellationToken);
         }
 
+        _isVerified = response.IsSuccess;
         return response;
     }
 
@@ -181,6 +187,7 @@ public sealed class SolarOfThingsSessionManager
 
         if (IsAuthExpired(response))
         {
+            _isVerified = false;
             token = await RefreshAsync(cancellationToken);
             response = await _api.PostAuthorizedAsync(
                 operation,
@@ -192,6 +199,7 @@ public sealed class SolarOfThingsSessionManager
                 cancellationToken);
         }
 
+        _isVerified = response.IsSuccess;
         return response;
     }
 
@@ -200,6 +208,7 @@ public sealed class SolarOfThingsSessionManager
         _tokens = null;
         _tokensReceivedUtc = null;
         _remember = false;
+        _isVerified = false;
 
         if (forgetRememberedCredentials)
         {
@@ -248,6 +257,7 @@ public sealed class SolarOfThingsSessionManager
         _tokensReceivedUtc = null;
 
         _remember = true;
+        _isVerified = false;
 
         _diagnostics.RecordLocal(
             "Session",
