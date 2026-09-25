@@ -104,11 +104,11 @@ Exit criterion:
 
 ---
 
-# Phase 1 — Technical Skeleton / Proof of Architecture — REFINED BUILD CI PASS / FINAL USER REVALIDATION PENDING
+# Phase 1 — Technical Skeleton / Proof of Architecture — COMPLETE
 
 Goal: prove the chosen desktop stack and project structure before building business logic.
 
-Current checkpoint: core architecture passed CI and the original Windows 11 x64 manual checkpoint. The narrow localization/navigation refinement is implemented and passed Windows CI in run `36171030035`; only final user revalidation of artifact `10881030047` remains before formal Phase 1 closure. See `CONTINUITY_STATUS.md`.
+Phase 1 completed on 2026-09-25. Core architecture passed CI and real Windows 11 x64 testing. The localization/navigation refinement passed Windows CI in run `36171030035`, and the user then reported all final revalidation checks passed on artifact `10881030047`. See `PHASE_01_ACCEPTANCE_RECEIPT.md` and `CONTINUITY_STATUS.md`.
 
 Manual checkpoint already passed on 2026-09-25:
 - normal non-admin launch;
@@ -154,11 +154,14 @@ Database proof:
 
 Exit criterion:
 
-- app launches on Windows 11 x64;
-- database is created/readable;
-- configuration persists;
-- no admin rights needed for normal execution;
-- project can be built reproducibly.
+- app launches on Windows 11 x64: **PASS**;
+- database is created/readable: **PASS**;
+- configuration persists, including language preference: **PASS**;
+- no admin rights needed for normal execution: **PASS**;
+- project can be built reproducibly: **PASS**;
+- Spanish-default / English-selectable shell and placeholder navigation validated on target machine: **PASS**.
+
+**PHASE 1 COMPLETE — 2026-09-25.**
 
 ---
 

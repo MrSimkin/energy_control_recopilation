@@ -2,7 +2,7 @@
 
 Date: 2026-09-24
 
-Status: REFINED BUILD CI PASS / FINAL WINDOWS 11 USER REVALIDATION PENDING
+Status: COMPLETE — FINAL WINDOWS 11 USER REVALIDATION PASS
 
 ## Validated commit/run
 
@@ -109,5 +109,23 @@ Fresh portable artifact:
 - Artifact ID: `10881030047`
 - SHA-256: `4389db735ab205698c014bc97e505191b0601ad2075988f926ef441642281cde`
 
-Remaining acceptance item:
-final user check of Spanish default, English switching/persistence, sidebar navigation, normal non-admin launch, portable path, and clean shutdown.
+## Final refined-build user acceptance — 2026-09-25
+
+The user tested artifact ID `10881030047` on the actual Windows 11 x64 target machine and reported **all requested checks passed**:
+
+- Spanish default on fresh portable data: PASS;
+- all sidebar navigation placeholders: PASS;
+- switch to English: PASS;
+- English persistence after restart: PASS;
+- switch back to Spanish and persistence: PASS;
+- database remains under `Data\\energy.db`: PASS;
+- normal launch without UAC: PASS;
+- clean shutdown: PASS.
+
+## Final decision
+
+**PHASE 1 COMPLETE.**
+
+The technical skeleton, portable behavior, settings persistence, localization foundation, and shell navigation are accepted for progression to Phase 2.
+
+Phase 2 may now begin without reopening Phase 1 unless a concrete regression is discovered.

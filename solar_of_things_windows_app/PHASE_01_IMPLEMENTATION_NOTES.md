@@ -2,7 +2,7 @@
 
 Date started: 2026-09-24
 
-Status: REFINED BUILD CI PASS — FINAL USER REVALIDATION PENDING
+Status: COMPLETE — ACCEPTED ON TARGET WINDOWS 11 X64
 
 ## Implemented in initial skeleton
 
@@ -29,15 +29,21 @@ At implementation start, current stable .NET 10 package servicing versions were 
 
 Versions are pinned centrally in Directory.Packages.props.
 
-## Phase 1 items still to prove/complete
+## Phase 1 completion status
 
-- GitHub Windows Release build: PASS (0 warnings, 0 errors).
-- Structured local JSONL diagnostics foundation: implemented.
-- SQL-backed non-secret application settings repository: implemented.
-- Windows DPAPI protected secret-store abstraction: implemented and smoke-tested.
-- Database schema starter documentation: implemented.
-- Formal CI validation receipt: implemented (`PHASE_01_VALIDATION_RECEIPT.md`).
-- Remaining: manual installed/portable UI/path behavior check on the user's actual Windows 11 x64 laptop.
+- GitHub Windows Release build: PASS.
+- Structured local JSONL diagnostics foundation: PASS.
+- SQL-backed non-secret application settings repository: PASS.
+- Windows DPAPI protected secret-store abstraction: PASS.
+- Database schema starter documentation: PASS.
+- Original Windows 11 portable UI/path checkpoint: PASS.
+- Spanish-default / English-selectable localization refinement: PASS.
+- persisted language preference: PASS.
+- distinct placeholder sidebar navigation: PASS.
+- refined Windows build CI: PASS.
+- final target-machine user revalidation: PASS.
+
+Formal closure: `PHASE_01_ACCEPTANCE_RECEIPT.md`.
 
 ## Important scope rule
 
@@ -140,4 +146,16 @@ The refined shell now contains:
 - distinct functional placeholder navigation for every sidebar section;
 - no fabricated telemetry.
 
-Phase 1 is waiting only for final user revalidation of this artifact.
+Final user revalidation of this artifact was completed on 2026-09-25 with all requested checks reported PASS.
+
+
+## Formal Phase 1 closure — 2026-09-25
+
+The user reported **all final refined-build checks passed**.
+
+Phase 1 is formally complete.
+
+Do not continue adding Phase 1 shell work unless required by a concrete regression or by later-phase integration.
+
+Next authorized phase:
+**Phase 2 — Solar of Things Authentication and Commissioning.**

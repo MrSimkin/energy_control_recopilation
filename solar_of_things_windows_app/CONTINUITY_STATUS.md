@@ -1,7 +1,7 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
 Date: 2026-09-25
-Status: PHASE 1 — REFINED BUILD CI PASS / FINAL USER REVALIDATION PENDING
+Status: PHASE 1 COMPLETE — PHASE 2 READY TO START
 
 This file is the canonical continuity note.
 
@@ -85,34 +85,31 @@ Validated by CI:
 - portable-mode marker;
 - artifact upload.
 
-## Current narrow Phase 1 refinement
+## Final refined-build user revalidation — PASS
 
-Implement only:
+On 2026-09-25 the user revalidated artifact ID `10881030047` on the target Windows 11 x64 machine and reported **all checks passed**:
 
-1. reusable WPF localization infrastructure;
-2. Spanish default;
-3. English selectable and persisted through application settings;
-4. localization of the current shell;
-5. minimal real sidebar navigation between distinct placeholder sections;
-6. no fabricated telemetry.
+- normal launch without UAC;
+- Spanish shown by default on a fresh portable database;
+- English switching works;
+- English preference persists after restart;
+- switching back to Spanish persists after restart;
+- every sidebar entry visibly navigates to its distinct placeholder;
+- portable database remains at `...\\Data\\energy.db`;
+- clean shutdown.
 
-Implementation and CI are complete. Perform one short user revalidation of artifact ID `10881030047`:
+**Phase 1 is formally COMPLETE.**
 
-- opens normally without UAC;
-- Spanish appears by default on a fresh database;
-- language can switch to English and back;
-- chosen language persists after restart;
-- each sidebar item visibly navigates to its distinct placeholder;
-- database path remains portable;
-- application closes normally.
+Canonical closure receipt:
+`PHASE_01_ACCEPTANCE_RECEIPT.md`.
 
-If all pass, record **PHASE 1 COMPLETE**.
+## Current development frontier
 
-## What has NOT started
+Phase 1 is complete.
 
-Phase 2 has not started.
+Phase 2 has **not yet been implemented**, but is now the authorized next development phase.
 
-Do not implement yet:
+Phase 2 scope:
 - Solar of Things authentication;
 - token/session handling;
 - station discovery;
@@ -123,4 +120,6 @@ Do not implement yet:
 
 ## Resume rule
 
-Continue from the narrow Phase 1 refinement/final revalidation only. Do not restart research, specification, or validated infrastructure.
+Resume at **Phase 2 — Solar of Things Authentication and Commissioning**.
+
+Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
