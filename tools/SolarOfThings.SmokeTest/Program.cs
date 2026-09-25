@@ -5,6 +5,7 @@ using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
+using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.SolarOfThings;
 
 var root = Path.Combine(
@@ -143,6 +144,195 @@ try
         throw new InvalidOperationException("Commissioning profile round-trip failed.");
     }
 
+    var rangeSelection = new TimeRangeSelectionService();
+    var calendarWeek = rangeSelection.ForCalendarWeek(
+        new DateOnly(2026, 9, 25),
+        "America/Santiago");
+
+    if (calendarWeek.LocalStartDate != new DateOnly(2026, 9, 21) ||
+        calendarWeek.LocalEndDate != new DateOnly(2026, 9, 27))
+    {
+        throw new InvalidOperationException(
+            "Calendar-week time-range resolution failed.");
+    }
+
+    var completeMonths = rangeSelection.ForLastNCompleteCalendarMonths(
+        new DateOnly(2026, 9, 25),
+        2,
+        "America/Santiago");
+
+    if (completeMonths.LocalStartDate != new DateOnly(2026, 7, 1) ||
+        completeMonths.LocalEndDate != new DateOnly(2026, 8, 31))
+    {
+        throw new InvalidOperationException(
+            "Complete-calendar-month time-range resolution failed.");
+    }
+
+    var aggregationDeviceId = "aggregation-smoke-device";
+    var aggregationStart =
+        DateTimeOffset.Parse("2026-05-24T16:00:00Z");
+    var aggregationEnd =
+        DateTimeOffset.Parse("2026-05-24T16:59:59.9999999Z");
+
+    var aggregationSamples = new[]
+    {
+        (Timestamp: DateTimeOffset.Parse("2026-05-24T16:00:00Z"), Pv: 1000.0, Soc: 50.0),
+        (Timestamp: DateTimeOffset.Parse("2026-05-24T16:05:00Z"), Pv: 1000.0, Soc: 49.0),
+        (Timestamp: DateTimeOffset.Parse("2026-05-24T16:10:00Z"), Pv: 1000.0, Soc: 48.0),
+        // Intentional 30-minute hole: must not be integrated.
+        (Timestamp: DateTimeOffset.Parse("2026-05-24T16:40:00Z"), Pv: 1000.0, Soc: 47.0),
+        (Timestamp: DateTimeOffset.Parse("2026-05-24T16:45:00Z"), Pv: 1000.0, Soc: 46.0),
+        (Timestamp: DateTimeOffset.Parse("2026-05-24T16:50:00Z"), Pv: 1000.0, Soc: 45.0),
+        (Timestamp: DateTimeOffset.Parse("2026-05-24T16:59:59Z"), Pv: 1000.0, Soc: 44.0)
+    };
+
+    using (var connection = database.OpenConnection())
+    using (var transaction = connection.BeginTransaction())
+    {
+        using var insert = connection.CreateCommand();
+        insert.Transaction = transaction;
+        insert.CommandText = """
+            INSERT INTO normalized_metric_sample (
+                device_id,
+                metric_key,
+                recorded_at_utc,
+                normalized_value,
+                normalized_unit,
+                source_attribute_key,
+                source_value_json,
+                normalization_rule_version,
+                confidence,
+                quality,
+                updated_utc
+            )
+            VALUES (
+                $deviceId,
+                $metricKey,
+                $recordedAtUtc,
+                $value,
+                $unit,
+                $sourceKey,
+                $sourceJson,
+                'smoke.v1',
+                'CONFIRMED',
+                'OK',
+                $updatedUtc
+            );
+            """;
+
+        insert.Parameters.Add("$deviceId", SqliteType.Text);
+        insert.Parameters.Add("$metricKey", SqliteType.Text);
+        insert.Parameters.Add("$recordedAtUtc", SqliteType.Text);
+        insert.Parameters.Add("$value", SqliteType.Real);
+        insert.Parameters.Add("$unit", SqliteType.Text);
+        insert.Parameters.Add("$sourceKey", SqliteType.Text);
+        insert.Parameters.Add("$sourceJson", SqliteType.Text);
+        insert.Parameters.Add("$updatedUtc", SqliteType.Text);
+
+        foreach (var sample in aggregationSamples)
+        {
+            foreach (var metric in new[]
+            {
+                (Key: "pv_power_w", Value: sample.Pv, Unit: "W", Source: "smokePv"),
+                (Key: "battery_soc_pct", Value: sample.Soc, Unit: "%", Source: "smokeSoc")
+            })
+            {
+                insert.Parameters["$deviceId"].Value = aggregationDeviceId;
+                insert.Parameters["$metricKey"].Value = metric.Key;
+                insert.Parameters["$recordedAtUtc"].Value =
+                    sample.Timestamp.ToUniversalTime().ToString("O");
+                insert.Parameters["$value"].Value = metric.Value;
+                insert.Parameters["$unit"].Value = metric.Unit;
+                insert.Parameters["$sourceKey"].Value = metric.Source;
+                insert.Parameters["$sourceJson"].Value =
+                    metric.Value.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture);
+                insert.Parameters["$updatedUtc"].Value =
+                    DateTimeOffset.UtcNow.ToString("O");
+                insert.ExecuteNonQuery();
+            }
+        }
+
+        transaction.Commit();
+    }
+
+    var powerAggregation = new PowerAggregationService(database);
+    var pvHourly = powerAggregation.GetSeries(
+        aggregationDeviceId,
+        "pv_power_w",
+        aggregationStart,
+        aggregationEnd,
+        "America/Santiago",
+        AggregationPeriod.Hour);
+
+    if (pvHourly.Buckets.Count != 1)
+    {
+        throw new InvalidOperationException(
+            $"Expected one hourly power bucket; got {pvHourly.Buckets.Count}.");
+    }
+
+    var pvBucket = pvHourly.Buckets[0];
+
+    if (Math.Abs(pvBucket.PositiveEnergyKwh - 0.5) > 0.02 ||
+        pvBucket.CoveragePercent is < 49 or > 51 ||
+        pvHourly.ContinuityThresholdMinutes is < 14.9 or > 15.1)
+    {
+        throw new InvalidOperationException(
+            $"Power aggregation/gap exclusion failed: " +
+            $"energy={pvBucket.PositiveEnergyKwh:F4}, " +
+            $"coverage={pvBucket.CoveragePercent:F2}, " +
+            $"threshold={pvHourly.ContinuityThresholdMinutes:F2}.");
+    }
+
+    var socAggregation = new SocAggregationService(database);
+    var socHourly = socAggregation.GetSeries(
+        aggregationDeviceId,
+        aggregationStart,
+        aggregationEnd,
+        "America/Santiago",
+        AggregationPeriod.Hour);
+
+    if (socHourly.Buckets.Count != 1)
+    {
+        throw new InvalidOperationException(
+            $"Expected one hourly SOC bucket; got {socHourly.Buckets.Count}.");
+    }
+
+    var socBucket = socHourly.Buckets[0];
+
+    if (socBucket.EndingPercent is null ||
+        Math.Abs(socBucket.EndingPercent.Value - 44) > 0.01 ||
+        socBucket.MinimumPercent is null ||
+        Math.Abs(socBucket.MinimumPercent.Value - 44) > 0.01 ||
+        socBucket.MaximumPercent is null ||
+        Math.Abs(socBucket.MaximumPercent.Value - 50) > 0.01 ||
+        socBucket.AveragePercent is null ||
+        socBucket.AveragePercent.Value is < 46 or > 48 ||
+        socBucket.CoveragePercent is < 49 or > 51)
+    {
+        throw new InvalidOperationException(
+            "SOC aggregation/gap exclusion failed.");
+    }
+
+    var aggregationTable =
+        new EnergyAggregationTableService(
+            powerAggregation,
+            socAggregation)
+            .Get(
+                aggregationDeviceId,
+                aggregationStart,
+                aggregationEnd,
+                "America/Santiago",
+                AggregationPeriod.Hour);
+
+    if (aggregationTable.Rows.Count != 1 ||
+        Math.Abs(aggregationTable.Rows[0].PvEnergyKwh - 0.5) > 0.02 ||
+        aggregationTable.Rows[0].MinimumAvailableCoveragePercent is < 49 or > 51)
+    {
+        throw new InvalidOperationException(
+            "Aligned aggregation table smoke test failed.");
+    }
+
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
     apiDiagnostics.Record(new ApiDiagnosticEntry(
         DateTimeOffset.UtcNow,
@@ -245,7 +435,7 @@ try
     Console.WriteLine(
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
-        "commissioning metadata/profile and protected secret storage are operational.");
+        "commissioning metadata/profile, protected secret storage, and Phase 5 time-range/aggregation math are operational.");
 }
 finally
 {
