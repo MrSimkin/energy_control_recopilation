@@ -52,6 +52,16 @@
     <sys:String x:Key="Analysis.EmergencyTime">Time using outage reserve</sys:String>
     <sys:String x:Key="Analysis.StateChanges">Observed state changes</sys:String>
     <sys:String x:Key="Analysis.UnknownTime">Time without enough information</sys:String>
+    <sys:String x:Key="Analysis.EnergyHeading">Energy for this period</sys:String>
+    <sys:String x:Key="Analysis.EnergyIntro">Estimate calculated from power readings and their real timestamps. Long gaps are never filled in.</sys:String>
+    <sys:String x:Key="Analysis.PvEnergy">Solar energy produced</sys:String>
+    <sys:String x:Key="Analysis.HouseEnergy">Energy used by the home</sys:String>
+    <sys:String x:Key="Analysis.GridEnergy">Energy taken from the grid</sys:String>
+    <sys:String x:Key="Analysis.BatteryEnergy">Battery movement</sys:String>
+    <sys:String x:Key="Analysis.BatteryDelivered">Supplied: {0:N2} kWh</sys:String>
+    <sys:String x:Key="Analysis.BatteryReceived">Received: {0:N2} kWh</sys:String>
+    <sys:String x:Key="Analysis.EnergyCoverage">Minimum coverage for these calculations: {0:N1}%</sys:String>
+    <sys:String x:Key="Tooltip.AnalysisEnergy">These values integrate power between real readings. If a long interval is missing, that interval is excluded from the total.</sys:String>
     <sys:String x:Key="Analysis.NoData">There is no interpreted data for this period.</sys:String>
     <sys:String x:Key="Analysis.Hours">{0:N1} h</sys:String>
     <sys:String x:Key="Analysis.Percent">{0:N1}%</sys:String>
