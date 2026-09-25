@@ -252,8 +252,8 @@ public sealed class NormalizationService
             "outputActivePower",
             "kW",
             "house_load_power_w",
-            "PROBABLE",
-            "INVERTER_OUTPUT_AS_HOUSE_LOAD",
+            "CONFIRMED",
+            "OFFICIAL_ENERGY_FLOW_LOAD",
             ratedPowerW,
             2.0);
 
@@ -362,8 +362,8 @@ public sealed class NormalizationService
         }
 
         var watts = raw.Value!.Value * 1000.0;
-        var confidence = "PROBABLE";
-        var quality = "PROTOCOL_GRID_IMPORT_PROBABLE";
+        var confidence = "CONFIRMED";
+        var quality = "OFFICIAL_ENERGY_FLOW_GRID_IMPORT";
         double? normalized = watts;
 
         if (watts < 0)
