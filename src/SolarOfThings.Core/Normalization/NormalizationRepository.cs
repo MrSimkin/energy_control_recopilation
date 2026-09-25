@@ -74,6 +74,24 @@ public sealed class NormalizationRepository
         return result;
     }
 
+    public bool HasRuleVersion(string deviceId, string ruleVersion)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT EXISTS(
+                SELECT 1
+                FROM normalized_metric_sample
+                WHERE device_id = $deviceId
+                  AND normalization_rule_version = $ruleVersion
+                LIMIT 1
+            );
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        command.Parameters.AddWithValue("$ruleVersion", ruleVersion);
+        return Convert.ToInt32(command.ExecuteScalar()) != 0;
+    }
+
     public int GetNormalizedSampleCount(string deviceId)
     {
         using var connection = _database.OpenConnection();
