@@ -144,7 +144,10 @@ public sealed class HistoryIngestionService
                     {
                         result.Error,
                         result.Refused,
-                        result.SamplesUpserted
+                        result.SamplesUpserted,
+                        result.MedianGapSeconds,
+                        result.P90GapSeconds,
+                        result.MaxGapSeconds
                     }),
                     DateTimeOffset.UtcNow));
 
@@ -320,15 +323,13 @@ public sealed class HistoryIngestionService
 
             if (!response.IsSuccess)
             {
-                return new DayFetchResult(
+                return BuildDayFetchResult(
                     false,
                     page == 1,
                     "selected-key-v1",
-                    allTimes.Count,
+                    allTimes,
                     sampleCount,
                     page,
-                    first,
-                    last,
                     $"{response.Code ?? response.HttpStatus.ToString()} {response.Message}");
             }
 
@@ -340,15 +341,13 @@ public sealed class HistoryIngestionService
                 !payload.TryGetProperty("fields", out var fields) ||
                 fields.ValueKind != JsonValueKind.Object)
             {
-                return new DayFetchResult(
+                return BuildDayFetchResult(
                     false,
                     page == 1,
                     "selected-key-v1",
-                    allTimes.Count,
+                    allTimes,
                     sampleCount,
                     page,
-                    first,
-                    last,
                     "Columnar history payload was missing.");
             }
 
@@ -403,28 +402,24 @@ public sealed class HistoryIngestionService
             if (times.Length < SelectedKeyPageSize ||
                 (total.HasValue && total.Value > 0 && page >= total.Value))
             {
-                return new DayFetchResult(
+                return BuildDayFetchResult(
                     true,
                     false,
                     "selected-key-v1",
-                    allTimes.Count,
+                    allTimes,
                     sampleCount,
                     page,
-                    first,
-                    last,
                     null);
             }
         }
 
-        return new DayFetchResult(
+        return BuildDayFetchResult(
             false,
             false,
             "selected-key-v1",
-            allTimes.Count,
+            allTimes,
             sampleCount,
             SelectedKeyMaxPages,
-            first,
-            last,
             "Selected-key history reached the pagination safety cap.");
     }
 
@@ -473,15 +468,13 @@ public sealed class HistoryIngestionService
 
             if (!response.IsSuccess)
             {
-                return new DayFetchResult(
+                return BuildDayFetchResult(
                     false,
                     false,
                     "record-list",
-                    allTimes.Count,
+                    allTimes,
                     sampleCount,
                     page,
-                    first,
-                    last,
                     $"{response.Code ?? response.HttpStatus.ToString()} {response.Message}");
             }
 
@@ -532,30 +525,28 @@ public sealed class HistoryIngestionService
 
             sampleCount += _history.UpsertSamples(samples);
 
-            if (list.Count < RecordListPageSize)
+            var total = ReadInt(response.Data, "total");
+            if (list.Count < RecordListPageSize ||
+                (total.HasValue && total.Value > 0 && page >= total.Value))
             {
-                return new DayFetchResult(
+                return BuildDayFetchResult(
                     true,
                     false,
                     "record-list",
-                    allTimes.Count,
+                    allTimes,
                     sampleCount,
                     page,
-                    first,
-                    last,
                     null);
             }
         }
 
-        return new DayFetchResult(
+        return BuildDayFetchResult(
             false,
             false,
             "record-list",
-            allTimes.Count,
+            allTimes,
             sampleCount,
             RecordListMaxPages,
-            first,
-            last,
             "Record-list history reached the pagination safety cap.");
     }
 
@@ -661,6 +652,66 @@ public sealed class HistoryIngestionService
         return null;
     }
 
+    private static DayFetchResult BuildDayFetchResult(
+        bool complete,
+        bool refused,
+        string source,
+        IReadOnlyCollection<DateTimeOffset> timestamps,
+        int samplesUpserted,
+        int pages,
+        string? error)
+    {
+        var ordered = timestamps
+            .OrderBy(value => value)
+            .ToArray();
+
+        var gaps = ordered
+            .Zip(ordered.Skip(1), (left, right) => (right - left).TotalSeconds)
+            .Where(seconds => seconds >= 0)
+            .OrderBy(seconds => seconds)
+            .ToArray();
+
+        double? median = null;
+        double? p90 = null;
+        double? max = null;
+
+        if (gaps.Length > 0)
+        {
+            median = Percentile(gaps, 0.50);
+            p90 = Percentile(gaps, 0.90);
+            max = gaps[^1];
+        }
+
+        return new DayFetchResult(
+            complete,
+            refused,
+            source,
+            ordered.Length,
+            samplesUpserted,
+            pages,
+            ordered.Length > 0 ? ordered[0] : null,
+            ordered.Length > 0 ? ordered[^1] : null,
+            error,
+            median,
+            p90,
+            max);
+    }
+
+    private static double Percentile(IReadOnlyList<double> orderedValues, double percentile)
+    {
+        if (orderedValues.Count == 0)
+        {
+            return 0;
+        }
+
+        var index = Math.Clamp(
+            (int)Math.Ceiling(percentile * orderedValues.Count) - 1,
+            0,
+            orderedValues.Count - 1);
+
+        return orderedValues[index];
+    }
+
     private sealed record DayFetchResult(
         bool Complete,
         bool Refused,
@@ -670,5 +721,8 @@ public sealed class HistoryIngestionService
         int Pages,
         DateTimeOffset? FirstAtUtc,
         DateTimeOffset? LastAtUtc,
-        string? Error);
+        string? Error,
+        double? MedianGapSeconds,
+        double? P90GapSeconds,
+        double? MaxGapSeconds);
 }
