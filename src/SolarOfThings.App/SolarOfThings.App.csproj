@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SolarOfThings.Core\SolarOfThings.Core.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="ScottPlot.WPF" />
   </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json">
