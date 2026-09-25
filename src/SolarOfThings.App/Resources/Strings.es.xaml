@@ -71,6 +71,12 @@
     <sys:String x:Key="Analysis.BatteryReceived">Recibió: {0:N2} kWh</sys:String>
     <sys:String x:Key="Analysis.EnergyCoverage">Cobertura mínima de estos cálculos: {0:N1}%</sys:String>
     <sys:String x:Key="Tooltip.AnalysisEnergy">Estos valores se calculan integrando la potencia entre lecturas reales. Si falta un tramo largo, ese tramo queda fuera del total.</sys:String>
+    <sys:String x:Key="Analysis.ChartHeading">Energía por período</sys:String>
+    <sys:String x:Key="Analysis.ChartIntro">Compare solar, consumo de la casa y uso de la red. Puede usar la rueda del mouse para acercar o alejar y arrastrar el gráfico para moverse.</sys:String>
+    <sys:String x:Key="Analysis.Chart.Solar">Solar</sys:String>
+    <sys:String x:Key="Analysis.Chart.House">Casa</sys:String>
+    <sys:String x:Key="Analysis.Chart.Grid">Red eléctrica</sys:String>
+    <sys:String x:Key="Analysis.Chart.NoData">No hay suficientes datos para dibujar este período.</sys:String>
     <sys:String x:Key="Analysis.DetailHeading">Detalle del período</sys:String>
     <sys:String x:Key="Analysis.DetailIntro">Agrupe la información para comparar horas, días, semanas, meses o años.</sys:String>
     <sys:String x:Key="Analysis.AggregateBy">Agrupar por</sys:String>
