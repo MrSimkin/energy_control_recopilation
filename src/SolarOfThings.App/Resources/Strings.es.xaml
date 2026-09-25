@@ -41,6 +41,15 @@
     <sys:String x:Key="Page.Analysis.Placeholder">Esta sección se implementará después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Analysis.Heading">Historial de funcionamiento</sys:String>
     <sys:String x:Key="Analysis.Intro">Elija un período para ver cómo se repartió el uso de energía. Los espacios sin datos se muestran como desconocidos y no se rellenan.</sys:String>
+    <sys:String x:Key="Analysis.QuickRange">Período rápido</sys:String>
+    <sys:String x:Key="Analysis.Range.All">Todo el historial guardado</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestDay">Día más reciente guardado</sys:String>
+    <sys:String x:Key="Analysis.Range.Rolling7">Últimos 7 días del historial</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestWeek">Semana de la fecha más reciente</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestMonth">Mes de la fecha más reciente</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestYear">Año de la fecha más reciente</sys:String>
+    <sys:String x:Key="Analysis.Range.Rolling12Months">Últimos 12 meses del historial</sys:String>
+    <sys:String x:Key="Analysis.Range.Custom">Elegir fechas</sys:String>
     <sys:String x:Key="Analysis.From">Desde</sys:String>
     <sys:String x:Key="Analysis.To">Hasta</sys:String>
     <sys:String x:Key="Analysis.Apply">Ver período</sys:String>
