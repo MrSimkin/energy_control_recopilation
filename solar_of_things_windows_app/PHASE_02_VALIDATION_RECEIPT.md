@@ -9,16 +9,16 @@ Repository:
 
 ## Validated source
 
-- source commit: `a357acce1b299b5b743275675bc094f775053ca6`
+- source commit: `7fc2d5701f34948e8181c3e555c2d3cdaadcde9b`
 - workflow: Windows Build
-- run ID: `36180218439`
+- run ID: `36180523465`
 - conclusion: **SUCCESS**
 
 ## Portable artifact
 
 - name: `SolarEnergyMonitor-win-x64-dev`
-- artifact ID: `10883354925`
-- SHA-256: `cea58c38ef384712a9e1ada3a0137ccafb6d80ec96018a50c384612cc572df1a`
+- artifact ID: `10883867535`
+- SHA-256: `f315669a111af582e390c50289ba38b2a04e96d1a3e38bbb0d811fa686dfc8c1`
 
 ## Automated checks passed
 
@@ -63,7 +63,8 @@ Next test must run locally on the user's Windows PC:
 4. run read-only commissioning;
 5. copy the sanitized development diagnostic report;
 6. inspect/repair any target-device-specific mismatch;
-7. prove reconnect/session behavior.
+7. close/reopen and prove protected-session restore/reconnect behavior;
+8. exercise server logout and confirm local session cleanup.
 
 Phase 2 remains **IN PROGRESS** until those checks pass.
 
@@ -77,6 +78,9 @@ This receipt now points to the later green build that includes:
 - proactive pre-expiry refresh;
 - schema v3 commissioning metadata;
 - richer alarm probe context;
-- non-fatal detail-endpoint fallback.
+- non-fatal detail-endpoint fallback;
+- proactive refresh lifecycle;
+- safe server logout lifecycle;
+- string-preserving logout/user-ID contract.
 
 The prior live token-bootstrap discovery remains valid evidence, but the next acceptance test should use normal account/password login.
