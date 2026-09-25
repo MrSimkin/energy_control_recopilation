@@ -17,6 +17,11 @@
     <sys:String x:Key="Action.UpdateData">Update Data</sys:String>
     <sys:String x:Key="Action.StopSync">Stop</sys:String>
     <sys:String x:Key="Status.SyncProgress">Synchronization progress</sys:String>
+    <sys:String x:Key="DataSync.StartModeLabel">Capture start</sys:String>
+    <sys:String x:Key="DataSync.StartModeAuto">Automatic (recommended)</sys:String>
+    <sys:String x:Key="DataSync.StartModeManual">Manual</sys:String>
+    <sys:String x:Key="DataSync.AutomaticFrom">Automatic: from {0} (installation date / local continuity)</sys:String>
+    <sys:String x:Key="DataSync.ManualHint">Choose a start date. Already captured data is never deleted.</sys:String>
     <sys:String x:Key="Language.Label">Language</sys:String>
     <sys:String x:Key="Language.Spanish">Español</sys:String>
     <sys:String x:Key="Language.English">English</sys:String>
