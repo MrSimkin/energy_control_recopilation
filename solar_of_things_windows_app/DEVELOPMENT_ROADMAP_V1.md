@@ -256,17 +256,31 @@ Exit criterion:
 
 ---
 
-# Phase 4 — Normalization and Metric Engine
+# Phase 4 — Installation-Aware Normalization and Metric Engine
 
-Goal: transform raw SiSeLi fields into trustworthy canonical household-energy metrics.
+Goal: transform raw SiSeLi fields into trustworthy canonical household-energy metrics **for the documented household installation**, while preserving raw evidence and explicit uncertainty.
 
-Implement:
+Canonical installation authority:
+- `INSTALLATION_BEHAVIOR_CONTRACT.md`;
+- source manual integration review:
+  `MANUAL_FAMILIAR_INTEGRATION_REVIEW_2026-09-25.md`.
 
+Implement the installation behavior-contract layer **before** widening generic metric interpretation:
+
+- load the expected read-only installation baseline;
+- compare observed SiSeLi configuration/state fields with the expected baseline;
+- record configuration interpretation states:
+  - CONFIG_CONFIRMED;
+  - CONFIG_DRIFT;
+  - CONFIG_UNRESOLVED;
+- never write inverter configuration from the application;
 - schema-driven alias mapping;
 - unit normalization;
 - sign normalization;
 - per-device/protocol rules;
+- target-installation operating rules;
 - plausibility checks using inverter/battery configuration;
+- zero-export guardrails;
 - confidence states:
   - CONFIRMED;
   - PROBABLE;
@@ -290,10 +304,24 @@ Primary normalized metrics:
 Flow derivation:
 
 - PV → Load;
+- PV surplus → Battery;
 - Battery → Load;
 - Grid → Load;
-- Grid → Battery when supported;
-- no Grid Export.
+- Grid → Battery only when real evidence proves it; the documented baseline expects solar-only battery charging;
+- **no Grid Export** for this installation.
+
+Expected-behavior classifications:
+
+- normal battery use above 20% SOC;
+- normal grid-transfer/recovery interval from ~20% toward ~50% SOC;
+- emergency outage reserve from 20% toward 10% SOC;
+- restart/recovery behavior near 50% SOC;
+- PV curtailment when export is prohibited and PV cannot be absorbed;
+- suspected unintended grid charging;
+- suspected export-like anomaly;
+- repeated 20↔50 transfer oscillation.
+
+Do not infer faults from one sample; use time-series evidence plus explicit confidence.
 
 Battery configuration:
 
@@ -301,11 +329,25 @@ Battery configuration:
   - SPRO/Techfine LC230-512;
   - LiFePO4;
   - 51.2 V nominal;
-  - 11.776 kWh usable;
+  - 11.776 kWh useful-capacity reference from the installation manual;
 - editable settings.
 
-Derived:
-- estimated usable battery energy remaining.
+Installation battery policy:
+
+- normal grid-transfer threshold: 20% SOC;
+- emergency outage floor: 10% SOC;
+- normal return from grid to SBU: 50% SOC;
+- low-SOC restart threshold: 50% SOC;
+- SOC comes from the BMS when available.
+
+Derived battery values must be kept distinct:
+
+- estimated total energy currently stored;
+- estimated ordinary-use energy above the 20% normal grid-transfer reserve;
+- emergency 20%→10% outage reserve;
+- protected floor near 10%.
+
+Do not expose one ambiguous “available battery energy” value.
 
 Exit criterion:
 
@@ -368,7 +410,15 @@ Derived household statistics:
 - percentage supplied without grid;
 - grid dependency;
 - solar self-consumption where meaningful;
-- battery contribution percentage.
+- battery contribution percentage;
+- time supplied primarily by battery;
+- time supplied by grid;
+- time spent in documented 20%→50% recovery mode;
+- number of battery↔grid transfer cycles;
+- time spent in the 20%→10% emergency reserve during outages;
+- suspected grid-charging episodes with PV absent;
+- export-like anomaly duration/count;
+- behavior-classification coverage/confidence.
 
 Exit criterion:
 
@@ -387,7 +437,23 @@ Dashboard:
 - current/last-known values;
 - selected period summary;
 - data freshness/status;
-- Update Data control.
+- Update Data control;
+- plain-language current operating explanation, for example:
+  - solar is supplying the house;
+  - battery is helping the house;
+  - grid is supplying the house while the battery recovers;
+  - emergency outage reserve is being used;
+  - battery is near its protected minimum;
+- distinguish installation date from next automatic historical-download date.
+
+Battery UI:
+
+- “Carga de la batería” rather than SOC on the main household surface;
+- total stored-energy estimate;
+- ordinary-use energy above the 20% normal reserve;
+- emergency 20%→10% outage reserve;
+- clear 10% protected-floor explanation;
+- technical voltage/current values remain secondary/advanced.
 
 Analysis screen:
 
@@ -436,7 +502,10 @@ Built-in presets:
 - Simple Energy Report;
 - detailed energy report;
 - battery report;
-- grid/utility comparison report.
+- grid/utility comparison report;
+- family operating-behavior summary that explains why grid use occurred and whether it matched the documented SOC thresholds.
+
+Reports may use the known 1.5 kW Midea water-heater schedule as contextual household-load metadata when configured, but must not imply remote control of the heater.
 
 Excel export:
 
