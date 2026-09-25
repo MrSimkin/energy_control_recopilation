@@ -217,6 +217,33 @@ public sealed class HistoryRepository
         command.ExecuteNonQuery();
     }
 
+    public IReadOnlyList<DateOnly> GetPartialDates(string deviceId)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT local_date
+            FROM history_day_status
+            WHERE device_id = $deviceId
+              AND status = 'PARTIAL'
+            ORDER BY local_date;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+
+        using var reader = command.ExecuteReader();
+        var result = new List<DateOnly>();
+
+        while (reader.Read())
+        {
+            if (DateOnly.TryParse(reader.GetString(0), out var date))
+            {
+                result.Add(date);
+            }
+        }
+
+        return result;
+    }
+
     public DateTimeOffset? GetNewestTimestamp(string deviceId)
     {
         using var connection = _database.OpenConnection();
