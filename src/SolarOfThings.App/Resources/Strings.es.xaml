@@ -58,6 +58,10 @@
     <sys:String x:Key="Metric.GridImport">IMPORTACIÓN DE RED</sys:String>
     <sys:String x:Key="Metric.AwaitingSync">Esperando la primera sincronización</sys:String>
     <sys:String x:Key="Metric.ConfiguredCapacity">11,776 kWh de capacidad configurada</sys:String>
+    <sys:String x:Key="Confidence.Confirmed">Confirmado</sys:String>
+    <sys:String x:Key="Confidence.Probable">Probable</sys:String>
+    <sys:String x:Key="Confidence.Unresolved">No resuelto</sys:String>
+    <sys:String x:Key="Metric.LocalNormalized">Dato local normalizado</sys:String>
     <sys:String x:Key="Dashboard.EnergyOverview">Resumen de energía</sys:String>
     <sys:String x:Key="Dashboard.ChartArea">Área de gráfico interactivo</sys:String>
     <sys:String x:Key="Dashboard.ChartPending">Los gráficos se añadirán después de validar la telemetría real y la normalización.</sys:String>
