@@ -165,7 +165,7 @@ Exit criterion:
 
 ---
 
-# Phase 2 — Solar of Things Authentication and Commissioning
+# Phase 2 — Solar of Things Authentication and Commissioning — IN PROGRESS
 
 Goal: make the application connect safely to the user's own Solar of Things account and discover the actual inverter/cloud profile.
 
@@ -190,7 +190,11 @@ UI:
 - account status;
 - discovered station/device summary;
 - connection diagnostics;
-- commissioning result screen.
+- commissioning result screen;
+- development diagnostics mode with copy/save of a detailed sanitized report suitable for development/support;
+- preserve endpoint/method, sanitized request/response, HTTP status, API code/message, timing, attempts, commissioning step, station/device metadata and capability outcomes;
+- redact passwords/password hashes, access/refresh tokens, cookies, reusable client secrets and request signatures before diagnostic persistence;
+- retain this diagnostic capability for future API regressions, even if it is later hidden behind an Advanced/Developer switch in normal releases.
 
 Safety:
 
