@@ -143,6 +143,45 @@ try
     if (OperatingSystem.IsWindows())
     {
         ISecretStore secrets = new DpapiFileSecretStore(paths);
+
+        var portalCredentialStore = new IotOpenCredentialStore(secrets);
+        if (!portalCredentialStore.TryRead(out var portalCredential) ||
+            portalCredential is null ||
+            portalCredential.Source != "portal-default" ||
+            !portalCredential.SecretIsEncrypted)
+        {
+            throw new InvalidOperationException("Default production client profile was not available.");
+        }
+
+        var decryptedPortalSecret = IotOpenSigner.DecryptEmbeddedSecret(
+            portalCredential.AppId,
+            portalCredential.SecretValue);
+
+        if (string.IsNullOrWhiteSpace(decryptedPortalSecret) ||
+            decryptedPortalSecret.Length < 16)
+        {
+            throw new InvalidOperationException("Default production client secret could not be decrypted.");
+        }
+
+        portalCredentialStore.Save(
+            "override-app",
+            "override-secret",
+            secretIsEncrypted: false);
+
+        if (!portalCredentialStore.TryRead(out var overrideCredential) ||
+            overrideCredential?.Source != "local-override")
+        {
+            throw new InvalidOperationException("Local client-profile override did not take precedence.");
+        }
+
+        portalCredentialStore.Delete();
+
+        if (!portalCredentialStore.TryRead(out var restoredDefault) ||
+            restoredDefault?.Source != "portal-default")
+        {
+            throw new InvalidOperationException("Production client profile was not restored after deleting the override.");
+        }
+
         secrets.Save("smoke.secret", "not-a-real-secret");
 
         if (!secrets.TryRead("smoke.secret", out var secretValue) ||
