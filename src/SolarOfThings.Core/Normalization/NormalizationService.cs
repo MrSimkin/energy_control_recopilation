@@ -13,12 +13,14 @@ public sealed class NormalizationService
 
     private static readonly string[] RelevantKeys =
     [
+        "generationPower",
         "pvPower",
         "outputActivePower",
         "mainsPower",
         "batteryCapacity",
         "bmsCurrentSOC",
         "batteryVoltage",
+        "bmsChargingCurrent",
         "batteryChargingCurrent",
         "batteryDischargeCurrent",
         "pvGeneratedEnergyOfDay",
@@ -237,17 +239,11 @@ public sealed class NormalizationService
         var rows = new List<NormalizedRow>(8);
         var ratedPowerW = NormalizeRatedPower(profile.RatedPower);
 
-        AddDirectPower(
+        AddTargetPvPower(
             rows,
             frame,
             units,
-            "pvPower",
-            "kW",
-            "pv_power_w",
-            "CONFIRMED",
-            "OK",
-            ratedPowerW,
-            2.0);
+            ratedPowerW);
 
         AddDirectPower(
             rows,
@@ -279,6 +275,41 @@ public sealed class NormalizationService
         }
 
         return rows.Count;
+    }
+
+    private static void AddTargetPvPower(
+        ICollection<NormalizedRow> rows,
+        IReadOnlyDictionary<string, RawReading> frame,
+        IReadOnlyDictionary<string, string?> units,
+        double? ratedPowerW)
+    {
+        var primaryKey = TryRead(frame, units, "generationPower", "kW", out var generation)
+            ? "generationPower"
+            : TryRead(frame, units, "pvPower", "kW", out generation)
+                ? "pvPower"
+                : null;
+
+        if (primaryKey is null)
+        {
+            return;
+        }
+
+        var watts = generation.Value!.Value * 1000.0;
+        var valid = watts >= 0 &&
+                    (!ratedPowerW.HasValue || watts <= ratedPowerW.Value * 2.0);
+
+        rows.Add(new NormalizedRow(
+            "pv_power_w",
+            valid ? watts : null,
+            "W",
+            primaryKey,
+            generation.Json,
+            valid ? "CONFIRMED" : "UNRESOLVED",
+            valid
+                ? primaryKey == "generationPower"
+                    ? "OFFICIAL_ENERGY_FLOW_PRIMARY"
+                    : "FALLBACK_PV_ALIAS"
+                : "PLAUSIBILITY_REVIEW"));
     }
 
     private static void AddDirectPower(
@@ -422,8 +453,23 @@ public sealed class NormalizationService
         double? ratedPowerW)
     {
         if (!TryRead(frame, units, "batteryVoltage", "V", out var voltage) ||
-            !TryRead(frame, units, "batteryChargingCurrent", "A", out var charge) ||
             !TryRead(frame, units, "batteryDischargeCurrent", "A", out var discharge))
+        {
+            return;
+        }
+
+        RawReading charge;
+        string chargeKey;
+
+        if (TryRead(frame, units, "bmsChargingCurrent", "A", out charge))
+        {
+            chargeKey = "bmsChargingCurrent";
+        }
+        else if (TryRead(frame, units, "batteryChargingCurrent", "A", out charge))
+        {
+            chargeKey = "batteryChargingCurrent";
+        }
+        else
         {
             return;
         }
@@ -439,12 +485,13 @@ public sealed class NormalizationService
             "battery_power_w",
             valid ? watts : null,
             "W",
-            "batteryVoltage+batteryChargingCurrent+batteryDischargeCurrent",
+            $"batteryVoltage+{chargeKey}+batteryDischargeCurrent",
             JsonSerializer.Serialize(new
             {
                 batteryVoltage = voltage.Value,
-                batteryChargingCurrent = charge.Value,
-                batteryDischargeCurrent = discharge.Value
+                chargingCurrent = charge.Value,
+                dischargeCurrent = discharge.Value,
+                chargingSource = chargeKey
             }),
             valid ? "PROBABLE" : "UNRESOLVED",
             valid
