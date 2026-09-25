@@ -176,6 +176,12 @@
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="{DynamicResource Diagnostics.CopyReport}" Padding="12,6" Click="CopyReport_Click"/>
             <Button Content="{DynamicResource Diagnostics.OpenWindow}" Padding="12,6" Margin="8,0,0,0" Click="OpenDiagnostics_Click"/>
+            <Button x:Name="ServerLogoutButton"
+                    Content="{DynamicResource Commissioning.ServerLogout}"
+                    Padding="12,6"
+                    Margin="8,0,0,0"
+                    IsEnabled="False"
+                    Click="ServerLogout_Click"/>
             <Button Content="{DynamicResource Commissioning.ForgetSession}" Padding="12,6" Margin="8,0,0,0" Click="ForgetSession_Click"/>
             <Button Content="{DynamicResource Common.Close}" Padding="12,6" Margin="8,0,0,0" Click="Close_Click"/>
         </StackPanel>
