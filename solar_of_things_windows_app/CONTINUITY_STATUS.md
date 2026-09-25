@@ -146,6 +146,35 @@ Implemented Phase 3 foundation:
 Canonical data rule:
 Solar of Things raw telemetry is commonly around five-minute cadence, but cadence is not exact. The collector must persist every real timestamp, preserve gaps/nulls, and never fabricate missing 5-minute rows or integrate power using a fixed 5-minute multiplier.
 
+## Current combined Phase 2/3 live-test candidate — CI PASS
+
+Windows Build:
+- run ID: `36186838776`
+- source commit: `57f9b8b2912b5834edff7355f49d1566f3606bd6`
+- conclusion: **SUCCESS**
+
+Portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`
+- artifact ID: `10887225685`
+- SHA-256: `fb7dc54e3255a5494d82ea32f1dbde5b3fcaa5be40aacc8a1b61fc2079681ee7`
+
+This candidate contains:
+- timestamp-corrected Phase 2 history/alarm probes;
+- Phase 3 schema v4 raw corpus;
+- daily station-local raw-history ingestion;
+- 300-frame pagination;
+- selected-key primary history + record/list fallback;
+- first-backfill cross-source comparison;
+- idempotent persistence;
+- actual-timestamp gap metrics;
+- retry of historical PARTIAL days;
+- visible progress bar;
+- safe Stop/Detener preserving already committed data;
+- hard request budget + pacing + rate/auth/server circuit breakers;
+- automatic bounded start range based on device installation/local continuity;
+- manual start-date override;
+- Phase 3 status shown in the desktop shell.
+
 The next real-PC run is intentionally a **combined Phase 2/Phase 3 acceptance/development test**:
 1. authenticate/reconnect normally;
 2. use the timestamp-corrected commissioning probes;
