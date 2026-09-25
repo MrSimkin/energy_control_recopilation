@@ -35,9 +35,9 @@ Versions are pinned centrally in Directory.Packages.props.
 - Structured local JSONL diagnostics foundation: implemented.
 - SQL-backed non-secret application settings repository: implemented.
 - Windows DPAPI protected secret-store abstraction: implemented and smoke-tested.
-- Confirm installed/portable folder behavior on an actual Windows 11 x64 machine.
 - Database schema starter documentation: implemented.
-- Finalize Phase 1 acceptance receipt before Phase 2.
+- Formal CI validation receipt: implemented (`PHASE_01_VALIDATION_RECEIPT.md`).
+- Remaining: manual installed/portable UI/path behavior check on the user's actual Windows 11 x64 laptop.
 
 ## Important scope rule
 
@@ -71,3 +71,12 @@ Work was paused by explicit user request on 2026-09-24.
 Resume from the remaining Phase 1 acceptance tasks only. Do not restart the validated architecture foundation.
 
 Canonical continuation note: `CONTINUITY_STATUS.md`.
+
+
+## Latest validation authority
+
+Use `PHASE_01_VALIDATION_RECEIPT.md` as the latest formal CI validation record.
+
+Latest successful validation run: `36085763308`, source commit `778abaab896d6e211fdc658aa56e80bb6947e7bd`.
+
+The only unresolved Phase 1 acceptance item at pause is the manual Windows 11 launch/visual/portable-path checkpoint.
