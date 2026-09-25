@@ -144,6 +144,16 @@
     <sys:String x:Key="Battery.Unknown">Sin información suficiente</sys:String>
     <sys:String x:Key="Battery.ConfiguredCapacity">Capacidad usada para calcular la estimación</sys:String>
     <sys:String x:Key="Battery.LastReading">Última lectura</sys:String>
+    <sys:String x:Key="Battery.TechnicalHeading">Información técnica</sys:String>
+    <sys:String x:Key="Battery.TechnicalIntro">Detalles del inversor para revisión técnica. No son necesarios para el uso normal de la aplicación.</sys:String>
+    <sys:String x:Key="Battery.Voltage">Voltaje de la batería</sys:String>
+    <sys:String x:Key="Battery.ChargeCurrent">Corriente de carga</sys:String>
+    <sys:String x:Key="Battery.DischargeCurrent">Corriente de descarga</sys:String>
+    <sys:String x:Key="Battery.Power">Potencia de la batería</sys:String>
+    <sys:String x:Key="Tooltip.BatteryVoltage">Voltaje medido de la batería informado por el inversor.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryChargeCurrent">Corriente de carga medida. Indica cuánta corriente está entrando a la batería en esa lectura.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryDischargeCurrent">Corriente de descarga medida. Indica cuánta corriente está saliendo de la batería en esa lectura.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryPowerTechnical">Estimación de potencia derivada del voltaje y de las corrientes de carga/descarga. Un valor positivo indica entrega de energía; uno negativo, carga.</sys:String>
     <sys:String x:Key="Battery.OrdinaryReserveNote">La casa normalmente cambia a la red cerca del 20%.</sys:String>
     <sys:String x:Key="Battery.EmergencyReserveNote">Entre 20% y 10% se conserva una reserva para cortes.</sys:String>
     <sys:String x:Key="Tooltip.BatteryRemaining">Estimación de la energía que queda en la batería. Se calcula multiplicando el porcentaje de carga por la capacidad útil configurada; no es una medición independiente.</sys:String>
