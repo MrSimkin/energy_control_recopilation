@@ -2,7 +2,7 @@
 
 Date started: 2026-09-24
 
-Status: IN PROGRESS — CORE ARCHITECTURE VALIDATED
+Status: PAUSED BY USER — CORE ARCHITECTURE VALIDATED
 
 ## Implemented in initial skeleton
 
@@ -62,3 +62,12 @@ Validated:
 - clean smoke-test database teardown.
 
 A later workflow revision adds a self-contained win-x64 portable test artifact for manual Windows 11 UI inspection.
+
+
+## Pause / resume marker
+
+Work was paused by explicit user request on 2026-09-24.
+
+Resume from the remaining Phase 1 acceptance tasks only. Do not restart the validated architecture foundation.
+
+Canonical continuation note: `CONTINUITY_STATUS.md`.
