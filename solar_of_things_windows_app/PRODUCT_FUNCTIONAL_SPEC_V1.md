@@ -336,11 +336,19 @@ Do not create a fake “losses” value merely as a balancing residual unless ex
 
 ---
 
-# 5.16 Installation operating policy
+# 5.16 Installation operating policy — contextual layer
 
-The app must interpret the target household against the versioned installation behavior contract.
+The app must interpret the target household against the versioned installation behavior contract **without changing the physical meaning of inverter telemetry**.
 
-Current user-confirmed baseline includes:
+Canonical separation:
+
+- raw inverter data = source evidence;
+- normalized data = device/protocol physical meaning;
+- installation policy = contextual explanation of what those measurements mean for this household.
+
+The family manual/settings must never rewrite watts, volts, SOC, counters, timestamps or raw sign conventions.
+
+The separate contextual baseline currently includes:
 
 - SBU household source priority;
 - BMS/PYL battery operation;
@@ -382,9 +390,11 @@ The commissioning phase must determine:
 - their signs;
 - whether flow values already include losses;
 - whether power balance is consistent;
-- which derived formulas are safe for this installation.
+- which derived formulas are physically justified for this device/protocol.
 
 The resulting mapping becomes a versioned per-device normalization profile.
+
+Household-specific settings such as 20% / 10% / 50% thresholds, zero-export policy and solar-only charging are applied **after normalization** as contextual/behavior rules.
 
 ## 6.3 Battery provenance
 
