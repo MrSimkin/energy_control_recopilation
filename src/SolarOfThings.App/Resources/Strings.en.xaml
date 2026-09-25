@@ -42,6 +42,20 @@
     <sys:String x:Key="Page.Battery.Title">Battery</sys:String>
     <sys:String x:Key="Page.Battery.Subtitle">Battery state, charging, discharging and behavior</sys:String>
     <sys:String x:Key="Page.Battery.Placeholder">The battery view will be enabled when real device data is available.</sys:String>
+    <sys:String x:Key="Battery.Heading">Battery</sys:String>
+    <sys:String x:Key="Battery.Intro">Current battery status using information already saved on this computer.</sys:String>
+    <sys:String x:Key="Battery.Charge">Current charge</sys:String>
+    <sys:String x:Key="Battery.EstimatedRemaining">Available energy (estimate)</sys:String>
+    <sys:String x:Key="Battery.Activity">What the battery is doing</sys:String>
+    <sys:String x:Key="Battery.Charging">Charging</sys:String>
+    <sys:String x:Key="Battery.Discharging">Supplying energy to the home</sys:String>
+    <sys:String x:Key="Battery.Resting">At rest</sys:String>
+    <sys:String x:Key="Battery.Unknown">Not enough information</sys:String>
+    <sys:String x:Key="Battery.ConfiguredCapacity">Capacity used for this estimate</sys:String>
+    <sys:String x:Key="Battery.LastReading">Latest reading</sys:String>
+    <sys:String x:Key="Tooltip.BatteryRemaining">An estimate of the energy left in the battery. It is calculated from charge percentage and configured usable capacity; it is not a separate measurement.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryActivity">Shows whether the battery is receiving energy, supplying energy, or nearly at rest based on inverter readings.</sys:String>
+
     <sys:String x:Key="Page.GridUtility.Title">Grid &amp; Utility</sys:String>
     <sys:String x:Key="Page.GridUtility.Subtitle">Grid import and utility-meter reconciliation</sys:String>
     <sys:String x:Key="Page.GridUtility.Placeholder">Grid and utility functions will be added in later phases.</sys:String>
