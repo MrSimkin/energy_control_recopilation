@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.cache
+*.db
+*.db-shm
+*.db-wal
+artifacts/
+TestResults/
+**/Data/
+**/Backups/
+**/Logs/
