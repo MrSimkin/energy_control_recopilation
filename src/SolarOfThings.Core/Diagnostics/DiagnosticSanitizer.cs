@@ -19,7 +19,7 @@ public static partial class DiagnosticSanitizer
         "signature"
     ];
 
-    public static string? SanitizeJson(string? json, int maxLength = 32768)
+    public static string? SanitizeJson(string? json, int maxLength = 262144)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
