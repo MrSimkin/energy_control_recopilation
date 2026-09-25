@@ -8,10 +8,10 @@ namespace SolarOfThings.Core.History;
 
 public sealed class HistoryIngestionService
 {
-    private const int SelectedKeyPageSize = 1500;
-    private const int SelectedKeyMaxPages = 10;
-    private const int RecordListPageSize = 80;
-    private const int RecordListMaxPages = 60;
+    private const int SelectedKeyPageSize = 300;
+    private const int SelectedKeyMaxPages = 500;
+    private const int RecordListPageSize = 300;
+    private const int RecordListMaxPages = 500;
 
     private readonly SolarOfThingsSessionManager _session;
     private readonly HistoryRepository _history;
