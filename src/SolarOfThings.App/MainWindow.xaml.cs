@@ -154,6 +154,7 @@ public partial class MainWindow : Window
         SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
         RefreshOperatingState(metrics);
         RefreshDashboardFreshness(metrics);
+        RefreshDashboardLatestSavedDay(profile);
     }
 
     private void SetPowerMetric(
@@ -216,6 +217,101 @@ public partial class MainWindow : Window
         OperatingStateText.SetResourceReference(TextBlock.TextProperty, "Operating.NO_DATA");
         OperatingStateMetaText.Text = string.Empty;
         DashboardFreshnessText.Text = string.Empty;
+        ResetDashboardLatestSavedDay();
+    }
+
+    private void RefreshDashboardLatestSavedDay(
+        CommissioningProfile profile)
+    {
+        var history =
+            _services.GetRequiredService<HistoryRepository>();
+        var coverage =
+            history.GetCoverageSummary(profile.DeviceId);
+
+        if (!coverage.LastSampleAtUtc.HasValue)
+        {
+            ResetDashboardLatestSavedDay();
+            return;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var localDate = SolarApiTime.GetLocalDate(
+            coverage.LastSampleAtUtc.Value,
+            timeZone);
+        var window = SolarApiTime.GetLocalDayWindow(
+            localDate,
+            timeZone);
+
+        var summary =
+            _services.GetRequiredService<EnergyRangeStatisticsService>()
+                .Get(
+                    profile.DeviceId,
+                    window.Start,
+                    window.End);
+
+        DashboardLatestDayDateText.Text = string.Format(
+            _localization.GetString("Dashboard.LatestDayDate"),
+            localDate.ToString("dd-MM-yyyy"));
+
+        SetDashboardDailyEnergy(
+            DashboardLatestDaySolarText,
+            summary.PvPower,
+            summary.PvEnergyKwh);
+        SetDashboardDailyEnergy(
+            DashboardLatestDayHouseText,
+            summary.HouseLoadPower,
+            summary.HouseEnergyKwh);
+        SetDashboardDailyEnergy(
+            DashboardLatestDayGridText,
+            summary.GridImportPower,
+            summary.GridImportEnergyKwh);
+
+        var coverages = new[]
+            {
+                summary.PvPower,
+                summary.HouseLoadPower,
+                summary.GridImportPower
+            }
+            .Where(metric => metric.SampleCount >= 2)
+            .Select(metric => metric.CoveragePercent)
+            .ToArray();
+
+        DashboardLatestDayCoverageText.Text =
+            coverages.Length > 0
+                ? $"{coverages.Min():F1} %"
+                : "— %";
+
+        DashboardLatestDayCoverageText.Foreground =
+            coverages.Length > 0 &&
+            coverages.Min() < 80
+                ? Brushes.DarkOrange
+                : Brushes.Black;
+    }
+
+    private static void SetDashboardDailyEnergy(
+        TextBlock target,
+        PowerMetricStatistics metric,
+        double energyKwh)
+    {
+        target.Text = metric.SampleCount >= 2
+            ? $"{energyKwh:F2} kWh"
+            : "— kWh";
+    }
+
+    private void ResetDashboardLatestSavedDay()
+    {
+        DashboardLatestDayDateText.SetResourceReference(
+            TextBlock.TextProperty,
+            "Dashboard.LatestDayNoData");
+        DashboardLatestDaySolarText.Text = "— kWh";
+        DashboardLatestDayHouseText.Text = "— kWh";
+        DashboardLatestDayGridText.Text = "— kWh";
+        DashboardLatestDayCoverageText.Text = "— %";
+        DashboardLatestDayCoverageText.Foreground =
+            Brushes.Black;
     }
 
     private void RefreshDashboardFreshness(
