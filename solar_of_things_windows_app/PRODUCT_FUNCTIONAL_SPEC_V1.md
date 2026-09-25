@@ -1416,6 +1416,34 @@ The application prioritizes correctness, traceability, local ownership of data, 
 
 ---
 
+# 46.1 Plain-language accessibility for older household users
+
+The normal application experience is intended to be understandable by non-technical household users, including people aged 75+.
+
+Canonical UX rules:
+
+- Spanish remains the default language.
+- Prefer everyday household language over engineering/API terminology.
+- Main-screen labels must explain the concept directly, for example:
+  - "Solar ahora" rather than "PV/FV power";
+  - "Carga de la batería" rather than "SOC";
+  - "Red eléctrica ahora" rather than "grid import";
+  - "Desde qué fecha descargar" rather than "capture frontier".
+- Technical terms may remain in Advanced / Technical Help screens.
+- If an unavoidable term, unit or confidence concept may not be obvious, provide a short tooltip explaining:
+  - what it means;
+  - why it matters;
+  - whether a higher/lower value is meaningful where applicable.
+- Normal controls must use clear action language such as "Actualizar datos", "Detener descarga", "Conectar y buscar equipo".
+- Status text must distinguish actual state rather than technical implementation state. A remembered profile/session must not be labeled "connected" until a Solar of Things call has actually succeeded.
+- Important user-facing labels should use legible sizing and not rely only on color.
+- Tooltips supplement clear labels; they are not a substitute for unnecessarily technical primary wording.
+- Developer diagnostics may remain detailed/technical because they are explicitly outside the normal household workflow.
+
+This requirement applies to all later dashboard, analysis, battery, grid, report and settings work.
+
+---
+
 # 47. Approval record
 
 Approved by the user/product owner on 2026-09-24.
