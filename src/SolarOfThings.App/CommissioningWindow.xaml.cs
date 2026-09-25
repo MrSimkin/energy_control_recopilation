@@ -172,6 +172,11 @@ public partial class CommissioningWindow : Window
             sb.AppendLine($"DTU/logger: {profile.DtuId ?? "-"}");
             sb.AppendLine($"Protocolo: {profile.GatherProtocolNumber ?? "-"}");
             sb.AppendLine($"Software/Firmware: {profile.SoftwareVersion ?? "-"}");
+            sb.AppendLine($"Tipo lógico: {profile.DeviceSortKey ?? "-"}");
+            sb.AppendLine($"Tipo de dispositivo: {profile.DeviceTypeNumber ?? "-"}");
+            sb.AppendLine($"Potencia nominal: {(profile.RatedPower.HasValue ? profile.RatedPower.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "-")}");
+            sb.AppendLine($"En línea: {(profile.IsOnline.HasValue ? (profile.IsOnline.Value ? "Sí" : "No") : "-")}");
+            sb.AppendLine($"Último dato del dispositivo: {(profile.LastDataAt.HasValue ? profile.LastDataAt.Value.ToString("O") : "-")}");
             sb.AppendLine($"dataSource: {profile.DataSource ?? "-"}");
             sb.AppendLine($"Atributos: {profile.GatherAttributeCount} ({profile.GatherAttributesStatus})");
             sb.AppendLine($"Estado actual: {profile.LatestStateStatus}");
