@@ -36,7 +36,13 @@ Household-specific settings are allowed only as contextual explanation/overlays 
 - remaining emergency outage reserve;
 - protected-floor explanation;
 - charging / supplying house / resting;
-- parent-friendly language and tooltips.
+- parent-friendly language and tooltips;
+- collapsed secondary “Información técnica” panel:
+  - measured battery voltage;
+  - measured charging current;
+  - measured discharge current;
+  - derived battery power;
+- target normalization rule advanced to hpvinv02.v3 to preserve charge/discharge current measurements independently of household context.
 
 ### Data & Updates
 
@@ -68,12 +74,15 @@ Household-specific settings are allowed only as contextual explanation/overlays 
   - pan/zoom;
   - reset view;
   - source-selection checkboxes;
+  - readable hover/tooltip point inspection showing period values and coverage;
 - separate interactive battery-charge chart on a 0–100% axis:
   - average SOC;
   - ending SOC;
   - 10% protected-floor contextual reference;
   - 20% normal grid-transfer contextual reference;
-  - 50% normal return contextual reference.
+  - 50% normal return contextual reference;
+  - readable hover/tooltip inspection for average/end/min/max SOC and coverage;
+- energy and battery charts share horizontal/time-axis movement while keeping independent kWh and % Y axes.
 
 ## Accessibility / older family users
 
@@ -103,9 +112,12 @@ ScottPlot.WPF 5.1.59:
 - separate battery chart rendering: run 236 — SUCCESS;
 - low-coverage chart warning: run 239 — SUCCESS;
 - chart reset control: run 243 — SUCCESS;
-- battery 10/20/50 contextual overlay: run 249 — SUCCESS.
+- battery 10/20/50 contextual overlay: run 249 — SUCCESS;
+- energy-chart metric picker: run 253 — SUCCESS;
+- readable chart hover inspection: run 257 — SUCCESS;
+- synchronized energy/battery horizontal axes: run 258 — SUCCESS.
 
-The current metric-picker build is the intended next combined checkpoint.
+The battery technical-metrics build is the current intended next combined checkpoint.
 
 ## Deliberately not invented
 
