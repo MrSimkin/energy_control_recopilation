@@ -41,6 +41,15 @@
     <sys:String x:Key="Page.Analysis.Placeholder">This section will be implemented after real telemetry and normalization are proven.</sys:String>
     <sys:String x:Key="Analysis.Heading">Operating history</sys:String>
     <sys:String x:Key="Analysis.Intro">Choose a period to see how energy use was distributed. Missing data remains unknown and is never filled in.</sys:String>
+    <sys:String x:Key="Analysis.QuickRange">Quick period</sys:String>
+    <sys:String x:Key="Analysis.Range.All">All saved history</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestDay">Most recent saved day</sys:String>
+    <sys:String x:Key="Analysis.Range.Rolling7">Latest 7 days in history</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestWeek">Week containing latest date</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestMonth">Month containing latest date</sys:String>
+    <sys:String x:Key="Analysis.Range.LatestYear">Year containing latest date</sys:String>
+    <sys:String x:Key="Analysis.Range.Rolling12Months">Latest 12 months in history</sys:String>
+    <sys:String x:Key="Analysis.Range.Custom">Choose dates</sys:String>
     <sys:String x:Key="Analysis.From">From</sys:String>
     <sys:String x:Key="Analysis.To">Through</sys:String>
     <sys:String x:Key="Analysis.Apply">View period</sys:String>
