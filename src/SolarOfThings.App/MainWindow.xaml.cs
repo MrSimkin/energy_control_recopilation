@@ -124,11 +124,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        MessageBox.Show(
-            _localization.GetString("UpdateDialog.Phase3Message"),
-            _localization.GetString("UpdateDialog.Title"),
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        await RunHistorySyncAsync(profile);
     }
 
     private void ConnectSolar_Click(object sender, RoutedEventArgs e)
