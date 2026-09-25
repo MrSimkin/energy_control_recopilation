@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 6;
 
     private readonly AppPaths _paths;
 
@@ -61,6 +61,12 @@ public sealed class SqliteDatabase
         if (current < 5)
         {
             ApplyMigration5(connection);
+            current = 5;
+        }
+
+        if (current < 6)
+        {
+            ApplyMigration6(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -268,6 +274,54 @@ public sealed class SqliteDatabase
             transaction,
             5,
             "Track bounded automatic retries for unresolved historical days.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration6(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            CREATE TABLE normalized_metric_sample (
+                device_id TEXT NOT NULL,
+                metric_key TEXT NOT NULL,
+                recorded_at_utc TEXT NOT NULL,
+                normalized_value REAL NULL,
+                normalized_unit TEXT NOT NULL,
+                source_attribute_key TEXT NOT NULL,
+                source_value_json TEXT NULL,
+                normalization_rule_version TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                quality TEXT NOT NULL,
+                updated_utc TEXT NOT NULL,
+                PRIMARY KEY(device_id, metric_key, recorded_at_utc)
+            );
+
+            CREATE INDEX ix_normalized_metric_device_metric_time
+                ON normalized_metric_sample(device_id, metric_key, recorded_at_utc DESC);
+
+            CREATE TABLE normalization_run (
+                normalization_run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT NOT NULL,
+                rule_version TEXT NOT NULL,
+                started_utc TEXT NOT NULL,
+                completed_utc TEXT NULL,
+                status TEXT NOT NULL,
+                input_frame_count INTEGER NOT NULL DEFAULT 0,
+                output_metric_count INTEGER NOT NULL DEFAULT 0,
+                detail_json TEXT NULL
+            );
+
+            CREATE INDEX ix_normalization_run_device_started
+                ON normalization_run(device_id, started_utc DESC);
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            6,
+            "Phase 4 versioned normalized metric layer and normalization audit.");
 
         transaction.Commit();
     }
