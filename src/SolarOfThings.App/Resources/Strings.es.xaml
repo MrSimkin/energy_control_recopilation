@@ -42,7 +42,7 @@
     <sys:String x:Key="Page.Reports.Placeholder">La generación de informes se implementará después del motor de datos y estadísticas.</sys:String>
     <sys:String x:Key="Page.Data.Title">Datos</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
-    <sys:String x:Key="Page.Data.Placeholder">La sincronización e historial real comienzan en las fases 2 y 3.</sys:String>
+    <sys:String x:Key="Page.Data.Placeholder">La sincronización histórica local ya está activa mediante “Actualizar datos”. El análisis se construirá sobre este corpus validado.</sys:String>
     <sys:String x:Key="Page.Diagnostics.Title">Avanzado / Diagnóstico</sys:String>
     <sys:String x:Key="Page.Diagnostics.Subtitle">Diagnóstico técnico y estado interno de la aplicación</sys:String>
     <sys:String x:Key="Page.Diagnostics.Placeholder">Los diagnósticos actuales se escriben localmente; esta vista crecerá a medida que se incorporen integraciones reales.</sys:String>
@@ -70,6 +70,7 @@
     <sys:String x:Key="Status.Phase">Fase</sys:String>
     <sys:String x:Key="Status.Phase1">1 — Esqueleto técnico</sys:String>
     <sys:String x:Key="Status.Phase2">2 — Conexión y commissioning</sys:String>
+    <sys:String x:Key="Status.Phase3">3 — Ingesta histórica</sys:String>
     <sys:String x:Key="Status.Database">Base de datos:</sys:String>
     <sys:String x:Key="Status.SpecFrozen">Especificación v1 + cambio de idioma 2026-09-25</sys:String>
 
