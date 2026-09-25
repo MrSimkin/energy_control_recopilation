@@ -104,7 +104,7 @@ public sealed class HistoryIngestionService
                     keys,
                     cancellationToken);
 
-                if (!result.Complete && result.Refused)
+                if (!result.Complete)
                 {
                     progress?.Report(new(
                         "Fallback",
@@ -113,7 +113,9 @@ public sealed class HistoryIngestionService
                         totalDays,
                         frames,
                         samples,
-                        "Historial por claves no disponible; usando record/list."));
+                        result.Refused
+                            ? "Historial por claves no disponible; usando record/list."
+                            : "Historial por claves quedó parcial; completando el día con record/list."));
 
                     result = await FetchRecordListDayAsync(
                         profile.DeviceId,
