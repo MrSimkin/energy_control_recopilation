@@ -665,6 +665,90 @@ public partial class MainWindow : Window
                     period);
 
         AnalysisAggregationGrid.ItemsSource = table.Rows;
+        RefreshAnalysisEnergyChart(table.Rows);
+    }
+
+    private void RefreshAnalysisEnergyChart(
+        IReadOnlyList<EnergyAggregationRow> rows)
+    {
+        var plot = AnalysisEnergyPlot.Plot;
+        plot.Clear();
+
+        if (rows.Count == 0)
+        {
+            AnalysisChartStatusText.Text =
+                _localization.GetString("Analysis.Chart.NoData");
+            AnalysisEnergyPlot.Refresh();
+            return;
+        }
+
+        AnalysisChartStatusText.Text = string.Empty;
+
+        var positions =
+            Enumerable.Range(0, rows.Count)
+                .Select(index => (double)index)
+                .ToArray();
+
+        var solarPositions =
+            positions.Select(position => position - 0.26).ToArray();
+        var housePositions = positions;
+        var gridPositions =
+            positions.Select(position => position + 0.26).ToArray();
+
+        var solar = plot.Add.Bars(
+            solarPositions,
+            rows.Select(row => row.PvEnergyKwh).ToArray());
+        solar.LegendText =
+            _localization.GetString("Analysis.Chart.Solar");
+
+        var house = plot.Add.Bars(
+            housePositions,
+            rows.Select(row => row.HouseEnergyKwh).ToArray());
+        house.LegendText =
+            _localization.GetString("Analysis.Chart.House");
+
+        var grid = plot.Add.Bars(
+            gridPositions,
+            rows.Select(row => row.GridImportEnergyKwh).ToArray());
+        grid.LegendText =
+            _localization.GetString("Analysis.Chart.Grid");
+
+        foreach (var bar in solar.Bars)
+        {
+            bar.Size = 0.22;
+        }
+
+        foreach (var bar in house.Bars)
+        {
+            bar.Size = 0.22;
+        }
+
+        foreach (var bar in grid.Bars)
+        {
+            bar.Size = 0.22;
+        }
+
+        var tickGenerator =
+            new ScottPlot.TickGenerators.NumericManual();
+
+        var tickStep =
+            Math.Max(
+                1,
+                (int)Math.Ceiling(rows.Count / 12.0));
+
+        for (var index = 0; index < rows.Count; index += tickStep)
+        {
+            tickGenerator.AddMajor(
+                index,
+                rows[index].LocalLabel);
+        }
+
+        plot.Axes.Bottom.TickGenerator = tickGenerator;
+        plot.YLabel("kWh");
+        plot.Axes.Margins(bottom: 0, top: 0.15);
+        plot.ShowLegend(ScottPlot.Alignment.UpperRight);
+
+        AnalysisEnergyPlot.Refresh();
     }
 
     private AggregationPeriod GetSelectedAggregationPeriod()
@@ -771,6 +855,10 @@ public partial class MainWindow : Window
         ResetAnalysisValues();
         ResetAnalysisEnergyValues();
         AnalysisAggregationGrid.ItemsSource = null;
+        AnalysisEnergyPlot.Plot.Clear();
+        AnalysisEnergyPlot.Refresh();
+        AnalysisChartStatusText.Text =
+            _localization.GetString("Analysis.Chart.NoData");
         AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
     }
 
