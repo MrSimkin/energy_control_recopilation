@@ -412,6 +412,93 @@
                             </Border>
                         </Grid>
 
+                        <TextBlock Text="{DynamicResource Analysis.EnergyHeading}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"
+                                   Margin="0,4,0,0"/>
+                        <TextBlock Text="{DynamicResource Analysis.EnergyIntro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,4,0,10"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="AnalysisEnergyCoverageText"
+                                   Text=""
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="#6C757D"
+                                   Margin="0,0,0,12"
+                                   ToolTip="{DynamicResource Tooltip.AnalysisEnergy}"/>
+
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource CardStyle}" ToolTip="{DynamicResource Tooltip.AnalysisEnergy}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.PvEnergy}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisPvEnergyText"
+                                               Text="— kWh"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}" ToolTip="{DynamicResource Tooltip.AnalysisEnergy}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.HouseEnergy}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisHouseEnergyText"
+                                               Text="— kWh"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource CardStyle}" ToolTip="{DynamicResource Tooltip.AnalysisEnergy}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.GridEnergy}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="AnalysisGridEnergyText"
+                                               Text="— kWh"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0" ToolTip="{DynamicResource Tooltip.AnalysisEnergy}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Analysis.BatteryEnergy}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="AnalysisBatteryDeliveredText"
+                                               Text="—"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Margin="0,7,0,0"/>
+                                    <TextBlock x:Name="AnalysisBatteryReceivedText"
+                                               Text="—"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
