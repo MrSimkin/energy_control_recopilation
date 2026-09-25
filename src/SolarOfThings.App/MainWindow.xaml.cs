@@ -10,6 +10,7 @@ using SolarOfThings.Core.History;
 using SolarOfThings.Core.Normalization;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Settings;
+using SolarOfThings.Core.Statistics;
 
 namespace SolarOfThings.App;
 
@@ -52,6 +53,7 @@ public partial class MainWindow : Window
         RefreshDashboardMetrics();
         RefreshBatteryView();
         RefreshDataCoverageView();
+        RefreshAnalysisView(initializeRange: true);
         ShowPage("Dashboard");
         Loaded += MainWindow_Loaded;
     }
@@ -112,6 +114,7 @@ public partial class MainWindow : Window
         RefreshDashboardMetrics();
         RefreshBatteryView();
         RefreshDataCoverageView();
+        RefreshAnalysisView();
     }
 
     private void RefreshDashboardMetrics()
@@ -358,6 +361,180 @@ public partial class MainWindow : Window
         evaluator.Evaluate(profile);
     }
 
+    private void AnalysisApply_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshAnalysisView();
+    }
+
+    private void RefreshAnalysisView(bool initializeRange = false)
+    {
+        if (!IsInitialized || AnalysisContent is null)
+        {
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            ResetAnalysisView();
+            return;
+        }
+
+        var history = _services.GetRequiredService<HistoryRepository>();
+        var coverage = history.GetCoverageSummary(profile.DeviceId);
+
+        if (!coverage.FirstSampleAtUtc.HasValue ||
+            !coverage.LastSampleAtUtc.HasValue)
+        {
+            ResetAnalysisView();
+            AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
+            return;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var firstLocalDate = SolarApiTime.GetLocalDate(
+            coverage.FirstSampleAtUtc.Value,
+            timeZone);
+        var lastLocalDate = SolarApiTime.GetLocalDate(
+            coverage.LastSampleAtUtc.Value,
+            timeZone);
+
+        if (initializeRange || !AnalysisFromDatePicker.SelectedDate.HasValue)
+        {
+            AnalysisFromDatePicker.SelectedDate =
+                firstLocalDate.ToDateTime(TimeOnly.MinValue);
+        }
+
+        if (initializeRange || !AnalysisToDatePicker.SelectedDate.HasValue)
+        {
+            AnalysisToDatePicker.SelectedDate =
+                lastLocalDate.ToDateTime(TimeOnly.MinValue);
+        }
+
+        var fromDate = DateOnly.FromDateTime(
+            AnalysisFromDatePicker.SelectedDate ??
+            firstLocalDate.ToDateTime(TimeOnly.MinValue));
+        var toDate = DateOnly.FromDateTime(
+            AnalysisToDatePicker.SelectedDate ??
+            lastLocalDate.ToDateTime(TimeOnly.MinValue));
+
+        if (fromDate > toDate)
+        {
+            (fromDate, toDate) = (toDate, fromDate);
+            AnalysisFromDatePicker.SelectedDate =
+                fromDate.ToDateTime(TimeOnly.MinValue);
+            AnalysisToDatePicker.SelectedDate =
+                toDate.ToDateTime(TimeOnly.MinValue);
+        }
+
+        var fromWindow = SolarApiTime.GetLocalDayWindow(fromDate, timeZone);
+        var toWindow = SolarApiTime.GetLocalDayWindow(toDate, timeZone);
+
+        var statistics =
+            _services.GetRequiredService<HouseholdBehaviorStatisticsService>()
+                .Get(
+                    profile.DeviceId,
+                    fromWindow.Start,
+                    toWindow.End);
+
+        if (statistics.SampleCount < 2)
+        {
+            ResetAnalysisValues();
+            AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
+            return;
+        }
+
+        var solarMinutes = GetStateDuration(
+            statistics,
+            "SOLAR_PRIMARY",
+            "SOLAR_AND_CHARGING");
+
+        var batteryMinutes = GetStateDuration(
+            statistics,
+            "BATTERY_SUPPLY",
+            "OUTAGE_BATTERY",
+            "OUTAGE_EMERGENCY_RESERVE",
+            "OUTAGE_PROTECTED_FLOOR");
+
+        var gridMinutes = GetStateDuration(
+            statistics,
+            "GRID_SUPPLY",
+            "GRID_LOW_SOC",
+            "GRID_RECOVERY");
+
+        var recoveryMinutes = GetStateDuration(
+            statistics,
+            "GRID_RECOVERY");
+
+        var emergencyMinutes = GetStateDuration(
+            statistics,
+            "OUTAGE_EMERGENCY_RESERVE",
+            "OUTAGE_PROTECTED_FLOOR");
+
+        AnalysisCoverageText.Text = string.Format(
+            _localization.GetString("Analysis.Percent"),
+            statistics.CoveragePercent);
+        AnalysisSolarTimeText.Text = FormatAnalysisHours(solarMinutes);
+        AnalysisBatteryTimeText.Text = FormatAnalysisHours(batteryMinutes);
+        AnalysisGridTimeText.Text = FormatAnalysisHours(gridMinutes);
+        AnalysisRecoveryTimeText.Text = FormatAnalysisHours(recoveryMinutes);
+        AnalysisEmergencyTimeText.Text = FormatAnalysisHours(emergencyMinutes);
+        AnalysisStateChangesText.Text =
+            statistics.TransitionCount.ToString("N0");
+        AnalysisUnknownTimeText.Text =
+            FormatAnalysisHours(statistics.UncoveredGapMinutes);
+        AnalysisStatusText.Text = string.Empty;
+    }
+
+    private static double GetStateDuration(
+        HouseholdBehaviorStatistics statistics,
+        params string[] stateKeys)
+    {
+        var total = 0.0;
+
+        foreach (var key in stateKeys)
+        {
+            if (statistics.StateDurationMinutes.TryGetValue(
+                    key,
+                    out var minutes))
+            {
+                total += minutes;
+            }
+        }
+
+        return total;
+    }
+
+    private string FormatAnalysisHours(double minutes)
+    {
+        return string.Format(
+            _localization.GetString("Analysis.Hours"),
+            minutes / 60.0);
+    }
+
+    private void ResetAnalysisView()
+    {
+        AnalysisFromDatePicker.SelectedDate = null;
+        AnalysisToDatePicker.SelectedDate = null;
+        ResetAnalysisValues();
+        AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
+    }
+
+    private void ResetAnalysisValues()
+    {
+        AnalysisCoverageText.Text = "—";
+        AnalysisSolarTimeText.Text = "—";
+        AnalysisBatteryTimeText.Text = "—";
+        AnalysisGridTimeText.Text = "—";
+        AnalysisRecoveryTimeText.Text = "—";
+        AnalysisEmergencyTimeText.Text = "—";
+        AnalysisStateChangesText.Text = "—";
+        AnalysisUnknownTimeText.Text = "—";
+    }
+
     private void Navigation_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is string pageKey)
@@ -399,18 +576,24 @@ public partial class MainWindow : Window
         PageSubtitle.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Subtitle");
 
         var isDashboard = string.Equals(pageKey, "Dashboard", StringComparison.Ordinal);
+        var isAnalysis = string.Equals(pageKey, "Analysis", StringComparison.Ordinal);
         var isBattery = string.Equals(pageKey, "Battery", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
 
         DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
+        AnalysisContent.Visibility = isAnalysis ? Visibility.Visible : Visibility.Collapsed;
         BatteryContent.Visibility = isBattery ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
         PlaceholderContent.Visibility =
-            !isDashboard && !isBattery && !isData
+            !isDashboard && !isAnalysis && !isBattery && !isData
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-        if (isBattery)
+        if (isAnalysis)
+        {
+            RefreshAnalysisView();
+        }
+        else if (isBattery)
         {
             RefreshBatteryView();
         }
@@ -443,6 +626,7 @@ public partial class MainWindow : Window
         RefreshDashboardMetrics();
         RefreshBatteryView();
         RefreshDataCoverageView();
+        RefreshAnalysisView();
     }
 
     private async void UpdateData_Click(object sender, RoutedEventArgs e)
@@ -576,6 +760,7 @@ public partial class MainWindow : Window
                     EvaluateInstallationHealth(profile);
                     RefreshDashboardMetrics();
                     RefreshBatteryView();
+                    RefreshAnalysisView();
                 }
             }
             catch (Exception normalizationError)
@@ -593,6 +778,7 @@ public partial class MainWindow : Window
             RefreshCaptureStartOptions();
             RefreshConnectionStatus();
             RefreshDataCoverageView();
+            RefreshAnalysisView();
         }
     }
 
@@ -647,6 +833,7 @@ public partial class MainWindow : Window
         RefreshDataCoverageView();
         RefreshDashboardMetrics();
         RefreshBatteryView();
+        RefreshAnalysisView(initializeRange: true);
     }
 
     private void CaptureStartModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
