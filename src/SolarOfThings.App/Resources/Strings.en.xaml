@@ -81,6 +81,16 @@
     <sys:String x:Key="Analysis.Chart.House">Home</sys:String>
     <sys:String x:Key="Analysis.Chart.Grid">Electric grid</sys:String>
     <sys:String x:Key="Analysis.Chart.NoData">There is not enough data to draw this period.</sys:String>
+    <sys:String x:Key="Analysis.Chart.HoverHint">Move the mouse over the chart to see details for a period.</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointPeriod">Period: {0}</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointSolar">Solar: {0:N2} kWh</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointHouse">Home: {0:N2} kWh</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointGrid">Grid: {0:N2} kWh</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointCoverage">Minimum coverage: {0:N1}%</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.HoverHint">Move the mouse over the chart to see battery details for that period.</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.PointAverage">Average: {0:N1}%</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.PointEnd">At end: {0:N1}%</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.PointRange">Min./max.: {0:N1}% / {1:N1}%</sys:String>
     <sys:String x:Key="Analysis.Chart.LowCoverage">Note: one or more periods have less than 80% coverage. Check the “Min. coverage” column before comparing those values.</sys:String>
     <sys:String x:Key="Analysis.BatteryChartHeading">Battery charge by period</sys:String>
     <sys:String x:Key="Analysis.BatteryChartIntro">Shows average battery level and the level at the end of each period. It stays separate from the energy chart because it uses percent.</sys:String>
