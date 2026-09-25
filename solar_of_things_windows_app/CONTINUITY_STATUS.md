@@ -128,12 +128,12 @@ The development diagnostic stream records endpoint/method, sanitized request/res
 
 Normal account/password login now uses the public production IoT Open client profile used by the Solar of Things web-client ecosystem. A DPAPI-protected local override remains available for future upstream changes. Existing access/refresh tokens remain an optional advanced bootstrap, not a normal requirement.
 
-Latest Phase 2 implementation state passed Windows CI in run `36180218439` from source commit `a357acce1b299b5b743275675bc094f775053ca6`.
+Latest Phase 2 implementation state passed Windows CI in run `36180523465` from source commit `7fc2d5701f34948e8181c3e555c2d3cdaadcde9b`.
 
 Portable artifact:
 - name: `SolarEnergyMonitor-win-x64-dev`
-- artifact ID: `10883354925`
-- SHA-256: `cea58c38ef384712a9e1ada3a0137ccafb6d80ec96018a50c384612cc572df1a`
+- artifact ID: `10883867535`
+- SHA-256: `f315669a111af582e390c50289ba38b2a04e96d1a3e38bbb0d811fa686dfc8c1`
 
 CI validated:
 - compile/publish;
@@ -143,7 +143,8 @@ CI validated:
 - commissioning-profile persistence including device type/sort, rated power, online state and `lastDataAt`;
 - DPAPI;
 - diagnostic body/header redaction;
-- proactive refresh/session logic.
+- proactive refresh/session logic;
+- evidence-backed server logout lifecycle and preservation of Solar user IDs as strings.
 
 First real-account checkpoint on 2026-09-25:
 - existing-token local session bootstrap: PASS;
@@ -170,6 +171,6 @@ Phase 2 scope:
 
 Resume inside **Phase 2 — Solar of Things Authentication and Commissioning**.
 
-Immediate checkpoint: use artifact `10883354925` with normal Solar of Things account/password login, run the full read-only commissioning sequence, then copy the diagnostic report so remaining account/device-specific mismatches can be corrected.
+Immediate checkpoint: use artifact `10883867535` with normal Solar of Things account/password login, run the full read-only commissioning sequence, verify session restore after restart, then test server logout and copy the diagnostic report so any remaining account/device-specific mismatches can be corrected.
 
 Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
