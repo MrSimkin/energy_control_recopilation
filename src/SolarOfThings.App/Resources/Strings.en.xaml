@@ -217,6 +217,7 @@
     <sys:String x:Key="Status.Phase2">2 — Connection &amp; commissioning</sys:String>
     <sys:String x:Key="Status.Phase3">3 — Historical ingestion</sys:String>
     <sys:String x:Key="Status.Phase4">4 — Energy interpretation</sys:String>
+    <sys:String x:Key="Status.Phase6">6 — Charts &amp; analysis</sys:String>
     <sys:String x:Key="Status.Database">Database:</sys:String>
     <sys:String x:Key="Status.SpecFrozen">Specification v1 + language change 2026-09-25</sys:String>
 
