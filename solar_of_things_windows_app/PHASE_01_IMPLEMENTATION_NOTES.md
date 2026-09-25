@@ -2,7 +2,7 @@
 
 Date started: 2026-09-24
 
-Status: PAUSED BY USER — CORE ARCHITECTURE VALIDATED
+Status: REFINEMENT IN PROGRESS — CORE ARCHITECTURE + ORIGINAL WINDOWS CHECKPOINT VALIDATED
 
 ## Implemented in initial skeleton
 
@@ -80,3 +80,36 @@ Use `PHASE_01_VALIDATION_RECEIPT.md` as the latest formal CI validation record.
 Latest successful validation run: `36085763308`, source commit `778abaab896d6e211fdc658aa56e80bb6947e7bd`.
 
 The only unresolved Phase 1 acceptance item at pause is the manual Windows 11 launch/visual/portable-path checkpoint.
+
+
+## User Windows 11 manual checkpoint — 2026-09-25
+
+The original Phase 1 portable artifact was tested on the user's actual Windows 11 x64 machine.
+
+Observed:
+- application launched normally;
+- a normal launch did **not** request UAC/elevation;
+- clean shutdown: PASS;
+- shell rendering: PASS;
+- `Data\\energy.db`: created;
+- `Backups\\`: created;
+- `Logs\\`: created;
+- JSONL diagnostics file: created;
+- database path: portable `...\\Data\\energy.db`;
+- first-run SmartScreen unknown-publisher warning: expected for unsigned development artifact.
+
+The user initially invoked one run as Administrator manually; that UAC prompt was therefore user-initiated, not an application requirement. A later normal launch confirmed no UAC requirement.
+
+## Approved requirement change / Phase 1 refinement — 2026-09-25
+
+The previous English-only UI requirement was correct historical documentation of the earlier user instruction. The user has now changed the requirement:
+
+- Spanish is the default UI language;
+- English must be selectable;
+- language preference must persist;
+- current shell text must be localized;
+- sidebar placeholders must visibly navigate so the shell itself can be validated;
+- no Phase 2 authentication/telemetry work is authorized as part of this refinement;
+- current product name is provisional; final product name = TBD.
+
+After CI passes for this refinement, Phase 1 remains pending one final user revalidation of the refined portable build.

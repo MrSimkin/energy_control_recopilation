@@ -2,13 +2,23 @@
 
 Date: 2026-09-24
 
-Status: CANONICAL V1 — APPROVED / FROZEN
+Status: CANONICAL V1 — APPROVED / FROZEN · approved change note applied 2026-09-25
 
 ## 0. Purpose and authority
 
 This document consolidates the approved requirements, research conclusions, gap-review decisions, and implementation defaults for the Solar of Things Windows application.
 
 This document is approved/frozen and is the primary product/functional authority for implementation. Earlier requirements and clarification files remain historical evidence of how decisions were reached.
+
+## Approved change note — 2026-09-25
+
+The user explicitly changed the UI-language requirement after the original v1 approval.
+
+- Historical requirement remains preserved in earlier requirement/clarification files: English UI.
+- Current canonical requirement from 2026-09-25 onward: **Spanish is the default UI language; English must be selectable as an alternative.**
+- Language preference must persist locally.
+- The current product name **Solar Energy Monitor / SolarEnergyMonitor is a working development name only; final product name = TBD.**
+- This change does not reopen Phase 0 or invalidate the already validated technical architecture.
 
 Source authority:
 - solar_of_things_api_research/
@@ -50,7 +60,7 @@ The application is for personal/local use, not a multi-user cloud service.
 - Platform: Windows 11 x64.
 - Language/framework: no Java.
 - Preferred implementation: C# / modern .NET / WPF.
-- UI language: English.
+- UI language: Spanish by default; English selectable as an alternative. Preference persists locally.
 - Local display convention: Chile-friendly date/time:
   - date: dd-MM-yyyy
   - time: HH:mm

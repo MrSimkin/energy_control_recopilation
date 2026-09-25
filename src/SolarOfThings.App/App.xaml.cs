@@ -1,6 +1,7 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SolarOfThings.App.Localization;
 using SolarOfThings.Core.Data;
 using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Infrastructure;
@@ -24,12 +25,16 @@ public partial class App : Application
         builder.Services.AddSingleton<AppSettingsRepository>();
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
         builder.Services.AddSingleton<ISecretStore, DpapiFileSecretStore>();
+        builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
 
         _host = builder.Build();
 
         var database = _host.Services.GetRequiredService<SqliteDatabase>();
         database.Initialize();
+
+        var localization = _host.Services.GetRequiredService<LocalizationService>();
+        localization.Initialize();
 
         var diagnostics = _host.Services.GetRequiredService<DiagnosticsFileWriter>();
         diagnostics.Write("Information", "ApplicationStarted", "Application infrastructure initialized.");

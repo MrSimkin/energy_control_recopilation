@@ -104,11 +104,21 @@ Exit criterion:
 
 ---
 
-# Phase 1 — Technical Skeleton / Proof of Architecture — PAUSED / IN PROGRESS — CI PASS / LOCAL UI CHECK PENDING
+# Phase 1 — Technical Skeleton / Proof of Architecture — REFINEMENT IN PROGRESS — ORIGINAL MANUAL CHECKPOINT PASS
 
 Goal: prove the chosen desktop stack and project structure before building business logic.
 
-Current checkpoint: core architecture validated by Windows CI; remaining work is actual Windows 11 installed/portable behavior validation and the Phase 1 acceptance receipt. See `CONTINUITY_STATUS.md`.
+Current checkpoint: core architecture validated by Windows CI and by the user's actual Windows 11 x64 manual checkpoint. A narrow UI refinement is now in progress before formal Phase 1 closure: Spanish-default/English-selectable localization and functional placeholder sidebar navigation. See `CONTINUITY_STATUS.md`.
+
+Manual checkpoint already passed on 2026-09-25:
+- normal non-admin launch;
+- clean shutdown;
+- acceptable shell rendering;
+- portable `Data\\energy.db`, `Backups\\`, and `Logs\\` creation;
+- displayed portable database path;
+- expected SmartScreen warning for the unsigned development build.
+
+Current product name is provisional: **final product name = TBD**.
 
 Build:
 
@@ -116,6 +126,8 @@ Build:
 - WPF shell;
 - AdminLTE-like navigation layout;
 - theme infrastructure;
+- Spanish-default / English-selectable localization infrastructure with persisted language preference;
+- functional placeholder sidebar navigation for shell validation;
 - dependency injection/configuration/logging;
 - SQLite access layer;
 - migration/versioning mechanism;

@@ -2,7 +2,7 @@
 
 Date: 2026-09-24
 
-Status: CI PASS / LOCAL WINDOWS 11 VISUAL CHECK PENDING
+Status: ORIGINAL BUILD CI + WINDOWS 11 MANUAL CHECK PASS / REFINED BUILD PENDING
 
 ## Validated commit/run
 
@@ -64,3 +64,25 @@ This is the only Phase 1 acceptance item that CI cannot prove because GitHub Act
 Repository/architecture proof is validated.
 
 Phase 2 implementation may begin without changing Phase 1 architecture, but the manual UI checkpoint should be completed before treating the desktop shell as visually accepted.
+
+
+## Manual Windows 11 x64 checkpoint — completed 2026-09-25
+
+User validation of the original portable development artifact:
+
+1. application starts normally: PASS;
+2. AdminLTE-inspired shell renders acceptably: PASS;
+3. normal execution requires no UAC/elevation: PASS;
+4. portable `Data\\energy.db`, `Backups\\`, and `Logs\\`: PASS;
+5. displayed database path points to portable `...\\Data\\energy.db`: PASS;
+6. clean shutdown: PASS.
+
+The first execution produced an expected Windows SmartScreen unknown-publisher warning because the development artifact is unsigned.
+
+## Subsequent narrow refinement
+
+After this checkpoint, the user explicitly changed the language requirement from historical English-only to Spanish-default with English selectable. Minimal functional placeholder sidebar navigation was also requested so the shell navigation can be tested rather than remaining visually static.
+
+These are refinements, not failures of the validated Phase 1 architecture.
+
+Formal Phase 1 closure is deferred until the refined portable build passes CI and receives one final short user revalidation.

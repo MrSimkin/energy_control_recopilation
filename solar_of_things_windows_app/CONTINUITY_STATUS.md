@@ -1,186 +1,95 @@
 # Solar of Things Windows App — Continuity / Resume Status
 
-Date: 2026-09-24
-Status: PAUSED BY USER — SAFE RESUME POINT RECORDED
+Date: 2026-09-25
+Status: PHASE 1 REFINEMENT IN PROGRESS — ORIGINAL WINDOWS CHECKPOINT PASSED
 
-This file is the canonical continuity note for resuming the project after the user-requested pause.
+This file is the canonical continuity note.
 
 ## Repository / branch
 
 - Repository: `MrSimkin/energy_control_recopilation`
 - Canonical branch: `main`
-- Latest pre-pause Phase 1 status commit:
-  `e9d5faa6332bf3ae96c72bbec41e7bf974e3e5e5`
-  — records **CI PASS / LOCAL UI CHECK PENDING** in the roadmap.
-- Formal Phase 1 validation receipt commit:
-  `91b25c7f22aa1ccb0e58a6c0c849113318ca237f`
-- Validated CI source commit:
-  `778abaab896d6e211fdc658aa56e80bb6947e7bd`
+- Pre-refinement HEAD: `fe8e319fbe4470a5eae260a44706dd20325d4bc7`
+- Original formal CI validation run: `36085763308`
+- Original validated source commit: `778abaab896d6e211fdc658aa56e80bb6947e7bd`
 
-Commits created after the user-requested pause are consolidation/status-only and do not advance implementation.
+## Completed and still authoritative
 
-## Completed before pause
+- Solar of Things / SiSeLi public/API research through Round 14.
+- Product/functional specification v1, subject to the approved 2026-09-25 language change note.
+- .NET 10 / C# / WPF x64 architecture.
+- separate Core library.
+- SQLite + WAL + migration foundation.
+- SQL-backed non-secret settings.
+- portable/installed path strategy.
+- JSONL diagnostics.
+- Windows DPAPI secret-store abstraction.
+- GitHub Actions Windows build/smoke/publish workflow.
 
-### Public/API research
+Do not repeat this foundation unless evidence shows a regression.
 
-The Solar of Things / SiSeLi cloud research under:
+## Original Windows 11 manual checkpoint — PASS
 
-`solar_of_things_api_research/`
+On 2026-09-25 the user tested the original portable development artifact on the actual Windows 11 x64 target machine.
 
-is complete for the current project scope through Round 14.
+Confirmed:
+- shell launched and rendered correctly;
+- normal launch did not require UAC/elevation;
+- application closed normally;
+- `Data\\energy.db` was created;
+- `Backups\\` was created;
+- `Logs\\` was created;
+- JSONL diagnostics were created;
+- displayed database path was the portable `...\\Data\\energy.db` path;
+- SmartScreen unknown-publisher warning was expected for the unsigned development build.
 
-Key outcome:
-- cloud/API path sufficiently reconstructed;
-- broad public research closed;
-- target account/device-specific validation deferred to the future local app commissioning flow.
+The user had manually selected Run as administrator on an earlier launch; its UAC dialog was user-initiated and is not evidence of an application elevation requirement.
 
-### Product requirements
+## Approved requirement change — 2026-09-25
 
-Requirements and clarification records 01–05 are stored under:
+Earlier files correctly record the former instruction that the UI be English.
 
-`solar_of_things_windows_app/`
+The user has now explicitly changed the canonical requirement:
 
-They cover:
-- Windows 11 x64;
-- C#/.NET/WPF direction;
-- AdminLTE-like compact dashboard UI;
-- SQLite/SQL accessibility;
-- raw / normalized / calculated layers;
-- on-demand Update Data synchronization;
-- historical backfill;
-- Excel + PDF exports;
-- utility meter readings;
-- Chile tariff acquisition and bill estimation/reconciliation;
-- battery details;
-- reporting, presets, glossary/tooltips;
-- installer + portable;
-- backup/security/update policies.
+**Spanish is the default UI language. English is selectable as an alternative.**
 
-### Functional specification
+The preference must persist locally.
 
-`PRODUCT_FUNCTIONAL_SPEC_V1.md`
+Historical requirement files remain historical and should not be rewritten to pretend this was always the requirement.
 
-Status:
-**CANONICAL V1 — APPROVED / FROZEN**
+Current product name `Solar Energy Monitor / SolarEnergyMonitor` is provisional.
 
-User approved the specification on 2026-09-24.
+**Final product name = TBD.**
 
-Phase 0 is complete.
+## Current narrow Phase 1 refinement
 
-### Development roadmap
+Implement only:
 
-`DEVELOPMENT_ROADMAP_V1.md`
+1. reusable WPF localization infrastructure;
+2. Spanish default;
+3. English selectable and persisted through application settings;
+4. localization of the current shell;
+5. minimal real sidebar navigation between distinct placeholder sections;
+6. no fabricated telemetry.
 
-Status:
-**ACTIVE DEVELOPMENT ROADMAP**
+After the refinement CI succeeds, generate/use the fresh portable artifact and perform one short user revalidation:
 
-Phase 0 is complete.
+- opens normally without UAC;
+- Spanish appears by default on a fresh database;
+- language can switch to English and back;
+- chosen language persists after restart;
+- each sidebar item visibly navigates to its distinct placeholder;
+- database path remains portable;
+- application closes normally.
 
-## Phase 1 state at pause
-
-Phase 1 has **started** and is **partially complete**.
-
-Canonical implementation note:
-
-`PHASE_01_IMPLEMENTATION_NOTES.md`
-
-Current Phase 1 status:
-**CORE ARCHITECTURE VALIDATED**
-
-Implemented/validated:
-
-- .NET 10 / C# solution structure;
-- WPF Windows desktop app targeting x64;
-- separate Core library;
-- SQLite via Microsoft.Data.Sqlite;
-- SQLite WAL mode;
-- schema migration table / schema v1 starter;
-- non-secret SQL-backed application settings;
-- deterministic data-path abstraction;
-- portable-mode marker support;
-- installed-mode data-root logic;
-- dependency injection / host foundation;
-- structured local JSONL diagnostics;
-- Windows DPAPI protected secret-store abstraction;
-- AdminLTE-inspired compact desktop shell;
-- Update Data placeholder only;
-- smoke-test console project;
-- GitHub Actions Windows build/smoke workflow;
-- database schema starter documentation.
-
-Formal CI proof:
-
-`PHASE_01_VALIDATION_RECEIPT.md`
-
-Latest validation run:
-
-`36085763308`
-
-Source commit:
-
-`778abaab896d6e211fdc658aa56e80bb6947e7bd`
-
-Conclusion: SUCCESS.
-
-Validated by CI:
-- .NET 10 restore;
-- Release WPF x64 build;
-- SQLite DB creation;
-- schema migration v1;
-- WAL-capable DB foundation;
-- settings SQL round-trip;
-- JSONL diagnostics;
-- Windows DPAPI secret save/read/delete;
-- pooled SQLite cleanup;
-- self-contained win-x64 publish;
-- portable-mode marker;
-- artifact upload.
-
-Portable development artifact:
-- `SolarEnergyMonitor-win-x64-dev`
-- Artifact ID: `10843334570`
-- approximately 66.7 MB
-
-This artifact is a development/test build, not a v1 release.
-
-Source structure currently present:
-
-- `SolarOfThings.sln`
-- `src/SolarOfThings.App/`
-- `src/SolarOfThings.Core/`
-- `tools/SolarOfThings.SmokeTest/`
-- `.github/workflows/windows-build.yml`
-
-Supporting project files:
-- `global.json`
-- `Directory.Build.props`
-- `Directory.Packages.props`
-- `.gitignore`
-
-## Phase 1 work still pending
-
-Do **not** repeat already validated architecture work unless evidence shows it is broken.
-
-Remaining Phase 1 task:
-
-Perform the manual Windows 11 x64 checkpoint documented in `PHASE_01_VALIDATION_RECEIPT.md`:
-
-1. launch the portable development artifact;
-2. confirm the AdminLTE-inspired shell renders acceptably;
-3. confirm no unexpected permission/elevation prompt;
-4. confirm portable `Data\energy.db`, `Backups\`, and `Logs\` behavior;
-5. confirm displayed database path;
-6. confirm clean shutdown.
-
-The formal CI validation receipt already exists. After this manual checkpoint, record Phase 1 final acceptance/closure and then proceed to Phase 2.
+If all pass, record **PHASE 1 COMPLETE**.
 
 ## What has NOT started
 
-Phase 2 has **not** started.
+Phase 2 has not started.
 
-In particular there is no implemented production Solar of Things:
-
-- login/authentication;
+Do not implement yet:
+- Solar of Things authentication;
 - token/session handling;
 - station discovery;
 - device discovery;
@@ -188,27 +97,6 @@ In particular there is no implemented production Solar of Things:
 - historical backfill;
 - target-device commissioning.
 
-The UI must continue to avoid fabricated energy values until real Solar of Things data is available.
+## Resume rule
 
-## Resume instruction
-
-When the project resumes:
-
-1. read this file;
-2. read `PRODUCT_FUNCTIONAL_SPEC_V1.md`;
-3. read the Phase 1 section of `DEVELOPMENT_ROADMAP_V1.md`;
-4. read `PHASE_01_IMPLEMENTATION_NOTES.md`;
-5. read `PHASE_01_VALIDATION_RECEIPT.md`;
-6. inspect current `main` only as needed to verify no external changes;
-7. continue with the **single remaining manual Phase 1 Windows 11 checkpoint**;
-8. do not restart Phase 0 or rebuild the already CI-validated Phase 1 foundation from scratch.
-
-## Scope guard
-
-Do not begin Phase 2 Solar of Things authentication/telemetry until Phase 1 has a formal acceptance receipt.
-
-Do not reopen completed API research unless a concrete implementation-time gap requires a narrow targeted investigation.
-
-## Pause reason
-
-The user explicitly requested that work stop and that all progress be consolidated into the repository so the project can later resume from repository state alone.
+Continue from the narrow Phase 1 refinement/final revalidation only. Do not restart research, specification, or validated infrastructure.
