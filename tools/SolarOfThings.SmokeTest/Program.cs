@@ -115,7 +115,7 @@ try
         1,
         "SUCCESS",
         "{\"password\":\"secret\",\"deviceId\":\"123\"}",
-        "{\"accessToken\":\"token-value\",\"data\":{\"deviceId\":\"123\"}}",
+        "{\"accessToken\":\"token-value\",\"data\":{\"deviceId\":\"123\",\"ownerUserName\":\"example-user\",\"ownerUserId\":\"999\",\"address\":\"example-address\",\"longitude\":1.2345,\"latitude\":2.3456,\"city\":\"example-city\",\"deviceModel\":\"HPVINV02\"}}",
         null,
         null)
     {
@@ -128,7 +128,13 @@ try
     if (report.Contains("token-value", StringComparison.Ordinal) ||
         report.Contains("\"password\":\"secret\"", StringComparison.Ordinal) ||
         report.Contains("header-token", StringComparison.Ordinal) ||
+        report.Contains("example-user", StringComparison.Ordinal) ||
+        report.Contains("example-address", StringComparison.Ordinal) ||
+        report.Contains("example-city", StringComparison.Ordinal) ||
+        report.Contains("1.2345", StringComparison.Ordinal) ||
+        report.Contains("2.3456", StringComparison.Ordinal) ||
         !report.Contains("deviceId", StringComparison.Ordinal) ||
+        !report.Contains("HPVINV02", StringComparison.Ordinal) ||
         !report.Contains("request-123", StringComparison.Ordinal))
     {
         throw new InvalidOperationException("Diagnostic redaction smoke test failed.");
