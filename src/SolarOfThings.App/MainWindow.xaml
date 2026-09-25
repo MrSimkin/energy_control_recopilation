@@ -299,50 +299,82 @@
                                    TextWrapping="Wrap"/>
 
                         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="160"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="160"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal"
+                                            Margin="0,0,0,10">
+                                    <TextBlock Text="{DynamicResource Analysis.QuickRange}"
+                                               VerticalAlignment="Center"
+                                               Foreground="#6C757D"
+                                               FontSize="13"
+                                               Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="AnalysisRangePresetSelector"
+                                              Width="245"
+                                              SelectedValuePath="Tag"
+                                              SelectionChanged="AnalysisRangePresetSelector_SelectionChanged">
+                                        <ComboBoxItem Tag="all"
+                                                      Content="{DynamicResource Analysis.Range.All}"/>
+                                        <ComboBoxItem Tag="latest-day"
+                                                      Content="{DynamicResource Analysis.Range.LatestDay}"/>
+                                        <ComboBoxItem Tag="rolling-7"
+                                                      Content="{DynamicResource Analysis.Range.Rolling7}"/>
+                                        <ComboBoxItem Tag="latest-week"
+                                                      Content="{DynamicResource Analysis.Range.LatestWeek}"/>
+                                        <ComboBoxItem Tag="latest-month"
+                                                      Content="{DynamicResource Analysis.Range.LatestMonth}"/>
+                                        <ComboBoxItem Tag="latest-year"
+                                                      Content="{DynamicResource Analysis.Range.LatestYear}"/>
+                                        <ComboBoxItem Tag="rolling-12-months"
+                                                      Content="{DynamicResource Analysis.Range.Rolling12Months}"/>
+                                        <ComboBoxItem Tag="custom"
+                                                      Content="{DynamicResource Analysis.Range.Custom}"/>
+                                    </ComboBox>
+                                </StackPanel>
 
-                                <TextBlock Grid.Column="0"
-                                           Text="{DynamicResource Analysis.From}"
-                                           VerticalAlignment="Center"
-                                           Foreground="#6C757D"
-                                           FontSize="13"
-                                           Margin="0,0,8,0"/>
-                                <DatePicker x:Name="AnalysisFromDatePicker"
-                                            Grid.Column="1"
-                                            Width="150"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="160"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="160"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                                <TextBlock Grid.Column="2"
-                                           Text="{DynamicResource Analysis.To}"
-                                           VerticalAlignment="Center"
-                                           Foreground="#6C757D"
-                                           FontSize="13"
-                                           Margin="18,0,8,0"/>
-                                <DatePicker x:Name="AnalysisToDatePicker"
-                                            Grid.Column="3"
-                                            Width="150"/>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{DynamicResource Analysis.From}"
+                                               VerticalAlignment="Center"
+                                               Foreground="#6C757D"
+                                               FontSize="13"
+                                               Margin="0,0,8,0"/>
+                                    <DatePicker x:Name="AnalysisFromDatePicker"
+                                                Grid.Column="1"
+                                                Width="150"/>
 
-                                <Button Grid.Column="4"
-                                        Content="{DynamicResource Analysis.Apply}"
-                                        Padding="14,6"
-                                        Margin="18,0,0,0"
-                                        Click="AnalysisApply_Click"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{DynamicResource Analysis.To}"
+                                               VerticalAlignment="Center"
+                                               Foreground="#6C757D"
+                                               FontSize="13"
+                                               Margin="18,0,8,0"/>
+                                    <DatePicker x:Name="AnalysisToDatePicker"
+                                                Grid.Column="3"
+                                                Width="150"/>
 
-                                <TextBlock x:Name="AnalysisStatusText"
-                                           Grid.Column="5"
-                                           Margin="18,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="#6C757D"
-                                           FontSize="12"
-                                           TextWrapping="Wrap"/>
-                            </Grid>
+                                    <Button Grid.Column="4"
+                                            Content="{DynamicResource Analysis.Apply}"
+                                            Padding="14,6"
+                                            Margin="18,0,0,0"
+                                            Click="AnalysisApply_Click"/>
+
+                                    <TextBlock x:Name="AnalysisStatusText"
+                                               Grid.Column="5"
+                                               Margin="18,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="#6C757D"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"/>
+                                </Grid>
+                            </StackPanel>
                         </Border>
 
                         <Grid Margin="0,0,0,18">
