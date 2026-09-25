@@ -25,6 +25,18 @@ public static class SolarApiTime
         return DateOnly.FromDateTime(local.DateTime);
     }
 
+    public static DateTimeOffset ConvertToLocalTime(
+        DateTimeOffset instant,
+        string timeZoneId)
+    {
+        return ConvertToTimeZone(instant, timeZoneId);
+    }
+
+    public static TimeZoneInfo GetTimeZoneInfo(string timeZoneId)
+    {
+        return ResolveTimeZone(timeZoneId);
+    }
+
     public static (DateTimeOffset Start, DateTimeOffset End) GetLocalDayWindow(
         DateOnly localDate,
         string timeZoneId)
