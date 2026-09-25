@@ -151,3 +151,32 @@ Passed:
 - Phase 2 closes only when authentication/discovery/profile persistence/reconnect behavior are validated.
 
 Do not begin Phase 3 full history backfill until Phase 2 is accepted.
+
+
+## First real-account checkpoint — 2026-09-25
+
+The user ran the portable Phase 2 build locally using an existing Solar of Things access token copied from the official portal. The token itself was not shared with the developer.
+
+Observed from the sanitized report:
+
+- application startup on schema v2: PASS;
+- manual local token-pair bootstrap: PASS;
+- production `POST /apis/station/list`: PASS, HTTP 200 / API code 0;
+- exactly one accessible station discovered;
+- production `POST /apis/device/list` with the discovered station ID: PASS, HTTP 200 / API code 0;
+- exactly one device discovered;
+- production response identifies the expected station timezone and supplies real inverter/device metadata including model, manufacturer, gather protocol, software version, online state and direct-generation fields;
+- platform IDs remain correctly preserved as strings;
+- diagnostic IOT-Token redaction worked.
+
+The report stopped after device discovery; full commissioning probes have not yet been exercised.
+
+### Privacy correction discovered from the first report
+
+The first diagnostic exporter correctly removed credentials/tokens but retained unnecessary personal account/location fields present in the raw platform response.
+
+Before requesting another pasted report, diagnostics were hardened to redact personal account/user identifiers and location/address/coordinate fields, and to avoid exporting absolute local filesystem paths.
+
+Device/station IDs and non-secret technical device metadata remain available because they are needed for protocol debugging.
+
+Commissioning was also made tolerant of a failure/mismatch in station/device detail endpoints: it now falls back to the already-valid list payloads and continues later capability probes so one optional endpoint cannot prematurely end the diagnostic run.
