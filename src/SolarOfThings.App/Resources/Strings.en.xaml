@@ -77,6 +77,11 @@
     <sys:String x:Key="Analysis.Chart.House">Home</sys:String>
     <sys:String x:Key="Analysis.Chart.Grid">Electric grid</sys:String>
     <sys:String x:Key="Analysis.Chart.NoData">There is not enough data to draw this period.</sys:String>
+    <sys:String x:Key="Analysis.BatteryChartHeading">Battery charge by period</sys:String>
+    <sys:String x:Key="Analysis.BatteryChartIntro">Shows average battery level and the level at the end of each period. It stays separate from the energy chart because it uses percent.</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.Average">Average</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.End">At end</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.NoData">There are not enough battery readings for this period.</sys:String>
     <sys:String x:Key="Analysis.DetailHeading">Period detail</sys:String>
     <sys:String x:Key="Analysis.DetailIntro">Group the information to compare hours, days, weeks, months or years.</sys:String>
     <sys:String x:Key="Analysis.AggregateBy">Group by</sys:String>
