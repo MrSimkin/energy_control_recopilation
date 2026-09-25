@@ -43,7 +43,9 @@ public partial class MainWindow : Window
         LanguageSelector.SelectedValue = _localization.CurrentLanguage;
         _suppressLanguageSelection = false;
 
+        CaptureStartModeSelector.SelectedValue = "auto";
         RefreshConnectionStatus();
+        RefreshCaptureStartOptions();
         ShowPage("Dashboard");
     }
 
@@ -112,6 +114,7 @@ public partial class MainWindow : Window
 
         _localization.SetLanguage(language);
         RefreshConnectionStatus();
+        RefreshCaptureStartOptions();
     }
 
     private async void UpdateData_Click(object sender, RoutedEventArgs e)
@@ -170,7 +173,8 @@ public partial class MainWindow : Window
                 profile,
                 history.GetSampleCount(profile.DeviceId) == 0,
                 progress,
-                _syncCancellation.Token);
+                _syncCancellation.Token,
+                GetRequestedCaptureStartDate());
 
             HistorySyncProgressBar.Maximum = Math.Max(1, result.DaysAttempted);
             HistorySyncProgressBar.Value = Math.Min(result.DaysCompleted, result.DaysAttempted);
@@ -244,6 +248,75 @@ public partial class MainWindow : Window
         window.ShowDialog();
 
         RefreshConnectionStatus();
+        RefreshCaptureStartOptions();
+    }
+
+    private void CaptureStartModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        RefreshCaptureStartOptions();
+    }
+
+    private DateOnly? GetRequestedCaptureStartDate()
+    {
+        if (!string.Equals(
+                CaptureStartModeSelector.SelectedValue?.ToString(),
+                "manual",
+                StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return ManualCaptureStartDatePicker.SelectedDate.HasValue
+            ? DateOnly.FromDateTime(ManualCaptureStartDatePicker.SelectedDate.Value)
+            : null;
+    }
+
+    private void RefreshCaptureStartOptions()
+    {
+        if (!IsInitialized ||
+            CaptureStartModeSelector is null ||
+            ManualCaptureStartDatePicker is null ||
+            CaptureStartHintText is null)
+        {
+            return;
+        }
+
+        var manual = string.Equals(
+            CaptureStartModeSelector.SelectedValue?.ToString(),
+            "manual",
+            StringComparison.Ordinal);
+
+        ManualCaptureStartDatePicker.IsEnabled = manual;
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            CaptureStartHintText.Text = manual
+                ? _localization.GetString("DataSync.ManualHint")
+                : string.Empty;
+            return;
+        }
+
+        var ingestion = _services.GetRequiredService<HistoryIngestionService>();
+        var automaticStart = ingestion.GetSuggestedAutomaticStartDate(profile);
+        var automaticDate = automaticStart.ToString("dd-MM-yyyy");
+
+        if (manual)
+        {
+            if (!ManualCaptureStartDatePicker.SelectedDate.HasValue)
+            {
+                ManualCaptureStartDatePicker.SelectedDate =
+                    automaticStart.ToDateTime(TimeOnly.MinValue);
+            }
+
+            CaptureStartHintText.Text = _localization.GetString("DataSync.ManualHint");
+        }
+        else
+        {
+            CaptureStartHintText.Text = string.Format(
+                _localization.GetString("DataSync.AutomaticFrom"),
+                automaticDate);
+        }
     }
 
     private void RefreshConnectionStatus()
