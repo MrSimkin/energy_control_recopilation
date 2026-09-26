@@ -132,3 +132,8 @@ Grid/Utility Reconciliation and Financial/Bill reports are not blockers for Phas
 The canonical next-session state, download identifiers and combined QA steps are mirrored in `CONTINUITY_STATUS.md` under **Explicit re-entry checkpoint — 2026-09-26**.
 
 Use Windows Build run `36266851482` / artifact `10913787724`. Do not substitute the earlier Phase 7 artifact `10914352694`.
+
+
+### Portable migration note for combined QA
+
+Reuse the entire prior portable `Data\` directory, including `energy.db` and `Secrets\`, on the same Windows user. Copying only the database would invalidate remembered-session/autologon validation because the DPAPI-protected session files live under `Data\Secrets\`.

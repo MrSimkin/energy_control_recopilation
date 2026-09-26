@@ -587,7 +587,7 @@ Operational state:
 Next user action:
 1. download artifact `10913787724`;
 2. extract it to a new folder;
-3. copy the proven portable `Data\energy.db` into the new candidate's `Data` folder before launch, preserving the existing database;
+3. copy the proven portable **entire `Data\` folder** into the new candidate before launch, replacing the candidate's empty/new `Data\` folder. This preserves both `Data\energy.db` and `Data\Secrets\`, which is required to validate remembered-session/autologon behavior under the same Windows user;
 4. run `SolarOfThings.App.exe`;
 5. perform the single combined QA defined in `PHASE_07_IMPLEMENTATION_NOTES.md`;
 6. report anomalies only. If no anomaly is found, close Phase 7 for currently available subsystems.
@@ -601,3 +601,16 @@ Combined QA scope:
 - open one exported Simple Energy XLSX;
 - open one exported Detailed or Battery PDF;
 - verify period, coverage note, charts, glossary, readability/printability and no fabricated zeros across missing data.
+
+
+### Re-entry correction — portable credentials
+
+For the combined QA, migrate the **entire portable `Data\` directory**, not only `energy.db`.
+
+Reason:
+- `Data\energy.db` contains the local database and report presets/settings;
+- `Data\Secrets\` contains the DPAPI-protected remembered Solar of Things session/credential material;
+- DPAPI uses the current Windows user, so copying `Data\Secrets\` is appropriate only on the same Windows account that created it;
+- never publish or share the contents of `Data\Secrets\`.
+
+This correction supersedes any earlier instruction to copy only `Data\energy.db`.
