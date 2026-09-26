@@ -684,3 +684,20 @@ Corrective direction for the next UI/data-coherence tranche:
 - retain stored/local fallback when no fresh snapshot exists;
 - keep historical/energy calculations tied to the validated stored corpus;
 - never silently mix live and historical values without labels.
+
+
+### Combined real-PC QA — missing-data chart semantics PASS
+
+Target-PC History & Charts screen with the full saved-history range showed:
+- explicit warning that periods without measurements remain gaps and are not drawn as 0;
+- the energy chart visually preserves empty horizontal regions where measurements are absent;
+- observed bars exist only where measured period data exists;
+- no visual bridge or fabricated zero bars were observed across the large missing-history interval;
+- overall screen continues to expose minimum coverage context (46.7% for the selected range).
+
+Result for the Phase 6 missing-data chart correctness finding:
+- missing/unknown is not rendered as measured zero: PASS;
+- missing periods remain discontinuities/gaps: PASS;
+- coverage warning remains visible: PASS.
+
+The remaining chart-interaction check is mouse-wheel behavior: normal wheel should scroll the page, while Ctrl+wheel should zoom the chart.
