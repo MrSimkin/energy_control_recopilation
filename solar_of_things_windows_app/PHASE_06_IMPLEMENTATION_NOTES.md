@@ -151,3 +151,52 @@ Validate in one session:
 12. Update Data resume frontier remains correct.
 
 Do not require a full April→current backfill for this checkpoint.
+
+## Partial real-PC combined validation — 2026-09-25
+
+Artifact `10892690906` was tested on the real Windows 11 x64 target PC with the recovered real `Data\energy.db`.
+
+Passed/observed:
+- normal startup and recovered database open;
+- stale-safe Home wording and exact saved timestamp;
+- latest-saved-day summary with visible 74.0% low coverage;
+- Battery family view and reserve estimates;
+- Battery technical panel with real voltage / measured charge current / measured discharge current / derived power;
+- Data & Updates first/last dates, reviewed-day counts, raw/normalized counts, and distinct installation vs next-download dates;
+- History whole-period summaries, coverage warning, charts and detailed table render against the real corpus.
+
+Real-PC issues to fix after completing the pending sync validation:
+
+1. **Current settings vs family-policy thresholds**
+   - Battery reserve UI currently takes 20/10/50 from `InstallationContextPolicyService`.
+   - Several localization strings also hard-code 20/10/50.
+   - The application already captures current inverter-setting evidence in the current-state snapshot and `InstallationHealthService`.
+   - Prefer validated current device settings for claims about what the inverter is currently configured to do; retain the family manual as expected configuration/fallback/context and expose drift.
+
+2. **Optional truly-current Home snapshot**
+   - While authenticated, Home should be able to refresh a recent Solar of Things latest-state snapshot for PV, house/load, battery SOC (plus estimated kWh), and grid use.
+   - Only label it current/live when freshness supports that claim.
+   - Preserve the already-correct stale/local fallback.
+   - Avoid aggressive polling.
+
+3. **Missing-data chart correctness bug**
+   - Battery chart currently builds scatter arrays by removing missing SOC buckets, then connects remaining points. This bridges long unknown intervals and is visually false.
+   - Energy buckets with 0% coverage must not look like measured 0 kWh.
+   - Rendering must preserve discontinuities and the canonical rule: missing/unknown is not zero.
+
+4. **Chart interaction/readability**
+   - Full-history sparse ranges are difficult to interpret.
+   - Mouse-wheel interaction currently competes with page scrolling, making chart zoom/navigation awkward.
+   - Improve wheel event handling, readable time-axis labeling, and long sparse-range UX.
+
+The final combined-validation block remains pending:
+- short `Actualizar datos`;
+- current-state/auth refresh;
+- sensible resume frontier;
+- progress indication;
+- deliberate Stop/Detener;
+- committed-data preservation;
+- persisted next resume frontier.
+
+Do not require a full April→current backfill for this validation.
+
