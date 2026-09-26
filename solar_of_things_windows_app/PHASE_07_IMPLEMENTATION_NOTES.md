@@ -183,3 +183,8 @@ New non-blocking finding: Home showed "Última descarga de datos: Nunca" after r
 ### Combined QA update — Reports initial screen PASS
 
 Reports loaded with all expected controls and export actions. Minor localization finding: Spanish selection summary exposes internal aggregation value `Day` instead of `Día`. Continue with preset persistence test.
+
+
+### Combined QA update — preset save PASS
+
+A named relative "last 7 days" Reports preset was saved successfully. Restart persistence and relative-range re-resolution remain to be checked.

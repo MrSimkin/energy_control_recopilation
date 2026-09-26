@@ -805,3 +805,18 @@ Minor non-blocking localization finding:
 - user-facing summary should localize this to `Día` (and equivalently Semana/Mes/Año for other values) rather than expose internal enum names.
 
 Continue combined QA with named preset persistence.
+
+
+### Combined real-PC QA — report preset save PASS
+
+User created and saved a named Reports preset for the relative period "Últimos 7 días del historial" with:
+- report type: Simple Energy Summary;
+- aggregation: Day;
+- relative range semantics retained by the preset model.
+
+Initial save operation completed successfully on the target PC.
+
+Remaining preset check:
+- close/reopen the application;
+- verify the named preset remains available;
+- load it and confirm it resolves against the current saved-history frontier rather than becoming a fixed stale date range.
