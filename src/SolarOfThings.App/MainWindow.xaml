@@ -1244,6 +1244,154 @@
                     </StackPanel>
                 </ScrollViewer>
 
+
+                <ScrollViewer x:Name="ReportsContent"
+                              Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Reports.Heading}"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Reports.Intro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,5,0,16"
+                                   TextWrapping="Wrap"/>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Reports.PeriodHeading}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,10"/>
+                                <WrapPanel>
+                                    <StackPanel Margin="0,0,14,10">
+                                        <TextBlock Text="{DynamicResource Reports.QuickRange}"
+                                                   Foreground="#6C757D"
+                                                   FontSize="12"/>
+                                        <ComboBox x:Name="ReportRangePresetSelector"
+                                                  Width="230"
+                                                  SelectedValuePath="Tag"
+                                                  SelectionChanged="ReportRangePresetSelector_SelectionChanged">
+                                            <ComboBoxItem Tag="all" Content="{DynamicResource Reports.Range.All}"/>
+                                            <ComboBoxItem Tag="latest-day" Content="{DynamicResource Reports.Range.LatestDay}"/>
+                                            <ComboBoxItem Tag="rolling-7" Content="{DynamicResource Reports.Range.Rolling7}"/>
+                                            <ComboBoxItem Tag="latest-month" Content="{DynamicResource Reports.Range.LatestMonth}"/>
+                                            <ComboBoxItem Tag="last-3-complete-months" Content="{DynamicResource Reports.Range.Last3CompleteMonths}"/>
+                                            <ComboBoxItem Tag="rolling-12-months" Content="{DynamicResource Reports.Range.Rolling12Months}"/>
+                                            <ComboBoxItem Tag="year-to-date" Content="{DynamicResource Reports.Range.YearToDate}"/>
+                                            <ComboBoxItem Tag="custom" Content="{DynamicResource Reports.Range.Custom}"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,14,10">
+                                        <TextBlock Text="{DynamicResource Analysis.From}"
+                                                   Foreground="#6C757D"
+                                                   FontSize="12"/>
+                                        <DatePicker x:Name="ReportFromDatePicker"
+                                                    Width="145"
+                                                    SelectedDateChanged="ReportDatePicker_SelectedDateChanged"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,14,10">
+                                        <TextBlock Text="{DynamicResource Analysis.To}"
+                                                   Foreground="#6C757D"
+                                                   FontSize="12"/>
+                                        <DatePicker x:Name="ReportToDatePicker"
+                                                    Width="145"
+                                                    SelectedDateChanged="ReportDatePicker_SelectedDateChanged"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,14,10">
+                                        <TextBlock Text="{DynamicResource Analysis.Aggregation}"
+                                                   Foreground="#6C757D"
+                                                   FontSize="12"/>
+                                        <ComboBox x:Name="ReportAggregationSelector"
+                                                  Width="150"
+                                                  SelectedValuePath="Tag"
+                                                  SelectionChanged="ReportAggregationSelector_SelectionChanged">
+                                            <ComboBoxItem Tag="Day" Content="{DynamicResource Analysis.Aggregation.Day}"/>
+                                            <ComboBoxItem Tag="Week" Content="{DynamicResource Analysis.Aggregation.Week}"/>
+                                            <ComboBoxItem Tag="Month" Content="{DynamicResource Analysis.Aggregation.Month}"/>
+                                            <ComboBoxItem Tag="Year" Content="{DynamicResource Analysis.Aggregation.Year}"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <Button Content="{DynamicResource Reports.UpdateSelection}"
+                                            Padding="12,6"
+                                            Margin="0,17,0,10"
+                                            Click="ReportRefreshSelection_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="ReportSelectionSummaryText"
+                                           FontSize="13"
+                                           Foreground="#495057"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Reports.PresetsHeading}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Reports.PresetsIntro}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,10"
+                                           TextWrapping="Wrap"/>
+                                <WrapPanel>
+                                    <TextBox x:Name="ReportPresetNameTextBox"
+                                             Width="250"
+                                             MinHeight="28"
+                                             VerticalContentAlignment="Center"
+                                             Margin="0,0,8,8"/>
+                                    <Button Content="{DynamicResource Reports.SavePreset}"
+                                            Padding="12,6"
+                                            Margin="0,0,14,8"
+                                            Click="ReportSavePreset_Click"/>
+                                    <ComboBox x:Name="SavedReportPresetSelector"
+                                              Width="250"
+                                              DisplayMemberPath="Name"
+                                              SelectionChanged="SavedReportPresetSelector_SelectionChanged"
+                                              Margin="0,0,8,8"/>
+                                    <Button x:Name="ReportDeletePresetButton"
+                                            Content="{DynamicResource Reports.DeletePreset}"
+                                            Padding="12,6"
+                                            IsEnabled="False"
+                                            Margin="0,0,0,8"
+                                            Click="ReportDeletePreset_Click"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Reports.ExportHeading}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Reports.ExportIntro}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,12"
+                                           TextWrapping="Wrap"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="ReportExportExcelButton"
+                                            Content="{DynamicResource Reports.ExportExcel}"
+                                            Padding="14,7"
+                                            Click="ReportExportExcel_Click"/>
+                                    <Button x:Name="ReportExportPdfButton"
+                                            Content="{DynamicResource Reports.ExportPdf}"
+                                            Padding="14,7"
+                                            Margin="8,0,0,0"
+                                            Click="ReportExportPdf_Click"/>
+                                </StackPanel>
+                                <TextBlock x:Name="ReportStatusText"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,12,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource Settings.Heading}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40"/>

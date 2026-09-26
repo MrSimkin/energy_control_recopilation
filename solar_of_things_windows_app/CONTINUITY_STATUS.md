@@ -465,3 +465,39 @@ Real-PC verification confirmed remembered session/credentials work: after restar
 ## Phase 6 corrective tranche started — 2026-09-26
 
 Five real-PC findings are addressed together: observed battery thresholds before manual fallback; explicit recent Home refresh; missing-data gaps not zero/bridged; sparse-range/wheel UX; clarified remembered-session UX with optional startup auto-connect. After CI, manual validation targets only changed behavior. The next product milestone is Reporting (presets + Excel + printable PDF), while Phase 3 backfill continues independently.
+
+
+## Corrective Phase 6 tranche — CI PASS — 2026-09-26
+
+Commit:
+- `2ddaac4bff2a0c04607aff262b8833897b67ad2b`
+
+Windows Build:
+- run ID: `36265992006` (run 272);
+- restore/build: PASS;
+- SQLite smoke: PASS;
+- self-contained win-x64 publish: PASS;
+- artifact upload: PASS.
+
+Portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10913613069`;
+- size: 74,862,280 bytes;
+- SHA-256: `09207a7499145b756c85be749a53a64acb4517e2af2a10d81cb9b551c77170e5`;
+- expires: 2026-12-25.
+
+This validates compilation and automated smoke coverage for the five corrective findings. A later manual checkpoint should target only the changed UX/data-presentation behavior.
+
+## Phase 7 Reporting started — 2026-09-26
+
+Reporting is now the active next product milestone while Phase 3 historical backfill remains independent.
+
+First checkpoint scope:
+- real Reports page;
+- named persistent presets;
+- configurable period/aggregation;
+- Excel export;
+- printable PDF export;
+- automated generation smoke tests.
+
+Reporting remains IN PROGRESS until built-in report variants/charts and one combined real-PC report validation are complete.

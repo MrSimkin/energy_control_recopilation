@@ -5,6 +5,7 @@ using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
+using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.SolarOfThings;
 
@@ -333,6 +334,61 @@ try
             "Aligned aggregation table smoke test failed.");
     }
 
+    var presetStore = new ReportPresetStore(settings);
+    presetStore.Save(new ReportPreset(
+        "Smoke preset",
+        "custom",
+        new DateOnly(2026, 1, 1),
+        new DateOnly(2026, 1, 1),
+        AggregationPeriod.Hour,
+        DateTimeOffset.UtcNow));
+
+    if (presetStore.GetAll().Count != 1 ||
+        presetStore.GetAll()[0].Name != "Smoke preset")
+    {
+        throw new InvalidOperationException(
+            "Report preset persistence smoke test failed.");
+    }
+
+    var reportExporter = new EnergyReportExportService(
+        new EnergyRangeStatisticsService(database),
+        new EnergyAggregationTableService(
+            powerAggregation,
+            socAggregation));
+
+    var reportData = reportExporter.Build(new EnergyReportRequest(
+        "Smoke energy report",
+        aggregationDeviceId,
+        new DateOnly(2026, 1, 1),
+        new DateOnly(2026, 1, 1),
+        aggregationStart,
+        aggregationEnd,
+        "America/Santiago",
+        AggregationPeriod.Hour));
+
+    var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
+    reportExporter.ExportExcel(xlsxPath, reportData);
+
+    if (!File.Exists(xlsxPath) ||
+        new FileInfo(xlsxPath).Length < 1000)
+    {
+        throw new InvalidOperationException(
+            "Excel report export smoke test failed.");
+    }
+
+    if (OperatingSystem.IsWindows())
+    {
+        var pdfPath = Path.Combine(root, "smoke-report.pdf");
+        reportExporter.ExportPdf(pdfPath, reportData);
+
+        if (!File.Exists(pdfPath) ||
+            new FileInfo(pdfPath).Length < 500)
+        {
+            throw new InvalidOperationException(
+                "PDF report export smoke test failed.");
+        }
+    }
+
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
     apiDiagnostics.Record(new ApiDiagnosticEntry(
         DateTimeOffset.UtcNow,
@@ -435,7 +491,7 @@ try
     Console.WriteLine(
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
-        "commissioning metadata/profile, protected secret storage, and Phase 5 time-range/aggregation math are operational.");
+        "commissioning metadata/profile, protected secret storage, Phase 5 time-range/aggregation math, and Phase 7 report presets/Excel/PDF export are operational.");
 }
 finally
 {

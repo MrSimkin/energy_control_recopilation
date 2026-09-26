@@ -10,6 +10,7 @@ using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Installation;
 using SolarOfThings.Core.Normalization;
+using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.History;
 using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
@@ -59,6 +60,8 @@ public partial class App : Application
         builder.Services.AddSingleton<PowerAggregationService>();
         builder.Services.AddSingleton<SocAggregationService>();
         builder.Services.AddSingleton<EnergyAggregationTableService>();
+        builder.Services.AddSingleton<ReportPresetStore>();
+        builder.Services.AddSingleton<EnergyReportExportService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();

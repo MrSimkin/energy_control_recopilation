@@ -5,5 +5,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="PDFsharp-MigraDoc" />
   </ItemGroup>
 </Project>

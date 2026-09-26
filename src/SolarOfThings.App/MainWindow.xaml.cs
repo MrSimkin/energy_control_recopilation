@@ -3,12 +3,14 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 using SolarOfThings.App.Localization;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Installation;
 using SolarOfThings.Core.History;
 using SolarOfThings.Core.Normalization;
+using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.Statistics;
@@ -27,6 +29,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _syncCancellation;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
+    private bool _suppressReportRangeSelection;
+    private bool _suppressReportPresetSelection;
     private IReadOnlyList<EnergyAggregationRow> _analysisAggregationRows =
         Array.Empty<EnergyAggregationRow>();
     private double[] _analysisChartPositions = Array.Empty<double>();
@@ -68,6 +72,12 @@ public partial class MainWindow : Window
         _suppressAnalysisRangeSelection = false;
 
         AnalysisAggregationSelector.SelectedValue = "Day";
+
+        _suppressReportRangeSelection = true;
+        ReportRangePresetSelector.SelectedValue = "all";
+        _suppressReportRangeSelection = false;
+        ReportAggregationSelector.SelectedValue = "Day";
+
         AutoConnectCheckBox.IsChecked = GetAutoConnectEnabled();
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
@@ -75,6 +85,7 @@ public partial class MainWindow : Window
         RefreshBatteryView();
         RefreshDataCoverageView();
         RefreshAnalysisView(initializeRange: true);
+        RefreshReportsView(initializeRange: true);
         ShowPage("Dashboard");
         Loaded += MainWindow_Loaded;
     }
@@ -141,6 +152,7 @@ public partial class MainWindow : Window
         RefreshBatteryView();
         RefreshDataCoverageView();
         RefreshAnalysisView();
+        RefreshReportsView();
     }
 
     private void RefreshDashboardMetrics()
@@ -1423,16 +1435,18 @@ public partial class MainWindow : Window
         var isDashboard = string.Equals(pageKey, "Dashboard", StringComparison.Ordinal);
         var isAnalysis = string.Equals(pageKey, "Analysis", StringComparison.Ordinal);
         var isBattery = string.Equals(pageKey, "Battery", StringComparison.Ordinal);
+        var isReports = string.Equals(pageKey, "Reports", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
 
         DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
         AnalysisContent.Visibility = isAnalysis ? Visibility.Visible : Visibility.Collapsed;
         BatteryContent.Visibility = isBattery ? Visibility.Visible : Visibility.Collapsed;
+        ReportsContent.Visibility = isReports ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
         SettingsContent.Visibility = isSettings ? Visibility.Visible : Visibility.Collapsed;
         PlaceholderContent.Visibility =
-            !isDashboard && !isAnalysis && !isBattery && !isData && !isSettings
+            !isDashboard && !isAnalysis && !isBattery && !isReports && !isData && !isSettings
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -1443,6 +1457,10 @@ public partial class MainWindow : Window
         else if (isBattery)
         {
             RefreshBatteryView();
+        }
+        else if (isReports)
+        {
+            RefreshReportsView();
         }
         else if (isData)
         {
@@ -1476,6 +1494,462 @@ public partial class MainWindow : Window
         RefreshBatteryView();
         RefreshDataCoverageView();
         RefreshAnalysisView();
+        RefreshReportsView();
+    }
+
+
+    private void RefreshReportsView(bool initializeRange = false)
+    {
+        if (!IsInitialized || ReportsContent is null)
+        {
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            ReportStatusText.Text = _localization.GetString("Reports.NoProfile");
+            ReportExportExcelButton.IsEnabled = false;
+            ReportExportPdfButton.IsEnabled = false;
+            LoadSavedReportPresets();
+            return;
+        }
+
+        var history = _services.GetRequiredService<HistoryRepository>();
+        var coverage = history.GetCoverageSummary(profile.DeviceId);
+
+        if (!coverage.FirstSampleAtUtc.HasValue ||
+            !coverage.LastSampleAtUtc.HasValue)
+        {
+            ReportStatusText.Text = _localization.GetString("Reports.NoData");
+            ReportExportExcelButton.IsEnabled = false;
+            ReportExportPdfButton.IsEnabled = false;
+            LoadSavedReportPresets();
+            return;
+        }
+
+        if (initializeRange ||
+            !ReportFromDatePicker.SelectedDate.HasValue ||
+            !ReportToDatePicker.SelectedDate.HasValue)
+        {
+            var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                ? "America/Santiago"
+                : profile.StationTimeZone;
+
+            var first = SolarApiTime.GetLocalDate(
+                coverage.FirstSampleAtUtc.Value,
+                timeZone);
+            var last = SolarApiTime.GetLocalDate(
+                coverage.LastSampleAtUtc.Value,
+                timeZone);
+
+            _suppressReportRangeSelection = true;
+            ReportRangePresetSelector.SelectedValue = "all";
+            ReportFromDatePicker.SelectedDate =
+                first.ToDateTime(TimeOnly.MinValue);
+            ReportToDatePicker.SelectedDate =
+                last.ToDateTime(TimeOnly.MinValue);
+            _suppressReportRangeSelection = false;
+        }
+
+        ReportExportExcelButton.IsEnabled = true;
+        ReportExportPdfButton.IsEnabled = true;
+        LoadSavedReportPresets();
+        UpdateReportSelectionSummary();
+    }
+
+    private void LoadSavedReportPresets()
+    {
+        if (!IsInitialized || SavedReportPresetSelector is null)
+        {
+            return;
+        }
+
+        var selectedName =
+            (SavedReportPresetSelector.SelectedItem as ReportPreset)?.Name;
+
+        var presets =
+            _services.GetRequiredService<ReportPresetStore>().GetAll();
+
+        _suppressReportPresetSelection = true;
+        SavedReportPresetSelector.ItemsSource = presets;
+
+        if (!string.IsNullOrWhiteSpace(selectedName))
+        {
+            SavedReportPresetSelector.SelectedItem =
+                presets.FirstOrDefault(item =>
+                    string.Equals(
+                        item.Name,
+                        selectedName,
+                        StringComparison.OrdinalIgnoreCase));
+        }
+
+        _suppressReportPresetSelection = false;
+        ReportDeletePresetButton.IsEnabled =
+            SavedReportPresetSelector.SelectedItem is ReportPreset;
+    }
+
+    private void ReportRangePresetSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_suppressReportRangeSelection || !IsInitialized)
+        {
+            return;
+        }
+
+        ApplyReportRangePreset();
+        UpdateReportSelectionSummary();
+    }
+
+    private void ReportDatePicker_SelectedDateChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_suppressReportRangeSelection || !IsInitialized)
+        {
+            return;
+        }
+
+        _suppressReportRangeSelection = true;
+        ReportRangePresetSelector.SelectedValue = "custom";
+        _suppressReportRangeSelection = false;
+        UpdateReportSelectionSummary();
+    }
+
+    private void ReportAggregationSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (IsInitialized)
+        {
+            UpdateReportSelectionSummary();
+        }
+    }
+
+    private void ReportRefreshSelection_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ApplyReportRangePreset();
+        UpdateReportSelectionSummary();
+    }
+
+    private bool ApplyReportRangePreset()
+    {
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            return false;
+        }
+
+        var history = _services.GetRequiredService<HistoryRepository>();
+        var coverage = history.GetCoverageSummary(profile.DeviceId);
+        if (!coverage.FirstSampleAtUtc.HasValue ||
+            !coverage.LastSampleAtUtc.HasValue)
+        {
+            return false;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var firstLocalDate = SolarApiTime.GetLocalDate(
+            coverage.FirstSampleAtUtc.Value,
+            timeZone);
+        var lastLocalDate = SolarApiTime.GetLocalDate(
+            coverage.LastSampleAtUtc.Value,
+            timeZone);
+
+        var preset =
+            ReportRangePresetSelector.SelectedValue?.ToString() ??
+            "custom";
+
+        if (preset == "custom")
+        {
+            return false;
+        }
+
+        var resolver =
+            _services.GetRequiredService<TimeRangeSelectionService>();
+
+        ResolvedTimeRange resolved = preset switch
+        {
+            "latest-day" =>
+                resolver.ForDay(lastLocalDate, timeZone),
+            "rolling-7" =>
+                resolver.ForRolling7Days(lastLocalDate, timeZone),
+            "latest-month" =>
+                resolver.ForMonth(
+                    lastLocalDate.Year,
+                    lastLocalDate.Month,
+                    timeZone),
+            "last-3-complete-months" =>
+                resolver.ForLastNCompleteCalendarMonths(
+                    lastLocalDate,
+                    3,
+                    timeZone),
+            "rolling-12-months" =>
+                resolver.ForRolling12Months(
+                    lastLocalDate,
+                    timeZone),
+            "year-to-date" =>
+                resolver.ForYearToDate(
+                    lastLocalDate,
+                    timeZone),
+            _ =>
+                resolver.ForArbitraryDateRange(
+                    firstLocalDate,
+                    lastLocalDate,
+                    timeZone)
+        };
+
+        _suppressReportRangeSelection = true;
+        ReportFromDatePicker.SelectedDate =
+            resolved.LocalStartDate.ToDateTime(TimeOnly.MinValue);
+        ReportToDatePicker.SelectedDate =
+            resolved.LocalEndDate.ToDateTime(TimeOnly.MinValue);
+        _suppressReportRangeSelection = false;
+        return true;
+    }
+
+    private AggregationPeriod GetReportAggregation()
+    {
+        var raw = ReportAggregationSelector.SelectedValue?.ToString();
+        return Enum.TryParse<AggregationPeriod>(
+            raw,
+            ignoreCase: true,
+            out var parsed)
+            ? parsed
+            : AggregationPeriod.Day;
+    }
+
+    private EnergyReportRequest? GetCurrentReportRequest()
+    {
+        var profile = _profiles.Get();
+        if (profile is null ||
+            !ReportFromDatePicker.SelectedDate.HasValue ||
+            !ReportToDatePicker.SelectedDate.HasValue)
+        {
+            return null;
+        }
+
+        var first = DateOnly.FromDateTime(
+            ReportFromDatePicker.SelectedDate.Value);
+        var second = DateOnly.FromDateTime(
+            ReportToDatePicker.SelectedDate.Value);
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var resolved =
+            _services.GetRequiredService<TimeRangeSelectionService>()
+                .ForArbitraryDateRange(
+                    first,
+                    second,
+                    timeZone);
+
+        var title =
+            string.IsNullOrWhiteSpace(ReportPresetNameTextBox.Text)
+                ? _localization.GetString("Reports.DefaultTitle")
+                : ReportPresetNameTextBox.Text.Trim();
+
+        return new EnergyReportRequest(
+            title,
+            profile.DeviceId,
+            resolved.LocalStartDate,
+            resolved.LocalEndDate,
+            resolved.StartUtc,
+            resolved.EndUtc,
+            timeZone,
+            GetReportAggregation());
+    }
+
+    private void UpdateReportSelectionSummary()
+    {
+        if (!IsInitialized || ReportSelectionSummaryText is null)
+        {
+            return;
+        }
+
+        var request = GetCurrentReportRequest();
+        if (request is null)
+        {
+            ReportSelectionSummaryText.Text =
+                _localization.GetString("Reports.NoData");
+            return;
+        }
+
+        ReportSelectionSummaryText.Text = string.Format(
+            _localization.GetString("Reports.SelectionSummary"),
+            request.LocalStartDate.ToString("dd-MM-yyyy"),
+            request.LocalEndDate.ToString("dd-MM-yyyy"),
+            request.Aggregation);
+        ReportStatusText.Text = string.Empty;
+    }
+
+    private void ReportSavePreset_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var name = ReportPresetNameTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            MessageBox.Show(
+                _localization.GetString("Reports.PresetNameRequired"),
+                _localization.GetString("Page.Reports.Title"));
+            return;
+        }
+
+        var request = GetCurrentReportRequest();
+        if (request is null)
+        {
+            return;
+        }
+
+        var preset = new ReportPreset(
+            name,
+            ReportRangePresetSelector.SelectedValue?.ToString() ?? "custom",
+            request.LocalStartDate,
+            request.LocalEndDate,
+            request.Aggregation,
+            DateTimeOffset.UtcNow);
+
+        _services.GetRequiredService<ReportPresetStore>()
+            .Save(preset);
+
+        LoadSavedReportPresets();
+        SavedReportPresetSelector.SelectedItem =
+            (SavedReportPresetSelector.ItemsSource as IEnumerable<ReportPreset>)
+                ?.FirstOrDefault(item =>
+                    string.Equals(
+                        item.Name,
+                        name,
+                        StringComparison.OrdinalIgnoreCase));
+
+        ReportStatusText.Text =
+            _localization.GetString("Reports.PresetSaved");
+    }
+
+    private void SavedReportPresetSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_suppressReportPresetSelection ||
+            SavedReportPresetSelector.SelectedItem is not ReportPreset preset)
+        {
+            ReportDeletePresetButton.IsEnabled = false;
+            return;
+        }
+
+        ReportDeletePresetButton.IsEnabled = true;
+        ReportPresetNameTextBox.Text = preset.Name;
+
+        _suppressReportRangeSelection = true;
+        ReportRangePresetSelector.SelectedValue = preset.RangePreset;
+        ReportFromDatePicker.SelectedDate =
+            preset.LocalStartDate.ToDateTime(TimeOnly.MinValue);
+        ReportToDatePicker.SelectedDate =
+            preset.LocalEndDate.ToDateTime(TimeOnly.MinValue);
+        ReportAggregationSelector.SelectedValue =
+            preset.Aggregation.ToString();
+        _suppressReportRangeSelection = false;
+
+        if (preset.RangePreset != "custom")
+        {
+            ApplyReportRangePreset();
+        }
+
+        UpdateReportSelectionSummary();
+    }
+
+    private void ReportDeletePreset_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (SavedReportPresetSelector.SelectedItem is not ReportPreset preset)
+        {
+            return;
+        }
+
+        _services.GetRequiredService<ReportPresetStore>()
+            .Delete(preset.Name);
+        ReportPresetNameTextBox.Clear();
+        LoadSavedReportPresets();
+        ReportStatusText.Text =
+            _localization.GetString("Reports.PresetDeleted");
+    }
+
+    private void ReportExportExcel_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ExportEnergyReport("xlsx");
+    }
+
+    private void ReportExportPdf_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ExportEnergyReport("pdf");
+    }
+
+    private void ExportEnergyReport(string format)
+    {
+        var request = GetCurrentReportRequest();
+        if (request is null)
+        {
+            return;
+        }
+
+        var extension = format == "xlsx" ? "xlsx" : "pdf";
+        var dialog = new SaveFileDialog
+        {
+            Title = _localization.GetString("Reports.SaveTitle"),
+            Filter = format == "xlsx"
+                ? "Excel (*.xlsx)|*.xlsx"
+                : "PDF (*.pdf)|*.pdf",
+            DefaultExt = extension,
+            AddExtension = true,
+            FileName =
+                $"SolarEnergy_{request.LocalStartDate:yyyyMMdd}_{request.LocalEndDate:yyyyMMdd}.{extension}"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var exporter =
+                _services.GetRequiredService<EnergyReportExportService>();
+            var report = exporter.Build(request);
+
+            if (format == "xlsx")
+            {
+                exporter.ExportExcel(dialog.FileName, report);
+            }
+            else
+            {
+                exporter.ExportPdf(dialog.FileName, report);
+            }
+
+            ReportStatusText.Text = string.Format(
+                _localization.GetString("Reports.ExportSaved"),
+                dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            ReportStatusText.Text = ex.Message;
+            MessageBox.Show(
+                ex.Message,
+                _localization.GetString("Page.Reports.Title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private async void UpdateData_Click(object sender, RoutedEventArgs e)
@@ -1628,6 +2102,7 @@ public partial class MainWindow : Window
             RefreshConnectionStatus();
             RefreshDataCoverageView();
             RefreshAnalysisView();
+            RefreshReportsView();
         }
     }
 
