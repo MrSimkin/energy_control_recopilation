@@ -559,3 +559,45 @@ Current Reporting state:
 - do not repeat the already-passed historical-sync Stop/resume QA;
 - utility reconciliation and financial/bill reports remain deferred until utility-meter/tariff source subsystems exist;
 - Phase 3 backfill remains independent.
+
+
+## Explicit re-entry checkpoint — 2026-09-26
+
+This block is the canonical re-entry point after the Phase 6 corrective tranche and the Phase 7 reporting implementation pass.
+
+Repository state before this documentation-only checkpoint:
+- main HEAD: `7177de8a5122eb0f1d62ecdb5c33a4a55269d330`;
+- latest code-bearing green commit: `78ebc4ddbd66ba6b40b57de7ba7d8ebc8d6da9ef`;
+- Windows Build run: `36266851482` (run 275), conclusion SUCCESS;
+- final QA artifact: `SolarEnergyMonitor-win-x64-dev`, artifact ID `10913787724`;
+- artifact SHA-256: `8860e64b6f962bc268e64b1ce2682bdf84bfe4722cfc2495d99220105bf80202`;
+- artifact expiry: 2026-12-25.
+
+Direct GitHub references:
+- CI run: https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36266851482
+- artifact page/download: https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36266851482/artifacts/10913787724
+
+Operational state:
+- Phase 4–6 sync/Stop/resume QA: PASS and must not be repeated;
+- Phase 6 five-finding corrective implementation: CI GREEN, combined target-PC validation still pending;
+- Phase 7 Reporting implementation: CI GREEN, one combined target-PC validation still pending;
+- Phase 3 historical backfill remains independent and must not block the combined QA;
+- Grid/Utility Reconciliation and Financial/Bill reports remain deferred until utility-meter/tariff source subsystems exist.
+
+Next user action:
+1. download artifact `10913787724`;
+2. extract it to a new folder;
+3. copy the proven portable `Data\energy.db` into the new candidate's `Data` folder before launch, preserving the existing database;
+4. run `SolarOfThings.App.exe`;
+5. perform the single combined QA defined in `PHASE_07_IMPLEMENTATION_NOTES.md`;
+6. report anomalies only. If no anomaly is found, close Phase 7 for currently available subsystems.
+
+Combined QA scope:
+- login/session remembered-state UX and optional auto-connect;
+- one-shot current Home refresh;
+- current inverter battery threshold wording/fallback/drift behavior;
+- chart missing-data gaps and wheel/Ctrl+wheel behavior;
+- save one relative report preset, restart, verify persistence;
+- open one exported Simple Energy XLSX;
+- open one exported Detailed or Battery PDF;
+- verify period, coverage note, charts, glossary, readability/printability and no fabricated zeros across missing data.

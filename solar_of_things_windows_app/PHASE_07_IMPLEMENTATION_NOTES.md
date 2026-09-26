@@ -125,3 +125,10 @@ Use the final portable above and validate in one session:
 7. report only anomalies. If no anomaly is found, Phase 7 can be closed for the currently available subsystems.
 
 Grid/Utility Reconciliation and Financial/Bill reports are not blockers for Phase 7 at this point because their required source subsystems do not yet exist. They remain future work tied to utility-meter/tariff functionality.
+
+
+## Re-entry reference
+
+The canonical next-session state, download identifiers and combined QA steps are mirrored in `CONTINUITY_STATUS.md` under **Explicit re-entry checkpoint — 2026-09-26**.
+
+Use Windows Build run `36266851482` / artifact `10913787724`. Do not substitute the earlier Phase 7 artifact `10914352694`.
