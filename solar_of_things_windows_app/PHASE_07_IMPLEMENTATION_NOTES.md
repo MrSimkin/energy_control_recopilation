@@ -193,3 +193,8 @@ A named relative "last 7 days" Reports preset was saved successfully. Restart pe
 ### Combined QA update — preset restart persistence PASS
 
 The saved "Últimos 7 días" preset remained available after full application restart. Relative-range re-resolution is the remaining preset check.
+
+
+### Combined QA update — relative preset semantics PASS
+
+The saved "Últimos 7 días" preset reloaded as a relative quick period and resolved to 2026-09-19 through 2026-09-25 against the current saved-history endpoint. Preset persistence and relative semantics are PASS.

@@ -833,3 +833,22 @@ Remaining relative-preset check:
 - select the saved preset;
 - verify its quick-period semantics remain "last 7 days of saved history";
 - confirm the resolved From/To dates are derived from the current saved-history endpoint, not merely replayed as the original fixed dates.
+
+
+### Combined real-PC QA — relative report preset semantics PASS
+
+After restart, the saved preset "Últimos 7 días" was selected on the target PC.
+
+Observed:
+- quick period restored as "Últimos 7 días del historial";
+- resolved date range: 2026-09-19 through 2026-09-25;
+- current saved-history endpoint remains 2026-09-25;
+- report type restored as Simple Energy Summary;
+- aggregation restored as Day.
+
+Result:
+- named preset persistence: PASS;
+- relative-period semantics preserved: PASS;
+- preset re-resolves against the current saved-history endpoint instead of behaving as a fixed stale date pair: PASS.
+
+Minor localization issue remains: Spanish summary still exposes the internal aggregation label "Day".
