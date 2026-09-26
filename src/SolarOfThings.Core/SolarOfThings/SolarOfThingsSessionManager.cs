@@ -45,6 +45,11 @@ public sealed class SolarOfThingsSessionManager
                               !string.IsNullOrWhiteSpace(_tokens.AccessToken);
 
     public string? Account => _account;
+    public bool HasRememberedSession => _remember && HasSession;
+    public bool HasRememberedCredentials =>
+        _remember &&
+        !string.IsNullOrWhiteSpace(_account) &&
+        !string.IsNullOrWhiteSpace(_password);
     public bool IsSessionVerified => HasSession && _isVerified;
     public bool CanServerLogout =>
         _tokens is not null &&

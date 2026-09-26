@@ -159,6 +159,11 @@ public sealed class EnergyAggregationTableService
                 socBucket?.MinimumPercent,
                 socBucket?.MaximumPercent,
                 socBucket?.EndingPercent,
+                pvBucket?.CoveragePercent ?? 0,
+                houseBucket?.CoveragePercent ?? 0,
+                gridBucket?.CoveragePercent ?? 0,
+                batteryBucket?.CoveragePercent ?? 0,
+                socBucket?.CoveragePercent ?? 0,
                 minimumCoverage));
         }
 

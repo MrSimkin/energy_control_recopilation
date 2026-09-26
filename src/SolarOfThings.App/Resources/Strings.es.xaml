@@ -72,7 +72,7 @@
     <sys:String x:Key="Analysis.EnergyCoverage">Cobertura mínima de estos cálculos: {0:N1}%</sys:String>
     <sys:String x:Key="Tooltip.AnalysisEnergy">Estos valores se calculan integrando la potencia entre lecturas reales. Si falta un tramo largo, ese tramo queda fuera del total.</sys:String>
     <sys:String x:Key="Analysis.ChartHeading">Energía por período</sys:String>
-    <sys:String x:Key="Analysis.ChartIntro">Compare solar, consumo de la casa y uso de la red. Puede usar la rueda del mouse para acercar o alejar y arrastrar el gráfico para moverse.</sys:String>
+    <sys:String x:Key="Analysis.ChartIntro">Compara solar, consumo de la casa y red. La rueda desplaza la página; mantén Ctrl mientras usas la rueda para hacer zoom en el gráfico. Arrastra para moverte.</sys:String>
     <sys:String x:Key="Analysis.ChartReset">Restablecer vista</sys:String>
     <sys:String x:Key="Tooltip.AnalysisChartReset">Vuelve a mostrar todos los datos del período después de acercar o mover un gráfico.</sys:String>
     <sys:String x:Key="Analysis.Chart.Show">Mostrar en el gráfico</sys:String>
@@ -87,6 +87,11 @@
     <sys:String x:Key="Analysis.Chart.PointHouse">Casa: {0:N2} kWh</sys:String>
     <sys:String x:Key="Analysis.Chart.PointGrid">Red: {0:N2} kWh</sys:String>
     <sys:String x:Key="Analysis.Chart.PointCoverage">Cobertura mínima: {0:N1}%</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointSolarMissing">Solar: sin datos para este período</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointHouseMissing">Casa: sin datos para este período</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointGridMissing">Red: sin datos para este período</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.PointMissing">Batería: sin datos para este período</sys:String>
+    <sys:String x:Key="Analysis.Chart.MissingPeriods">Los períodos sin mediciones se dejan como huecos; no se dibujan como 0 ni se conectan entre sí.</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.HoverHint">Mueva el mouse sobre el gráfico para ver la batería en ese período.</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.PointAverage">Promedio: {0:N1}%</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.PointEnd">Al cierre: {0:N1}%</sys:String>
@@ -133,10 +138,10 @@
     <sys:String x:Key="Battery.Charge">Carga actual</sys:String>
     <sys:String x:Key="Battery.EstimatedRemaining">Energía almacenada (estimada)</sys:String>
     <sys:String x:Key="Battery.OrdinaryUseRemaining">Disponible antes de usar la red (estimado)</sys:String>
-    <sys:String x:Key="Battery.EmergencyReserve">Reserva para un corte (20% a 10%)</sys:String>
-    <sys:String x:Key="Battery.ProtectedFloor">Reserva mínima protegida: 10%</sys:String>
-    <sys:String x:Key="Tooltip.BatteryOrdinaryUse">Estimación de la energía que puede usar normalmente antes de que la casa pase a la red cerca del 20% de batería.</sys:String>
-    <sys:String x:Key="Tooltip.BatteryEmergencyReserve">Entre 20% y 10% se guarda una reserva para cortes de red. No está pensada para gastarse cada noche.</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserve">Reserva para cortes</sys:String>
+    <sys:String x:Key="Battery.ProtectedFloor">Reserva mínima protegida</sys:String>
+    <sys:String x:Key="Tooltip.BatteryOrdinaryUse">Energía estimada disponible normalmente antes de que la casa cambie a la red según el umbral actual del inversor.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryEmergencyReserve">Reserva estimada entre el cambio normal a red y el piso protegido según la configuración actual disponible.</sys:String>
     <sys:String x:Key="Battery.Activity">Qué está haciendo la batería</sys:String>
     <sys:String x:Key="Battery.Charging">Cargando</sys:String>
     <sys:String x:Key="Battery.Discharging">Entregando energía a la casa</sys:String>
@@ -154,8 +159,11 @@
     <sys:String x:Key="Tooltip.BatteryChargeCurrent">Corriente de carga medida. Indica cuánta corriente está entrando a la batería en esa lectura.</sys:String>
     <sys:String x:Key="Tooltip.BatteryDischargeCurrent">Corriente de descarga medida. Indica cuánta corriente está saliendo de la batería en esa lectura.</sys:String>
     <sys:String x:Key="Tooltip.BatteryPowerTechnical">Estimación de potencia derivada del voltaje y de las corrientes de carga/descarga. Un valor positivo indica entrega de energía; uno negativo, carga.</sys:String>
-    <sys:String x:Key="Battery.OrdinaryReserveNote">La casa normalmente cambia a la red cerca del 20%.</sys:String>
-    <sys:String x:Key="Battery.EmergencyReserveNote">Entre 20% y 10% se conserva una reserva para cortes.</sys:String>
+    <sys:String x:Key="Battery.OrdinaryReserveNote">La energía de uso normal se calcula con el umbral de cambio a red que muestra el inversor cuando está disponible.</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserveNote">La reserva de corte se calcula entre el umbral de red y el piso protegido actuales cuando están disponibles.</sys:String>
+    <sys:String x:Key="Battery.ThresholdSourceCurrent">Umbrales actuales observados: red {0:N0}% · piso protegido {1:N0}% · retorno {2:N0}%. Coinciden con la política familiar esperada.</sys:String>
+    <sys:String x:Key="Battery.ThresholdSourceCurrentDrift">Umbrales actuales observados: red {0:N0}% · piso protegido {1:N0}% · retorno {2:N0}%. Hay una diferencia respecto de la política familiar; se muestran los valores actuales del inversor.</sys:String>
+    <sys:String x:Key="Battery.ThresholdSourceManual">Sin lectura actual validada de todos los umbrales. Se usa como referencia la política familiar: red {0:N0}% · piso protegido {1:N0}% · retorno {2:N0}%.</sys:String>
     <sys:String x:Key="Tooltip.BatteryRemaining">Estimación de la energía que queda en la batería. Se calcula multiplicando el porcentaje de carga por la capacidad útil configurada; no es una medición independiente.</sys:String>
     <sys:String x:Key="Tooltip.BatteryActivity">Indica si la batería está recibiendo energía, entregando energía o prácticamente en reposo según las lecturas del inversor.</sys:String>
 
@@ -198,7 +206,18 @@
     <sys:String x:Key="Page.Diagnostics.Placeholder">Los diagnósticos actuales se escriben localmente; esta vista crecerá a medida que se incorporen integraciones reales.</sys:String>
     <sys:String x:Key="Page.Settings.Title">Configuración</sys:String>
     <sys:String x:Key="Page.Settings.Subtitle">Preferencias locales de la aplicación</sys:String>
-    <sys:String x:Key="Page.Settings.Placeholder">La preferencia de idioma ya está activa. Las demás opciones se añadirán cuando sean necesarias.</sys:String>
+    <sys:String x:Key="Page.Settings.Placeholder">Configuración de aplicación, conexión y credenciales.</sys:String>
+    <sys:String x:Key="Settings.Heading">Configuración</sys:String>
+    <sys:String x:Key="Settings.Intro">Opciones de uso normal de esta copia de Solar Energy Monitor.</sys:String>
+    <sys:String x:Key="Settings.ConnectionHeading">Conexión y sesión</sys:String>
+    <sys:String x:Key="Settings.AutoConnect">Conectarme automáticamente al iniciar</sys:String>
+    <sys:String x:Key="Settings.AutoConnectHint">Si existe una sesión recordada, la aplicación hará una sola comprobación al iniciar y actualizará el estado actual. No hace consultas continuas.</sys:String>
+    <sys:String x:Key="Settings.SessionVerified">Conectado y verificado con Solar of Things.</sys:String>
+    <sys:String x:Key="Settings.SessionRemembered">Hay una sesión protegida recordada en este computador; todavía no se ha verificado con el servidor en esta ejecución.</sys:String>
+    <sys:String x:Key="Settings.CredentialsRemembered">Hay credenciales protegidas recordadas en este computador.</sys:String>
+    <sys:String x:Key="Settings.SessionNotRemembered">No hay una sesión recordada.</sys:String>
+    <sys:String x:Key="Settings.ForgetCredentials">Cerrar y olvidar sesión</sys:String>
+    <sys:String x:Key="Settings.PasswordPrivacy">Por seguridad, una contraseña recordada nunca se rellena ni se muestra en el campo de contraseña.</sys:String>
 
     <sys:String x:Key="Dashboard.Overview">Última información disponible</sys:String>
     <sys:String x:Key="Dashboard.FreshnessRecent">Lectura reciente: {0}</sys:String>
@@ -226,6 +245,8 @@
     <sys:String x:Key="Dashboard.ChartArea">Área de gráfico interactivo</sys:String>
     <sys:String x:Key="Dashboard.ChartPending">Los gráficos se añadirán después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">Estado del sistema</sys:String>
+    <sys:String x:Key="Dashboard.RefreshCurrent">Actualizar estado actual</sys:String>
+    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Hace una sola lectura reciente de Solar of Things. No activa consultas repetitivas en segundo plano.</sys:String>
     <sys:String x:Key="Dashboard.OperatingState">Qué muestra la última lectura</sys:String>
     <sys:String x:Key="Operating.NO_DATA">Aún no hay datos suficientes para explicar el estado de la casa.</sys:String>
     <sys:String x:Key="Operating.SOLAR_PRIMARY">La última lectura muestra que la casa usaba principalmente energía solar.</sys:String>
@@ -272,7 +293,12 @@
     <sys:String x:Key="Commissioning.Intro">La aplicación buscará su estación y su inversor sin cambiar ninguna configuración del equipo. La contraseña queda protegida en este computador.</sys:String>
     <sys:String x:Key="Commissioning.Account">Cuenta Solar of Things</sys:String>
     <sys:String x:Key="Commissioning.Password">Contraseña</sys:String>
-    <sys:String x:Key="Commissioning.Remember">Recordar sesión y credenciales en este usuario de Windows (DPAPI)</sys:String>
+    <sys:String x:Key="Commissioning.Remember">Recordar mi sesión en este computador</sys:String>
+    <sys:String x:Key="Commissioning.RememberHint">La contraseña y la sesión se guardan protegidas por Windows. La contraseña no se vuelve a mostrar en pantalla.</sys:String>
+    <sys:String x:Key="Commissioning.NoRememberedSessionHint">No hay una sesión recordada. Ingrese su cuenta y contraseña para conectar.</sys:String>
+    <sys:String x:Key="Commissioning.SessionRestoredHint">Sesión recordada encontrada. Puede conectar sin volver a escribir la contraseña.</sys:String>
+    <sys:String x:Key="Commissioning.CredentialsRememberedHint">Credenciales recordadas encontradas. Puede intentar conectar sin volver a escribir la contraseña.</sys:String>
+    <sys:String x:Key="Commissioning.SessionVerifiedHint">Conectado con Solar of Things. La sesión recordada fue verificada.</sys:String>
     <sys:String x:Key="Commissioning.TimeZone">Zona horaria IANA</sys:String>
     <sys:String x:Key="Commissioning.SessionBootstrap">Alternativa avanzada: sesión existente</sys:String>
     <sys:String x:Key="Commissioning.SessionBootstrapHint">Puede usar un access token/refresh token obtenidos localmente. Nunca se incluirán en el diagnóstico exportado.</sys:String>

@@ -72,7 +72,7 @@
     <sys:String x:Key="Analysis.EnergyCoverage">Minimum coverage for these calculations: {0:N1}%</sys:String>
     <sys:String x:Key="Tooltip.AnalysisEnergy">These values integrate power between real readings. If a long interval is missing, that interval is excluded from the total.</sys:String>
     <sys:String x:Key="Analysis.ChartHeading">Energy by period</sys:String>
-    <sys:String x:Key="Analysis.ChartIntro">Compare solar, home use and grid use. Use the mouse wheel to zoom and drag the chart to move around.</sys:String>
+    <sys:String x:Key="Analysis.ChartIntro">Compare solar, home use and grid use. The mouse wheel scrolls the page; hold Ctrl while using the wheel to zoom the chart. Drag to move around.</sys:String>
     <sys:String x:Key="Analysis.ChartReset">Reset view</sys:String>
     <sys:String x:Key="Tooltip.AnalysisChartReset">Shows the full selected period again after zooming or moving a chart.</sys:String>
     <sys:String x:Key="Analysis.Chart.Show">Show on chart</sys:String>
@@ -87,6 +87,11 @@
     <sys:String x:Key="Analysis.Chart.PointHouse">Home: {0:N2} kWh</sys:String>
     <sys:String x:Key="Analysis.Chart.PointGrid">Grid: {0:N2} kWh</sys:String>
     <sys:String x:Key="Analysis.Chart.PointCoverage">Minimum coverage: {0:N1}%</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointSolarMissing">Solar: no data for this period</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointHouseMissing">Home: no data for this period</sys:String>
+    <sys:String x:Key="Analysis.Chart.PointGridMissing">Grid: no data for this period</sys:String>
+    <sys:String x:Key="Analysis.BatteryChart.PointMissing">Battery: no data for this period</sys:String>
+    <sys:String x:Key="Analysis.Chart.MissingPeriods">Periods without measurements are left as gaps; they are not drawn as zero or connected across the gap.</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.HoverHint">Move the mouse over the chart to see battery details for that period.</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.PointAverage">Average: {0:N1}%</sys:String>
     <sys:String x:Key="Analysis.BatteryChart.PointEnd">At end: {0:N1}%</sys:String>
@@ -133,10 +138,10 @@
     <sys:String x:Key="Battery.Charge">Current charge</sys:String>
     <sys:String x:Key="Battery.EstimatedRemaining">Stored energy (estimate)</sys:String>
     <sys:String x:Key="Battery.OrdinaryUseRemaining">Available before normal grid use (estimate)</sys:String>
-    <sys:String x:Key="Battery.EmergencyReserve">Outage reserve (20% to 10%)</sys:String>
-    <sys:String x:Key="Battery.ProtectedFloor">Protected minimum reserve: 10%</sys:String>
-    <sys:String x:Key="Tooltip.BatteryOrdinaryUse">Estimated energy normally available before the home changes to grid power near 20% battery charge.</sys:String>
-    <sys:String x:Key="Tooltip.BatteryEmergencyReserve">The 20% to 10% band is kept for grid outages. It is not intended for normal nightly use.</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserve">Outage reserve</sys:String>
+    <sys:String x:Key="Battery.ProtectedFloor">Protected minimum reserve</sys:String>
+    <sys:String x:Key="Tooltip.BatteryOrdinaryUse">Estimated energy normally available before the home changes to grid power according to the inverter's current threshold.</sys:String>
+    <sys:String x:Key="Tooltip.BatteryEmergencyReserve">Estimated reserve between normal grid transfer and the protected floor according to the available current configuration.</sys:String>
     <sys:String x:Key="Battery.Activity">What the battery is doing</sys:String>
     <sys:String x:Key="Battery.Charging">Charging</sys:String>
     <sys:String x:Key="Battery.Discharging">Supplying energy to the home</sys:String>
@@ -154,8 +159,11 @@
     <sys:String x:Key="Tooltip.BatteryChargeCurrent">Measured charging current. It indicates how much current was entering the battery in that reading.</sys:String>
     <sys:String x:Key="Tooltip.BatteryDischargeCurrent">Measured discharge current. It indicates how much current was leaving the battery in that reading.</sys:String>
     <sys:String x:Key="Tooltip.BatteryPowerTechnical">Power estimate derived from voltage and charge/discharge currents. Positive means battery supply; negative means charging.</sys:String>
-    <sys:String x:Key="Battery.OrdinaryReserveNote">The home normally changes to grid power near 20%.</sys:String>
-    <sys:String x:Key="Battery.EmergencyReserveNote">The 20% to 10% band is kept for grid outages.</sys:String>
+    <sys:String x:Key="Battery.OrdinaryReserveNote">Normal-use energy is calculated from the grid-transfer threshold reported by the inverter when available.</sys:String>
+    <sys:String x:Key="Battery.EmergencyReserveNote">Outage reserve is calculated between the current grid-transfer threshold and protected floor when available.</sys:String>
+    <sys:String x:Key="Battery.ThresholdSourceCurrent">Observed current thresholds: grid {0:N0}% · protected floor {1:N0}% · return {2:N0}%. They match the expected family policy.</sys:String>
+    <sys:String x:Key="Battery.ThresholdSourceCurrentDrift">Observed current thresholds: grid {0:N0}% · protected floor {1:N0}% · return {2:N0}%. They differ from the family policy; the app is showing the inverter's current values.</sys:String>
+    <sys:String x:Key="Battery.ThresholdSourceManual">Not all current thresholds have a validated reading. Family policy is used as fallback: grid {0:N0}% · protected floor {1:N0}% · return {2:N0}%.</sys:String>
     <sys:String x:Key="Tooltip.BatteryRemaining">An estimate of the energy left in the battery. It is calculated from charge percentage and configured usable capacity; it is not a separate measurement.</sys:String>
     <sys:String x:Key="Tooltip.BatteryActivity">Shows whether the battery is receiving energy, supplying energy, or nearly at rest based on inverter readings.</sys:String>
 
@@ -198,7 +206,18 @@
     <sys:String x:Key="Page.Diagnostics.Placeholder">Current diagnostics are written locally; this view will grow as real integrations are added.</sys:String>
     <sys:String x:Key="Page.Settings.Title">Settings</sys:String>
     <sys:String x:Key="Page.Settings.Subtitle">Local application preferences</sys:String>
-    <sys:String x:Key="Page.Settings.Placeholder">The language preference is already active. Other settings will be added when needed.</sys:String>
+    <sys:String x:Key="Page.Settings.Placeholder">Application, connection and credential settings.</sys:String>
+    <sys:String x:Key="Settings.Heading">Settings</sys:String>
+    <sys:String x:Key="Settings.Intro">Normal-use options for this copy of Solar Energy Monitor.</sys:String>
+    <sys:String x:Key="Settings.ConnectionHeading">Connection and session</sys:String>
+    <sys:String x:Key="Settings.AutoConnect">Connect automatically at startup</sys:String>
+    <sys:String x:Key="Settings.AutoConnectHint">When a remembered session exists, the app performs one verification at startup and refreshes current state. It does not poll continuously.</sys:String>
+    <sys:String x:Key="Settings.SessionVerified">Connected and verified with Solar of Things.</sys:String>
+    <sys:String x:Key="Settings.SessionRemembered">A protected remembered session exists on this computer; it has not yet been verified with the server in this run.</sys:String>
+    <sys:String x:Key="Settings.CredentialsRemembered">Protected remembered credentials exist on this computer.</sys:String>
+    <sys:String x:Key="Settings.SessionNotRemembered">No remembered session is available.</sys:String>
+    <sys:String x:Key="Settings.ForgetCredentials">Sign out and forget session</sys:String>
+    <sys:String x:Key="Settings.PasswordPrivacy">For security, a remembered password is never refilled or displayed in the password field.</sys:String>
 
     <sys:String x:Key="Dashboard.Overview">Latest available information</sys:String>
     <sys:String x:Key="Dashboard.FreshnessRecent">Recent reading: {0}</sys:String>
@@ -226,6 +245,8 @@
     <sys:String x:Key="Dashboard.ChartArea">Interactive chart area</sys:String>
     <sys:String x:Key="Dashboard.ChartPending">Charting is added after real telemetry and normalization are proven.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">System Status</sys:String>
+    <sys:String x:Key="Dashboard.RefreshCurrent">Refresh current state</sys:String>
+    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Performs one recent Solar of Things read. It does not enable repeated background polling.</sys:String>
     <sys:String x:Key="Dashboard.OperatingState">What the latest reading shows</sys:String>
     <sys:String x:Key="Operating.NO_DATA">There is not enough data yet to explain the home's current state.</sys:String>
     <sys:String x:Key="Operating.SOLAR_PRIMARY">The latest reading shows the home was using mainly solar energy.</sys:String>
@@ -272,7 +293,12 @@
     <sys:String x:Key="Commissioning.Intro">The app will find your station and inverter without changing equipment settings. Your password stays protected on this computer.</sys:String>
     <sys:String x:Key="Commissioning.Account">Solar of Things account</sys:String>
     <sys:String x:Key="Commissioning.Password">Password</sys:String>
-    <sys:String x:Key="Commissioning.Remember">Remember session and credentials for this Windows user (DPAPI)</sys:String>
+    <sys:String x:Key="Commissioning.Remember">Remember my session on this computer</sys:String>
+    <sys:String x:Key="Commissioning.RememberHint">The password and session are protected by Windows. The password is never displayed again on screen.</sys:String>
+    <sys:String x:Key="Commissioning.NoRememberedSessionHint">No remembered session is available. Enter the account and password to connect.</sys:String>
+    <sys:String x:Key="Commissioning.SessionRestoredHint">A remembered session was found. You can connect without entering the password again.</sys:String>
+    <sys:String x:Key="Commissioning.CredentialsRememberedHint">Remembered credentials were found. You can try connecting without entering the password again.</sys:String>
+    <sys:String x:Key="Commissioning.SessionVerifiedHint">Connected to Solar of Things. The remembered session was verified.</sys:String>
     <sys:String x:Key="Commissioning.TimeZone">IANA time zone</sys:String>
     <sys:String x:Key="Commissioning.SessionBootstrap">Advanced alternative: existing session</sys:String>
     <sys:String x:Key="Commissioning.SessionBootstrapHint">You can use an access/refresh token pair obtained locally. They are never included in exported diagnostics.</sys:String>

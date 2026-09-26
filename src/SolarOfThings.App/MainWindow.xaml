@@ -292,11 +292,18 @@
                                     <StackPanel Margin="16">
                                         <TextBlock Text="{DynamicResource Status.SolarOfThings}" Foreground="#6C757D"/>
                                         <TextBlock x:Name="SolarStatusText" Text="{DynamicResource Status.NotConnected}" FontWeight="SemiBold" Foreground="#DC3545" Margin="0,2,0,6"/>
-                                        <Button Content="{DynamicResource Commissioning.ConnectButton}"
-                                                Padding="10,5"
-                                                Margin="0,0,0,14"
-                                                HorizontalAlignment="Left"
-                                                Click="ConnectSolar_Click"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                            <Button Content="{DynamicResource Commissioning.ConnectButton}"
+                                                    Padding="10,5"
+                                                    HorizontalAlignment="Left"
+                                                    Click="ConnectSolar_Click"/>
+                                            <Button Content="{DynamicResource Dashboard.RefreshCurrent}"
+                                                    ToolTip="{DynamicResource Tooltip.DashboardRefreshCurrent}"
+                                                    Padding="10,5"
+                                                    Margin="8,0,0,0"
+                                                    HorizontalAlignment="Left"
+                                                    Click="RefreshCurrentState_Click"/>
+                                        </StackPanel>
                                         <TextBlock Text="{DynamicResource Status.LocalDatabase}" Foreground="#6C757D"/>
                                         <TextBlock Text="{DynamicResource Status.Ready}" FontWeight="SemiBold" Foreground="#28A745" Margin="0,2,0,14"/>
                                         <TextBlock Text="{DynamicResource Status.LastUpdate}" Foreground="#6C757D"/>
@@ -728,6 +735,7 @@
                                            TextWrapping="Wrap"/>
                                 <ScottPlot:WpfPlot x:Name="AnalysisEnergyPlot"
                                                   Height="340"
+                                                  PreviewMouseWheel="AnalysisPlot_PreviewMouseWheel"
                                                   MouseMove="AnalysisEnergyPlot_MouseMove"
                                                   MouseLeave="AnalysisEnergyPlot_MouseLeave"
                                                   ToolTip="{DynamicResource Analysis.Chart.HoverHint}"/>
@@ -761,6 +769,7 @@
                                            TextWrapping="Wrap"/>
                                 <ScottPlot:WpfPlot x:Name="AnalysisBatteryPlot"
                                                   Height="300"
+                                                  PreviewMouseWheel="AnalysisPlot_PreviewMouseWheel"
                                                   MouseMove="AnalysisBatteryPlot_MouseMove"
                                                   MouseLeave="AnalysisBatteryPlot_MouseLeave"
                                                   ToolTip="{DynamicResource Analysis.BatteryChart.HoverHint}"/>
@@ -832,19 +841,19 @@
                                                             Binding="{Binding LocalLabel}"
                                                             Width="150"/>
                                         <DataGridTextColumn Header="{DynamicResource Analysis.Column.SolarKwh}"
-                                                            Binding="{Binding PvEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Binding="{Binding PvEnergyDisplayKwh, StringFormat={}{0:N2}}"
                                                             Width="110"/>
                                         <DataGridTextColumn Header="{DynamicResource Analysis.Column.HouseKwh}"
-                                                            Binding="{Binding HouseEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Binding="{Binding HouseEnergyDisplayKwh, StringFormat={}{0:N2}}"
                                                             Width="110"/>
                                         <DataGridTextColumn Header="{DynamicResource Analysis.Column.GridKwh}"
-                                                            Binding="{Binding GridImportEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Binding="{Binding GridImportEnergyDisplayKwh, StringFormat={}{0:N2}}"
                                                             Width="105"/>
                                         <DataGridTextColumn Header="{DynamicResource Analysis.Column.BatteryOutKwh}"
-                                                            Binding="{Binding BatteryDischargedEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Binding="{Binding BatteryDischargedEnergyDisplayKwh, StringFormat={}{0:N2}}"
                                                             Width="150"/>
                                         <DataGridTextColumn Header="{DynamicResource Analysis.Column.BatteryInKwh}"
-                                                            Binding="{Binding BatteryChargedEnergyKwh, StringFormat={}{0:N2}}"
+                                                            Binding="{Binding BatteryChargedEnergyDisplayKwh, StringFormat={}{0:N2}}"
                                                             Width="150"/>
                                         <DataGridTextColumn Header="{DynamicResource Analysis.Column.SocAverage}"
                                                             Binding="{Binding SocAveragePercent, StringFormat={}{0:N1}, TargetNullValue=—}"
@@ -879,7 +888,13 @@
                         <TextBlock Text="{DynamicResource Battery.Intro}"
                                    FontSize="13"
                                    Foreground="#6C757D"
-                                   Margin="0,5,0,16"
+                                   Margin="0,5,0,6"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="BatteryThresholdSourceText"
+                                   Text="{DynamicResource Battery.ThresholdSourceManual}"
+                                   FontSize="12"
+                                   Foreground="#6C757D"
+                                   Margin="0,0,0,16"
                                    TextWrapping="Wrap"/>
 
                         <Grid Margin="0,0,0,18">
@@ -1224,6 +1239,26 @@
                                            FontSize="12"
                                            Foreground="#6C757D"
                                            Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Settings.Heading}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Settings.Intro}" FontSize="13" Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Settings.ConnectionHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="SettingsSessionStatusText" Text="{DynamicResource Settings.SessionNotRemembered}" FontSize="13" FontWeight="SemiBold" Foreground="#6C757D" Margin="0,8,0,12" TextWrapping="Wrap"/>
+                                <CheckBox x:Name="AutoConnectCheckBox" Content="{DynamicResource Settings.AutoConnect}" Click="AutoConnectCheckBox_Click"/>
+                                <TextBlock Text="{DynamicResource Settings.AutoConnectHint}" FontSize="12" Foreground="#6C757D" Margin="22,4,0,14" TextWrapping="Wrap"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="{DynamicResource Commissioning.ConnectButton}" Padding="12,6" Click="SettingsConnect_Click"/>
+                                    <Button Content="{DynamicResource Settings.ForgetCredentials}" Padding="12,6" Margin="8,0,0,0" Click="SettingsForgetSession_Click"/>
+                                </StackPanel>
+                                <TextBlock Text="{DynamicResource Settings.PasswordPrivacy}" FontSize="11" Foreground="#6C757D" Margin="0,12,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

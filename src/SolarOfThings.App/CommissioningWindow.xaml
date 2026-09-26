@@ -32,11 +32,22 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                    <TextBlock x:Name="RememberedSessionStatusText"
+                               Text="{DynamicResource Commissioning.NoRememberedSessionHint}"
+                               Foreground="#6C757D"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,10"/>
                     <TextBlock Text="{DynamicResource Commissioning.Account}" FontWeight="SemiBold"/>
                     <TextBox x:Name="AccountTextBox" Margin="0,4,0,10" MinHeight="28"/>
                     <TextBlock Text="{DynamicResource Commissioning.Password}" FontWeight="SemiBold"/>
                     <PasswordBox x:Name="PasswordInput" Margin="0,4,0,10" MinHeight="28"/>
                     <CheckBox x:Name="RememberCheckBox" Content="{DynamicResource Commissioning.Remember}" IsChecked="True"/>
+                    <TextBlock Text="{DynamicResource Commissioning.RememberHint}"
+                               Foreground="#6C757D"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Margin="22,3,0,0"/>
                     <TextBlock Text="{DynamicResource Commissioning.TimeZone}" FontWeight="SemiBold" Margin="0,10,0,0"/>
                     <TextBox x:Name="TimeZoneTextBox" Text="America/Santiago" Margin="0,4,0,0" MinHeight="28"/>
                 </StackPanel>

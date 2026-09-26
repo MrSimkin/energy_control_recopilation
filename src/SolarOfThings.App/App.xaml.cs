@@ -47,6 +47,8 @@ public partial class App : Application
         builder.Services.AddSingleton<InstallationHealthRepository>();
         builder.Services.AddSingleton<InstallationContextPolicyService>();
         builder.Services.AddSingleton<InstallationHealthService>();
+        builder.Services.AddSingleton<BatteryThresholdContextService>();
+        builder.Services.AddSingleton<CurrentHouseholdSnapshotService>();
         builder.Services.AddSingleton<CurrentStateSnapshotService>();
         builder.Services.AddSingleton<HouseholdOperatingStateService>();
         builder.Services.AddSingleton<HouseholdBehaviorRepository>();

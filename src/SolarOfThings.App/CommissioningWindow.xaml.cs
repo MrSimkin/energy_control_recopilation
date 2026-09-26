@@ -37,6 +37,7 @@ public partial class CommissioningWindow : Window
         AccountTextBox.Text = _session.Account ?? string.Empty;
         UpdateProtocolCredentialStatus();
         UpdateSessionActionState();
+        UpdateRememberedSessionStatus();
     }
 
     private async void ConnectDiscover_Click(object sender, RoutedEventArgs e)
@@ -68,6 +69,7 @@ public partial class CommissioningWindow : Window
 
                 AddProgress("Authenticate", "PASS", "Autenticación completada.");
                 UpdateSessionActionState();
+                UpdateRememberedSessionStatus();
             }
 
             var progress = new Progress<CommissioningProgress>(
@@ -102,6 +104,7 @@ public partial class CommissioningWindow : Window
         finally
         {
             PasswordInput.Password = string.Empty;
+            UpdateRememberedSessionStatus();
             SetBusy(false);
         }
     }
@@ -320,6 +323,7 @@ public partial class CommissioningWindow : Window
         finally
         {
             UpdateSessionActionState();
+            UpdateRememberedSessionStatus();
             SetBusy(false);
         }
     }
@@ -329,6 +333,7 @@ public partial class CommissioningWindow : Window
         _session.ResetLocalSession(forgetRememberedCredentials: true);
         AddProgress("Session", "PASS", "Sesión local y credenciales recordadas eliminadas.");
         UpdateSessionActionState();
+        UpdateRememberedSessionStatus();
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
@@ -361,6 +366,25 @@ public partial class CommissioningWindow : Window
     private void UpdateSessionActionState()
     {
         ServerLogoutButton.IsEnabled = _session.CanServerLogout;
+    }
+
+    private void UpdateRememberedSessionStatus()
+    {
+        var resourceKey = _session.IsSessionVerified
+            ? "Commissioning.SessionVerifiedHint"
+            : _session.HasRememberedSession
+                ? "Commissioning.SessionRestoredHint"
+                : _session.HasRememberedCredentials
+                    ? "Commissioning.CredentialsRememberedHint"
+                    : "Commissioning.NoRememberedSessionHint";
+
+        RememberedSessionStatusText.SetResourceReference(TextBlock.TextProperty, resourceKey);
+        RememberedSessionStatusText.Foreground =
+            _session.IsSessionVerified
+                ? System.Windows.Media.Brushes.Green
+                : _session.HasRememberedSession || _session.HasRememberedCredentials
+                    ? System.Windows.Media.Brushes.DarkOrange
+                    : System.Windows.Media.Brushes.Gray;
     }
 
     private void UpdateProtocolCredentialStatus()

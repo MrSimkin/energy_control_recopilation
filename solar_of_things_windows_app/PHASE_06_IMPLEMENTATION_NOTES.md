@@ -200,3 +200,22 @@ The final combined-validation block remains pending:
 
 Do not require a full April→current backfill for this validation.
 
+
+
+## Combined Phase 4–6 real-PC QA completion — 2026-09-26
+
+The pending synchronization/Stop block was completed on the real Windows 11 x64 target PC using the same portable corpus.
+
+Pre-sync: 38 reviewed days; 848,772 raw readings; 106,612 normalized readings; automatic resume frontier 2026-05-25; 0/0/0 download problems/retries/terminal-unavailable days; configuration health 11 confirmed / 0 drift / 0 unresolved.
+
+First deliberate short sync + Stop: reviewed days 38 → 49; raw readings 848,772 → 1,114,383; normalized readings 106,612 → 140,162; resume frontier 2026-05-25 → 2026-06-05; problems/retries/terminal-unavailable remained 0/0/0.
+
+Restart persistence: 49 reviewed days, 1,114,383 raw readings, 140,162 normalized readings and the 2026-06-05 frontier all persisted unchanged after closing/reopening.
+
+Second deliberate short sync + Stop: resumed from the persisted frontier; reviewed days 49 → 61; raw readings 1,114,383 → 1,389,390; normalized readings 140,162 → 174,889; resume frontier 2026-06-05 → 2026-06-17; problems/retries/terminal-unavailable remained 0/0/0.
+
+PASS: safe Stop, committed-data preservation, restart persistence, persisted resume frontier and subsequent resume from that frontier. Full April→current backfill remains independent.
+
+### Finding 5 — login/session UX
+
+Real-PC verification confirmed remembered session/credentials work: after restart the application connected without re-entering the password. The defect is UX clarity, not credential persistence. Corrective direction: never refill/display the protected password; explicitly show remembered/restored/verified state; remove DPAPI jargon from normal UI; distinguish remembering from auto-connect; add optional one-shot startup verification/current-state refresh; keep an obvious sign-out/forget action.

@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private bool _suppressAnalysisRangeSelection;
     private IReadOnlyList<EnergyAggregationRow> _analysisAggregationRows =
         Array.Empty<EnergyAggregationRow>();
+    private double[] _analysisChartPositions = Array.Empty<double>();
 
     public MainWindow(
         AppPaths paths,
@@ -67,6 +68,7 @@ public partial class MainWindow : Window
         _suppressAnalysisRangeSelection = false;
 
         AnalysisAggregationSelector.SelectedValue = "Day";
+        AutoConnectCheckBox.IsChecked = GetAutoConnectEnabled();
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
@@ -83,6 +85,11 @@ public partial class MainWindow : Window
         if (profile is null)
         {
             return;
+        }
+
+        if (GetAutoConnectEnabled() && _session.HasSession)
+        {
+            await RefreshCurrentStateAsync(profile, showError: false);
         }
 
         var history = _services.GetRequiredService<HistoryRepository>();
@@ -146,7 +153,9 @@ public partial class MainWindow : Window
         }
 
         var repository = _services.GetRequiredService<NormalizationRepository>();
-        var metrics = repository.GetLatestMetrics(profile.DeviceId);
+        var storedMetrics = repository.GetLatestMetrics(profile.DeviceId);
+        var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>().GetLatest(profile.DeviceId);
+        var metrics = current is { IsFresh: true } && current.Metrics.Count > 0 ? current.Metrics : storedMetrics;
 
         SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
         SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
@@ -375,9 +384,18 @@ public partial class MainWindow : Window
         var repository = _services.GetRequiredService<NormalizationRepository>();
         var metrics = repository.GetLatestMetrics(profile.DeviceId);
         var configuration = _services.GetRequiredService<BatteryConfigurationService>().Get();
-        var policy = _services.GetRequiredService<InstallationContextPolicyService>().Current;
+        var thresholds = _services.GetRequiredService<BatteryThresholdContextService>().Get(profile.DeviceId);
 
         RefreshBatteryTechnicalMetrics(metrics);
+
+        BatteryThresholdSourceText.Text = string.Format(
+            _localization.GetString(
+                thresholds.UsesObservedSettings
+                    ? thresholds.HasDrift ? "Battery.ThresholdSourceCurrentDrift" : "Battery.ThresholdSourceCurrent"
+                    : "Battery.ThresholdSourceManual"),
+            thresholds.NormalGridTransferSocPercent,
+            thresholds.EmergencyFloorSocPercent,
+            thresholds.ReturnToBatterySocPercent);
 
         BatteryConfiguredCapacityText.Text =
             $"{configuration.UsableCapacityKwh:F3} kWh";
@@ -395,20 +413,20 @@ public partial class MainWindow : Window
             configuration.UsableCapacityKwh * clampedSoc / 100.0;
         var ordinaryEnergy =
             configuration.UsableCapacityKwh *
-            Math.Max(clampedSoc - policy.NormalGridTransferSocPercent, 0) /
+            Math.Max(clampedSoc - thresholds.NormalGridTransferSocPercent, 0) /
             100.0;
 
         var emergencyReserveWidth =
             Math.Max(
-                policy.NormalGridTransferSocPercent -
-                policy.EmergencyFloorSocPercent,
+                thresholds.NormalGridTransferSocPercent -
+                thresholds.EmergencyFloorSocPercent,
                 0);
 
         var emergencySocRemaining =
             Math.Min(
                 emergencyReserveWidth,
                 Math.Max(
-                    clampedSoc - policy.EmergencyFloorSocPercent,
+                    clampedSoc - thresholds.EmergencyFloorSocPercent,
                     0));
 
         var emergencyEnergy =
@@ -872,8 +890,8 @@ public partial class MainWindow : Window
         var coordinates =
             AnalysisEnergyPlot.Plot.GetCoordinates(pixel);
 
-        var index = (int)Math.Round(coordinates.X);
-        if (index < 0 || index >= _analysisAggregationRows.Count)
+        var index = FindNearestAnalysisRowIndex(coordinates.X);
+        if (index < 0)
         {
             return;
         }
@@ -888,23 +906,23 @@ public partial class MainWindow : Window
 
         if (AnalysisShowSolarCheckBox.IsChecked == true)
         {
-            parts.Add(string.Format(
-                _localization.GetString("Analysis.Chart.PointSolar"),
-                row.PvEnergyKwh));
+            parts.Add(row.PvCoveragePercent > 0
+                ? string.Format(_localization.GetString("Analysis.Chart.PointSolar"), row.PvEnergyKwh)
+                : _localization.GetString("Analysis.Chart.PointSolarMissing"));
         }
 
         if (AnalysisShowHouseCheckBox.IsChecked == true)
         {
-            parts.Add(string.Format(
-                _localization.GetString("Analysis.Chart.PointHouse"),
-                row.HouseEnergyKwh));
+            parts.Add(row.HouseCoveragePercent > 0
+                ? string.Format(_localization.GetString("Analysis.Chart.PointHouse"), row.HouseEnergyKwh)
+                : _localization.GetString("Analysis.Chart.PointHouseMissing"));
         }
 
         if (AnalysisShowGridCheckBox.IsChecked == true)
         {
-            parts.Add(string.Format(
-                _localization.GetString("Analysis.Chart.PointGrid"),
-                row.GridImportEnergyKwh));
+            parts.Add(row.GridCoveragePercent > 0
+                ? string.Format(_localization.GetString("Analysis.Chart.PointGrid"), row.GridImportEnergyKwh)
+                : _localization.GetString("Analysis.Chart.PointGridMissing"));
         }
 
         parts.Add(string.Format(
@@ -942,8 +960,8 @@ public partial class MainWindow : Window
         var coordinates =
             AnalysisBatteryPlot.Plot.GetCoordinates(pixel);
 
-        var index = (int)Math.Round(coordinates.X);
-        if (index < 0 || index >= _analysisAggregationRows.Count)
+        var index = FindNearestAnalysisRowIndex(coordinates.X);
+        if (index < 0)
         {
             return;
         }
@@ -956,7 +974,11 @@ public partial class MainWindow : Window
                 row.LocalLabel)
         };
 
-        if (row.SocAveragePercent.HasValue)
+        if (row.SocCoveragePercent <= 0)
+        {
+            parts.Add(_localization.GetString("Analysis.BatteryChart.PointMissing"));
+        }
+        else if (row.SocAveragePercent.HasValue)
         {
             parts.Add(string.Format(
                 _localization.GetString("Analysis.BatteryChart.PointAverage"),
@@ -1003,114 +1025,74 @@ public partial class MainWindow : Window
     {
         var plot = AnalysisEnergyPlot.Plot;
         plot.Clear();
+        _analysisChartPositions = BuildAnalysisChartPositions(rows);
 
         if (rows.Count == 0)
         {
-            AnalysisChartStatusText.Text =
-                _localization.GetString("Analysis.Chart.NoData");
+            AnalysisChartStatusText.Text = _localization.GetString("Analysis.Chart.NoData");
             AnalysisEnergyPlot.Refresh();
             return;
         }
 
-        var selectedSeries =
-            new List<(double[] Values, string Label)>();
-
+        var selectedSeries = new List<(Func<EnergyAggregationRow, double> Value, Func<EnergyAggregationRow, double> Coverage, string Label)>();
         if (AnalysisShowSolarCheckBox.IsChecked == true)
-        {
-            selectedSeries.Add((
-                rows.Select(row => row.PvEnergyKwh).ToArray(),
-                _localization.GetString("Analysis.Chart.Solar")));
-        }
-
+            selectedSeries.Add((row => row.PvEnergyKwh, row => row.PvCoveragePercent, _localization.GetString("Analysis.Chart.Solar")));
         if (AnalysisShowHouseCheckBox.IsChecked == true)
-        {
-            selectedSeries.Add((
-                rows.Select(row => row.HouseEnergyKwh).ToArray(),
-                _localization.GetString("Analysis.Chart.House")));
-        }
-
+            selectedSeries.Add((row => row.HouseEnergyKwh, row => row.HouseCoveragePercent, _localization.GetString("Analysis.Chart.House")));
         if (AnalysisShowGridCheckBox.IsChecked == true)
-        {
-            selectedSeries.Add((
-                rows.Select(row => row.GridImportEnergyKwh).ToArray(),
-                _localization.GetString("Analysis.Chart.Grid")));
-        }
+            selectedSeries.Add((row => row.GridImportEnergyKwh, row => row.GridCoveragePercent, _localization.GetString("Analysis.Chart.Grid")));
 
         if (selectedSeries.Count == 0)
         {
-            AnalysisChartStatusText.Text =
-                _localization.GetString("Analysis.Chart.NoneSelected");
+            AnalysisChartStatusText.Text = _localization.GetString("Analysis.Chart.NoneSelected");
             AnalysisChartStatusText.Foreground = Brushes.Gray;
             AnalysisEnergyPlot.Refresh();
             return;
         }
 
-        var lowCoverage = rows.Any(
-            row => row.MinimumAvailableCoveragePercent < 80);
+        var warnings = new List<string>();
+        if (rows.Any(row => row.MinimumAvailableCoveragePercent < 80))
+            warnings.Add(_localization.GetString("Analysis.Chart.LowCoverage"));
+        if (HasAnalysisTimeGaps(rows) || selectedSeries.Any(series => rows.Any(row => series.Coverage(row) <= 0)))
+            warnings.Add(_localization.GetString("Analysis.Chart.MissingPeriods"));
 
-        AnalysisChartStatusText.Text = lowCoverage
-            ? _localization.GetString("Analysis.Chart.LowCoverage")
-            : string.Empty;
-        AnalysisChartStatusText.Foreground =
-            lowCoverage ? Brushes.DarkOrange : Brushes.Gray;
+        AnalysisChartStatusText.Text = string.Join(" ", warnings);
+        AnalysisChartStatusText.Foreground = warnings.Count > 0 ? Brushes.DarkOrange : Brushes.Gray;
 
-        var positions =
-            Enumerable.Range(0, rows.Count)
-                .Select(index => (double)index)
-                .ToArray();
-
-        var barWidth = selectedSeries.Count switch
-        {
-            1 => 0.55,
-            2 => 0.32,
-            _ => 0.22
-        };
+        var barWidth = selectedSeries.Count switch { 1 => 0.55, 2 => 0.32, _ => 0.22 };
         var spacing = barWidth + 0.04;
+        var plottedAny = false;
 
-        for (var seriesIndex = 0;
-             seriesIndex < selectedSeries.Count;
-             seriesIndex++)
+        for (var seriesIndex = 0; seriesIndex < selectedSeries.Count; seriesIndex++)
         {
-            var offset =
-                (seriesIndex -
-                 (selectedSeries.Count - 1) / 2.0) *
-                spacing;
+            var offset = (seriesIndex - (selectedSeries.Count - 1) / 2.0) * spacing;
+            var validIndexes = Enumerable.Range(0, rows.Count).Where(index => selectedSeries[seriesIndex].Coverage(rows[index]) > 0).ToArray();
+            if (validIndexes.Length == 0) continue;
 
-            var seriesPositions =
-                positions.Select(position => position + offset).ToArray();
-
-            var bars = plot.Add.Bars(
-                seriesPositions,
-                selectedSeries[seriesIndex].Values);
-            bars.LegendText =
-                selectedSeries[seriesIndex].Label;
-
-            foreach (var bar in bars.Bars)
-            {
-                bar.Size = barWidth;
-            }
+            var positions = validIndexes.Select(index => _analysisChartPositions[index] + offset).ToArray();
+            var values = validIndexes.Select(index => selectedSeries[seriesIndex].Value(rows[index])).ToArray();
+            var bars = plot.Add.Bars(positions, values);
+            bars.LegendText = selectedSeries[seriesIndex].Label;
+            foreach (var bar in bars.Bars) bar.Size = barWidth;
+            plottedAny = true;
         }
 
-        var tickGenerator =
-            new ScottPlot.TickGenerators.NumericManual();
+        if (!plottedAny)
+        {
+            AnalysisChartStatusText.Text = _localization.GetString("Analysis.Chart.NoData");
+            AnalysisEnergyPlot.Refresh();
+            return;
+        }
 
-        var tickStep =
-            Math.Max(
-                1,
-                (int)Math.Ceiling(rows.Count / 12.0));
-
+        var tickGenerator = new ScottPlot.TickGenerators.NumericManual();
+        var tickStep = Math.Max(1, (int)Math.Ceiling(rows.Count / 12.0));
         for (var index = 0; index < rows.Count; index += tickStep)
-        {
-            tickGenerator.AddMajor(
-                index,
-                rows[index].LocalLabel);
-        }
+            tickGenerator.AddMajor(_analysisChartPositions[index], rows[index].LocalLabel);
 
         plot.Axes.Bottom.TickGenerator = tickGenerator;
         plot.YLabel("kWh");
         plot.Axes.Margins(bottom: 0, top: 0.15);
         plot.ShowLegend(ScottPlot.Alignment.UpperRight);
-
         AnalysisEnergyPlot.Refresh();
     }
 
@@ -1120,85 +1102,47 @@ public partial class MainWindow : Window
         var plot = AnalysisBatteryPlot.Plot;
         plot.Clear();
 
-        var averagePoints = rows
-            .Select((row, index) => new
-            {
-                X = (double)index,
-                Value = row.SocAveragePercent
-            })
-            .Where(point => point.Value.HasValue)
-            .ToArray();
-
-        var endingPoints = rows
-            .Select((row, index) => new
-            {
-                X = (double)index,
-                Value = row.SocEndingPercent
-            })
-            .Where(point => point.Value.HasValue)
-            .ToArray();
-
-        if (averagePoints.Length == 0 &&
-            endingPoints.Length == 0)
+        var hasAverage = rows.Any(row => row.SocCoveragePercent > 0 && row.SocAveragePercent.HasValue);
+        var hasEnding = rows.Any(row => row.SocCoveragePercent > 0 && row.SocEndingPercent.HasValue);
+        if (!hasAverage && !hasEnding)
         {
-            AnalysisBatteryChartStatusText.Text =
-                _localization.GetString("Analysis.BatteryChart.NoData");
+            AnalysisBatteryChartStatusText.Text = _localization.GetString("Analysis.BatteryChart.NoData");
             AnalysisBatteryPlot.Refresh();
             return;
         }
 
-        AnalysisBatteryChartStatusText.Text = rows.Any(
-                row => row.MinimumAvailableCoveragePercent < 80)
-            ? _localization.GetString("Analysis.Chart.LowCoverage")
-            : string.Empty;
+        var warnings = new List<string>();
+        if (rows.Any(row => row.MinimumAvailableCoveragePercent < 80))
+            warnings.Add(_localization.GetString("Analysis.Chart.LowCoverage"));
+        if (HasAnalysisTimeGaps(rows) || rows.Any(row => row.SocCoveragePercent <= 0))
+            warnings.Add(_localization.GetString("Analysis.Chart.MissingPeriods"));
 
-        AnalysisBatteryChartStatusText.Foreground = rows.Any(
-                row => row.MinimumAvailableCoveragePercent < 80)
-            ? Brushes.DarkOrange
-            : Brushes.Gray;
+        AnalysisBatteryChartStatusText.Text = string.Join(" ", warnings);
+        AnalysisBatteryChartStatusText.Foreground = warnings.Count > 0 ? Brushes.DarkOrange : Brushes.Gray;
 
-        if (averagePoints.Length > 0)
-        {
-            var average = plot.Add.Scatter(
-                averagePoints.Select(point => point.X).ToArray(),
-                averagePoints.Select(point => point.Value!.Value).ToArray());
-            average.LegendText =
-                _localization.GetString("Analysis.BatteryChart.Average");
-            average.LineWidth = 2;
-            average.MarkerSize = 5;
-        }
+        AddBatterySeriesSegments(plot, rows, row => row.SocAveragePercent, _localization.GetString("Analysis.BatteryChart.Average"));
+        AddBatterySeriesSegments(plot, rows, row => row.SocEndingPercent, _localization.GetString("Analysis.BatteryChart.End"));
 
-        if (endingPoints.Length > 0)
-        {
-            var ending = plot.Add.Scatter(
-                endingPoints.Select(point => point.X).ToArray(),
-                endingPoints.Select(point => point.Value!.Value).ToArray());
-            ending.LegendText =
-                _localization.GetString("Analysis.BatteryChart.End");
-            ending.LineWidth = 2;
-            ending.MarkerSize = 5;
-        }
-
-        var policy =
-            _services.GetRequiredService<InstallationContextPolicyService>().Current;
+        var thresholds = _services.GetRequiredService<BatteryThresholdContextService>()
+            .Get(_profiles.Get()?.DeviceId ?? string.Empty);
 
         var floor = plot.Add.HorizontalLine(
-            policy.EmergencyFloorSocPercent);
+            thresholds.EmergencyFloorSocPercent);
         floor.LegendText = string.Format(
             _localization.GetString("Analysis.BatteryChart.Floor"),
-            policy.EmergencyFloorSocPercent);
+            thresholds.EmergencyFloorSocPercent);
 
         var gridTransfer = plot.Add.HorizontalLine(
-            policy.NormalGridTransferSocPercent);
+            thresholds.NormalGridTransferSocPercent);
         gridTransfer.LegendText = string.Format(
             _localization.GetString("Analysis.BatteryChart.GridTransfer"),
-            policy.NormalGridTransferSocPercent);
+            thresholds.NormalGridTransferSocPercent);
 
         var normalReturn = plot.Add.HorizontalLine(
-            policy.ReturnToBatterySocPercent);
+            thresholds.ReturnToBatterySocPercent);
         normalReturn.LegendText = string.Format(
             _localization.GetString("Analysis.BatteryChart.Return"),
-            policy.ReturnToBatterySocPercent);
+            thresholds.ReturnToBatterySocPercent);
 
         var tickGenerator =
             new ScottPlot.TickGenerators.NumericManual();
@@ -1211,7 +1155,7 @@ public partial class MainWindow : Window
         for (var index = 0; index < rows.Count; index += tickStep)
         {
             tickGenerator.AddMajor(
-                index,
+                _analysisChartPositions[index],
                 rows[index].LocalLabel);
         }
 
@@ -1234,6 +1178,76 @@ public partial class MainWindow : Window
             out var parsed)
             ? parsed
             : AggregationPeriod.Day;
+    }
+
+    private void AddBatterySeriesSegments(ScottPlot.Plot plot, IReadOnlyList<EnergyAggregationRow> rows, Func<EnergyAggregationRow, double?> selector, string legendText)
+    {
+        var xs = new List<double>();
+        var ys = new List<double>();
+        var legendAssigned = false;
+
+        void Flush()
+        {
+            if (xs.Count == 0) return;
+            var scatter = plot.Add.Scatter(xs.ToArray(), ys.ToArray());
+            scatter.LegendText = legendAssigned ? string.Empty : legendText;
+            scatter.LineWidth = 2;
+            scatter.MarkerSize = 5;
+            legendAssigned = true;
+            xs.Clear();
+            ys.Clear();
+        }
+
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            var value = selector(row);
+            var discontinuity = index > 0 && rows[index - 1].EndUtcExclusive < row.StartUtc - TimeSpan.FromSeconds(1);
+            if (discontinuity || row.SocCoveragePercent <= 0 || !value.HasValue) Flush();
+            if (row.SocCoveragePercent > 0 && value.HasValue)
+            {
+                xs.Add(_analysisChartPositions[index]);
+                ys.Add(value.Value);
+            }
+        }
+        Flush();
+    }
+
+    private static double[] BuildAnalysisChartPositions(IReadOnlyList<EnergyAggregationRow> rows)
+    {
+        if (rows.Count == 0) return Array.Empty<double>();
+        var durations = rows.Select(row => (row.EndUtcExclusive - row.StartUtc).TotalSeconds)
+            .Where(seconds => seconds > 0).OrderBy(seconds => seconds).ToArray();
+        var nominalSeconds = durations.Length == 0 ? 1.0 : durations[durations.Length / 2];
+        var origin = rows[0].StartUtc;
+        return rows.Select(row => (row.StartUtc - origin).TotalSeconds / nominalSeconds).ToArray();
+    }
+
+    private static bool HasAnalysisTimeGaps(IReadOnlyList<EnergyAggregationRow> rows)
+    {
+        for (var index = 1; index < rows.Count; index++)
+            if (rows[index - 1].EndUtcExclusive < rows[index].StartUtc - TimeSpan.FromSeconds(1)) return true;
+        return false;
+    }
+
+    private int FindNearestAnalysisRowIndex(double x)
+    {
+        if (_analysisAggregationRows.Count == 0 || _analysisChartPositions.Length != _analysisAggregationRows.Count) return -1;
+        var bestIndex = -1;
+        var bestDistance = double.MaxValue;
+        for (var index = 0; index < _analysisChartPositions.Length; index++)
+        {
+            var distance = Math.Abs(_analysisChartPositions[index] - x);
+            if (distance < bestDistance) { bestDistance = distance; bestIndex = index; }
+        }
+        return bestDistance <= 0.75 ? bestIndex : -1;
+    }
+
+    private void AnalysisPlot_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) return;
+        AnalysisContent.ScrollToVerticalOffset(AnalysisContent.VerticalOffset - e.Delta);
+        e.Handled = true;
     }
 
     private void RefreshAnalysisEnergySummary(EnergyRangeSummary summary)
@@ -1410,13 +1424,15 @@ public partial class MainWindow : Window
         var isAnalysis = string.Equals(pageKey, "Analysis", StringComparison.Ordinal);
         var isBattery = string.Equals(pageKey, "Battery", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
+        var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
 
         DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
         AnalysisContent.Visibility = isAnalysis ? Visibility.Visible : Visibility.Collapsed;
         BatteryContent.Visibility = isBattery ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
+        SettingsContent.Visibility = isSettings ? Visibility.Visible : Visibility.Collapsed;
         PlaceholderContent.Visibility =
-            !isDashboard && !isAnalysis && !isBattery && !isData
+            !isDashboard && !isAnalysis && !isBattery && !isData && !isSettings
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -1439,9 +1455,11 @@ public partial class MainWindow : Window
         }
 
         ConnectionToolsPanel.Visibility =
-            pageKey is "Settings" or "Diagnostics"
+            pageKey is "Diagnostics"
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+
+        if (isSettings) RefreshSettingsSessionStatus();
     }
 
     private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1626,6 +1644,84 @@ public partial class MainWindow : Window
             : "Stopping safely... Already saved data will be kept.";
 
         _syncCancellation.Cancel();
+    }
+
+    private async void RefreshCurrentState_Click(object sender, RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null || !_session.HasSession)
+        {
+            OpenCommissioningWindow();
+            return;
+        }
+
+        if (sender is Button button)
+        {
+            button.IsEnabled = false;
+            try { await RefreshCurrentStateAsync(profile, showError: true); }
+            finally { button.IsEnabled = true; }
+        }
+    }
+
+    private async Task<bool> RefreshCurrentStateAsync(CommissioningProfile profile, bool showError)
+    {
+        try
+        {
+            var snapshot = _services.GetRequiredService<CurrentStateSnapshotService>();
+            var refreshed = await snapshot.RefreshAsync(profile);
+            if (refreshed)
+            {
+                EvaluateInstallationHealth(profile);
+                RefreshDashboardMetrics();
+                RefreshBatteryView();
+                RefreshDataCoverageView();
+            }
+            RefreshConnectionStatus();
+            return refreshed;
+        }
+        catch (Exception ex)
+        {
+            RefreshConnectionStatus();
+            if (showError) MessageBox.Show(ex.Message, _localization.GetString("UpdateDialog.Title"));
+            return false;
+        }
+    }
+
+    private bool GetAutoConnectEnabled()
+    {
+        var value = _services.GetRequiredService<AppSettingsRepository>().Get("session.auto-connect-on-startup");
+        return bool.TryParse(value, out var enabled) && enabled;
+    }
+
+    private void AutoConnectCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _services.GetRequiredService<AppSettingsRepository>()
+            .Set("session.auto-connect-on-startup", (AutoConnectCheckBox.IsChecked == true).ToString());
+        RefreshSettingsSessionStatus();
+    }
+
+    private void SettingsConnect_Click(object sender, RoutedEventArgs e) => OpenCommissioningWindow();
+
+    private void SettingsForgetSession_Click(object sender, RoutedEventArgs e)
+    {
+        _session.ResetLocalSession(forgetRememberedCredentials: true);
+        RefreshConnectionStatus();
+    }
+
+    private void RefreshSettingsSessionStatus()
+    {
+        if (!IsInitialized || SettingsSessionStatusText is null) return;
+        var resourceKey = _session.IsSessionVerified
+            ? "Settings.SessionVerified"
+            : _session.HasRememberedSession
+                ? "Settings.SessionRemembered"
+                : _session.HasRememberedCredentials
+                    ? "Settings.CredentialsRemembered"
+                    : "Settings.SessionNotRemembered";
+        SettingsSessionStatusText.SetResourceReference(TextBlock.TextProperty, resourceKey);
+        SettingsSessionStatusText.Foreground =
+            _session.IsSessionVerified ? Brushes.Green :
+            _session.HasRememberedSession || _session.HasRememberedCredentials ? Brushes.DarkOrange : Brushes.Gray;
     }
 
     private void ConnectSolar_Click(object sender, RoutedEventArgs e)
@@ -1868,6 +1964,7 @@ public partial class MainWindow : Window
 
     private void RefreshConnectionStatus()
     {
+        RefreshSettingsSessionStatus();
         var profile = _profiles.Get();
 
         if (profile is not null && _session.IsSessionVerified)
