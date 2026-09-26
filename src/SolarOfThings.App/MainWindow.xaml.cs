@@ -77,6 +77,7 @@ public partial class MainWindow : Window
         ReportRangePresetSelector.SelectedValue = "all";
         _suppressReportRangeSelection = false;
         ReportAggregationSelector.SelectedValue = "Day";
+        ReportTypeSelector.SelectedValue = "SimpleEnergy";
 
         AutoConnectCheckBox.IsChecked = GetAutoConnectEnabled();
         RefreshConnectionStatus();
@@ -1627,6 +1628,16 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ReportTypeSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (IsInitialized)
+        {
+            UpdateReportSelectionSummary();
+        }
+    }
+
     private void ReportRefreshSelection_Click(
         object sender,
         RoutedEventArgs e)
@@ -1725,6 +1736,28 @@ public partial class MainWindow : Window
             : AggregationPeriod.Day;
     }
 
+    private ReportKind GetReportKind()
+    {
+        var raw = ReportTypeSelector.SelectedValue?.ToString();
+        return Enum.TryParse<ReportKind>(
+            raw,
+            ignoreCase: true,
+            out var parsed)
+            ? parsed
+            : ReportKind.SimpleEnergy;
+    }
+
+    private string GetDefaultReportTitle(ReportKind kind) =>
+        kind switch
+        {
+            ReportKind.DetailedEnergy =>
+                _localization.GetString("Reports.DefaultTitle.Detailed"),
+            ReportKind.Battery =>
+                _localization.GetString("Reports.DefaultTitle.Battery"),
+            _ =>
+                _localization.GetString("Reports.DefaultTitle.Simple")
+        };
+
     private EnergyReportRequest? GetCurrentReportRequest()
     {
         var profile = _profiles.Get();
@@ -1751,9 +1784,10 @@ public partial class MainWindow : Window
                     second,
                     timeZone);
 
+        var kind = GetReportKind();
         var title =
             string.IsNullOrWhiteSpace(ReportPresetNameTextBox.Text)
-                ? _localization.GetString("Reports.DefaultTitle")
+                ? GetDefaultReportTitle(kind)
                 : ReportPresetNameTextBox.Text.Trim();
 
         return new EnergyReportRequest(
@@ -1764,7 +1798,9 @@ public partial class MainWindow : Window
             resolved.StartUtc,
             resolved.EndUtc,
             timeZone,
-            GetReportAggregation());
+            GetReportAggregation(),
+            kind,
+            _localization.CurrentLanguage);
     }
 
     private void UpdateReportSelectionSummary()
@@ -1786,7 +1822,14 @@ public partial class MainWindow : Window
             _localization.GetString("Reports.SelectionSummary"),
             request.LocalStartDate.ToString("dd-MM-yyyy"),
             request.LocalEndDate.ToString("dd-MM-yyyy"),
-            request.Aggregation);
+            request.Aggregation,
+            _localization.GetString(
+                request.Kind switch
+                {
+                    ReportKind.DetailedEnergy => "Reports.Type.Detailed",
+                    ReportKind.Battery => "Reports.Type.Battery",
+                    _ => "Reports.Type.Simple"
+                }));
         ReportStatusText.Text = string.Empty;
     }
 
@@ -1811,6 +1854,7 @@ public partial class MainWindow : Window
 
         var preset = new ReportPreset(
             name,
+            request.Kind,
             ReportRangePresetSelector.SelectedValue?.ToString() ?? "custom",
             request.LocalStartDate,
             request.LocalEndDate,
@@ -1846,6 +1890,7 @@ public partial class MainWindow : Window
 
         ReportDeletePresetButton.IsEnabled = true;
         ReportPresetNameTextBox.Text = preset.Name;
+        ReportTypeSelector.SelectedValue = preset.Kind.ToString();
 
         _suppressReportRangeSelection = true;
         ReportRangePresetSelector.SelectedValue = preset.RangePreset;

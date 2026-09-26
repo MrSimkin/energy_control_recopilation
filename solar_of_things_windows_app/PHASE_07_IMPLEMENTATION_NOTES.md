@@ -57,3 +57,24 @@ The existing Windows smoke test now validates:
 - assess whether any additional glossary/context sections are needed for family-facing reports.
 
 Do not ask the user to micro-test each exporter change. The next manual reporting test is one combined checkpoint after CI is green.
+
+
+## Second reporting checkpoint — built-in family reports
+
+Added after the first green export checkpoint:
+- built-in selectable report types:
+  - Simple Energy Summary;
+  - Detailed Energy Report;
+  - Battery Report;
+- report type is persisted as part of named presets;
+- Spanish/English export labels follow the active application language;
+- printable energy chart using only buckets where solar/home/grid all have measurements;
+- printable battery SOC chart using only measured SOC buckets;
+- readable glossary in PDF and Excel;
+- simple report explicitly marks unsupported flow-attribution percentage and utility comparison as unavailable instead of inventing them;
+- detailed PDF includes the audit table;
+- battery PDF focuses on SOC and battery delivered energy.
+
+Grid/Utility Reconciliation and Financial/Bill reports remain intentionally deferred until their required source subsystems (utility meter observations and tariff/billing configuration) exist. They must not be fabricated from inverter data alone.
+
+The next manual checkpoint remains one combined reporting validation, not separate tests for each report type.

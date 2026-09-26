@@ -337,6 +337,7 @@ try
     var presetStore = new ReportPresetStore(settings);
     presetStore.Save(new ReportPreset(
         "Smoke preset",
+        ReportKind.DetailedEnergy,
         "custom",
         new DateOnly(2026, 1, 1),
         new DateOnly(2026, 1, 1),
@@ -364,7 +365,9 @@ try
         aggregationStart,
         aggregationEnd,
         "America/Santiago",
-        AggregationPeriod.Hour));
+        AggregationPeriod.Hour,
+        ReportKind.DetailedEnergy,
+        "en"));
 
     var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
     reportExporter.ExportExcel(xlsxPath, reportData);

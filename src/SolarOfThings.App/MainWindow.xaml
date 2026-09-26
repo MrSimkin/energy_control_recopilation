@@ -1267,6 +1267,19 @@
                                            Margin="0,0,0,10"/>
                                 <WrapPanel>
                                     <StackPanel Margin="0,0,14,10">
+                                        <TextBlock Text="{DynamicResource Reports.Type}"
+                                                   Foreground="#6C757D"
+                                                   FontSize="12"/>
+                                        <ComboBox x:Name="ReportTypeSelector"
+                                                  Width="190"
+                                                  SelectedValuePath="Tag"
+                                                  SelectionChanged="ReportTypeSelector_SelectionChanged">
+                                            <ComboBoxItem Tag="SimpleEnergy" Content="{DynamicResource Reports.Type.Simple}"/>
+                                            <ComboBoxItem Tag="DetailedEnergy" Content="{DynamicResource Reports.Type.Detailed}"/>
+                                            <ComboBoxItem Tag="Battery" Content="{DynamicResource Reports.Type.Battery}"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,14,10">
                                         <TextBlock Text="{DynamicResource Reports.QuickRange}"
                                                    Foreground="#6C757D"
                                                    FontSize="12"/>

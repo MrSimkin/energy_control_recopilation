@@ -2,8 +2,16 @@ using SolarOfThings.Core.Statistics;
 
 namespace SolarOfThings.Core.Reporting;
 
+public enum ReportKind
+{
+    SimpleEnergy,
+    DetailedEnergy,
+    Battery
+}
+
 public sealed record ReportPreset(
     string Name,
+    ReportKind Kind,
     string RangePreset,
     DateOnly LocalStartDate,
     DateOnly LocalEndDate,
@@ -18,7 +26,9 @@ public sealed record EnergyReportRequest(
     DateTimeOffset StartUtc,
     DateTimeOffset EndUtc,
     string TimeZoneId,
-    AggregationPeriod Aggregation);
+    AggregationPeriod Aggregation,
+    ReportKind Kind,
+    string LanguageCode);
 
 public sealed record EnergyReportData(
     EnergyReportRequest Request,

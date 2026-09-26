@@ -501,3 +501,24 @@ First checkpoint scope:
 - automated generation smoke tests.
 
 Reporting remains IN PROGRESS until built-in report variants/charts and one combined real-PC report validation are complete.
+
+
+## Phase 7 first reporting checkpoint — CI PASS — 2026-09-26
+
+Commit:
+- `4a224e1c5c45d4c0f6aa926631894a3ba6f2ed6d`
+
+Windows Build:
+- run ID: `36266430815` (run 273);
+- restore/build: PASS;
+- reporting smoke including XLSX generation: PASS;
+- reporting smoke including PDF generation: PASS;
+- self-contained win-x64 publish: PASS.
+
+Portable artifact:
+- artifact ID: `10914352694`;
+- size: 78,588,758 bytes;
+- SHA-256: `07f1f4ff3eb8b548859dcf60b0dd5aa022ba21d1f86049445769536e01e7d7cd`;
+- expires: 2026-12-25.
+
+The next Reporting commit expands the green foundation with built-in Simple/Detailed/Battery report variants, printable charts, glossary and export localization before requesting one combined target-PC validation.

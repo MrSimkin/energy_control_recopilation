@@ -175,7 +175,11 @@
     <sys:String x:Key="Page.Reports.Placeholder">Reusable reports and exports.</sys:String>
     <sys:String x:Key="Reports.Heading">Reports</sys:String>
     <sys:String x:Key="Reports.Intro">Create a reusable report from the same calculations and coverage rules used by History &amp; charts. Missing periods stay visible; zero is never invented.</sys:String>
-    <sys:String x:Key="Reports.PeriodHeading">Period and detail</sys:String>
+    <sys:String x:Key="Reports.PeriodHeading">Type, period and detail</sys:String>
+    <sys:String x:Key="Reports.Type">Report type</sys:String>
+    <sys:String x:Key="Reports.Type.Simple">Simple summary</sys:String>
+    <sys:String x:Key="Reports.Type.Detailed">Detailed report</sys:String>
+    <sys:String x:Key="Reports.Type.Battery">Battery report</sys:String>
     <sys:String x:Key="Reports.QuickRange">Quick period</sys:String>
     <sys:String x:Key="Reports.Range.All">All saved history</sys:String>
     <sys:String x:Key="Reports.Range.LatestDay">Latest saved day</sys:String>
@@ -197,7 +201,10 @@
     <sys:String x:Key="Reports.NoProfile">Connect and configure the equipment before generating reports.</sys:String>
     <sys:String x:Key="Reports.NoData">There is not yet enough saved data for a report.</sys:String>
     <sys:String x:Key="Reports.DefaultTitle">Solar energy report</sys:String>
-    <sys:String x:Key="Reports.SelectionSummary">Period: {0} to {1} · Aggregation: {2}</sys:String>
+    <sys:String x:Key="Reports.DefaultTitle.Simple">Simple energy summary</sys:String>
+    <sys:String x:Key="Reports.DefaultTitle.Detailed">Detailed energy report</sys:String>
+    <sys:String x:Key="Reports.DefaultTitle.Battery">Battery report</sys:String>
+    <sys:String x:Key="Reports.SelectionSummary">Period: {0} to {1} · Aggregation: {2} · Type: {3}</sys:String>
     <sys:String x:Key="Reports.PresetNameRequired">Enter a name to save this preset.</sys:String>
     <sys:String x:Key="Reports.PresetSaved">Preset saved.</sys:String>
     <sys:String x:Key="Reports.PresetDeleted">Preset deleted.</sys:String>
