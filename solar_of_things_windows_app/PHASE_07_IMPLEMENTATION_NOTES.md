@@ -268,3 +268,8 @@ Implemented in this checkpoint:
 The existing physical integration/statistics path is retained. No second energy-calculation path was introduced.
 
 This checkpoint still requires Windows CI/build/smoke validation before target-PC QA.
+
+
+### Build-only repair after family-report checkpoint
+
+Windows Build run 276 reached compilation and failed on one C# custom-format escape in the PDF typical-reserve-time string. No semantic/reporting logic executed yet. The format expression was replaced with an explicit `TimeOnly.ToString("HH:mm")` call; no functional behavior changed.

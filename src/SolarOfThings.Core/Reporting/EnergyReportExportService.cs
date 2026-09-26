@@ -305,7 +305,7 @@ public sealed class EnergyReportExportService
             AddPdfValueRow(
                 patternTable,
                 L(report, "Hora típica de llegada a reserva", "Typical reserve-arrival time"),
-                $"{report.Family.TypicalReserveTime.Value:HH\:mm} · " +
+                report.Family.TypicalReserveTime.Value.ToString("HH:mm") + " · " +
                 string.Format(
                     L(report, "{0} episodios observados", "{0} observed episodes"),
                     report.Family.ReserveGridEpisodeCount));
