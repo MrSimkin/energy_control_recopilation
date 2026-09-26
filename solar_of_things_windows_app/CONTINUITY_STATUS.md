@@ -740,3 +740,21 @@ Corrective direction:
 - revalidate on the real Windows app after the next UI correction tranche.
 
 This issue is non-destructive and does not block continuing the combined QA.
+
+
+### Combined real-PC QA — Settings/session UX clarity PASS
+
+Target-PC Settings screen after successful authenticated current refresh showed:
+- explicit green state: `Conectado y verificado con Solar of Things.`;
+- separate checkbox: `Conectarme automáticamente al iniciar`;
+- explanatory text that auto-connect performs one startup check and does not continuously poll;
+- explicit `Cerrar y olvidar sesión` action;
+- explicit privacy wording that a remembered password is never refilled or displayed.
+
+Result for the login/session UX finding:
+- remembered/restored/verified session state is now understandable: PASS;
+- remember-vs-auto-connect distinction is visible: PASS;
+- sign-out/forget action is obvious: PASS;
+- password privacy behavior is explained: PASS.
+
+Functional auto-connect behavior still requires one restart test with the checkbox enabled.

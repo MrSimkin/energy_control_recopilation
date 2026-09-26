@@ -166,3 +166,8 @@ Normal mouse wheel over the chart scrolls the page instead of zooming. Ctrl+whee
 ### Combined QA update — Ctrl+wheel interaction FAIL
 
 Video-confirmed on both charts: Ctrl+wheel zooms the chart but also scrolls the page. Normal wheel scrolling remains correct. Record as a non-blocking UI bug for the next correction tranche; continue the combined QA.
+
+
+### Combined QA update — Settings/session UX clarity PASS
+
+Settings clearly communicates verified connection state, optional startup auto-connect, sign-out/forget, and password privacy. Only the functional restart test with auto-connect enabled remains.
