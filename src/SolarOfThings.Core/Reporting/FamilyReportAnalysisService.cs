@@ -58,21 +58,24 @@ public sealed class FamilyReportAnalysisService
             zone,
             frame => frame.HouseWatts,
             "house",
-            minimumUsefulWatts: 0);
+            minimumUsefulWatts: 0,
+            medianGapMinutes: medianGap);
 
         var solarPattern = BuildTypicalWindow(
             frames,
             zone,
             frame => frame.PvWatts,
             "solar",
-            minimumUsefulWatts: 50);
+            minimumUsefulWatts: 50,
+            medianGapMinutes: medianGap);
 
         var gridPattern = BuildTypicalWindow(
             frames,
             zone,
             frame => frame.GridWatts,
             "grid",
-            minimumUsefulWatts: 50);
+            minimumUsefulWatts: 50,
+            medianGapMinutes: medianGap);
 
         var daily = _aggregation.Get(
             request.DeviceId,
@@ -229,43 +232,51 @@ public sealed class FamilyReportAnalysisService
             }
 
             var local = TimeZoneInfo.ConvertTime(frame.TimestampUtc, zone);
-            var candidate =
+            var gridAndSolarShortfall =
                 IsNight(local) &&
-                frame.SocPercent.HasValue &&
                 frame.GridWatts.HasValue &&
                 frame.PvWatts.HasValue &&
-                frame.SocPercent.Value <= transferThreshold + 0.5 &&
                 frame.GridWatts.Value >= GridUseThresholdWatts &&
                 IsPvInsufficient(frame);
 
-            if (candidate)
+            var startsReserveEpisode =
+                current is null &&
+                gridAndSolarShortfall &&
+                frame.SocPercent.HasValue &&
+                frame.SocPercent.Value <= transferThreshold + 0.5;
+
+            var continuesReserveEpisode =
+                current is not null &&
+                gridAndSolarShortfall;
+
+            if (startsReserveEpisode)
             {
-                if (current is null)
+                current = new EventAccumulator(
+                    frame.TimestampUtc,
+                    frame.TimestampUtc,
+                    frame.SocPercent!.Value,
+                    frame.SocPercent.Value,
+                    frame.GridWatts!.Value,
+                    frame.PvWatts!.Value,
+                    transferThreshold,
+                    1);
+            }
+            else if (continuesReserveEpisode)
+            {
+                current!.EndUtc = frame.TimestampUtc;
+                if (frame.SocPercent.HasValue)
                 {
-                    current = new EventAccumulator(
-                        frame.TimestampUtc,
-                        frame.TimestampUtc,
-                        frame.SocPercent!.Value,
-                        frame.SocPercent.Value,
-                        frame.GridWatts!.Value,
-                        frame.PvWatts!.Value,
-                        transferThreshold,
-                        1);
-                }
-                else
-                {
-                    current.EndUtc = frame.TimestampUtc;
                     current.MinimumSocPercent = Math.Min(
                         current.MinimumSocPercent,
-                        frame.SocPercent!.Value);
-                    current.MaximumGridWatts = Math.Max(
-                        current.MaximumGridWatts,
-                        frame.GridWatts!.Value);
-                    current.MaximumPvWatts = Math.Max(
-                        current.MaximumPvWatts,
-                        frame.PvWatts!.Value);
-                    current.SampleCount++;
+                        frame.SocPercent.Value);
                 }
+                current.MaximumGridWatts = Math.Max(
+                    current.MaximumGridWatts,
+                    frame.GridWatts!.Value);
+                current.MaximumPvWatts = Math.Max(
+                    current.MaximumPvWatts,
+                    frame.PvWatts!.Value);
+                current.SampleCount++;
             }
             else if (current is not null)
             {
@@ -437,8 +448,16 @@ public sealed class FamilyReportAnalysisService
         TimeZoneInfo zone,
         Func<MetricFrame, double?> selector,
         string metricKey,
-        double minimumUsefulWatts)
+        double minimumUsefulWatts,
+        double medianGapMinutes)
     {
+        var expectedSamplesPerHour = medianGapMinutes > 0
+            ? 60.0 / medianGapMinutes
+            : 4.0;
+        var minimumSamplesPerHour = Math.Max(
+            2,
+            (int)Math.Ceiling(expectedSamplesPerHour * 0.50));
+
         var cells = frames
             .Select(frame => new
             {
@@ -452,6 +471,7 @@ public sealed class FamilyReportAnalysisService
                 Date = DateOnly.FromDateTime(item.Local.DateTime),
                 item.Local.Hour
             })
+            .Where(group => group.Count() >= minimumSamplesPerHour)
             .Select(group => new HourCell(
                 group.Key.Date,
                 group.Key.Hour,

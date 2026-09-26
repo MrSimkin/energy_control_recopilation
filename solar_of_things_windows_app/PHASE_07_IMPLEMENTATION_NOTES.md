@@ -273,3 +273,13 @@ This checkpoint still requires Windows CI/build/smoke validation before target-P
 ### Build-only repair after family-report checkpoint
 
 Windows Build run 276 reached compilation and failed on one C# custom-format escape in the PDF typical-reserve-time string. No semantic/reporting logic executed yet. The format expression was replaced with an explicit `TimeOnly.ToString("HH:mm")` call; no functional behavior changed.
+
+
+### Family-event semantic refinement
+
+Before target-PC QA, reserve+grid episodes were refined so that:
+- entry still requires battery SOC at/below the validated normal transfer threshold;
+- once the episode has started, duration continues while the house is still using material grid power and PV remains absent/insufficient, even if SOC starts recovering above the threshold;
+- the episode ends when grid/PV shortfall evidence ends, night ends, or continuity is broken by a data gap.
+
+Hourly pattern cells now also require at least roughly 50% of the expected samples for that local hour (derived from observed median cadence) before that day/hour can contribute to a “typical” pattern.
