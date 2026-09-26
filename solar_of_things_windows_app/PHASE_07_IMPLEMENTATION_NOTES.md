@@ -2,7 +2,7 @@
 
 Date started: 2026-09-26
 
-Status: **IN PROGRESS — FIRST REPORTING CHECKPOINT**
+Status: **IN PROGRESS — CI GREEN, COMBINED REAL-PC REPORTING QA PENDING**
 
 ## Scope
 
@@ -78,3 +78,50 @@ Added after the first green export checkpoint:
 Grid/Utility Reconciliation and Financial/Bill reports remain intentionally deferred until their required source subsystems (utility meter observations and tariff/billing configuration) exist. They must not be fabricated from inverter data alone.
 
 The next manual checkpoint remains one combined reporting validation, not separate tests for each report type.
+
+
+## Final automated state for this reporting pass — 2026-09-26
+
+The second checkpoint initially hit a compile-only MigraDoc API mismatch in commit:
+- `12742e20e2ebde4884c23fc830297297e2dccb96`
+
+The mismatch was narrowly repaired in:
+- `78ebc4ddbd66ba6b40b57de7ba7d8ebc8d6da9ef`
+- message: `Fix MigraDoc report legend API`
+
+Final Windows Build:
+- run ID: `36266851482` (run 275);
+- restore: PASS;
+- build: PASS;
+- SQLite/reporting smoke: PASS;
+- XLSX generation smoke: PASS;
+- PDF generation smoke: PASS;
+- self-contained win-x64 publish: PASS;
+- artifact upload: PASS.
+
+Final portable artifact for the combined reporting QA:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10913787724`;
+- size: 78,595,326 bytes;
+- SHA-256: `8860e64b6f962bc268e64b1ce2682bdf84bfe4722cfc2495d99220105bf80202`;
+- expires: 2026-12-25.
+
+## Single combined real-PC checkpoint still required
+
+Do not re-run the old synchronization/backfill validation.
+
+Use the final portable above and validate in one session:
+1. confirm the five Phase 6 corrective findings in normal use:
+   - current inverter thresholds vs fallback/drift wording;
+   - explicit current-state refresh on Home;
+   - missing periods shown as gaps/blank rather than measured zero;
+   - mouse wheel scrolls the page and Ctrl+wheel zooms charts;
+   - remembered-session/auto-connect wording and behavior are understandable;
+2. open Reports and save one named relative preset;
+3. close/reopen the application and confirm the preset is still present and resolves sensibly against the current saved-history frontier;
+4. export one Simple Energy report to Excel and open it;
+5. export one Detailed or Battery report to PDF and open it;
+6. confirm the PDF is readable/printable, includes charts/glossary/period/quality note, and does not fabricate missing periods;
+7. report only anomalies. If no anomaly is found, Phase 7 can be closed for the currently available subsystems.
+
+Grid/Utility Reconciliation and Financial/Bill reports are not blockers for Phase 7 at this point because their required source subsystems do not yet exist. They remain future work tied to utility-meter/tariff functionality.

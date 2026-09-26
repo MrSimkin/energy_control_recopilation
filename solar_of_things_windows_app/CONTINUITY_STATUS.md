@@ -522,3 +522,40 @@ Portable artifact:
 - expires: 2026-12-25.
 
 The next Reporting commit expands the green foundation with built-in Simple/Detailed/Battery report variants, printable charts, glossary and export localization before requesting one combined target-PC validation.
+
+
+## Phase 7 built-in reporting checkpoint — final CI PASS — 2026-09-26
+
+Second-checkpoint implementation:
+- built-in Simple Energy, Detailed Energy and Battery report types;
+- report type saved with presets;
+- Spanish/English export labeling;
+- printable energy and battery-SOC charts;
+- PDF/Excel glossary;
+- explicit conservative treatment of unavailable flow-attribution and utility-comparison metrics.
+
+The initial second-checkpoint commit `12742e20e2ebde4884c23fc830297297e2dccb96` failed Build only because of a MigraDoc chart-legend API mismatch. It was repaired narrowly in:
+
+`78ebc4ddbd66ba6b40b57de7ba7d8ebc8d6da9ef`
+
+Final Windows Build:
+- run ID: `36266851482` (run 275);
+- restore/build: PASS;
+- SQLite/reporting smoke: PASS;
+- XLSX generation smoke: PASS;
+- PDF generation smoke: PASS;
+- win-x64 self-contained publish: PASS;
+- artifact upload: PASS.
+
+Final combined-QA portable:
+- artifact ID: `10913787724`;
+- size: 78,595,326 bytes;
+- SHA-256: `8860e64b6f962bc268e64b1ce2682bdf84bfe4722cfc2495d99220105bf80202`;
+- expires: 2026-12-25.
+
+Current Reporting state:
+- automated implementation checkpoint: GREEN;
+- Phase 7 remains open only for one combined real-PC reporting/corrective-UX validation;
+- do not repeat the already-passed historical-sync Stop/resume QA;
+- utility reconciliation and financial/bill reports remain deferred until utility-meter/tariff source subsystems exist;
+- Phase 3 backfill remains independent.
