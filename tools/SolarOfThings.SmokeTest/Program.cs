@@ -352,6 +352,115 @@ try
             "Report preset persistence smoke test failed.");
     }
 
+    var familySmokeDeviceId = "family-report-smoke-device";
+    var familyLocalStart =
+        new DateTimeOffset(2026, 1, 10, 0, 0, 0, TimeSpan.FromHours(-3));
+    var familyLocalEnd =
+        new DateTimeOffset(2026, 1, 13, 23, 55, 0, TimeSpan.FromHours(-3));
+
+    using (var connection = database.OpenConnection())
+    using (var transaction = connection.BeginTransaction())
+    {
+        using var insert = connection.CreateCommand();
+        insert.Transaction = transaction;
+        insert.CommandText = """
+            INSERT INTO normalized_metric_sample (
+                device_id,
+                metric_key,
+                recorded_at_utc,
+                normalized_value,
+                normalized_unit,
+                source_attribute_key,
+                source_value_json,
+                normalization_rule_version,
+                confidence,
+                quality,
+                updated_utc
+            )
+            VALUES (
+                $deviceId,
+                $metricKey,
+                $recordedAtUtc,
+                $value,
+                $unit,
+                $sourceKey,
+                $sourceJson,
+                'family-smoke.v1',
+                'CONFIRMED',
+                'OK',
+                $updatedUtc
+            );
+            """;
+
+        insert.Parameters.Add("$deviceId", SqliteType.Text);
+        insert.Parameters.Add("$metricKey", SqliteType.Text);
+        insert.Parameters.Add("$recordedAtUtc", SqliteType.Text);
+        insert.Parameters.Add("$value", SqliteType.Real);
+        insert.Parameters.Add("$unit", SqliteType.Text);
+        insert.Parameters.Add("$sourceKey", SqliteType.Text);
+        insert.Parameters.Add("$sourceJson", SqliteType.Text);
+        insert.Parameters.Add("$updatedUtc", SqliteType.Text);
+
+        for (var local = familyLocalStart;
+             local <= familyLocalEnd;
+             local = local.AddMinutes(5))
+        {
+            var hour = local.Hour;
+
+            var houseWatts = hour is >= 19 and < 22
+                ? 1500.0
+                : 500.0;
+
+            var pvWatts = hour is >= 11 and < 15
+                ? 2500.0
+                : hour is >= 7 and < 18
+                    ? 600.0
+                    : 0.0;
+
+            var gridWatts = hour is >= 4 and < 7
+                ? 600.0
+                : 0.0;
+
+            var socPercent = hour == 4 && local.Minute < 30
+                ? 20.0
+                : hour is >= 4 and < 7
+                    ? 25.0
+                    : 80.0;
+
+            var batteryWatts = gridWatts > 0
+                ? 0.0
+                : houseWatts > pvWatts
+                    ? Math.Min(800.0, houseWatts - pvWatts)
+                    : -Math.Min(800.0, pvWatts - houseWatts);
+
+            foreach (var metric in new[]
+            {
+                (Key: "pv_power_w", Value: pvWatts, Unit: "W"),
+                (Key: "house_load_power_w", Value: houseWatts, Unit: "W"),
+                (Key: "grid_import_power_w", Value: gridWatts, Unit: "W"),
+                (Key: "battery_power_w", Value: batteryWatts, Unit: "W"),
+                (Key: "battery_soc_pct", Value: socPercent, Unit: "%")
+            })
+            {
+                insert.Parameters["$deviceId"].Value = familySmokeDeviceId;
+                insert.Parameters["$metricKey"].Value = metric.Key;
+                insert.Parameters["$recordedAtUtc"].Value =
+                    local.ToUniversalTime().ToString("O");
+                insert.Parameters["$value"].Value = metric.Value;
+                insert.Parameters["$unit"].Value = metric.Unit;
+                insert.Parameters["$sourceKey"].Value = "familySmoke";
+                insert.Parameters["$sourceJson"].Value =
+                    metric.Value.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture);
+                insert.Parameters["$updatedUtc"].Value =
+                    DateTimeOffset.UtcNow.ToString("O");
+                insert.ExecuteNonQuery();
+            }
+        }
+
+        transaction.Commit();
+    }
+
     var reportAggregation = new EnergyAggregationTableService(
         powerAggregation,
         socAggregation);
@@ -368,24 +477,29 @@ try
         familyAnalysis);
 
     var reportData = reportExporter.Build(new EnergyReportRequest(
-        "Smoke energy report",
-        aggregationDeviceId,
-        new DateOnly(2026, 1, 1),
-        new DateOnly(2026, 1, 1),
-        aggregationStart,
-        aggregationEnd,
+        "Smoke family energy report",
+        familySmokeDeviceId,
+        new DateOnly(2026, 1, 10),
+        new DateOnly(2026, 1, 13),
+        familyLocalStart.ToUniversalTime(),
+        familyLocalEnd.ToUniversalTime(),
         "America/Santiago",
-        AggregationPeriod.Hour,
+        AggregationPeriod.Day,
         ReportKind.SimpleEnergy,
         "en"));
 
-    if (reportData.Family is null ||
-        reportData.Family.Events is null ||
-        reportData.Family.Nights is null ||
-        reportData.Family.Evolution is null)
+    if (reportData.Family.ReserveGridEpisodeCount != 3 ||
+        reportData.Family.ObservableNightCount != 3 ||
+        reportData.Family.NightsWithReserveGridUse != 3 ||
+        reportData.Family.Events.Count != 3 ||
+        reportData.Family.Events.Any(item => item.DurationMinutes < 150) ||
+        reportData.Family.TypicalReserveTime != new TimeOnly(4, 0) ||
+        reportData.Family.HighestHouseConsumptionWindow is null ||
+        reportData.Family.HighestSolarGenerationWindow is null ||
+        reportData.Family.HighestGridUseWindow is null)
     {
         throw new InvalidOperationException(
-            "Family reporting analysis was not produced.");
+            "Family event/pattern analysis smoke test failed.");
     }
 
     var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
@@ -513,7 +627,8 @@ try
     Console.WriteLine(
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
-        "commissioning metadata/profile, protected secret storage, Phase 5 time-range/aggregation math, and Phase 7 report presets/Excel/PDF export are operational.");
+        "commissioning metadata/profile, protected secret storage, Phase 5 time-range/aggregation math, " +
+        "and Phase 7 report presets/family event-pattern analysis/Excel/PDF export are operational.");
 }
 finally
 {

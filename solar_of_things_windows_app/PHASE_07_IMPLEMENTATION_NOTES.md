@@ -283,3 +283,21 @@ Before target-PC QA, reserve+grid episodes were refined so that:
 - the episode ends when grid/PV shortfall evidence ends, night ends, or continuity is broken by a data gap.
 
 Hourly pattern cells now also require at least roughly 50% of the expected samples for that local hour (derived from observed median cadence) before that day/hour can contribute to a “typical” pattern.
+
+
+### Stronger automated family-analysis smoke
+
+Added a deterministic four-day normalized corpus to the Windows smoke test. It contains three complete nights inside the selected period where:
+- SOC reaches the 20% normal-transfer threshold at 04:00;
+- grid supplies the shortfall until solar becomes sufficient at 07:00;
+- SOC begins recovering above 20% before the episode ends.
+
+The smoke now requires:
+- exactly 3 complete observable nights;
+- exactly 3 retained reserve+grid episodes;
+- all 3 nights marked with a qualifying episode;
+- episode duration remains >150 minutes despite SOC recovery;
+- typical reserve time = 04:00;
+- robust house/solar/grid time-of-day patterns are produced.
+
+Partial first/last nights are excluded from family event denominators and event counts.

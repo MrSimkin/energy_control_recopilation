@@ -35,11 +35,25 @@ public sealed class FamilyReportAnalysisService
             ? Math.Clamp(medianGap * 3.0, 10.0, 20.0)
             : 15.0;
 
-        var events = DetectReserveGridEvents(
+        var detectedEvents = DetectReserveGridEvents(
             frames,
             zone,
             threshold.NormalGridTransferSocPercent,
             continuityThreshold);
+
+        // Only complete nights fully contained inside the selected local-date
+        // range participate in family night statistics. This prevents the
+        // first partial morning and last partial evening from distorting the
+        // event count or observable-night denominator.
+        var events = detectedEvents
+            .Where(item =>
+            {
+                var nightDate = NightStartDate(item.StartLocal);
+                return nightDate.HasValue &&
+                       nightDate.Value >= request.LocalStartDate &&
+                       nightDate.Value < request.LocalEndDate;
+            })
+            .ToArray();
 
         var nights = BuildNightObservations(
             request,
