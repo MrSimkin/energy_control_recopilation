@@ -7,6 +7,7 @@ using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.Statistics;
+using SolarOfThings.Core.Installation;
 using SolarOfThings.Core.SolarOfThings;
 
 var root = Path.Combine(
@@ -351,11 +352,20 @@ try
             "Report preset persistence smoke test failed.");
     }
 
+    var reportAggregation = new EnergyAggregationTableService(
+        powerAggregation,
+        socAggregation);
+    var reportThresholds = new BatteryThresholdContextService(
+        new InstallationHealthRepository(database),
+        new InstallationContextPolicyService());
+    var familyAnalysis = new FamilyReportAnalysisService(
+        database,
+        reportThresholds,
+        reportAggregation);
     var reportExporter = new EnergyReportExportService(
         new EnergyRangeStatisticsService(database),
-        new EnergyAggregationTableService(
-            powerAggregation,
-            socAggregation));
+        reportAggregation,
+        familyAnalysis);
 
     var reportData = reportExporter.Build(new EnergyReportRequest(
         "Smoke energy report",
@@ -366,8 +376,17 @@ try
         aggregationEnd,
         "America/Santiago",
         AggregationPeriod.Hour,
-        ReportKind.DetailedEnergy,
+        ReportKind.SimpleEnergy,
         "en"));
+
+    if (reportData.Family is null ||
+        reportData.Family.Events is null ||
+        reportData.Family.Nights is null ||
+        reportData.Family.Evolution is null)
+    {
+        throw new InvalidOperationException(
+            "Family reporting analysis was not produced.");
+    }
 
     var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
     reportExporter.ExportExcel(xlsxPath, reportData);

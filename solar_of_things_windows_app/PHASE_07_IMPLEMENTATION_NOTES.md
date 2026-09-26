@@ -240,3 +240,31 @@ Canonical specification:
 Implementation must preserve the already-proven export/preset/missing-data infrastructure while replacing the family-facing report model/presentation.
 
 Do not continue the old “open one PDF and close Phase 7” checkpoint. Phase 7 now requires the family-report redesign and a later focused real-PC readability validation.
+
+
+## Family-report implementation checkpoint — 2026-09-26
+
+Development resumed from canonical design commit `dc5dc1e5fbf71e4bf7f4707c063ba135634b89c6`.
+
+Implemented in this checkpoint:
+- dedicated `FamilyReportAnalysisService` over the existing normalized corpus;
+- observed/fallback battery threshold context reused for reserve-event detection;
+- complete reserve+grid episode occurrence list;
+- night observability calculation so missing nights do not become false negatives;
+- robust three-hour time-of-day patterns built from per-day/per-hour averages and cross-day medians;
+- adaptive evolution granularity (day/week/month according to selected-period length);
+- highlighted maximum solar/home/grid days only when coverage is sufficient;
+- Simple Energy XLSX redesigned into:
+  - `Resumen` family Page 1/2;
+  - `Patrones`;
+  - `Eventos`;
+  - existing `Detalle`, `Calidad`, `Glosario` annex sheets;
+- Simple Energy PDF redesigned into family Page 1, Page 2, Page 3 plus quality/glossary;
+- direct PV→house and battery→house remain explicitly unavailable rather than fabricated;
+- “unused solar” remains explicitly unavailable rather than calculated as a residual;
+- user-facing aggregation/report-kind enum leakage removed from the redesigned summary;
+- family-facing and detail numeric precision formatted for readability.
+
+The existing physical integration/statistics path is retained. No second energy-calculation path was introduced.
+
+This checkpoint still requires Windows CI/build/smoke validation before target-PC QA.

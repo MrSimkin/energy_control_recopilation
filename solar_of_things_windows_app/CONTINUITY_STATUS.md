@@ -908,3 +908,20 @@ Unrelated/non-blocking findings already recorded remain:
 - Spanish aggregation summary exposing `Day` instead of `Día`.
 
 Do not repeat already-passed historical sync/Stop/restart QA.
+
+
+## Phase 7 family-report development resumed — 2026-09-26
+
+Implementation now follows `REPORTING_FAMILY_DESIGN_2026-09-26.md`.
+
+New code checkpoint adds:
+- event detection for battery-normal-reserve + grid-use episodes;
+- observable-night denominators;
+- all event occurrences retained;
+- robust cross-day time-of-day patterns;
+- adaptive period evolution;
+- family XLSX sheets `Resumen`, `Patrones`, `Eventos` plus technical annex;
+- family PDF Page 1 / Page 2 / Page 3 structure;
+- no invented direct-solar/battery source attribution or curtailed-solar kWh.
+
+Next gate is Windows CI. Do not ask for another target-PC test until the code is green and any build-only issues are repaired.

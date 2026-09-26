@@ -34,4 +34,5 @@ public sealed record EnergyReportData(
     EnergyReportRequest Request,
     EnergyRangeSummary Summary,
     EnergyAggregationTable Table,
+    FamilyReportAnalysis Family,
     DateTimeOffset GeneratedUtc);
