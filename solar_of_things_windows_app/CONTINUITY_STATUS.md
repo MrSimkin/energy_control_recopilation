@@ -712,3 +712,31 @@ Result:
 
 Remaining interaction check:
 - Ctrl+wheel over the chart should zoom the chart rather than scroll the page.
+
+
+### Combined real-PC QA — chart wheel interaction, Ctrl+wheel FAIL
+
+Evidence:
+- user reproduced behavior on both the energy chart and the battery chart;
+- a ~20-second target-PC screen recording was reviewed during QA.
+
+Observed:
+- normal wheel over a chart scrolls the page only: PASS;
+- Ctrl+wheel does zoom the chart: PASS;
+- however Ctrl+wheel also scrolls the containing page at the same time: FAIL.
+
+Therefore the Phase 6 chart interaction finding is only partially resolved.
+
+Expected final behavior:
+- normal wheel over chart → scroll page;
+- Ctrl+wheel over chart → zoom chart only;
+- page position must remain stable while Ctrl+wheel zoom is active;
+- same behavior must apply consistently to both energy and battery charts.
+
+Corrective direction:
+- consume/suppress the ScrollViewer wheel path when Ctrl is pressed without blocking ScottPlot zoom;
+- verify routed PreviewMouseWheel/MouseWheel handling order so the chart receives the zoom gesture but the parent ScrollViewer does not act on the same event;
+- target both chart controls through the shared handler;
+- revalidate on the real Windows app after the next UI correction tranche.
+
+This issue is non-destructive and does not block continuing the combined QA.
