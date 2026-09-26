@@ -137,3 +137,10 @@ Use Windows Build run `36266851482` / artifact `10913787724`. Do not substitute 
 ### Portable migration note for combined QA
 
 Reuse the entire prior portable `Data\` directory, including `energy.db` and `Secrets\`, on the same Windows user. Copying only the database would invalidate remembered-session/autologon validation because the DPAPI-protected session files live under `Data\Secrets\`.
+
+
+### Combined QA update — current refresh PASS + responsive-layout finding
+
+The target-PC current-state test passed with remembered credentials and no password re-entry. Home refreshed to a recent 2026-09-26 17:17 snapshot and showed connected state.
+
+A new non-blocking UX finding was observed: Home's right-side status panel clips long text and controls at normal non-maximized desktop widths. Record this for the next UI correction tranche; do not interrupt the current combined reporting QA.

@@ -614,3 +614,48 @@ Reason:
 - never publish or share the contents of `Data\Secrets\`.
 
 This correction supersedes any earlier instruction to copy only `Data\energy.db`.
+
+
+## Combined real-PC QA progress — 2026-09-26
+
+### Phase 6 Finding 2 / remembered-session current refresh — PASS
+
+Using final combined-QA portable artifact `10913787724` under the same Windows user with the prior portable `Data\` directory preserved:
+
+- application started with remembered-account state visible;
+- user did not re-enter the Solar of Things password;
+- explicit `Actualizar estado actual` succeeded;
+- status changed to `Equipo conectado: Solar202`;
+- Home switched from stale local reading `2026-09-25 17:45` to a recent live/current reading `2026-09-26 17:17`;
+- observed current values on that refresh:
+  - PV: 0.366 kW;
+  - home: 0.307 kW;
+  - battery SOC: 36%;
+  - grid: 0.000 kW;
+- Home summary updated coherently to indicate the house was mainly using solar energy.
+
+Result:
+- remembered credentials/session reuse without password re-entry: PASS;
+- one-shot authenticated current-state refresh: PASS;
+- stale/local fallback → fresh/current presentation transition: PASS.
+
+### New real-PC UX finding — responsive layout / text truncation
+
+At a normal non-maximized desktop window size, the Home right-side `Estado del sistema` column is too narrow and some long status text and controls become clipped/truncated unless the user enlarges the window.
+
+Concrete examples from the real-PC screenshot:
+- the post-stop synchronization status is visibly cut off;
+- the manual-date control is cramped/cropped;
+- the right status card has insufficient width relative to its content.
+
+This is a real usability issue, not a data correctness defect.
+
+Corrective direction for the next UX tranche:
+- make Home responsive at ordinary desktop widths;
+- prefer text wrapping over clipping for status messages;
+- avoid fixed-width competition between the main summary and right-side status panel;
+- allow the status panel to move below/stack when horizontal space is insufficient, or otherwise provide a minimum usable width;
+- ensure date controls/buttons remain fully visible without requiring window maximization;
+- preserve accessibility/readability when Windows text scaling is above 100%.
+
+This finding does not block the current combined QA. Continue the QA and batch the responsive-layout fix with the next UI correction tranche.
