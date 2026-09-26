@@ -178,3 +178,8 @@ Settings clearly communicates verified connection state, optional startup auto-c
 Restart with startup auto-connect enabled restored and verified the remembered session and refreshed Home to a recent 2026-09-26 18:02 snapshot without starting historical backfill.
 
 New non-blocking finding: Home showed "Última descarga de datos: Nunca" after restart even though the persisted historical frontier is 2026-07-06. Record for the next persistence/UX correction tranche; continue Reporting QA.
+
+
+### Combined QA update — Reports initial screen PASS
+
+Reports loaded with all expected controls and export actions. Minor localization finding: Spanish selection summary exposes internal aggregation value `Day` instead of `Día`. Continue with preset persistence test.

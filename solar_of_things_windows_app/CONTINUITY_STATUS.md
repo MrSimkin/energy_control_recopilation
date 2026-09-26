@@ -785,3 +785,23 @@ Corrective direction:
 - distinguish no prior sync, stopped sync, completed sync, and existing imported/copied corpus.
 
 This does not block the current Reporting QA.
+
+
+### Combined real-PC QA — Reports initial screen PASS with minor localization finding
+
+Target-PC Reports screen loaded successfully with:
+- report type selector;
+- quick period selector;
+- explicit From/To dates;
+- aggregation selector;
+- named preset controls;
+- Excel and PDF export actions;
+- saved-history range 2026-04-20 through 2026-09-25.
+
+Initial Reports UX is usable and the expected controls are present.
+
+Minor non-blocking localization finding:
+- the human-readable selection summary in Spanish shows the enum value `Day` in `Agrupación: Day`;
+- user-facing summary should localize this to `Día` (and equivalently Semana/Mes/Año for other values) rather than expose internal enum names.
+
+Continue combined QA with named preset persistence.
