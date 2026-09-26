@@ -345,3 +345,99 @@ Immediate order after the current combined checkpoint:
 Do not perform micro-tests for individual cards/charts.
 
 Do not restart completed API research, Phase 0 specification, or Phase 1 architecture/localization/navigation work unless a concrete regression or implementation-time evidence requires a narrow correction.
+
+## Partial combined Phase 4–6 real-PC validation — 2026-09-25
+
+The user began the intended combined target-PC validation using artifact `10892690906` and the real portable database.
+
+Important recovery note:
+- `Data\energy.db` had been accidentally deleted before the test but was successfully recovered before validation;
+- old Logs were not recovered and are not required for continuation;
+- the recovered database opened normally with no visible startup/migration error.
+
+Validated in this session:
+
+### Startup / Home
+- normal launch: PASS;
+- recovered real database opened and remained usable;
+- Home correctly uses stale-safe wording: **Última información disponible** rather than claiming old data is live;
+- latest saved reading shown: `25-09-2026 17:45`;
+- stale warning is visible;
+- latest values shown from local data: PV 0.000 kW, house 0.313 kW, battery 31%, grid 0.419 kW;
+- latest-saved-day summary shown for `25-09-2026`: solar 4.96 kWh, house 15.77 kWh, grid 9.45 kWh, minimum coverage 74.0%;
+- low coverage is visibly highlighted;
+- obvious History & Charts navigation is present;
+- installation date `20-04-2026` remains distinct from next automatic download date `25-05-2026`.
+
+### Battery
+- family-facing battery page renders real data;
+- SOC: 31%;
+- estimated stored energy: 3.65 kWh;
+- estimated ordinary-use energy above the 20% reserve: 1.30 kWh;
+- emergency 20→10% reserve estimate: 1.18 kWh;
+- configured usable capacity displayed: 11.776 kWh;
+- activity shown as charging;
+- technical panel PASS with real normalized measurements:
+  - battery voltage 52.8 V;
+  - charge current 3.2 A;
+  - discharge current 0.0 A;
+  - derived battery power approximately -0.17 kW.
+
+### Data & Updates
+- first saved date: `20-04-2026`;
+- last saved date: `25-09-2026`;
+- reviewed days: 38;
+- download-problem days: 0;
+- next automatic historical date: `25-05-2026`;
+- raw readings: 848,772;
+- normalized/display-ready readings: 106,612;
+- configuration-health summary currently shows 0 checked / 0 different / 11 unconfirmed before a fresh current-state refresh.
+
+### History & Charts
+- all-saved-history range renders from `20-04-2026` through `25-09-2026`;
+- whole-period coverage is visibly low (~21%);
+- physical energy totals and contextual duration summaries render;
+- low-coverage warning is visible;
+- detailed audit table renders;
+- energy and battery charts render.
+
+### Concrete issues discovered — must be corrected after validation
+1. **Battery reserve thresholds should prefer current inverter settings when available.**
+   - The app already captures current settings such as `bmsReturnsToMainsModeSOC` and `bmsReturnsToBatteryModeSOC` in the latest-state snapshot.
+   - The Battery page currently calculates/displays 20/10/50 from `InstallationContextPolicyService`, and several Spanish strings hard-code those values.
+   - Current inverter settings should be the primary source when available/validated; family-manual policy should remain expected configuration/fallback/context.
+   - A mismatch must be visible rather than silently presenting the manual value as the current device setting.
+
+2. **Home should support truly current/live household readings while authenticated.**
+   - Desired current values: PV production, house consumption, battery charge (% and estimated kWh), and grid use.
+   - Live/current wording must only be used after a sufficiently recent Solar of Things latest-state read.
+   - Stale/local fallback behavior must remain exactly as currently validated.
+   - Do not add aggressive background polling.
+
+3. **Charts currently violate missing-is-not-zero / do-not-bridge-gaps visually.**
+   - Battery scatter plotting filters missing SOC points and then connects the remaining points, causing lines to bridge long unknown periods (observed visually across the May→September gap).
+   - Energy buckets with 0% coverage can appear as ordinary 0.00 kWh bars/points, which visually implies measured zero rather than unknown.
+   - Fix chart rendering so unknown periods remain visibly discontinuous/absent and are never presented as measured zero.
+
+4. **Chart usability is poor for long sparse ranges.**
+   - Full-history labels/data are difficult to read when long gaps exist.
+   - Mouse wheel over the chart currently scrolls the page as well as/instead of providing predictable chart zoom/navigation.
+   - Improve wheel capture/zoom behavior, time-axis readability, and sparse-range presentation without changing the underlying calculations.
+
+These are concrete real-PC findings, not speculative redesign requests.
+
+### Validation still pending
+The session was intentionally stopped before the final Update Data block.
+
+Next session:
+1. do not repeat already-passed Home/Battery/Data screens unless a fix affects them;
+2. complete a short `Actualizar datos` run;
+3. verify authentication/current-state refresh;
+4. verify resume starts from a sensible historical frontier (expected around `25-05-2026`, subject to actual local corpus state);
+5. verify progress;
+6. deliberately Stop/Detener;
+7. verify already committed data remains saved and the next resume frontier persists;
+8. then implement the concrete Phase 6 fixes above as a coherent tranche and validate with CI.
+
+No new artifact is required before completing the pending Update Data portion unless code changes are made first.
+
