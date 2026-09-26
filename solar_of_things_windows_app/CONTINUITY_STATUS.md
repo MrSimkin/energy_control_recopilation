@@ -701,3 +701,14 @@ Result for the Phase 6 missing-data chart correctness finding:
 - coverage warning remains visible: PASS.
 
 The remaining chart-interaction check is mouse-wheel behavior: normal wheel should scroll the page, while Ctrl+wheel should zoom the chart.
+
+
+### Combined real-PC QA — chart wheel interaction, part 1 PASS
+
+With the pointer over the History & Charts graph, normal mouse-wheel movement scrolled the page vertically and did not zoom the chart.
+
+Result:
+- normal wheel → page scroll: PASS.
+
+Remaining interaction check:
+- Ctrl+wheel over the chart should zoom the chart rather than scroll the page.

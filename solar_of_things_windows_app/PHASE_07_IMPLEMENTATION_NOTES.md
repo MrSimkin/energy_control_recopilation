@@ -156,3 +156,8 @@ A new non-blocking cross-page freshness issue was observed: Home showed fresh SO
 ### Combined QA update — missing-data chart semantics PASS
 
 History & Charts on the real PC visibly preserved gaps for unmeasured periods and did not draw them as zero or bridge them. Coverage warning remained visible. Only the wheel/Ctrl+wheel interaction check remains for the chart UX finding.
+
+
+### Combined QA update — chart wheel part 1 PASS
+
+Normal mouse wheel over the chart scrolls the page instead of zooming. Ctrl+wheel zoom remains to be checked.
