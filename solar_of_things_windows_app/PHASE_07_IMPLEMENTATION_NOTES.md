@@ -171,3 +171,10 @@ Video-confirmed on both charts: Ctrl+wheel zooms the chart but also scrolls the 
 ### Combined QA update — Settings/session UX clarity PASS
 
 Settings clearly communicates verified connection state, optional startup auto-connect, sign-out/forget, and password privacy. Only the functional restart test with auto-connect enabled remains.
+
+
+### Combined QA update — startup auto-connect PASS
+
+Restart with startup auto-connect enabled restored and verified the remembered session and refreshed Home to a recent 2026-09-26 18:02 snapshot without starting historical backfill.
+
+New non-blocking finding: Home showed "Última descarga de datos: Nunca" after restart even though the persisted historical frontier is 2026-07-06. Record for the next persistence/UX correction tranche; continue Reporting QA.

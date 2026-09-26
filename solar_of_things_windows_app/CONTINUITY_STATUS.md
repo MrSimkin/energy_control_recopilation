@@ -758,3 +758,30 @@ Result for the login/session UX finding:
 - password privacy behavior is explained: PASS.
 
 Functional auto-connect behavior still requires one restart test with the checkbox enabled.
+
+
+### Combined real-PC QA — startup auto-connect PASS
+
+With startup auto-connect enabled, the application was fully closed and reopened. Without user interaction, the remembered session was restored and verified, Home refreshed to a recent 2026-09-26 18:02 current-state snapshot, and no historical backfill started.
+
+Observed current snapshot:
+- PV 0.183 kW;
+- home 0.418 kW;
+- battery SOC 35%;
+- grid 0.000 kW.
+
+Result:
+- remembered-session startup auto-connect: PASS;
+- one-shot startup current-state refresh: PASS;
+- no unintended historical backfill: PASS.
+
+New non-blocking persistence/UX finding:
+- the historical resume frontier remained persisted at 2026-07-06;
+- Home nevertheless showed "Última descarga de datos: Nunca" after restart.
+
+Corrective direction:
+- persist or truthfully derive the last synchronization outcome/status;
+- do not show "Nunca" when existing sync metadata proves prior historical synchronization;
+- distinguish no prior sync, stopped sync, completed sync, and existing imported/copied corpus.
+
+This does not block the current Reporting QA.
