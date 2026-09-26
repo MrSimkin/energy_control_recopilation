@@ -925,3 +925,40 @@ New code checkpoint adds:
 - no invented direct-solar/battery source attribution or curtailed-solar kWh.
 
 Next gate is Windows CI. Do not ask for another target-PC test until the code is green and any build-only issues are repaired.
+
+
+## Phase 7 family-report redesign — CI GREEN — 2026-09-26
+
+Canonical family design from `REPORTING_FAMILY_DESIGN_2026-09-26.md` is now implemented for the currently supportable metrics.
+
+Green HEAD:
+- `e02df70812af3a02f7800e4637e38d877f460ac9`.
+
+Windows Build run 280 / `36277693543`:
+- restore PASS;
+- build PASS;
+- deterministic family event/pattern smoke PASS;
+- Simple Energy XLSX PASS;
+- Simple Energy PDF PASS;
+- portable publish/upload PASS.
+
+New portable:
+- artifact `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID `10917741876`;
+- size 78,620,828 bytes;
+- SHA256 `86c12cf99cb3b0c56879861c6bcd2baab64bc3f2053da4e06b67d62b9f8e6eab`;
+- expires 2026-12-25;
+- run URL: `https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36277693543`.
+
+Implemented family report behavior:
+- `Resumen` now prioritizes utility/grid use, unavailable-but-required direct-solar and battery-to-house answers, night reserve/grid episodes, then whole-system totals;
+- `Patrones` contains robust recurring time-of-day patterns, highlights and adaptive evolution;
+- `Eventos` preserves all reserve+grid occurrences and night observability;
+- PDF uses Page 1 household questions, Page 2 whole-system totals, Page 3 patterns/events;
+- complete nights only are used in the family night denominator;
+- event continuation persists after SOC begins recovering if grid is still required and solar remains insufficient;
+- hourly patterns require repeated days and sufficient samples per local hour;
+- missing/unknown is never treated as event absence or measured zero;
+- existing `Detalle`, `Calidad`, `Glosario` remain as technical annex.
+
+The next manual action is a **focused Reporting readability/semantic QA only** using artifact `10917741876`. Do not repeat historical sync or previously passed Phase 6 checks.

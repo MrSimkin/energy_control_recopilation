@@ -2,7 +2,7 @@
 
 Date started: 2026-09-26
 
-Status: **IN PROGRESS — EXPORT INFRASTRUCTURE QA PASS; FAMILY REPORT REDESIGN REQUIRED**
+Status: **IN PROGRESS — FAMILY REPORT REDESIGN IMPLEMENTED; TARGET-PC READABILITY QA PENDING**
 
 ## Scope
 
@@ -306,3 +306,61 @@ Partial first/last nights are excluded from family event denominators and event 
 ### Build-only repair after stronger smoke checkpoint
 
 Windows Build run 279 failed before smoke because the filtered event collection is now an array and one constructor argument still used `events.Count` as though it were a list property. Replaced with `events.Length`; no analysis semantics changed.
+
+
+## Family-report redesigned checkpoint — CI GREEN — 2026-09-26
+
+Final code HEAD for this checkpoint:
+- `e02df70812af3a02f7800e4637e38d877f460ac9`
+- message: `Fix filtered family event count`
+- substantive implementation commits immediately before it:
+  - `de4fa94fab484e7184d308d9652e2fb5b5473145` — family report patterns/events + XLSX/PDF redesign;
+  - `7bd548290f0fb062f8c51538adad652ae0880654` — build-only time-format repair;
+  - `a15cada160b1ba991f40d94f86d7049aec29beb1` — refined event duration + hourly evidence;
+  - `bd722f84326e4ae5dad3c7885168bc505e6b6549` — stronger deterministic smoke;
+  - `e02df70812af3a02f7800e4637e38d877f460ac9` — build-only filtered-array count repair.
+
+Windows Build:
+- run ID: `36277693543`;
+- run number: 280;
+- restore: PASS;
+- build: PASS;
+- deterministic family event/pattern smoke: PASS;
+- Simple Energy XLSX generation: PASS;
+- Simple Energy PDF generation: PASS;
+- self-contained win-x64 publish: PASS;
+- portable marker: PASS;
+- artifact upload: PASS.
+
+Smoke explicitly reports:
+`Phase 7 report presets/family event-pattern analysis/Excel/PDF export are operational.`
+
+Portable target-PC QA artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10917741876`;
+- size: 78,620,828 bytes;
+- SHA-256: `86c12cf99cb3b0c56879861c6bcd2baab64bc3f2053da4e06b67d62b9f8e6eab`;
+- expires: 2026-12-25;
+- Actions run: `https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36277693543`.
+
+The pre-existing NU1701 warning for `SkiaSharp.Views.WPF 3.119.0` remains non-blocking and was not introduced by Reporting.
+
+### Next target-PC validation
+
+Do not repeat the broad Phase 6 combined QA.
+
+Use the new portable with the proven entire prior `Data\` directory on the same Windows user, then validate only the redesigned Reporting behavior:
+
+1. open Reports;
+2. use the already saved relative preset if present;
+3. export **Simple Energy** to XLSX;
+4. inspect `Resumen`, `Patrones`, `Eventos` plus the retained technical annex;
+5. export **Simple Energy** to PDF and inspect the Page 1 / Page 2 / Page 3 hierarchy;
+6. report readability/semantic anomalies, especially:
+   - whether the first page answers the family questions rapidly;
+   - whether observable-night/event counts make sense on the real corpus;
+   - whether patterns look plausible and are not overconfident;
+   - whether all repeated reserve+grid events are present;
+   - whether low/missing coverage is expressed clearly.
+
+Direct PV→house, battery→house, percent-without-grid and curtailed-solar kWh remain deliberately unavailable until their evidence path is validated. That is expected, not a QA failure.

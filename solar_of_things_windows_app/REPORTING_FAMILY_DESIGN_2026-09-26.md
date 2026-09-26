@@ -499,3 +499,26 @@ For the currently available source subsystems, Phase 7 closes only when:
 - a final real-PC family-readability validation passes.
 
 Utility-meter/tariff-dependent pages remain separate future work and do not authorize fabricated data in Phase 7.
+
+
+## 15. Implementation checkpoint — 2026-09-26
+
+The first implementation of this canonical clarification is green in Windows CI at HEAD `e02df70812af3a02f7800e4637e38d877f460ac9`, run `36277693543`.
+
+Implemented now:
+- dedicated family analysis service;
+- observable-night accounting;
+- repeated reserve+grid event preservation;
+- robust cross-day three-hour patterns;
+- adaptive day/week/month evolution;
+- family `Resumen` / `Patrones` / `Eventos` XLSX structure;
+- Page 1 / Page 2 / Page 3 Simple Energy PDF structure;
+- deterministic smoke proving three synthetic complete nights, three events and expected time-of-day patterns.
+
+Still evidence-gated:
+- direct PV→house;
+- battery→house;
+- grid-free share;
+- numeric curtailed/unused solar.
+
+Those remain explicitly unavailable until their measurement/derivation path is validated.
