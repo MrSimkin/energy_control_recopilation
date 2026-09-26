@@ -659,3 +659,28 @@ Corrective direction for the next UX tranche:
 - preserve accessibility/readability when Windows text scaling is above 100%.
 
 This finding does not block the current combined QA. Continue the QA and batch the responsive-layout fix with the next UI correction tranche.
+
+
+### Combined real-PC QA — Battery thresholds PASS; cross-page freshness finding
+
+Target-PC Battery screen after a successful authenticated Home current-state refresh showed:
+
+- observed current thresholds: grid 20% · protected floor 10% · return 50%;
+- wording explicitly says they match the expected family policy;
+- ordinary-use and outage-reserve estimates are described as using current inverter thresholds when available.
+
+Result for the Phase 6 battery-threshold finding:
+- observed inverter thresholds preferred when validated: PASS;
+- manual/family policy retained as context/fallback: PASS;
+- match/drift wording visible: PASS.
+
+New non-blocking freshness/coherence finding:
+- immediately before entering Battery, Home had a fresh current snapshot at 2026-09-26 17:17 with battery SOC 36%;
+- Battery still showed the stored/local snapshot: SOC 31%, latest reading 2026-09-25 17:45;
+- Battery text is technically truthful because it says it is based on the last locally saved reading, but the cross-page experience is confusing after the user just requested a current refresh.
+
+Corrective direction for the next UI/data-coherence tranche:
+- when a fresh authenticated current snapshot exists, Battery should prefer that current SOC/technical state where safe and clearly label it as current;
+- retain stored/local fallback when no fresh snapshot exists;
+- keep historical/energy calculations tied to the validated stored corpus;
+- never silently mix live and historical values without labels.

@@ -144,3 +144,10 @@ Reuse the entire prior portable `Data\` directory, including `energy.db` and `Se
 The target-PC current-state test passed with remembered credentials and no password re-entry. Home refreshed to a recent 2026-09-26 17:17 snapshot and showed connected state.
 
 A new non-blocking UX finding was observed: Home's right-side status panel clips long text and controls at normal non-maximized desktop widths. Record this for the next UI correction tranche; do not interrupt the current combined reporting QA.
+
+
+### Combined QA update — battery thresholds PASS
+
+Observed inverter thresholds 20/10/50 were shown as current and matching family policy. This closes the battery-threshold corrective finding.
+
+A new non-blocking cross-page freshness issue was observed: Home showed fresh SOC 36% at 2026-09-26 17:17 after current refresh, while Battery still showed stored SOC 31% from 2026-09-25 17:45. Record for the next coherence/UX tranche; continue current QA.
