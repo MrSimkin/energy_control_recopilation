@@ -141,7 +141,7 @@ public sealed class FamilyReportAnalysisService
             frameCoverage,
             observableNights,
             nightsWithReserve,
-            events.Count,
+            events.Length,
             events.Sum(item => item.DurationMinutes),
             TypicalNightTime(events.Select(item => item.StartLocal).ToArray()),
             housePattern,

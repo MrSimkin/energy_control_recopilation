@@ -301,3 +301,8 @@ The smoke now requires:
 - robust house/solar/grid time-of-day patterns are produced.
 
 Partial first/last nights are excluded from family event denominators and event counts.
+
+
+### Build-only repair after stronger smoke checkpoint
+
+Windows Build run 279 failed before smoke because the filtered event collection is now an array and one constructor argument still used `events.Count` as though it were a list property. Replaced with `events.Length`; no analysis semantics changed.
