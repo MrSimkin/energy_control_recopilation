@@ -188,3 +188,8 @@ Reports loaded with all expected controls and export actions. Minor localization
 ### Combined QA update — preset save PASS
 
 A named relative "last 7 days" Reports preset was saved successfully. Restart persistence and relative-range re-resolution remain to be checked.
+
+
+### Combined QA update — preset restart persistence PASS
+
+The saved "Últimos 7 días" preset remained available after full application restart. Relative-range re-resolution is the remaining preset check.

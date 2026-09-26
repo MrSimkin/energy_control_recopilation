@@ -820,3 +820,16 @@ Remaining preset check:
 - close/reopen the application;
 - verify the named preset remains available;
 - load it and confirm it resolves against the current saved-history frontier rather than becoming a fixed stale date range.
+
+
+### Combined real-PC QA — report preset restart persistence PASS
+
+After fully closing and reopening the target-PC application, the previously saved named Reports preset "Últimos 7 días" remained present in the saved-preset list.
+
+Result:
+- local report-preset persistence across application restart: PASS.
+
+Remaining relative-preset check:
+- select the saved preset;
+- verify its quick-period semantics remain "last 7 days of saved history";
+- confirm the resolved From/To dates are derived from the current saved-history endpoint, not merely replayed as the original fixed dates.
