@@ -68,7 +68,7 @@ public sealed class EnergyReportExportService
         document.Info.Title = report.Request.Title;
         document.Info.Subject = "Solar Energy Monitor";
 
-        var normal = document.Styles["Normal"];
+        var normal = document.Styles["Normal"]!;
         normal.Font.Name = "Arial";
         normal.Font.Size = 9;
 
@@ -229,7 +229,7 @@ public sealed class EnergyReportExportService
 
         chart.YAxis.Title.Caption = "kWh";
         chart.YAxis.HasMajorGridlines = true;
-        chart.Legend.Docking = DockingType.Bottom;
+        chart.FooterArea.AddLegend();
 
         var note = section.AddParagraph(
             L(
@@ -275,7 +275,7 @@ public sealed class EnergyReportExportService
 
         chart.YAxis.Title.Caption = "%";
         chart.YAxis.HasMajorGridlines = true;
-        chart.Legend.Docking = DockingType.Bottom;
+        chart.FooterArea.AddLegend();
 
         var note = section.AddParagraph(
             L(
