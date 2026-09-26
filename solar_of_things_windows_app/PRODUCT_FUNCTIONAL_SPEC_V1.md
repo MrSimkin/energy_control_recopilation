@@ -911,16 +911,38 @@ At minimum:
 
 For nontechnical/older readers.
 
-Should contain:
+Canonical detailed design: `REPORTING_FAMILY_DESIGN_2026-09-26.md`.
+
+The report must explain how the house behaved rather than merely list inverter measurements. Its family-facing hierarchy is:
+
+1. electricity supplied to the house from the configured utility/grid;
+2. electricity supplied directly to the house from PV;
+3. electricity supplied to the house from the battery;
+4. how often/for how long the battery reached its normal reserve and the house needed grid before sufficient solar returned;
+5. whole-system totals such as total PV generation and total house consumption;
+6. robust patterns/events over the selected period.
+
+Primary source-attribution quantities are shown only when directly measured or credibly derived under the energy-flow attribution policy. An unavailable primary answer must not be replaced by a different technical metric merely because that metric is available.
+
+The report must work for any selected period, not assume a week.
+
+Repeated events must preserve all occurrences. Pattern statements require repeated, sufficiently observable evidence and should use robust statistics/frequency rather than a single maximum or simple average alone.
+
+Coverage/observability is part of the analysis. Unknown periods are excluded from event/pattern denominators rather than treated as “event did not occur”.
+
+The Simple Energy Report should contain:
 - plain-language headline summary;
-- house energy used;
-- solar energy generated;
-- electricity taken from grid;
-- battery contribution;
-- percent supplied without grid;
-- utility comparison when available;
-- one/two simple charts;
-- readable glossary.
+- family Page 1 immediate source/night answers;
+- Page 2 whole-system totals;
+- required Page 3 patterns and events;
+- simple charts;
+- readable glossary;
+- explicit partial-data warning where relevant;
+- technical/event annex where needed for auditability.
+
+Utility comparison remains conditional on utility-meter data.
+
+“Solar energy that could not be used” must not be computed as a naive generation remainder. It is shown numerically only when curtailment/potential is directly measured or later validated as an explicit estimate.
 
 ## 22.2 Detailed Energy Report
 

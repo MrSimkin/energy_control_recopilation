@@ -2,7 +2,7 @@
 
 Date started: 2026-09-26
 
-Status: **IN PROGRESS — CI GREEN, COMBINED REAL-PC REPORTING QA PENDING**
+Status: **IN PROGRESS — EXPORT INFRASTRUCTURE QA PASS; FAMILY REPORT REDESIGN REQUIRED**
 
 ## Scope
 
@@ -198,3 +198,45 @@ The saved "Últimos 7 días" preset remained available after full application re
 ### Combined QA update — relative preset semantics PASS
 
 The saved "Últimos 7 días" preset reloaded as a relative quick period and resolved to 2026-09-19 through 2026-09-25 against the current saved-history endpoint. Preset persistence and relative semantics are PASS.
+
+
+## Real-PC XLSX QA — mechanical PASS, family-facing FAIL — 2026-09-26
+
+The combined QA progressed through:
+- Reports screen: PASS;
+- named relative preset save: PASS;
+- restart persistence: PASS;
+- relative re-resolution against saved-history endpoint: PASS;
+- Simple Energy XLSX generation/open in Excel: mechanical PASS.
+
+Observed workbook properties:
+- opened normally in Excel;
+- sheets included `Resumen`, `Detalle`, `Calidad`, `Glosario`;
+- requested 2026-09-19 through 2026-09-25 period was represented;
+- daily detail existed;
+- missing days were not fabricated as measured zero;
+- coverage information was exported.
+
+The target family review nevertheless declared the Simple Energy report **functionally unsuitable** as a handoff to the user's parents.
+
+This is not an exporter-engine failure. It is a report hierarchy/interpretation failure.
+
+The family priority questions, in order, are:
+1. how much household energy came from Enel/grid;
+2. how much household energy came directly from the panels;
+3. how much came from the battery;
+4. how often/how long the battery did not cover the night before grid was needed.
+
+Secondary conversation questions include:
+- total PV generation;
+- total house consumption regardless of source;
+- energy that could not be used, but only if measurable without fabrication.
+
+A required Page 3 must detect **patterns and events over any selected period**, including all repeated event occurrences, robust time-of-day tendencies, night behavior and evolution across longer ranges.
+
+Canonical specification:
+- `REPORTING_FAMILY_DESIGN_2026-09-26.md`.
+
+Implementation must preserve the already-proven export/preset/missing-data infrastructure while replacing the family-facing report model/presentation.
+
+Do not continue the old “open one PDF and close Phase 7” checkpoint. Phase 7 now requires the family-report redesign and a later focused real-PC readability validation.

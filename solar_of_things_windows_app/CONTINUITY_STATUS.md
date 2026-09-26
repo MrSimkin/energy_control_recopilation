@@ -852,3 +852,59 @@ Result:
 - preset re-resolves against the current saved-history endpoint instead of behaving as a fixed stale date pair: PASS.
 
 Minor localization issue remains: Spanish summary still exposes the internal aggregation label "Day".
+
+
+## Phase 7 second-reading functional clarification — 2026-09-26
+
+Real-PC Simple Energy XLSX QA produced an important split result.
+
+### Proven and retained
+
+- named relative preset persistence: PASS;
+- relative period re-resolution: PASS;
+- XLSX file generation/open in Excel: PASS;
+- `Resumen`, `Detalle`, `Calidad`, `Glosario` foundation: PASS;
+- missing periods remain blank/unmeasured rather than fabricated zero: PASS;
+- coverage data is present.
+
+### Product result
+
+Family-facing Simple Energy summary: **FAIL / redesign required**.
+
+The workbook is technically useful as a second-level/technical report, but it does not let the target older/nontechnical readers answer their actual questions at a glance.
+
+Canonical family priority:
+1. household energy from Enel/grid;
+2. household energy directly from solar;
+3. household energy from battery;
+4. count and duration of nights where battery reached normal reserve and grid was needed before sufficient solar returned.
+
+Secondary family conversation:
+- total PV generation;
+- total house consumption;
+- battery movement/context;
+- unused/curtailed solar only when genuinely measurable.
+
+Required third page:
+- patterns and events over the **selected period**, regardless of whether that period is 7 days or many months;
+- preserve all repeated event occurrences;
+- robust hourly tendencies;
+- night behavior;
+- evolution through longer selected periods;
+- observable-opportunity denominators so missing data is never treated as “event did not occur”.
+
+The full canonical clarification is:
+- `solar_of_things_windows_app/REPORTING_FAMILY_DESIGN_2026-09-26.md`.
+
+Phase 7 must no longer be closed by merely opening the existing PDF. Preserve existing exporter infrastructure and implement the clarified family report/pattern layer first.
+
+### Pending corrective tranche still batched
+
+Unrelated/non-blocking findings already recorded remain:
+- Home responsive-layout clipping at ordinary window width;
+- Battery page stale stored snapshot vs fresh Home current snapshot;
+- Ctrl+wheel zoom also scrolls parent page;
+- Home “Última descarga de datos: Nunca” after restart despite persisted historical frontier;
+- Spanish aggregation summary exposing `Day` instead of `Día`.
+
+Do not repeat already-passed historical sync/Stop/restart QA.

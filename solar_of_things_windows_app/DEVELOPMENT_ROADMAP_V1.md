@@ -489,7 +489,9 @@ Exit criterion:
 
 # Phase 7 — Saved Reports and Export
 
-Goal: provide reusable analyses and printable outputs.
+Goal: provide reusable analyses and printable outputs that explain household behavior, not merely export inverter measurements.
+
+Canonical family-report interpretation and Page 1–3 design are defined in `REPORTING_FAMILY_DESIGN_2026-09-26.md`.
 
 Implement report presets:
 
@@ -506,6 +508,13 @@ Built-in presets:
 - battery report;
 - grid/utility comparison report;
 - family operating-behavior summary that explains why grid use occurred and whether it matched the documented SOC thresholds.
+
+The Simple Energy Report must use the canonical three-page family hierarchy:
+1. grid/direct-solar/battery household contribution plus night-shortfall episodes;
+2. whole-system totals and secondary energy questions;
+3. robust patterns and all repeated event families, with complete occurrences preserved in an annex/event table when condensed.
+
+Reports operate on any selected period. Pattern detection must adapt its aggregation/granularity to the selected range and exclude unobservable periods from event-frequency denominators.
 
 Reports may use the known 1.5 kW Midea water-heater schedule as contextual household-load metadata when configured, but must not imply remote control of the heater.
 
@@ -527,7 +536,12 @@ PDF export:
 
 Exit criterion:
 
-- a report can be recreated from a saved preset and exported consistently to Excel/PDF.
+- a report can be recreated from a saved preset and exported consistently to Excel/PDF;
+- the Simple Energy Report answers the target household's priority questions without requiring technical interpretation;
+- repeated events and robust patterns are generated with coverage/observability safeguards;
+- unavailable flow-attribution or curtailment metrics are explicit rather than fabricated;
+- the technical annex remains auditable and preserves missing-data semantics;
+- final real-PC family-readability QA passes.
 
 ---
 
