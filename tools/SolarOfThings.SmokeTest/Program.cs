@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.Data.Sqlite;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Data;
@@ -530,6 +531,28 @@ try
     {
         throw new InvalidOperationException(
             "Excel report export smoke test failed.");
+    }
+
+    using (var exportedWorkbook = new XLWorkbook(xlsxPath))
+    {
+        var summarySheet = exportedWorkbook.Worksheet("Summary");
+        var detailSheet = exportedWorkbook.Worksheet("Detail");
+        var glossarySheet = exportedWorkbook.Worksheet("Glossary");
+        _ = exportedWorkbook.Worksheet("Patterns");
+        _ = exportedWorkbook.Worksheet("Events");
+        _ = exportedWorkbook.Worksheet("Evolution");
+        _ = exportedWorkbook.Worksheet("Quality");
+
+        if (summarySheet.Pictures.Count != 3 ||
+            detailSheet.LastColumnUsed()?.ColumnNumber() is < 26 ||
+            glossarySheet.LastRowUsed()?.RowNumber() is < 25 ||
+            !summarySheet.Cell("A1").GetString().StartsWith(
+                "Reporte de Uso de Energia - Tipo : ",
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Family workbook product-structure smoke test failed.");
+        }
     }
 
     if (OperatingSystem.IsWindows())
