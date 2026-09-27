@@ -281,18 +281,27 @@ public sealed class EnergyReportExportService
 
         AddFamilyReportChartsPdf(section, report, familyCharts);
 
-        var pageThree = section.AddParagraph(
-            L(report, "Página 4 — Patrones y eventos del período", "Page 4 — Patterns and events for the selected period"));
-        pageThree.Format.PageBreakBefore = true;
-        pageThree.Format.Font.Size = 15;
-        pageThree.Format.Font.Bold = true;
-        pageThree.Format.SpaceAfter = Unit.FromPoint(6);
+        var gridUsePage = section.AddParagraph(
+            L(report, "Página 4 — Uso de Enel / red", "Page 4 — Utility / grid use"));
+        gridUsePage.Format.PageBreakBefore = true;
+        gridUsePage.Format.Font.Size = 15;
+        gridUsePage.Format.Font.Bold = true;
+        gridUsePage.Format.SpaceAfter = Unit.FromPoint(6);
+
+        AddGridUsePdf(section, report);
+
+        var patternsPage = section.AddParagraph(
+            L(report, "Página 5 — Patrones y episodios nocturnos", "Page 5 — Patterns and nighttime episodes"));
+        patternsPage.Format.PageBreakBefore = true;
+        patternsPage.Format.Font.Size = 15;
+        patternsPage.Format.Font.Bold = true;
+        patternsPage.Format.SpaceAfter = Unit.FromPoint(6);
 
         AddFamilyPatternsPdf(section, report);
         AddFamilyEventsPdf(section, report);
 
         var annex = section.AddParagraph(
-            L(report, "Página 5 — Anexo técnico: calidad y glosario", "Page 5 — Technical annex: quality and glossary"));
+            L(report, "Página 6 — Anexo técnico: calidad y glosario", "Page 6 — Technical annex: quality and glossary"));
         annex.Format.PageBreakBefore = true;
         annex.Format.Font.Size = 15;
         annex.Format.Font.Bold = true;
@@ -499,6 +508,15 @@ public sealed class EnergyReportExportService
             typical.Format.SpaceBefore = Unit.FromPoint(6);
             typical.Format.SpaceAfter = Unit.FromPoint(2);
         }
+
+        var distinction = section.AddParagraph(
+            L(
+                report,
+                "Importante: estos episodios nocturnos NO son el conteo de todos los días en que la casa usó Enel. El uso total de Enel y los días con aporte mixto se resumen en la página 4.",
+                "Important: these nighttime episodes are NOT the count of every day when the home used utility power. Total utility use and mixed-source days are summarized on page 4."));
+        distinction.Format.SpaceBefore = Unit.FromPoint(5);
+        distinction.Format.Font.Bold = true;
+        distinction.Format.Font.Size = 8;
 
         var note = section.AddParagraph(
             L(
@@ -1405,8 +1423,8 @@ public sealed class EnergyReportExportService
         var sourceNote = section.AddParagraph(
             L(
                 report,
-                "Cada barra es el consumo de la casa del período y se divide sólo entre las fuentes que pudieron demostrarse. La parte “Sin atribuir” permanece separada.",
-                "Each bar is household consumption for the period, split only among sources supported by evidence. The “Unattributed” portion remains separate."));
+                "Cada barra es el consumo de la casa del período y se divide sólo entre las fuentes que pudieron demostrarse. Un segmento Enel indica aporte de Enel en ese período; no equivale automáticamente a un episodio nocturno de reserva. Si una barra contiene varias fuentes, significa que varias contribuyeron dentro del período, no necesariamente de forma simultánea. La parte “Sin atribuir” permanece separada.",
+                "Each bar is household consumption for the period, split only among sources supported by evidence. A utility segment means utility power contributed during that period; it does not automatically mean a nighttime reserve episode. If a bar contains several sources, they contributed within the period, not necessarily simultaneously. The “Unattributed” portion remains separate."));
         sourceNote.Format.Font.Size = 8;
         sourceNote.Format.Font.Italic = true;
 
