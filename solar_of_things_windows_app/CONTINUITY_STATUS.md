@@ -994,3 +994,18 @@ The next QA action is narrowly scoped:
 - inspect only `Resumen` first.
 
 Do not repeat prior sync, preset-persistence, Phase 6, or old exporter-mechanics QA.
+
+
+## Current target-PC Reporting finding — 2026-09-27
+
+Latest real XLSX inspection confirms the family `Resumen` now materially matches the approved wireframe hierarchy.
+
+Do not revert:
+- partial-summary banner;
+- three source cards;
+- prominent home consumption;
+- observable/shortfall/unknown night cards;
+- plain-language interpretation;
+- evidence-gated direct solar and battery→house placeholders.
+
+One remaining Excel-only mechanical defect was observed at the bottom of Page 2: wrapped text in merged cells overlapped because merged rows were not auto-heighted. Explicit row heights/vertical alignment were added. Next target-PC check should only confirm that the bottom of `Resumen` is now readable before moving to `Patrones`.

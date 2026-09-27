@@ -437,3 +437,31 @@ Target-PC validation should re-export the same saved `Últimos 7 días` Simple E
 - plain-language interpretation;
 - “registrado” rather than “total” wording under partial coverage;
 - no “habitual” hourly patterns when only 3 of 7 selected days contain usable observations.
+
+
+## Target-PC family Summary review — visual hierarchy substantially aligned; one Excel layout defect — 2026-09-27
+
+The corrected target-PC workbook was reviewed directly.
+
+Positive result:
+- prominent 38.9% PARTIAL SUMMARY banner is present;
+- three family source cards are present;
+- Enel/grid value is immediately visible;
+- unavailable direct-solar and battery→house answers remain visibly reserved rather than substituted;
+- recorded home consumption is prominently separated;
+- night section clearly shows:
+  - 2 observable nights without reserve+grid episode;
+  - 0 nights/episodes where the battery ran short under the current event rule;
+  - 4 complete nights without sufficient observations;
+- natural-language interpretation is present;
+- Page 2 uses “registrada/registrado” instead of pretending 38.9% coverage represents full-period totals.
+
+Remaining mechanical defect observed:
+- the final Page 2 “Solar que no pudimos aprovechar” block and following explanatory note visually overlap/cut off in Excel because wrapped text sits inside merged rows whose height is not automatically expanded.
+
+Repair:
+- explicit row heights added to both merged narrative blocks;
+- explicit vertical centering added;
+- no data/reporting semantics changed.
+
+Page 1 is now materially aligned with the approved wireframe, but final family-readability acceptance remains with the target user after the repaired build is viewed.

@@ -1050,6 +1050,10 @@ public sealed class EnergyReportExportService
         sheet.Cell(row, 1).Style.Font.Bold = true;
         sheet.Range(row, 1, row + 1, 9).Style.Fill.BackgroundColor =
             XLColor.FromHtml("#FFF2CC");
+        sheet.Range(row, 1, row + 1, 9).Style.Alignment.Vertical =
+            XLAlignmentVerticalValues.Center;
+        sheet.Row(row).Height = 26;
+        sheet.Row(row + 1).Height = 26;
 
         sheet.Range($"A{row + 3}:I{row + 5}").Merge();
         sheet.Cell($"A{row + 3}").Value =
@@ -1058,6 +1062,11 @@ public sealed class EnergyReportExportService
                 "La hoja Patrones sólo afirmará tendencias cuando haya suficientes días observables. Eventos conserva todas las ocurrencias y Calidad explica qué partes del período realmente tienen datos.",
                 "The Patterns sheet only states tendencies when enough days are observable. Events preserves every occurrence, and Quality explains which parts of the period actually contain data.");
         sheet.Cell($"A{row + 3}").Style.Font.Italic = true;
+        sheet.Range($"A{row + 3}:I{row + 5}").Style.Alignment.Vertical =
+            XLAlignmentVerticalValues.Center;
+        sheet.Row(row + 3).Height = 24;
+        sheet.Row(row + 4).Height = 24;
+        sheet.Row(row + 5).Height = 24;
     }
 
     private static void StyleFamilySection(
