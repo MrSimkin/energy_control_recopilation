@@ -219,3 +219,20 @@ PASS: safe Stop, committed-data preservation, restart persistence, persisted res
 ### Finding 5 — login/session UX
 
 Real-PC verification confirmed remembered session/credentials work: after restart the application connected without re-entering the password. The defect is UX clarity, not credential persistence. Corrective direction: never refill/display the protected password; explicitly show remembered/restored/verified state; remove DPAPI jargon from normal UI; distinguish remembering from auto-connect; add optional one-shot startup verification/current-state refresh; keep an obvious sign-out/forget action.
+
+
+## Carried-forward UI commitment before next combined build — 2026-09-27
+
+The Battery freshness/coherence finding remains **OPEN**.
+
+The current Battery page still obtains its primary display metrics from `NormalizationRepository.GetLatestMetrics(deviceId)`, while Home already prefers a fresh `CurrentHouseholdSnapshotService` snapshot when available.
+
+Next combined UI tranche must:
+- prefer fresh authenticated current snapshot for current Battery state where safe;
+- recompute derived current battery-energy cards from fresh SOC + validated thresholds;
+- prefer fresh technical voltage/current/power where available;
+- label current vs stored fallback truthfully;
+- retain stored corpus for historical calculations;
+- never silently combine current and historical values.
+
+Battery family-facing labels also require a second wording pass. Exact wording is pending user approval.

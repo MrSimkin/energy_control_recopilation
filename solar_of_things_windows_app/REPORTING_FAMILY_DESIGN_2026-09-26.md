@@ -522,3 +522,261 @@ Still evidence-gated:
 - numeric curtailed/unused solar.
 
 Those remain explicitly unavailable until their measurement/derivation path is validated.
+
+
+## 16. Consolidated full-export review decisions — 2026-09-27
+
+This section records the user's decisions after reviewing the **complete XLSX and PDF exports together**, not one sheet/page at a time.
+
+### 16.1 Report title
+
+Spanish family report title is:
+
+`Reporte de Uso de Energia - Tipo : XXXX`
+
+where `XXXX` is the saved preset name currently used to generate the report.
+
+The preset/range information may still appear as secondary metadata, but the preset name is no longer used alone as the main document title.
+
+### 16.2 Page 2 visual hierarchy
+
+Page 2 must use a visual language **similar to Page 1**, not fall back to a plain technical table.
+
+Family-facing totals such as:
+- solar generated;
+- house consumption;
+- utility/grid energy;
+- battery movement/context;
+- future measurable unused/curtailed solar;
+
+should use clearly separated cards/blocks with large values, short explanations and sensible whitespace.
+
+### 16.3 Page 3 scope
+
+Page 3 remains **Patterns and Events**.
+
+The detailed `Evolución (Día/Semana/Mes)` machine-readable table should move out of the family-facing Page 3 and into the technical annex.
+
+Page 3 should prioritize:
+- notable facts;
+- robust natural-language patterns;
+- repeated events;
+- family-readable comparisons.
+
+### 16.4 Repeated highlights
+
+For “best/worst/highest/lowest” highlights, preserve **all relevant occurrences**, not arbitrarily one occurrence.
+
+This extends the previously agreed event rule:
+- summaries may condense;
+- the underlying relevant occurrences remain visible/auditable.
+
+The exact near-tie tolerance may be defined technically, but ties/repeated qualifying highlights must not be silently collapsed to one example.
+
+### 16.5 Family night wording
+
+Preferred positive family label:
+
+`SIN PROBLEMAS DE ALIMENTACION`
+
+This replaces technical wording such as:
+- “sin episodio reserva + red”.
+
+Other states remain clearly separated, for example:
+- shortfall / reserve+grid episode;
+- insufficient observations / unknown.
+
+The detailed technical definition remains available in glossary/annex.
+
+### 16.6 Excel/PDF relationship
+
+PDF follows the same semantic hierarchy as Excel:
+
+1. family Page 1;
+2. family Page 2;
+3. family Page 3;
+4. technical annex as needed.
+
+PDF is not a different, more technical summary. It is the printable version of the same family report, optimized for page layout.
+
+### 16.7 Required charts
+
+The family report target contains **three charts**.
+
+#### Chart A — stacked columns: source of household consumption
+
+Each x-axis bucket is one report aggregation period.
+
+The full stacked column represents **total household consumption** for that bucket, split into:
+- direct solar → house;
+- battery → house;
+- configured utility/company → house (Enel for the target household).
+
+This chart is evidence-gated by validated source attribution.
+
+Until direct-solar and battery-to-house attribution is validated:
+- do not fabricate stacked components;
+- do not infer them as naive residuals;
+- the chart may be withheld/marked unavailable according to the final display decision.
+
+#### Chart B — lines: battery charge + solar production + household consumption
+
+Time-series chart with:
+- battery SOC;
+- solar production;
+- household consumption.
+
+Recommended visual axes:
+- power/energy series on the left axis according to the selected aggregation semantics;
+- battery SOC on a separate right-side percent axis.
+
+#### Chart C — lines: household consumption + each supply origin
+
+Time-series chart with:
+- total household consumption;
+- direct solar → house;
+- battery → house;
+- utility/company → house.
+
+Direct-solar and battery-to-house series share the same evidence gate as Chart A.
+
+### 16.8 Report aggregation governs charts
+
+The aggregation selected while configuring the report must govern report tables **and charts**.
+
+Examples:
+- Hour;
+- Day;
+- Week;
+- Month;
+- Year where supported/useful.
+
+No chart should silently use a different time bucketing from the configured report without an explicit, justified exception.
+
+The precise y-value semantics for grouped line charts (for example average power vs energy-per-bucket) remain an explicit design question to resolve before implementation.
+
+### 16.9 Typography
+
+Family-facing exports should use:
+
+- **Aptos Narrow** for normal text, labels, headings and explanatory copy;
+- **Aptos Mono** for numeric values.
+
+Excel may set these font names directly.
+
+PDF must not fail if the fonts are unavailable on a machine. Use a deterministic compatible fallback while preserving the intended distinction between narrow family text and monospaced numeric values.
+
+### 16.10 Visual formatting rules
+
+All exported sheets/pages require deliberate visual formatting:
+- readable row heights;
+- readable column widths;
+- wrapped text;
+- clear table headers;
+- visible hierarchy;
+- consistent number formats;
+- adequate whitespace;
+- no clipped text;
+- no overlapping merged cells.
+
+Merged cells are allowed and encouraged for family-facing narrative/card areas when they improve readability.
+
+Do **not** merge machine-processable data cells in technical tables such as:
+- `Detalle`;
+- `Eventos`;
+- `Evolución` annex tables;
+- quality/provenance tables intended for filtering/export.
+
+### 16.11 Glossary redesign
+
+The existing glossary is insufficient and must be replaced by a real report-reading guide.
+
+It must explain at minimum:
+
+#### Family concepts
+- household consumption;
+- solar production;
+- direct solar → house;
+- utility/grid / Enel;
+- battery → house;
+- battery charge/SOC;
+- stored battery energy;
+- normal reserve;
+- outage reserve;
+- observable night;
+- reserve+grid/night-shortfall event;
+- data coverage;
+- unknown/missing period;
+- pattern vs event.
+
+#### Units
+- W;
+- kW;
+- kWh;
+- % / SOC.
+
+#### Technical annex / Detail fields
+Explain what the major `Detalle` columns mean, including:
+- period;
+- start/end UTC;
+- solar/home/grid kWh;
+- battery delivered/received kWh;
+- SOC average/min/max/end;
+- per-metric coverage;
+- minimum coverage.
+
+The glossary must also explain important interpretation limits:
+- missing is not zero;
+- battery discharged energy is not automatically equal to battery→house;
+- total PV generation is not the same as direct PV→house;
+- unused/curtailed solar is not currently measurable as a naive residual.
+
+### 16.12 Data-completeness gate for next manual report acceptance
+
+The 38.9% corpus has now adequately tested:
+- partial-data warnings;
+- unknown-vs-zero behavior;
+- suppression of weak patterns.
+
+Before the **next human semantic/readability acceptance** of Reporting, complete the historical capture/backfill (or otherwise use a genuinely well-covered selected period).
+
+Development/CI remains independent of backfill, but judging:
+- patterns;
+- events;
+- evolution;
+- chart usefulness;
+- family conclusions;
+
+against a 38.9% corpus is no longer the preferred acceptance path.
+
+### 16.13 Cross-page live Battery commitment
+
+The previously recorded Phase 6 freshness finding remains active and is explicitly carried into the next combined UI tranche.
+
+Current implementation still reads Battery page primary metrics from the latest locally normalized/stored samples.
+
+When a fresh authenticated `CurrentHouseholdSnapshotService` snapshot exists, Battery should prefer current data for **current-state fields**, including where supportable:
+- battery SOC;
+- estimated stored energy derived from current SOC;
+- normal-use energy remaining derived from current SOC and validated thresholds;
+- outage/emergency reserve remaining derived from current SOC and validated thresholds;
+- current battery activity;
+- current technical battery voltage/current/power;
+- displayed last/current reading timestamp.
+
+Historical energy/statistical calculations remain tied to the stored validated corpus.
+
+Never silently mix live/current and historical values without labels.
+
+### 16.14 Battery family terminology requires a second pass
+
+Current Spanish labels such as:
+- `Carga actual`;
+- `Energía almacenada (estimada)`;
+- `Disponible antes de usar la red (estimado)`;
+- `Reserva para cortes`;
+- `Reserva mínima protegida`;
+
+must be reviewed for clearer parent-facing language in the next UI tranche.
+
+Exact replacement wording is still an explicit user decision before implementation.

@@ -488,3 +488,30 @@ Portable:
 - run `https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36281821463`.
 
 This artifact supersedes `10919445323` only to repair the Excel merged-row overlap at the bottom of `Resumen`. No report semantics changed.
+
+
+## Full XLSX + PDF product review decisions — 2026-09-27
+
+The user explicitly requested that future QA treat the supplied XLSX/PDF as **whole artifacts** and batch all issues discoverable from those artifacts before asking for another target-PC build.
+
+Do not return to one-cell/one-page build cycles for export-only layout/content defects that can be inspected from the provided files.
+
+Canonical decisions are now recorded in `REPORTING_FAMILY_DESIGN_2026-09-26.md` §16:
+- title = `Reporte de Uso de Energia - Tipo : XXXX`;
+- Page 2 should visually resemble Page 1;
+- Page 3 remains family patterns/events; evolution table moves to annex;
+- preserve all relevant repeated highlights;
+- positive night label = `SIN PROBLEMAS DE ALIMENTACION`;
+- PDF mirrors Excel family hierarchy;
+- three required charts;
+- configured aggregation governs charts;
+- Aptos Narrow for text + Aptos Mono for values;
+- full visual-formatting pass across every sheet/page;
+- glossary becomes a real reading guide including Detail fields;
+- next manual semantic QA should use completed/high-coverage historical data.
+
+Two chart implementation questions remain open:
+1. grouped line-series y-value semantics under Day/Week/Month aggregation;
+2. whether evidence-gated source-attribution charts are hidden entirely or rendered as explicitly unavailable until attribution exists.
+
+Do not implement another Reporting tranche until those two choices are resolved.

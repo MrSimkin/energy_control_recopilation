@@ -1024,3 +1024,38 @@ Next manual check:
 - inspect only the bottom of `Resumen` and confirm that “Solar que no pudimos aprovechar” and the final Patterns/Events/Quality note no longer overlap.
 
 After that, proceed to `Patrones`; do not repeat earlier checks.
+
+
+## Consolidated export-review decisions + carried Phase 6 commitments — 2026-09-27
+
+The complete XLSX and 3-page PDF were reviewed as whole artifacts.
+
+Canonical product decisions were appended to `REPORTING_FAMILY_DESIGN_2026-09-26.md` §16.
+
+Key locked decisions:
+- main title `Reporte de Uso de Energia - Tipo : <preset>`;
+- Page 2 visually similar to Page 1;
+- Page 3 family patterns/events; evolution table moves to technical annex;
+- all relevant repeated highlights retained;
+- positive night label `SIN PROBLEMAS DE ALIMENTACION`;
+- PDF mirrors Excel hierarchy;
+- 3 target charts:
+  1. stacked household-consumption sources;
+  2. battery SOC + PV + household use;
+  3. household use + each supply origin;
+- report aggregation governs charts;
+- Aptos Narrow text / Aptos Mono values;
+- glossary must become a full reading guide including Detail columns;
+- full visual-formatting pass across every family/technical sheet;
+- next manual semantic Reporting acceptance should use completed/high-coverage backfill rather than the current 38.9% corpus.
+
+Still open before implementation:
+- grouped line-chart y-value semantics under non-hourly aggregation;
+- hidden vs explicit-unavailable behavior for charts blocked by unvalidated source attribution;
+- exact parent-facing replacement labels on Battery.
+
+Important carried Phase 6 finding:
+- Battery page still uses stored normalized metrics while Home can show fresh current metrics;
+- next combined build must make current Battery state Live/fresh where safe and clearly labelled, while historical calculations remain stored-corpus based.
+
+Do not ask the user for another portable QA until the consolidated tranche is implemented and CI green.
