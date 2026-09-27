@@ -1001,3 +1001,32 @@ This independently supports:
 - 60-second client polling as detection-latency reduction;
 - keeping source-frame time visible;
 - not presenting repeated cloud frames as new measurements.
+
+
+---
+
+## 24. Config-batch lifecycle fix validated — Build 309 — 2026-09-27
+
+Code checkpoint:
+- `bd14dc7d198fe3e62ed2f0b0d79ac4505f79cd36`;
+- Windows Build 309 / run `36292792063`;
+- artifact `10922976498`.
+
+The direct-config probe now:
+- honors explicit `isFinished=false`;
+- polls details once per second for up to 60 seconds;
+- stops only on completion, API failure, cancellation or timeout;
+- returns WARN on timeout rather than a false success;
+- preserves all details responses;
+- runs config-cache capture after the direct batch read in the one-click diagnostic.
+
+The Build 308 evidence remains:
+- cache `{}` POST succeeds but returned empty data before batch completion;
+- batch start succeeds;
+- first details response was explicitly unfinished.
+
+The next ZIP is expected to answer whether:
+1. targetConfig becomes populated on completion;
+2. configAttributeStates receives actual device values;
+3. the post-read cache becomes populated;
+4. any returned configuration fields clarify the observed possible Grid→Battery maintenance behavior.
