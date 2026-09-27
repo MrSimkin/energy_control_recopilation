@@ -1403,12 +1403,42 @@ public partial class MainWindow : Window
         AnalysisUnknownTimeText.Text = "—";
     }
 
-    private void Navigation_Click(object sender, RoutedEventArgs e)
+    private async void Navigation_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.Tag is string pageKey)
+        if (sender is not Button button ||
+            button.Tag is not string pageKey)
         {
-            ShowPage(pageKey);
+            return;
         }
+
+        ShowPage(pageKey);
+
+        if (!string.Equals(
+                pageKey,
+                "Battery",
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null || !_session.HasSession)
+        {
+            return;
+        }
+
+        var current = _services
+            .GetRequiredService<CurrentHouseholdSnapshotService>()
+            .GetLatest(profile.DeviceId);
+
+        if (current?.IsFresh == true)
+        {
+            return;
+        }
+
+        await RefreshCurrentStateAsync(
+            profile,
+            showError: false);
     }
 
     private void ShowPage(string pageKey)
