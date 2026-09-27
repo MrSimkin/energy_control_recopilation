@@ -36,4 +36,5 @@ public sealed record EnergyReportData(
     EnergyAggregationTable Table,
     FamilyReportAnalysis Family,
     SourceAttributionReport Attribution,
+    SourceAttributionReport DailyAttribution,
     DateTimeOffset GeneratedUtc);
