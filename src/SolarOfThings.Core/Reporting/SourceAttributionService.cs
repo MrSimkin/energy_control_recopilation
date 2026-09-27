@@ -512,54 +512,59 @@ public sealed class SourceAttributionService
 
         if (!batteryDischarging)
         {
-            // Candidate 1: grid supplies the house; PV can charge battery or be curtailed.
             var gridCanSupplyHouse = grid + tolerance >= house;
+
             if (gridCanSupplyHouse)
             {
-                var likelyRecovery =
-                    frame.SocPercent.HasValue &&
-                    frame.ReturnToBatterySocPercent.HasValue &&
-                    frame.SocPercent.Value <
-                    frame.ReturnToBatterySocPercent.Value + 1.0;
+                if (pv < 100)
+                {
+                    return AttributionFrame.Resolved(
+                        0,
+                        0,
+                        house,
+                        balanceResidualPercent,
+                        "GRID_ONLY_PHYSICAL",
+                        false);
+                }
 
-                var confidence =
-                    likelyRecovery || batteryCharging
-                        ? "GRID_RECOVERY_PHYSICAL"
-                        : "GRID_SUPPLY_PHYSICAL";
+                if (explicitSbu && explicitOso && explicitNoPvToLoadInAc)
+                {
+                    return AttributionFrame.Resolved(
+                        0,
+                        0,
+                        house,
+                        balanceResidualPercent,
+                        "EXPLICIT_SBU_GRID_MODE",
+                        true);
+                }
 
-                return AttributionFrame.Resolved(
-                    0,
-                    0,
-                    house,
-                    balanceResidualPercent,
-                    confidence,
-                    false);
+                return AttributionFrame.Unresolved(
+                    "GRID_ACTIVE_PV_PRESENT_ALLOCATION_AMBIGUOUS",
+                    frame,
+                    balanceResidualPercent);
             }
 
-            // Candidate 2: grid and PV jointly cover the load.
             var gridToHouse = Math.Clamp(grid, 0, house);
             var solarNeeded = house - gridToHouse;
 
             if (pv + tolerance >= solarNeeded)
             {
-                if (batteryCharging)
+                if (batteryCharging && !explicitOso)
                 {
-                    var pvAvailableAfterHouse =
-                        Math.Max(0, pv - solarNeeded);
-                    var gridAvailableAfterHouse =
-                        Math.Max(0, grid - gridToHouse);
-                    var bothChargingSourcesPlausible =
-                        pvAvailableAfterHouse + tolerance >= charge &&
-                        gridAvailableAfterHouse + tolerance >= charge;
+                    return AttributionFrame.Unresolved(
+                        "GRID_SOLAR_CHARGE_SOURCE_AMBIGUOUS",
+                        frame,
+                        balanceResidualPercent);
+                }
 
-                    if (bothChargingSourcesPlausible &&
-                        !explicitOso)
-                    {
-                        return AttributionFrame.Unresolved(
-                            "GRID_SOLAR_CHARGE_SOURCE_AMBIGUOUS",
-                            frame,
-                            balanceResidualPercent);
-                    }
+                if (batteryCharging &&
+                    explicitOso &&
+                    pv + tolerance < solarNeeded + charge)
+                {
+                    return AttributionFrame.Unresolved(
+                        "OSO_PV_INSUFFICIENT_FOR_HOUSE_AND_CHARGE",
+                        frame,
+                        balanceResidualPercent);
                 }
 
                 return AttributionFrame.Resolved(
@@ -567,8 +572,10 @@ public sealed class SourceAttributionService
                     0,
                     gridToHouse,
                     balanceResidualPercent,
-                    "GRID_PLUS_SOLAR_PHYSICAL",
-                    false);
+                    explicitOso
+                        ? "GRID_PLUS_SOLAR_EXPLICIT_OSO"
+                        : "GRID_PLUS_SOLAR_PHYSICAL",
+                    explicitOso);
             }
 
             return AttributionFrame.Unresolved(
