@@ -7,5 +7,6 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <PackageReference Include="ClosedXML" />
     <PackageReference Include="PDFsharp-MigraDoc" />
+    <PackageReference Include="ScottPlot" />
   </ItemGroup>
 </Project>
