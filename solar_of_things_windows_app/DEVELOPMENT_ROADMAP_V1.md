@@ -870,3 +870,31 @@ Features that should not delay v1 core:
 - machine-learning forecasting.
 
 They can be reconsidered only if the user later changes scope.
+
+
+## Phase 7 implementation checkpoint — 2026-09-27
+
+Current state:
+- reusable report presets: implemented;
+- Simple / Detailed / Battery report types: implemented;
+- Excel export: implemented;
+- PDF export: implemented;
+- dynamic household-source attribution: implemented with conservative evidence gating;
+- Page 1 family source questions: populated from the attribution engine;
+- Page 2 family hierarchy: implemented;
+- Page 3 robust patterns + event summary: implemented;
+- complete event/night evidence: retained;
+- three family charts governed by selected report aggregation: implemented;
+- Evolution annex: implemented;
+- expanded Detail/Quality/Glossary: implemented;
+- Battery Live cross-page freshness requirement: implemented;
+- deterministic product smoke for source attribution and family workbook structure: implemented and green.
+
+Latest green code checkpoint before documentation-only update:
+- `41a3b6da4877ab4df9c229095bb7f445f9aef136`;
+- Windows Build 305 / `36288909496`;
+- artifact `10920998947`.
+
+Phase 7 exit is **not yet declared** because the final target-PC family-readability/semantic acceptance still needs one consolidated XLSX+PDF review on a genuinely high-coverage period.
+
+Utility-meter reconciliation and tariff/financial reporting remain Phase 8/9 work and must not be fabricated inside Phase 7.

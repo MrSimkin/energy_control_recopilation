@@ -1231,3 +1231,97 @@ Family labels were revised:
 - Nivel mínimo protegido de la batería.
 
 The protected minimum remains visible and its explanatory copy now states that it is the lower level the system tries not to cross to protect the battery, especially during outages/exceptional operation.
+
+
+## Consolidated attribution + family-report + Battery Live checkpoint — CI GREEN — 2026-09-27
+
+Authoritative code checkpoint before this documentation-only update:
+- HEAD: `41a3b6da4877ab4df9c229095bb7f445f9aef136`;
+- Windows Build run: 305 / `36288909496`;
+- restore: PASS;
+- build: PASS;
+- SQLite + deterministic reporting/source-attribution smoke: PASS;
+- XLSX generation/product-structure checks: PASS;
+- PDF generation: PASS;
+- self-contained win-x64 publish/upload: PASS.
+
+Portable artifact:
+- `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10920998947`;
+- size: 78,678,970 bytes;
+- SHA-256: `27b9ec92fede8a8dc9a13954d8f6c1c67ea440670ef3828ff1c8a35cc0e3e975`;
+- expires: 2026-12-26;
+- run: `https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36288909496`.
+
+### What is now implemented
+
+**Dynamic household source attribution**
+- `SourceAttributionService` / rule `hpvinv02.source-attribution.v1`;
+- per selected aggregation bucket:
+  - Solar → House kWh;
+  - Battery → House kWh;
+  - Grid/Enel → House kWh;
+  - observed household energy left unattributed;
+  - attribution coverage of observed household energy;
+  - observed-time coverage;
+  - ending SOC;
+  - estimated stored battery kWh from configured usable capacity × ending SOC;
+  - mean/max absolute balance residual diagnostics;
+- as-of historical SOC configuration is used where available;
+- current SBU/OSO/LBU snapshot evidence is used only from timestamps where it actually exists;
+- ambiguous historical grid+solar frames remain unattributed instead of forcing a split;
+- unresolved negative grid-sign semantics remain unresolved and are not clamped into false import;
+- source components do not absorb a residual merely to make the balance close.
+
+**Family Simple Energy export**
+- title now uses `Reporte de Uso de Energia - Tipo : <preset/title>`;
+- Page 1 cards use actual attribution for:
+  - Enel/Grid → House;
+  - Solar → House;
+  - Battery → House;
+- positive night wording is `SIN PROBLEMAS DE ALIMENTACION`;
+- Page 2 uses family-style metric cards instead of a plain technical table;
+- three report charts are rendered with the report's selected aggregation:
+  1. stacked household consumption by source;
+  2. solar production, household consumption and estimated stored battery energy;
+  3. household consumption together with Solar→House, Battery→House and Enel→House;
+- unresolved household source energy remains explicitly visible as `Sin atribuir`;
+- `Patrones` is family-facing and includes a concise event summary;
+- `Evolución` is a separate technical annex sheet;
+- `Eventos` omits an empty event table and gives a plain-language no-event message when appropriate;
+- `Detalle` now includes source-attribution, estimated stored battery and balance-residual columns;
+- `Calidad` explains coverage, attribution, observability and balance residuals;
+- `Glosario` is now a real reading guide, including family concepts, units, Detail columns and interpretation limits;
+- workbook product smoke verifies:
+  - 3 embedded charts;
+  - the Evolution sheet;
+  - >=26 Detail columns;
+  - expanded glossary;
+  - family title prefix.
+
+**Typography/readability**
+- Excel text: Aptos Narrow;
+- Excel numeric values: Aptos Mono, including family-card values;
+- explicit row heights added to family cards, night cards, section headers, Quality and Glossary;
+- PDF mirrors the same family hierarchy and charts;
+- PDF prefers Aptos-family fonts when safely resolvable and uses deterministic PDF-safe fallbacks without breaking export.
+
+**Battery Live**
+- current snapshot now promotes SOC, battery voltage, charge current, discharge current and derived current battery power;
+- Battery page uses one coherent fresh current snapshot when available;
+- if no fresh current snapshot exists, the whole current-state block falls back to stored normalized data and labels it as stored;
+- entering the Battery page while authenticated triggers a read-only current-state refresh when the existing snapshot is stale;
+- family labels were rewritten and the protected minimum remains visible with a plain-language explanation.
+
+**Debug**
+- investigation ZIP now includes source-attribution summary and daily attribution evidence across the available normalized history, in addition to the raw power-balance evidence.
+
+### Status after this tranche
+
+Phase 7 remains **IN PROGRESS**, not because the export mechanics are missing, but because final human family-readability/semantic acceptance should now be performed once against a genuinely high-coverage selected period.
+
+Do **not** ask for another micro-fix test. The next target-PC Reporting validation should be consolidated:
+1. use the new portable;
+2. use a completed/high-coverage period;
+3. export both XLSX and PDF;
+4. review the complete artifacts in one pass.

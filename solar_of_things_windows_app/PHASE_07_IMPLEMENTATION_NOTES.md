@@ -542,3 +542,43 @@ Reporting implications:
 
 Next DB evidence step:
 - inspect all keys/values present in the 12 saved LatestStateSnapshot JSON objects.
+
+
+## Consolidated source-attribution / family-export tranche — CI GREEN — 2026-09-27
+
+This section supersedes the earlier notes that described source attribution and chart decisions as still open.
+
+Green implementation checkpoint:
+- code HEAD `41a3b6da4877ab4df9c229095bb7f445f9aef136`;
+- Windows Build 305 / `36288909496`;
+- all build, deterministic smoke, XLSX, PDF and portable-publish steps PASS;
+- artifact `10920998947`;
+- SHA-256 `27b9ec92fede8a8dc9a13954d8f6c1c67ea440670ef3828ff1c8a35cc0e3e975`.
+
+Implemented:
+- evidence-gated dynamic Solar→House / Battery→House / Enel→House attribution;
+- explicit `Sin atribuir` energy and attribution coverage;
+- as-of historical threshold context;
+- conservative handling of ambiguous grid+solar history;
+- unresolved negative grid sign remains unresolved;
+- three embedded family charts in Excel and equivalent charts in PDF;
+- report aggregation controls chart buckets;
+- estimated stored battery energy uses configured usable capacity × SOC and remains labeled as an estimate;
+- Page 2 redesigned as family cards;
+- Page 3 retains patterns plus event summary;
+- evolution moved to its own annex sheet;
+- Detail expanded to source attribution + balance diagnostics;
+- Quality and Glossary substantially expanded;
+- full family workbook product smoke added;
+- Aptos Narrow/Aptos Mono Excel typography plus PDF-safe fallbacks;
+- Battery current-state page now refreshes and prefers coherent Live state.
+
+Resolved chart semantics:
+- charts use **energy per selected bucket (kWh)** for household/source/solar series;
+- the battery stored-energy line uses **estimated kWh at bucket end**;
+- unknown data is a gap/unavailable state, not a measured zero;
+- unresolved source attribution is represented as `Sin atribuir`, not silently allocated to a source.
+
+Remaining Phase 7 acceptance:
+- one consolidated target-PC review of the complete XLSX and PDF against a high-coverage period;
+- batch any defects discoverable from those artifacts before asking for another manual build.

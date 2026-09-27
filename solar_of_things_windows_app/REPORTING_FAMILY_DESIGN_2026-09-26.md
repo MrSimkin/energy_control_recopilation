@@ -653,7 +653,11 @@ Examples:
 
 No chart should silently use a different time bucketing from the configured report without an explicit, justified exception.
 
-The precise y-value semantics for grouped line charts (for example average power vs energy-per-bucket) remain an explicit design question to resolve before implementation.
+Resolved implementation rule:
+- household/source/solar report series use **energy per selected aggregation bucket (kWh)**;
+- the battery stored-energy series uses **estimated stored kWh at bucket end**;
+- charts never substitute average power when the report is configured as an energy report;
+- unknown buckets remain gaps/unavailable rather than measured zero.
 
 ### 16.9 Typography
 
@@ -799,3 +803,70 @@ Locked additions:
 Do not use today's 20/10/50 family policy as a blanket retrospective assumption.
 
 The completed backfill should be used for the next semantic QA after the consolidated attribution/reporting tranche.
+
+
+## 18. Implemented reporting decisions — 2026-09-27
+
+The previously open chart/source-attribution decisions are now resolved and implemented.
+
+### 18.1 Source attribution
+
+Family Page 1 and family charts use `SourceAttributionService`:
+- Solar → House;
+- Battery → House;
+- Enel/Grid → House;
+- Unattributed household energy.
+
+The system is deliberately conservative:
+- current SBU/OSO/LBU evidence is time-scoped;
+- historical threshold changes use as-of context where available;
+- old grid+solar frames with more than one physically plausible allocation remain unattributed;
+- negative grid-sign semantics that are not validated remain unresolved;
+- residual balance is diagnostic and is never distributed merely to make the equation close.
+
+### 18.2 Required charts
+
+The Simple Energy Report now contains three charts, using the report's selected aggregation:
+1. stacked household consumption by source — Solar, Battery, Enel and Unattributed;
+2. solar produced, household consumption and estimated stored battery energy;
+3. household consumption plus Solar→House, Battery→House and Enel→House.
+
+The stored battery-energy line is:
+- configured usable battery capacity × ending SOC;
+- expressed in kWh;
+- explicitly labeled as an estimate.
+
+### 18.3 Excel/PDF hierarchy
+
+Excel:
+- Page 1 and Page 2 use family card hierarchy;
+- embedded chart images preserve the intended product layout even though ClosedXML does not provide reliable native chart creation;
+- Patrones stays family-facing;
+- Eventos preserves full occurrence/night evidence;
+- Evolución is a separate annex;
+- Detalle, Calidad and Glosario remain technical/auditable.
+
+PDF:
+- mirrors the same family hierarchy and chart semantics;
+- uses deterministic font fallbacks so export cannot fail solely because Aptos is unavailable.
+
+### 18.4 Typography
+
+Implemented:
+- Excel family/body text: Aptos Narrow;
+- Excel values/numerics: Aptos Mono;
+- PDF prefers the corresponding Aptos family when resolvable and otherwise uses PDF-safe system fallbacks.
+
+### 18.5 Cross-page Battery Live
+
+The Battery page now satisfies the current-state commitment:
+- entering Battery with an authenticated session refreshes current state if the cached snapshot is stale;
+- one coherent fresh snapshot supplies current SOC/voltage/currents/power;
+- stored normalized values are used only as an explicitly labeled whole-block fallback;
+- no silent mixing of current and stale primary battery values.
+
+### 18.6 Next acceptance rule
+
+The next manual acceptance is **one consolidated XLSX + PDF review using a high-coverage period**.
+
+Do not return to one-cell / one-layout-fix manual build cycles. Inspect the complete exported artifacts, batch all defects detectable without new evidence, then create a single corrective tranche if needed.

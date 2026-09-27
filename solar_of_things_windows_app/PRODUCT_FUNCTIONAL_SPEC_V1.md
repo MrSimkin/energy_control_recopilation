@@ -1555,3 +1555,34 @@ Current/latest EnergyFlow and remote configuration surfaces are not substitutes 
 
 See:
 - `SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md`.
+
+
+## 48. Implemented dynamic household-source attribution — 2026-09-27
+
+The target implementation now includes an evidence-gated household-source attribution engine.
+
+For every selected report bucket it may derive:
+- Solar → House kWh;
+- Battery → House kWh;
+- Enel/Grid → House kWh;
+- household energy left unattributed;
+- attribution coverage;
+- balance-residual diagnostics.
+
+Product correctness rules:
+- attribution is not required to sum to all observed household energy if the evidence is ambiguous;
+- the remainder is shown as `Sin atribuir`;
+- current SBU/OSO/LBU is not projected backwards through history;
+- historical configuration transitions are applied as-of where captured;
+- negative grid-sign semantics stay unresolved until validated;
+- total battery discharge is not automatically Battery → House;
+- total PV production is not automatically Solar → House;
+- total grid import is distinct from Enel/Grid → House;
+- unused/curtailed solar remains unavailable unless directly supportable.
+
+Report chart semantics are now fixed:
+- energy series = kWh per user-selected report bucket;
+- stored battery series = estimated kWh at bucket end;
+- the selected Hour/Day/Week/Month/Year aggregation governs charts and report tables consistently.
+
+The Simple Energy family report now uses this attribution on its first page and exposes provenance/coverage in the technical annex.
