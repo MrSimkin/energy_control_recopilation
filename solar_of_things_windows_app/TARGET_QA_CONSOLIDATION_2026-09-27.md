@@ -337,3 +337,51 @@ After reviewing it, decide whether:
 - any source-attribution rule needs revision.
 
 Do not request Navicat queries unless the new Debug bundle still lacks evidence that cannot reasonably be captured in-app.
+
+
+---
+
+## 11. Build 310 supersedes the Build 309 evidence gate
+
+The previously documented next action for Build 309 is superseded.
+
+Current target diagnostic build:
+- HEAD: `1f942ad2435a2835ab78eea471b3b8f8f40aacda`;
+- Windows Build 310 / run `36343560419`;
+- artifact `10939387805`;
+- SHA-256 `0975d5ccdcae0e65a1f85c4fd88ed69043f3a5c69b20a9f1750ab5ddeb49661c`;
+- CI: GREEN.
+
+Reason for superseding Build 309:
+- before accepting the ~8% family-report household-source remainder as irreducibly unattributable, the earlier API research showed that broader historical read surfaces and aliases had not been exhausted;
+- Build 310 captures representative full-day evidence from those surfaces without changing attribution logic.
+
+The exhaustive Debug run now samples up to four evidence-driven days and captures:
+- full commissioned attribute catalog + additional priority/mode/flow/power aliases through selected-key history;
+- simple record-list v1;
+- full record-list v1/v2;
+- non-simple keys/history;
+- daily generated-energy aggregates;
+- current gather metadata and alternate remote latest state;
+- current LatestState, EnergyFlow and config-read evidence already present in the complete diagnostic flow.
+
+The ZIP additionally contains:
+- a structural JSON-path inventory to expose fields not previously normalized;
+- complete sanitized raw research payloads;
+- a client-poll vs actual source-frame cadence dataset.
+
+Home automatic checks are now 150 seconds rather than 60 seconds. This is an interim measured-cadence choice, not a claim that SiSeLi frames are exactly five minutes apart.
+
+The source-attribution engine is intentionally unchanged in Build 310.
+
+### Single next target action
+
+1. use artifact `10939387805`;
+2. reuse the existing portable `Data\` folder;
+3. allow Home to make several 150-second checks if convenient;
+4. run **Ejecutar diagnóstico exhaustivo + paquete**;
+5. return the resulting investigation ZIP.
+
+An `Actualizar datos` run is optional for evidence collection, but useful to validate the new clearer three-stage UX.
+
+Do not request another family XLSX/PDF for this gate.

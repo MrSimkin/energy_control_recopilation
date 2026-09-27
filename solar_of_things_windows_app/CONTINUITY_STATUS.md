@@ -1508,3 +1508,77 @@ It consolidates:
 - the single next target action.
 
 For new-chat recovery, read that document after this continuity file instead of reconstructing the QA from chat history.
+
+
+## Exhaustive investigation + Live/update UX build — GREEN — 2026-09-27
+
+Validated code checkpoint:
+- HEAD: `1f942ad2435a2835ab78eea471b3b8f8f40aacda`;
+- Windows Build 310 / run `36343560419`;
+- restore PASS;
+- build PASS;
+- SQLite/reporting/source-attribution smoke PASS;
+- self-contained win-x64 publish PASS;
+- artifact upload PASS.
+
+Portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10939387805`;
+- size: 78,698,067 bytes;
+- SHA-256: `0975d5ccdcae0e65a1f85c4fd88ed69043f3a5c69b20a9f1750ab5ddeb49661c`;
+- expires: 2026-12-26;
+- run: `https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36343560419`.
+
+Purpose of Build 310:
+- supersedes Build 309 as the next target-PC test;
+- does **not** change `SourceAttributionService` rules;
+- turns complete Debug into an exhaustive read-only evidence capture intended to discover historical/current fields that may help reduce currently unattributed household-source energy.
+
+New Debug research capture:
+- preserves a research manifest and full sanitized raw request/response evidence;
+- chooses up to four representative local days from the existing corpus:
+  - latest available data;
+  - strict possible Grid→Battery candidate;
+  - simultaneous mixed-source frame;
+  - detected historical battery-return configuration change;
+- probes, read-only:
+  - live gather-attribute metadata;
+  - alternate remote latest-state surface;
+  - selected-key history with the full commissioned catalog plus research aliases;
+  - simple record-list v1;
+  - full record-list v1;
+  - full record-list v2;
+  - non-simple keys/history;
+  - daily generated-energy aggregate;
+- successful and unsuccessful responses are both retained as evidence;
+- no write/config mutation, cache clear, restart, passthrough or fast-report control is used.
+
+Bundle additions:
+- live source-frame cadence CSV + summary;
+- latest research-run capture inventory;
+- normalized JSON-path/field inventory across research requests/responses;
+- complete sanitized raw research request/response files for the latest run.
+
+Home Live:
+- automatic check interval changed from 60 s to **150 s (2.5 min)**;
+- the progress line now represents the 150-second client-check cycle;
+- bundle cadence analysis separates client poll timestamps from actual inverter/cloud source-frame timestamps so future cadence can be chosen from measured evidence rather than assuming exactly five minutes.
+
+Update Data UX:
+- explicit three-stage presentation:
+  1. current-state preparation;
+  2. historical download with day/frame/sample progress;
+  3. local normalization/context processing;
+- clear terminal states for success, safe stop, warning and error;
+- final status remains visible and includes the latest locally saved data timestamp;
+- already-downloaded data remains preserved on Stop.
+
+Next target action:
+1. use Build 310 artifact `10939387805`;
+2. copy the existing portable `Data\` folder as usual;
+3. observe Home Live long enough to collect several 150-second checks / more than one real source frame if convenient;
+4. optionally exercise `Actualizar datos` once to review the clarified UX;
+5. run **Ayuda técnica → Abrir diagnóstico técnico → Ejecutar diagnóstico exhaustivo + paquete**;
+6. return the new investigation ZIP.
+
+Do not re-export XLSX/PDF and do not alter source-attribution rules until this new evidence is reviewed.
