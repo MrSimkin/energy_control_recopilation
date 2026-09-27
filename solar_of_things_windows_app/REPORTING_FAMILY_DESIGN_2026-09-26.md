@@ -870,3 +870,27 @@ The Battery page now satisfies the current-state commitment:
 The next manual acceptance is **one consolidated XLSX + PDF review using a high-coverage period**.
 
 Do not return to one-cell / one-layout-fix manual build cycles. Inspect the complete exported artifacts, batch all defects detectable without new evidence, then create a single corrective tranche if needed.
+
+
+## 19. High-coverage family-report acceptance checkpoint — 2026-09-27
+
+Canonical reviewed-artifact summary:
+- `TARGET_QA_CONSOLIDATION_2026-09-27.md`.
+
+The 7-day high-coverage target export validated the intended family semantics:
+- three source-answer cards populated;
+- three charts present;
+- `Sin atribuir` remains explicit;
+- chart grouping follows the report grouping;
+- estimated stored-battery line uses kWh;
+- Page 2 family hierarchy is usable;
+- Page 3 patterns are supportable with 7/7 valid days;
+- technical annex exposes coverage and source-attribution limits.
+
+The artifact set exposed only two report-layout/label defects:
+- Patrones merged-row overlap;
+- reserve+grid duration mislabeled as total observed time.
+
+Both were corrected in the next consolidated build.
+
+No additional report-design decision is required before the next Debug-only target evidence pass.

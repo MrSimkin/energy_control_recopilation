@@ -582,3 +582,33 @@ Resolved chart semantics:
 Remaining Phase 7 acceptance:
 - one consolidated target-PC review of the complete XLSX and PDF against a high-coverage period;
 - batch any defects discoverable from those artifacts before asking for another manual build.
+
+
+## High-coverage target QA — consolidated evidence pointer — 2026-09-27
+
+Canonical full evidence:
+- `TARGET_QA_CONSOLIDATION_2026-09-27.md`.
+
+Phase 7 report acceptance checkpoint:
+- selected 7-day corpus reached 99.7% metric coverage;
+- source attribution covered 92.0% of observed household energy;
+- three required charts were present and coherent;
+- Page 1 source values were:
+  - Enel→House 24.27 kWh;
+  - Solar→House 40.88 kWh;
+  - Battery→House 44.56 kWh;
+- Page 2 totals were:
+  - PV 77.32 kWh;
+  - House 119.24 kWh;
+  - Grid import 39.65 kWh;
+  - Battery discharged 50.38 kWh;
+  - Battery charged 39.62 kWh;
+- 6/6 nights were observable and no reserve+grid shortfall episode met the current evidence threshold.
+
+The two concrete report defects found in that artifact set were already folded into the Build-308/309 line:
+- Excel Patrones merged-row overlap;
+- PDF reserve+grid duration mislabeled as total observed time.
+
+No XLSX/PDF re-export is required solely for the config-batch lifecycle fix.
+
+Next evidence gate is the Build-309 Debug ZIP only.

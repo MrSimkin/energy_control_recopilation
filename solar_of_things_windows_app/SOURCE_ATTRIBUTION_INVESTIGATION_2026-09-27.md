@@ -1030,3 +1030,26 @@ The next ZIP is expected to answer whether:
 2. configAttributeStates receives actual device values;
 3. the post-read cache becomes populated;
 4. any returned configuration fields clarify the observed possible Grid→Battery maintenance behavior.
+
+
+---
+
+## 25. Canonical QA consolidation pointer — 2026-09-27
+
+Full target evidence and build lineage are consolidated in:
+
+`TARGET_QA_CONSOLIDATION_2026-09-27.md`
+
+Key source-attribution checkpoints preserved there:
+- 7-day attribution coverage: 92.0%;
+- full-history attribution coverage of observed energy: 92.456%;
+- repeated strict possible Grid→Battery candidate detector:
+  - 4,802 frames;
+  - 399.076 h contiguous candidate duration;
+  - 375.011 kWh derived battery charge;
+  - 362.388 kWh Grid-minus-House surplus;
+- repeated structured EnergyFlow snapshots are physically consistent with small utility-supported battery charging/maintenance while in Mains Mode, despite OSO being configured.
+
+This remains diagnostic rather than billing-grade.
+
+The next source-attribution evidence gate is the Build-309 complete Debug ZIP after the direct config batch has had up to 60 seconds to finish.

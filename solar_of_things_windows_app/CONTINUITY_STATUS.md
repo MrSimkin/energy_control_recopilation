@@ -1487,3 +1487,24 @@ Next manual test:
 - verify the four 60-second progress lines;
 - run only complete Debug;
 - return the new investigation ZIP.
+
+
+## Canonical target QA consolidation document — 2026-09-27
+
+A dedicated canonical recovery document now exists:
+
+`TARGET_QA_CONSOLIDATION_2026-09-27.md`
+
+It consolidates:
+- exact reviewed target artifacts;
+- accepted 7-day report metrics;
+- visual/product QA result;
+- structured EnergyFlow evidence;
+- repeated possible Grid→Battery maintenance candidates;
+- full-history source-attribution checkpoint;
+- current SBU/OSO/LBU state;
+- Build 307 failure and Build 308/309 green recovery;
+- Home Live cadence/progress semantics;
+- the single next target action.
+
+For new-chat recovery, read that document after this continuity file instead of reconstructing the QA from chat history.
