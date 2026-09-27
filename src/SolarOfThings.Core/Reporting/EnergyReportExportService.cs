@@ -2049,6 +2049,95 @@ public sealed class EnergyReportExportService
         return row + 2;
     }
 
+    private static void AddGridUseSheet(
+        XLWorkbook workbook,
+        EnergyReportData report)
+    {
+        var sheet = workbook.Worksheets.Add(
+            L(report, "Uso de Enel", "Utility Use"));
+        var days = BuildGridUseDays(report);
+        var mixedDays = days.Count(item => item.Kind == GridUseDayKind.Mixed);
+        var nearExclusiveDays = days.Count(item => item.Kind == GridUseDayKind.NearExclusive);
+        var reserveDays = days.Count(item => item.HasReserveGridEpisode);
+
+        sheet.Cell("A1").Value =
+            L(report, "Uso de Enel / red en la casa", "Utility / grid use in the home");
+        sheet.Cell("A1").Style.Font.Bold = true;
+        sheet.Cell("A1").Style.Font.FontSize = 15;
+        sheet.Range("A1:E1").Merge();
+
+        sheet.Cell("A3").Value =
+            L(report, "Días con Enel → Casa", "Days with Utility → Home");
+        sheet.Cell("B3").Value = days.Count;
+        sheet.Cell("C3").Value =
+            L(report, "Aporte mixto en el día", "Mixed-source days");
+        sheet.Cell("D3").Value = mixedDays;
+        sheet.Cell("E3").Value = string.Format(
+            L(
+                report,
+                "{0} casi sólo Enel · {1} con reserva+red nocturna",
+                "{0} nearly all utility · {1} with nighttime reserve+grid"),
+            nearExclusiveDays,
+            reserveDays);
+        sheet.Range("A3:E3").Style.Font.Bold = true;
+
+        sheet.Range("A5:E6").Merge();
+        sheet.Cell("A5").Value =
+            L(
+                report,
+                "“Aporte mixto en el día” significa que varias fuentes contribuyeron al consumo total de ese día; no afirma que hayan alimentado la casa al mismo instante. “Reserva+red” es el detector nocturno específico y es sólo un subconjunto de los días con Enel.",
+                "“Mixed sources in the day” means several sources contributed to that day's total household consumption; it does not assert simultaneous supply. “Reserve+grid” is the specific nighttime detector and is only a subset of days with utility use.");
+        sheet.Cell("A5").Style.Font.Italic = true;
+        sheet.Range("A5:E6").Style.Alignment.WrapText = true;
+
+        var row = 8;
+        var headers = new[]
+        {
+            L(report, "Fecha", "Date"),
+            L(report, "Enel → Casa kWh", "Utility → Home kWh"),
+            L(report, "% consumo casa", "% household use"),
+            L(report, "Tipo de día", "Day type"),
+            L(report, "Episodio reserva+red nocturno", "Night reserve+grid episode")
+        };
+        for (var col = 0; col < headers.Length; col++)
+            sheet.Cell(row, col + 1).Value = headers[col];
+
+        sheet.Range(row, 1, row, headers.Length).Style.Font.Bold = true;
+        row++;
+
+        foreach (var item in days)
+        {
+            if (DateOnly.TryParse(item.LocalLabel, out var date))
+            {
+                sheet.Cell(row, 1).Value = date.ToDateTime(TimeOnly.MinValue);
+                sheet.Cell(row, 1).Style.DateFormat.Format = "dd-mm-yyyy";
+            }
+            else
+            {
+                sheet.Cell(row, 1).Value = item.LocalLabel;
+            }
+
+            sheet.Cell(row, 2).Value = item.GridToHouseKwh;
+            sheet.Cell(row, 2).Style.NumberFormat.Format = "0.00";
+            sheet.Cell(row, 3).Value = item.GridSharePercent;
+            sheet.Cell(row, 3).Style.NumberFormat.Format = "0.0";
+            sheet.Cell(row, 4).Value = GridUseKindLabel(report, item.Kind);
+            sheet.Cell(row, 5).Value =
+                item.HasReserveGridEpisode
+                    ? L(report, "Sí", "Yes")
+                    : L(report, "No", "No");
+            row++;
+        }
+
+        sheet.Columns(1, 5).AdjustToContents();
+        sheet.Column(4).Width = Math.Max(sheet.Column(4).Width, 28);
+        sheet.Column(5).Width = Math.Max(sheet.Column(5).Width, 28);
+        sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+        sheet.SheetView.FreezeRows(8);
+        if (row > 9)
+            sheet.Range(8, 1, row - 1, 5).SetAutoFilter();
+    }
+
     private static void AddEventsSheet(
         XLWorkbook workbook,
         EnergyReportData report)
