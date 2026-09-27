@@ -1582,3 +1582,19 @@ Next target action:
 6. return the new investigation ZIP.
 
 Do not re-export XLSX/PDF and do not alter source-attribution rules until this new evidence is reviewed.
+
+
+## Canonical build handoff rule — 2026-09-27
+
+A new canonical operational rule is stored in:
+
+`BUILD_HANDOFF_RULE.md`
+
+From this checkpoint onward, whenever a build is handed to the user for target-PC/manual testing:
+1. provide the **direct downloadable artifact in the chat first** whenever tooling permits;
+2. then identify the build/commit/CI/artifact for traceability;
+3. then provide the exact minimal test steps and required return evidence.
+
+Do not require the user to navigate through GitHub Actions merely to obtain a build that the assistant requested them to test.
+
+This rule applies to Build 310 immediately and to every later manual-test build.
