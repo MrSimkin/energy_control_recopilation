@@ -67,13 +67,19 @@ public sealed class FamilyReportAnalysisService
             frames,
             continuityThreshold);
 
+        var spanDays = Math.Max(
+            1,
+            request.LocalEndDate.DayNumber -
+            request.LocalStartDate.DayNumber + 1);
+
         var housePattern = BuildTypicalWindow(
             frames,
             zone,
             frame => frame.HouseWatts,
             "house",
             minimumUsefulWatts: 0,
-            medianGapMinutes: medianGap);
+            medianGapMinutes: medianGap,
+            selectedDayCount: spanDays);
 
         var solarPattern = BuildTypicalWindow(
             frames,
@@ -81,7 +87,8 @@ public sealed class FamilyReportAnalysisService
             frame => frame.PvWatts,
             "solar",
             minimumUsefulWatts: 50,
-            medianGapMinutes: medianGap);
+            medianGapMinutes: medianGap,
+            selectedDayCount: spanDays);
 
         var gridPattern = BuildTypicalWindow(
             frames,
@@ -89,7 +96,8 @@ public sealed class FamilyReportAnalysisService
             frame => frame.GridWatts,
             "grid",
             minimumUsefulWatts: 50,
-            medianGapMinutes: medianGap);
+            medianGapMinutes: medianGap,
+            selectedDayCount: spanDays);
 
         var daily = _aggregation.Get(
             request.DeviceId,
@@ -463,7 +471,8 @@ public sealed class FamilyReportAnalysisService
         Func<MetricFrame, double?> selector,
         string metricKey,
         double minimumUsefulWatts,
-        double medianGapMinutes)
+        double medianGapMinutes,
+        int selectedDayCount)
     {
         var expectedSamplesPerHour = medianGapMinutes > 0
             ? 60.0 / medianGapMinutes
@@ -497,7 +506,11 @@ public sealed class FamilyReportAnalysisService
             .Distinct()
             .Count();
 
-        if (opportunityDays < 3)
+        var minimumObservedDays = Math.Max(
+            3,
+            (int)Math.Ceiling(selectedDayCount * 0.60));
+
+        if (opportunityDays < minimumObservedDays)
         {
             return null;
         }

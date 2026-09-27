@@ -364,3 +364,35 @@ Use the new portable with the proven entire prior `Data\` directory on the same 
    - whether low/missing coverage is expressed clearly.
 
 Direct PV→house, battery→house, percent-without-grid and curtailed-solar kWh remain deliberately unavailable until their evidence path is validated. That is expected, not a QA failure.
+
+
+## Real workbook review — visual hierarchy / partial-data correction — 2026-09-26
+
+The first redesigned XLSX was opened on the target PC and the actual workbook was reviewed.
+
+Mechanical content was present, but the family `Resumen` still looked like a technical table rather than the approved wireframe. More importantly, a 38.9% coverage report displayed 27.94 kWh grid import and 48.60 kWh home use without making “partial period” prominent enough.
+
+Corrective implementation:
+- Simple Energy `Resumen` rebuilt as a visual nine-column family cover;
+- prominent PARTIAL SUMMARY banner when minimum family coverage is <80%;
+- three large Page-1 source cards:
+  - Enel/grid measured value;
+  - direct solar visibly reserved but evidence-gated;
+  - battery→house visibly reserved but evidence-gated;
+- large recorded/total home-consumption band;
+- night block split into:
+  - observable nights without reserve+grid episode;
+  - nights where reserve+grid episode occurred;
+  - complete nights without sufficient data;
+- natural-language “¿Qué significa esto?” interpretation;
+- Page 2 labels change from “total” to “registrado” when coverage is partial;
+- Page 2 keeps battery movement distinct from household-source attribution;
+- pattern detector now requires usable day coverage on at least 60% of selected days (minimum 3) before saying “habitual”;
+- if this evidence threshold is not met, `Patrones` and PDF explicitly say there are not enough observable days instead of producing an overconfident pattern;
+- pattern wording reports days with data against total selected-period days.
+
+The 2026-09-19→2026-09-25 real workbook that triggered this correction had:
+- minimum family coverage 38.9%;
+- only 3 days with meaningful energy observations out of 7;
+- 2 observable complete nights out of 6;
+- therefore the old labels “total” and “habitual” were too strong.

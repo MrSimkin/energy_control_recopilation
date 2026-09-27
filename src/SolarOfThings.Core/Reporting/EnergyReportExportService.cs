@@ -217,6 +217,19 @@ public sealed class EnergyReportExportService
         intro.Format.SpaceBefore = Unit.FromPoint(10);
         intro.Format.SpaceAfter = Unit.FromPoint(5);
 
+        var familyCoverage = FamilyCoveragePercent(report);
+        if (familyCoverage < 80.0)
+        {
+            var warning = section.AddParagraph(string.Format(
+                L(
+                    report,
+                    "RESUMEN PARCIAL: sólo hay datos suficientes para aproximadamente {0:N1}% del período. Las cifras muestran lo medido y no proyectan los huecos.",
+                    "PARTIAL SUMMARY: enough data is available for only approximately {0:N1}% of the period. Figures show measured data and do not project across gaps."),
+                familyCoverage));
+            warning.Format.Font.Bold = true;
+            warning.Format.SpaceAfter = Unit.FromPoint(6);
+        }
+
         var table = section.AddTable();
         table.Borders.Width = 0.4;
         table.AddColumn(Unit.FromCentimeter(8.5));
@@ -277,6 +290,19 @@ public sealed class EnergyReportExportService
         Section section,
         EnergyReportData report)
     {
+        if (report.Family.HighestHouseConsumptionWindow is null &&
+            report.Family.HighestSolarGenerationWindow is null &&
+            report.Family.HighestGridUseWindow is null)
+        {
+            var insufficient = section.AddParagraph(
+                L(
+                    report,
+                    "No hay suficientes días observables para afirmar patrones horarios habituales con confianza en este período.",
+                    "There are not enough observable days to state typical hourly patterns confidently for this period."));
+            insufficient.Format.Font.Italic = true;
+            insufficient.Format.SpaceAfter = Unit.FromPoint(6);
+        }
+
         var patternTable = section.AddTable();
         patternTable.Borders.Width = 0.3;
         patternTable.AddColumn(Unit.FromCentimeter(6.6));
@@ -346,9 +372,10 @@ public sealed class EnergyReportExportService
             $"{pattern.StartHour:00}:00–{pattern.EndHourExclusive:00}:00 · " +
             $"{pattern.TypicalWatts / 1000.0:N2} kW · " +
             string.Format(
-                L(report, "{0}/{1} días", "{0}/{1} days"),
+                L(report, "{0} días válidos; {1}/{2} con datos", "{0} valid days; {1}/{2} with data"),
                 pattern.ObservedDays,
-                pattern.OpportunityDays));
+                pattern.OpportunityDays,
+                SelectedDayCount(report)));
     }
 
     private static void AddFamilyEventsPdf(
@@ -713,35 +740,60 @@ public sealed class EnergyReportExportService
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Resumen", "Summary"));
-        sheet.Cell("A1").Value = report.Request.Title;
-        sheet.Cell("A1").Style.Font.Bold = true;
-        sheet.Cell("A1").Style.Font.FontSize = 16;
-
-        sheet.Cell("A3").Value = L(report, "Período", "Period");
-        sheet.Cell("B3").Value =
-            $"{report.Request.LocalStartDate:dd-MM-yyyy} — {report.Request.LocalEndDate:dd-MM-yyyy}";
-        sheet.Cell("A4").Value = L(report, "Agrupación", "Aggregation");
-        sheet.Cell("B4").Value = AggregationLabel(report);
-        sheet.Cell("A5").Value = L(report, "Tipo", "Type");
-        sheet.Cell("B5").Value = ReportKindLabel(report);
-        sheet.Cell("A6").Value = L(report, "Generado", "Generated");
-        sheet.Cell("B6").Value = report.GeneratedUtc.LocalDateTime;
-        sheet.Cell("B6").Style.DateFormat.Format = "dd-mm-yyyy hh:mm";
 
         if (report.Request.Kind == ReportKind.SimpleEnergy)
         {
+            sheet.Range("A1:I1").Merge();
+            sheet.Cell("A1").Value = report.Request.Title;
+            sheet.Cell("A1").Style.Font.Bold = true;
+            sheet.Cell("A1").Style.Font.FontSize = 18;
+            sheet.Cell("A1").Style.Alignment.Horizontal =
+                XLAlignmentHorizontalValues.Center;
+
+            sheet.Cell("A3").Value = L(report, "Período", "Period");
+            sheet.Range("B3:D3").Merge();
+            sheet.Cell("B3").Value =
+                $"{report.Request.LocalStartDate:dd-MM-yyyy} — {report.Request.LocalEndDate:dd-MM-yyyy}";
+            sheet.Cell("E3").Value = L(report, "Generado", "Generated");
+            sheet.Range("F3:I3").Merge();
+            sheet.Cell("F3").Value = report.GeneratedUtc.LocalDateTime;
+            sheet.Cell("F3").Style.DateFormat.Format = "dd-mm-yyyy hh:mm";
+
             AddFamilySummarySheet(sheet, report);
+
+            for (var column = 1; column <= 9; column++)
+            {
+                sheet.Column(column).Width = 14;
+            }
+
+            sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+            sheet.SheetView.FreezeRows(3);
         }
         else
         {
-            AddTechnicalSummarySheet(sheet, report);
-        }
+            sheet.Cell("A1").Value = report.Request.Title;
+            sheet.Cell("A1").Style.Font.Bold = true;
+            sheet.Cell("A1").Style.Font.FontSize = 16;
 
-        sheet.Columns().AdjustToContents();
-        sheet.Column(1).Width = Math.Min(sheet.Column(1).Width, 42);
-        sheet.Column(2).Width = Math.Min(Math.Max(sheet.Column(2).Width, 20), 64);
-        sheet.Column(3).Width = Math.Min(Math.Max(sheet.Column(3).Width, 14), 28);
-        sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+            sheet.Cell("A3").Value = L(report, "Período", "Period");
+            sheet.Cell("B3").Value =
+                $"{report.Request.LocalStartDate:dd-MM-yyyy} — {report.Request.LocalEndDate:dd-MM-yyyy}";
+            sheet.Cell("A4").Value = L(report, "Agrupación", "Aggregation");
+            sheet.Cell("B4").Value = AggregationLabel(report);
+            sheet.Cell("A5").Value = L(report, "Tipo", "Type");
+            sheet.Cell("B5").Value = ReportKindLabel(report);
+            sheet.Cell("A6").Value = L(report, "Generado", "Generated");
+            sheet.Cell("B6").Value = report.GeneratedUtc.LocalDateTime;
+            sheet.Cell("B6").Style.DateFormat.Format = "dd-mm-yyyy hh:mm";
+
+            AddTechnicalSummarySheet(sheet, report);
+
+            sheet.Columns().AdjustToContents();
+            sheet.Column(1).Width = Math.Min(sheet.Column(1).Width, 42);
+            sheet.Column(2).Width = Math.Min(Math.Max(sheet.Column(2).Width, 20), 64);
+            sheet.Column(3).Width = Math.Min(Math.Max(sheet.Column(3).Width, 14), 28);
+            sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+        }
     }
 
     private static void AddFamilySummarySheet(
@@ -749,105 +801,347 @@ public sealed class EnergyReportExportService
         EnergyReportData report)
     {
         var family = report.Family;
+        var familyCoverage = FamilyCoveragePercent(report);
+        var partial = familyCoverage < 80.0;
+        var selectedNights = Math.Max(
+            0,
+            report.Request.LocalEndDate.DayNumber -
+            report.Request.LocalStartDate.DayNumber);
+        var nightsWithoutReserveGrid = Math.Max(
+            0,
+            family.ObservableNightCount -
+            family.NightsWithReserveGridUse);
+        var unknownNights = Math.Max(
+            0,
+            selectedNights -
+            family.ObservableNightCount);
 
-        sheet.Cell("A8").Value =
-            L(report, "PÁGINA 1 — LAS PREGUNTAS DE LA CASA", "PAGE 1 — HOUSEHOLD QUESTIONS");
-        sheet.Cell("A8").Style.Font.Bold = true;
-        sheet.Cell("A8").Style.Font.FontSize = 13;
-        sheet.Range("A8:C8").Merge();
+        StyleFamilySection(
+            sheet,
+            "A5:I5",
+            L(report, "PÁGINA 1 — ¿CÓMO NOS FUE?", "PAGE 1 — HOW DID WE DO?"));
 
-        sheet.Cell("A10").Value =
-            L(report, "1. ¿Cuánto tomamos de Enel / la red?", "1. How much came from the utility/grid?");
-        sheet.Cell("B10").Value = report.Summary.GridImportEnergyKwh;
-        sheet.Cell("B10").Style.NumberFormat.Format = "0.00";
-        sheet.Cell("C10").Value = "kWh";
-        sheet.Cell("A11").Value =
-            L(report, "Cobertura del cálculo", "Calculation coverage");
-        sheet.Cell("B11").Value = report.Summary.GridImportPower.CoveragePercent;
-        sheet.Cell("B11").Style.NumberFormat.Format = "0.0";
-        sheet.Cell("C11").Value = "%";
+        var coverageMessage = partial
+            ? string.Format(
+                L(
+                    report,
+                    "RESUMEN PARCIAL — hay datos suficientes para aproximadamente {0:N1}% del período. Las cifras muestran sólo lo realmente medido; el resto NO se estima.",
+                    "PARTIAL SUMMARY — enough data is available for approximately {0:N1}% of the period. Figures show only what was actually measured; the rest is NOT estimated."),
+                familyCoverage)
+            : string.Format(
+                L(
+                    report,
+                    "Datos suficientes para aproximadamente {0:N1}% del período.",
+                    "Enough data is available for approximately {0:N1}% of the period."),
+                familyCoverage);
+        sheet.Range("A7:I8").Merge();
+        sheet.Cell("A7").Value = coverageMessage;
+        sheet.Cell("A7").Style.Font.Bold = true;
+        sheet.Cell("A7").Style.Alignment.Horizontal =
+            XLAlignmentHorizontalValues.Center;
+        sheet.Cell("A7").Style.Alignment.Vertical =
+            XLAlignmentVerticalValues.Center;
+        sheet.Cell("A7").Style.Fill.BackgroundColor =
+            partial ? XLColor.FromHtml("#FFF2CC") : XLColor.FromHtml("#E2F0D9");
+        sheet.Range("A7:I8").Style.Border.OutsideBorder =
+            XLBorderStyleValues.Thin;
 
-        sheet.Cell("A13").Value =
-            L(report, "2. ¿Cuánto vino directamente del sol?", "2. How much came directly from solar?");
-        sheet.Cell("B13").Value =
-            L(report, "Aún no disponible con suficiente confianza", "Not yet available with enough confidence");
-
-        sheet.Cell("A14").Value =
-            L(report, "3. ¿Cuánto vino de la batería?", "3. How much came from the battery?");
-        sheet.Cell("B14").Value =
-            L(report, "Aún no disponible con suficiente confianza", "Not yet available with enough confidence");
-
-        sheet.Cell("A16").Value =
-            L(report, "4. ¿Alcanzó la batería durante la noche?", "4. Did the battery cover the night?");
-        sheet.Cell("B16").Value = string.Format(
+        AddFamilyCard(
+            sheet,
+            "A10:C15",
+            L(report, "1. DESDE ENEL / RED", "1. FROM UTILITY / GRID"),
+            report.Summary.GridImportPower.SampleCount >= 2
+                ? $"{report.Summary.GridImportEnergyKwh:N2} kWh"
+                : L(report, "Sin datos suficientes", "Insufficient data"),
+            string.Format(
+                L(report, "Cobertura del dato: {0:N1}%", "Data coverage: {0:N1}%"),
+                report.Summary.GridImportPower.CoveragePercent),
             L(
                 report,
-                "{0} episodios en {1} de {2} noches observables",
-                "{0} episodes across {1} of {2} observable nights"),
-            family.ReserveGridEpisodeCount,
-            family.NightsWithReserveGridUse,
-            family.ObservableNightCount);
+                partial
+                    ? "Energía tomada de la red en la parte del período que sí fue medida."
+                    : "Energía tomada de la compañía eléctrica durante el período.",
+                partial
+                    ? "Energy taken from the grid in the measured part of the period."
+                    : "Energy taken from the utility during the period."));
+
+        AddFamilyCard(
+            sheet,
+            "D10:F15",
+            L(report, "2. DIRECTAMENTE DEL SOL", "2. DIRECTLY FROM SOLAR"),
+            L(report, "Aún no disponible", "Not yet available"),
+            L(report, "Requiere atribución PV → Casa validada", "Requires validated PV → Home attribution"),
+            L(
+                report,
+                "No se sustituye por “solar producido”, porque responde una pregunta diferente.",
+                "It is not replaced by “solar produced”, because that answers a different question."));
+
+        AddFamilyCard(
+            sheet,
+            "G10:I15",
+            L(report, "3. DESDE LA BATERÍA", "3. FROM THE BATTERY"),
+            L(report, "Aún no disponible", "Not yet available"),
+            L(report, "Requiere atribución Batería → Casa validada", "Requires validated Battery → Home attribution"),
+            L(
+                report,
+                "La energía descargada de la batería se informa en la Página 2, pero no se presenta como si toda hubiese ido a la casa.",
+                "Battery discharge is shown on Page 2, but is not presented as if all of it necessarily supplied the home."));
+
+        sheet.Range("A17:I18").Merge();
         sheet.Cell("A17").Value =
-            L(report, "Tiempo total observado usando red tras llegar a reserva", "Observed grid time after reaching reserve");
-        sheet.Cell("B17").Value = family.ReserveGridTotalMinutes / 60.0;
-        sheet.Cell("B17").Style.NumberFormat.Format = "0.00";
-        sheet.Cell("C17").Value = L(report, "horas", "hours");
+            report.Summary.HouseLoadPower.SampleCount >= 2
+                ? string.Format(
+                    L(
+                        report,
+                        partial
+                            ? "CONSUMO DE LA CASA REGISTRADO: {0:N2} kWh en los datos disponibles"
+                            : "CONSUMO TOTAL DE LA CASA: {0:N2} kWh",
+                        partial
+                            ? "RECORDED HOME CONSUMPTION: {0:N2} kWh in available data"
+                            : "TOTAL HOME CONSUMPTION: {0:N2} kWh"),
+                    report.Summary.HouseEnergyKwh)
+                : L(report, "CONSUMO DE LA CASA: sin datos suficientes", "HOME CONSUMPTION: insufficient data");
+        sheet.Cell("A17").Style.Font.Bold = true;
+        sheet.Cell("A17").Style.Font.FontSize = 15;
+        sheet.Cell("A17").Style.Alignment.Horizontal =
+            XLAlignmentHorizontalValues.Center;
+        sheet.Cell("A17").Style.Alignment.Vertical =
+            XLAlignmentVerticalValues.Center;
+        sheet.Cell("A17").Style.Fill.BackgroundColor =
+            XLColor.FromHtml("#D9EAF7");
+        sheet.Range("A17:I18").Style.Border.OutsideBorder =
+            XLBorderStyleValues.Thin;
 
-        if (family.TypicalReserveTime.HasValue)
+        sheet.Range("A20:I20").Merge();
+        sheet.Cell("A20").Value =
+            L(report, "4. ¿ALCANZÓ LA BATERÍA DURANTE LA NOCHE?", "4. DID THE BATTERY COVER THE NIGHT?");
+        sheet.Cell("A20").Style.Font.Bold = true;
+        sheet.Cell("A20").Style.Font.FontSize = 13;
+
+        AddNightCard(
+            sheet,
+            "A22:C25",
+            L(report, "SIN EPISODIO RESERVA + RED", "NO RESERVE + GRID EPISODE"),
+            nightsWithoutReserveGrid.ToString("N0"),
+            string.Format(
+                L(report, "de {0} noches observables", "of {0} observable nights"),
+                family.ObservableNightCount),
+            "#E2F0D9");
+
+        AddNightCard(
+            sheet,
+            "D22:F25",
+            L(report, "QUEDAMOS CORTOS", "BATTERY RAN SHORT"),
+            family.NightsWithReserveGridUse.ToString("N0"),
+            string.Format(
+                L(report, "{0} episodios · {1:N2} h", "{0} episodes · {1:N2} h"),
+                family.ReserveGridEpisodeCount,
+                family.ReserveGridTotalMinutes / 60.0),
+            "#FCE4D6");
+
+        AddNightCard(
+            sheet,
+            "G22:I25",
+            L(report, "NOCHES SIN DATOS SUFICIENTES", "NIGHTS WITHOUT ENOUGH DATA"),
+            unknownNights.ToString("N0"),
+            string.Format(
+                L(report, "de {0} noches completas del rango", "of {0} complete nights in range"),
+                selectedNights),
+            "#E7E6E6");
+
+        sheet.Range("A27:I30").Merge();
+        var interpretation = partial
+            ? string.Format(
+                L(
+                    report,
+                    "¿QUÉ SIGNIFICA ESTO? Este informe es parcial. En la parte realmente observada se registraron {0:N2} kWh tomados de la red y {1:N2} kWh de consumo de la casa. Sólo {2} de {3} noches completas fueron suficientemente observables; en esas noches se detectaron {4} episodios en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
+                    "WHAT DOES THIS MEAN? This report is partial. In the actually observed portion, {0:N2} kWh were taken from the grid and {1:N2} kWh of home consumption were recorded. Only {2} of {3} complete nights were sufficiently observable; those nights contained {4} episodes where the battery reached its normal reserve and grid was needed while solar was insufficient."),
+                report.Summary.GridImportEnergyKwh,
+                report.Summary.HouseEnergyKwh,
+                family.ObservableNightCount,
+                selectedNights,
+                family.ReserveGridEpisodeCount)
+            : string.Format(
+                L(
+                    report,
+                    "¿QUÉ SIGNIFICA ESTO? La casa consumió {0:N2} kWh y tomó {1:N2} kWh desde la red. En {2} de {3} noches observables se detectó al menos un episodio en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
+                    "WHAT DOES THIS MEAN? The home used {0:N2} kWh and took {1:N2} kWh from the grid. On {2} of {3} observable nights, at least one episode was detected where the battery reached its normal reserve and grid was needed while solar was insufficient."),
+                report.Summary.HouseEnergyKwh,
+                report.Summary.GridImportEnergyKwh,
+                family.NightsWithReserveGridUse,
+                family.ObservableNightCount);
+        sheet.Cell("A27").Value = interpretation;
+        sheet.Cell("A27").Style.Font.Italic = true;
+        sheet.Cell("A27").Style.Alignment.Vertical =
+            XLAlignmentVerticalValues.Center;
+        sheet.Cell("A27").Style.Fill.BackgroundColor =
+            XLColor.FromHtml("#F3F6F9");
+        sheet.Range("A27:I30").Style.Border.OutsideBorder =
+            XLBorderStyleValues.Thin;
+
+        StyleFamilySection(
+            sheet,
+            "A32:I32",
+            L(report, "PÁGINA 2 — ¿QUÉ PASÓ CON TODA LA ENERGÍA?", "PAGE 2 — WHAT HAPPENED TO ALL THE ENERGY?"));
+
+        var pageTwoRows = new[]
         {
-            sheet.Cell("A18").Value =
-                L(report, "Hora típica de llegada a reserva", "Typical reserve-arrival time");
-            sheet.Cell("B18").Value = family.TypicalReserveTime.Value.ToString("HH:mm");
-        }
-
-        sheet.Cell("A21").Value =
-            L(report, "PÁGINA 2 — TOTALES DEL SISTEMA", "PAGE 2 — WHOLE-SYSTEM TOTALS");
-        sheet.Cell("A21").Style.Font.Bold = true;
-        sheet.Cell("A21").Style.Font.FontSize = 13;
-        sheet.Range("A21:C21").Merge();
-
-        var totals = new[]
-        {
-            (L(report, "Producción solar total", "Total solar production"), report.Summary.PvPower, report.Summary.PvEnergyKwh),
-            (L(report, "Consumo total de la casa", "Total home consumption"), report.Summary.HouseLoadPower, report.Summary.HouseEnergyKwh),
-            (L(report, "Total tomado de la red", "Total grid import"), report.Summary.GridImportPower, report.Summary.GridImportEnergyKwh),
-            (L(report, "Batería: energía entregada", "Battery energy discharged"), report.Summary.BatteryPower, report.Summary.BatteryDischargedEnergyKwh),
-            (L(report, "Batería: energía recibida", "Battery energy charged"), report.Summary.BatteryPower, report.Summary.BatteryChargedEnergyKwh)
+            (
+                partial
+                    ? L(report, "Producción solar registrada", "Recorded solar production")
+                    : L(report, "Producción solar total", "Total solar production"),
+                report.Summary.PvPower,
+                report.Summary.PvEnergyKwh,
+                L(report, "Todo lo que produjeron los paneles en la parte medida.", "Everything produced by the panels in the measured portion.")),
+            (
+                partial
+                    ? L(report, "Consumo de la casa registrado", "Recorded home consumption")
+                    : L(report, "Consumo total de la casa", "Total home consumption"),
+                report.Summary.HouseLoadPower,
+                report.Summary.HouseEnergyKwh,
+                L(report, "Todo lo usado por la vivienda, sin importar de dónde vino.", "Everything used by the home, regardless of source.")),
+            (
+                partial
+                    ? L(report, "Energía de red registrada", "Recorded grid energy")
+                    : L(report, "Total tomado de la red", "Total grid import"),
+                report.Summary.GridImportPower,
+                report.Summary.GridImportEnergyKwh,
+                L(report, "Electricidad tomada de la compañía.", "Electricity taken from the utility.")),
+            (
+                L(report, "Batería: energía entregada", "Battery energy discharged"),
+                report.Summary.BatteryPower,
+                report.Summary.BatteryDischargedEnergyKwh,
+                L(report, "Movimiento de salida de la batería; no equivale todavía a Batería → Casa.", "Battery discharge movement; not yet equivalent to Battery → Home.")),
+            (
+                L(report, "Batería: energía recibida", "Battery energy charged"),
+                report.Summary.BatteryPower,
+                report.Summary.BatteryChargedEnergyKwh,
+                L(report, "Energía que entró a la batería durante la parte medida.", "Energy that entered the battery during the measured portion."))
         };
 
-        var row = 23;
-        foreach (var item in totals)
+        var row = 34;
+        foreach (var item in pageTwoRows)
         {
+            sheet.Range(row, 1, row, 3).Merge();
             sheet.Cell(row, 1).Value = item.Item1;
-            if (item.Item2.SampleCount >= 2)
-            {
-                sheet.Cell(row, 2).Value = item.Item3;
-                sheet.Cell(row, 2).Style.NumberFormat.Format = "0.00";
-                sheet.Cell(row, 3).Value = "kWh";
-            }
-            else
-            {
-                sheet.Cell(row, 2).Value = L(report, "Sin datos suficientes", "Insufficient data");
-            }
-            row++;
+            sheet.Range(row, 4, row, 5).Merge();
+            sheet.Cell(row, 4).Value =
+                item.Item2.SampleCount >= 2
+                    ? $"{item.Item3:N2} kWh"
+                    : L(report, "Sin datos suficientes", "Insufficient data");
+            sheet.Range(row, 6, row, 9).Merge();
+            sheet.Cell(row, 6).Value = item.Item4;
+            sheet.Cell(row, 1).Style.Font.Bold = true;
+            sheet.Cell(row, 4).Style.Font.Bold = true;
+            sheet.Range(row, 1, row, 9).Style.Border.BottomBorder =
+                XLBorderStyleValues.Hair;
+            row += 2;
         }
 
-        sheet.Cell(row + 1, 1).Value =
+        sheet.Range(row, 1, row + 1, 3).Merge();
+        sheet.Cell(row, 1).Value =
             L(report, "Solar que no pudimos aprovechar", "Solar energy we could not use");
-        sheet.Cell(row + 1, 2).Value =
+        sheet.Range(row, 4, row + 1, 9).Merge();
+        sheet.Cell(row, 4).Value =
             L(
                 report,
-                "No medible todavía con suficiente confianza; no se estima como un residuo.",
-                "Not yet measurable with enough confidence; it is not estimated as a residual.");
-        sheet.Range(row + 1, 2, row + 1, 3).Merge();
+                "Todavía no puede calcularse con suficiente confianza. No se inventa como “solar producido menos solar usado”.",
+                "It still cannot be calculated with enough confidence. It is not invented as “solar produced minus solar used”.");
+        sheet.Cell(row, 1).Style.Font.Bold = true;
+        sheet.Range(row, 1, row + 1, 9).Style.Fill.BackgroundColor =
+            XLColor.FromHtml("#FFF2CC");
 
-        sheet.Cell(row + 3, 1).Value =
+        sheet.Range($"A{row + 3}:I{row + 5}").Merge();
+        sheet.Cell($"A{row + 3}").Value =
             L(
                 report,
-                "Los períodos faltantes son desconocidos, no cero. Consulta Patrones, Eventos y Calidad para saber qué partes del período fueron realmente observables.",
-                "Missing periods are unknown, not zero. See Patterns, Events and Quality to understand which parts of the period were actually observable.");
-        sheet.Range(row + 3, 1, row + 3, 3).Merge();
-        sheet.Cell(row + 3, 1).Style.Font.Italic = true;
+                "La hoja Patrones sólo afirmará tendencias cuando haya suficientes días observables. Eventos conserva todas las ocurrencias y Calidad explica qué partes del período realmente tienen datos.",
+                "The Patterns sheet only states tendencies when enough days are observable. Events preserves every occurrence, and Quality explains which parts of the period actually contain data.");
+        sheet.Cell($"A{row + 3}").Style.Font.Italic = true;
+    }
+
+    private static void StyleFamilySection(
+        IXLWorksheet sheet,
+        string rangeAddress,
+        string text)
+    {
+        var range = sheet.Range(rangeAddress);
+        range.Merge();
+        range.FirstCell().Value = text;
+        range.Style.Font.Bold = true;
+        range.Style.Font.FontSize = 13;
+        range.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9EAF7");
+        range.Style.Border.BottomBorder = XLBorderStyleValues.Medium;
+    }
+
+    private static void AddFamilyCard(
+        IXLWorksheet sheet,
+        string rangeAddress,
+        string title,
+        string value,
+        string context,
+        string explanation)
+    {
+        var range = sheet.Range(rangeAddress);
+        var firstRow = range.Range(1, 1, 1, 3);
+        var valueRows = range.Range(2, 1, 3, 3);
+        var contextRow = range.Range(4, 1, 4, 3);
+        var explanationRows = range.Range(5, 1, 6, 3);
+
+        firstRow.Merge();
+        valueRows.Merge();
+        contextRow.Merge();
+        explanationRows.Merge();
+
+        firstRow.FirstCell().Value = title;
+        valueRows.FirstCell().Value = value;
+        contextRow.FirstCell().Value = context;
+        explanationRows.FirstCell().Value = explanation;
+
+        firstRow.Style.Font.Bold = true;
+        firstRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        valueRows.Style.Font.Bold = true;
+        valueRows.Style.Font.FontSize = 16;
+        valueRows.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        valueRows.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        contextRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        explanationRows.Style.Font.FontSize = 9;
+        explanationRows.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        explanationRows.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        range.Style.Fill.BackgroundColor = XLColor.FromHtml("#F8FBFD");
+        range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+    }
+
+    private static void AddNightCard(
+        IXLWorksheet sheet,
+        string rangeAddress,
+        string title,
+        string value,
+        string context,
+        string fillColor)
+    {
+        var range = sheet.Range(rangeAddress);
+        var titleRow = range.Range(1, 1, 1, 3);
+        var valueRows = range.Range(2, 1, 3, 3);
+        var contextRow = range.Range(4, 1, 4, 3);
+
+        titleRow.Merge();
+        valueRows.Merge();
+        contextRow.Merge();
+
+        titleRow.FirstCell().Value = title;
+        valueRows.FirstCell().Value = value;
+        contextRow.FirstCell().Value = context;
+
+        titleRow.Style.Font.Bold = true;
+        titleRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        valueRows.Style.Font.Bold = true;
+        valueRows.Style.Font.FontSize = 18;
+        valueRows.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        valueRows.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        contextRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        range.Style.Fill.BackgroundColor = XLColor.FromHtml(fillColor);
+        range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
     }
 
     private static void AddTechnicalSummarySheet(
@@ -902,6 +1196,20 @@ public sealed class EnergyReportExportService
         sheet.Cell("A3").Style.Font.Italic = true;
 
         var row = 5;
+        if (report.Family.HighestHouseConsumptionWindow is null &&
+            report.Family.HighestSolarGenerationWindow is null &&
+            report.Family.HighestGridUseWindow is null)
+        {
+            sheet.Range(row, 1, row + 1, 5).Merge();
+            sheet.Cell(row, 1).Value =
+                L(
+                    report,
+                    "No hay suficientes días observables para afirmar patrones horarios habituales con confianza en este período.",
+                    "There are not enough observable days to state typical hourly patterns confidently for this period.");
+            sheet.Cell(row, 1).Style.Font.Italic = true;
+            row += 3;
+        }
+
         row = AddPatternRow(sheet, report, row, report.Family.HighestHouseConsumptionWindow,
             L(report, "Mayor consumo habitual de la casa", "Highest typical home consumption"));
         row = AddPatternRow(sheet, report, row, report.Family.HighestSolarGenerationWindow,
@@ -998,9 +1306,10 @@ public sealed class EnergyReportExportService
         sheet.Cell(row, 4).Value = "kW";
         sheet.Cell(row, 5).Value =
             string.Format(
-                L(report, "{0} de {1} días con observación", "{0} of {1} observed days"),
+                L(report, "{0} días válidos; {1} días con datos de {2} del período", "{0} valid days; {1} days with data out of {2} in the period"),
                 pattern.ObservedDays,
-                pattern.OpportunityDays);
+                pattern.OpportunityDays,
+                SelectedDayCount(report));
         return row + 2;
     }
 
@@ -1253,6 +1562,25 @@ public sealed class EnergyReportExportService
         }
         sheet.Columns().AdjustToContents();
     }
+
+    private static double FamilyCoveragePercent(EnergyReportData report)
+    {
+        var values = new[]
+        {
+            report.Summary.PvPower.CoveragePercent,
+            report.Summary.HouseLoadPower.CoveragePercent,
+            report.Summary.GridImportPower.CoveragePercent,
+            report.Summary.BatteryPower.CoveragePercent
+        };
+
+        return values.Where(value => value > 0).DefaultIfEmpty(0).Min();
+    }
+
+    private static int SelectedDayCount(EnergyReportData report) =>
+        Math.Max(
+            1,
+            report.Request.LocalEndDate.DayNumber -
+            report.Request.LocalStartDate.DayNumber + 1);
 
     private static string AggregationLabel(EnergyReportData report) =>
         AggregationLabel(report, report.Request.Aggregation.ToString());

@@ -962,3 +962,17 @@ Implemented family report behavior:
 - existing `Detalle`, `Calidad`, `Glosario` remain as technical annex.
 
 The next manual action is a **focused Reporting readability/semantic QA only** using artifact `10917741876`. Do not repeat historical sync or previously passed Phase 6 checks.
+
+
+## Reporting QA correction — family cover still too technical — 2026-09-26
+
+Target-PC XLSX review of `SolarEnergy_20260919_20260925.xlsx` confirmed:
+- new sheets exist and mechanics work;
+- but `Resumen` did not yet visually match the approved family wireframe;
+- 38.9% coverage was not prominent enough before headline energy figures;
+- “total” wording was misleading for a highly partial period;
+- hourly “habitual” patterns were being shown from only 3 observed days in a 7-day selected period.
+
+The next code checkpoint corrects these issues by restoring the wireframe-like family cover, explicitly separating observed/unknown nights, making partial-data status prominent, and suppressing “habitual” hourly patterns unless at least 60% of selected days (minimum 3) have usable observations.
+
+Do not treat the prior XLSX screenshot as final family-report acceptance.
