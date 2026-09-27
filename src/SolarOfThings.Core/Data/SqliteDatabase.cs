@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 9;
+    public const int CurrentSchemaVersion = 10;
 
     private readonly AppPaths _paths;
 
@@ -85,6 +85,12 @@ public sealed class SqliteDatabase
         if (current < 9)
         {
             ApplyMigration9(connection);
+            current = 9;
+        }
+
+        if (current < 10)
+        {
+            ApplyMigration10(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -449,6 +455,74 @@ public sealed class SqliteDatabase
             transaction,
             9,
             "Phase 8 utility meter readings, optional bill records and reconciliation foundation.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration10(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            ALTER TABLE utility_meter_reading ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'UNSPECIFIED';
+            ALTER TABLE utility_meter_reading ADD COLUMN time_precision TEXT NOT NULL DEFAULT 'EXACT';
+            ALTER TABLE utility_meter_reading ADD COLUMN time_assumption TEXT NOT NULL DEFAULT 'EXACT';
+
+            UPDATE utility_meter_reading
+            SET source_kind = CASE
+                    WHEN lower(COALESCE(reference,'')) LIKE '%enel%' THEN 'UTILITY_OFFICIAL'
+                    WHEN lower(COALESCE(reference,'')) LIKE '%propia%'
+                      OR lower(COALESCE(reference,'')) LIKE '%personal%' THEN 'PERSONAL'
+                    ELSE 'UNSPECIFIED'
+                END,
+                time_precision = CASE
+                    WHEN lower(COALESCE(reference,'')) LIKE '%enel%' THEN 'DATE_ONLY'
+                    ELSE 'EXACT'
+                END,
+                time_assumption = CASE
+                    WHEN lower(COALESCE(reference,'')) LIKE '%enel%' THEN 'START_OF_DAY_ASSUMED'
+                    ELSE 'EXACT'
+                END;
+
+            ALTER TABLE utility_bill ADD COLUMN from_reading_id INTEGER NULL;
+            ALTER TABLE utility_bill ADD COLUMN to_reading_id INTEGER NULL;
+            ALTER TABLE utility_bill ADD COLUMN meter_start_kwh REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN meter_end_kwh REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN tariff_plan TEXT NULL;
+            ALTER TABLE utility_bill ADD COLUMN taxable_amount_clp REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN iva_clp REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN exempt_amount_clp REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN gross_bill_amount_clp REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN other_charges_clp REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN total_due_clp REAL NULL;
+            ALTER TABLE utility_bill ADD COLUMN period_precision TEXT NOT NULL DEFAULT 'EXACT';
+
+            CREATE TABLE utility_bill_line (
+                bill_line_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bill_id INTEGER NOT NULL,
+                section_key TEXT NOT NULL,
+                category_key TEXT NULL,
+                description TEXT NOT NULL,
+                quantity REAL NULL,
+                unit TEXT NULL,
+                unit_rate_clp REAL NULL,
+                amount_clp REAL NOT NULL,
+                tax_treatment TEXT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_utc TEXT NOT NULL,
+                updated_utc TEXT NOT NULL,
+                FOREIGN KEY(bill_id) REFERENCES utility_bill(bill_id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX ix_utility_bill_line_bill
+                ON utility_bill_line(bill_id, sort_order, bill_line_id);
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            10,
+            "Phase 8 reading provenance/time precision, arbitrary bill linkage and flexible bill line items.");
 
         transaction.Commit();
     }
