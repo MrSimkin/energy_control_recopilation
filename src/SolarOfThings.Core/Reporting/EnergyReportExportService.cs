@@ -4,6 +4,7 @@ using MigraDoc.DocumentObjectModel.Shapes.Charts;
 using MigraDoc.DocumentObjectModel.Tables;
 using MigraDoc.Rendering;
 using PdfSharp.Fonts;
+using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Statistics;
 
 namespace SolarOfThings.Core.Reporting;
@@ -147,9 +148,17 @@ public sealed class EnergyReportExportService
         heading.Format.SpaceAfter = Unit.FromPoint(8);
 
         section.AddParagraph(string.Format(
-            L(report, "Período: {0} — {1}", "Period: {0} — {1}"),
+            L(report, "Período seleccionado: {0} — {1}", "Selected period: {0} — {1}"),
             report.Request.LocalStartDate.ToString("dd-MM-yyyy"),
             report.Request.LocalEndDate.ToString("dd-MM-yyyy")));
+        section.AddParagraph(
+            L(report, "Ventana exacta: ", "Exact window: ") +
+            ExactLocalWindowLabel(report));
+        section.AddParagraph(
+            L(
+                report,
+                $"Hora local de la estación ({report.Request.TimeZoneId}); el día final se incluye completo.",
+                $"Station local time ({report.Request.TimeZoneId}); the final day is included in full."));
         section.AddParagraph(string.Format(
             L(report, "Agrupación: {0}", "Aggregation: {0}"),
             AggregationLabel(report)));
@@ -247,10 +256,15 @@ public sealed class EnergyReportExportService
         AddPdfMetricCard(
             firstCardRow.Cells[2],
             partial
-                ? L(report, "Red / Enel registrada", "Recorded utility / grid")
-                : L(report, "Total tomado de Enel / red", "Total utility / grid import"),
+                ? L(report, "IMPORTACIÓN TOTAL DE ENEL REGISTRADA", "RECORDED TOTAL UTILITY IMPORT")
+                : L(report, "IMPORTACIÓN TOTAL DESDE ENEL", "TOTAL IMPORT FROM UTILITY"),
             EnergyValue(report.Summary.GridImportPower, report.Summary.GridImportEnergyKwh, report),
-            string.Format(L(report, "Cobertura {0:N1}%", "Coverage {0:N1}%"), report.Summary.GridImportPower.CoveragePercent));
+            string.Format(
+                L(
+                    report,
+                    "Cobertura {0:N1}% · COMPARAR CON MEDIDOR/BOLETA. Es toda la energía que entró desde Enel al sistema, no sólo la que fue a la casa.",
+                    "Coverage {0:N1}% · COMPARE WITH UTILITY METER/BILL. This is all energy entering the system from the utility, not only the part that supplied the home."),
+                report.Summary.GridImportPower.CoveragePercent));
 
         var secondCardRow = cards.AddRow();
         AddPdfMetricCard(
@@ -397,7 +411,10 @@ public sealed class EnergyReportExportService
             SourceShareContext(
                 report,
                 report.Attribution.GridToHouseKwh,
-                L(report, "del consumo observado", "of observed consumption")),
+                L(
+                    report,
+                    "del consumo observado · Sólo Enel → Casa; NO comparar con boleta/medidor",
+                    "of observed consumption · Utility → Home only; DO NOT compare with bill/meter")),
             Colors.AliceBlue,
             15);
 
@@ -425,6 +442,29 @@ public sealed class EnergyReportExportService
                 report.Attribution.BatteryToHouseKwh,
                 L(report, "del consumo observado", "of observed consumption")),
             Colors.AliceBlue,
+            15);
+
+        var billingImport = section.AddTable();
+        billingImport.Borders.Width = 0;
+        billingImport.AddColumn(Unit.FromCentimeter(16.3));
+        var billingRow = billingImport.AddRow();
+
+        AddPdfFamilyCard(
+            billingRow.Cells[0],
+            L(
+                report,
+                "IMPORTACIÓN TOTAL DESDE ENEL — COMPARAR CON MEDIDOR / BOLETA",
+                "TOTAL IMPORT FROM UTILITY — COMPARE WITH METER / BILL"),
+            report.Summary.GridImportPower.SampleCount >= 2
+                ? $"{report.Summary.GridImportEnergyKwh:N2} kWh"
+                : L(report, "Sin datos suficientes", "Insufficient data"),
+            string.Format(
+                L(
+                    report,
+                    "Toda la energía que entró desde Enel al sistema (cobertura {0:N1}%). Puede incluir Enel → Casa, carga/mantenimiento de batería y pérdidas/consumos internos. Por eso NO tiene que ser igual a Enel → Casa.",
+                    "All energy entering the system from the utility (coverage {0:N1}%). It can include Utility → Home, battery charging/maintenance, and internal losses/consumption. Therefore it does NOT have to equal Utility → Home."),
+                report.Summary.GridImportPower.CoveragePercent),
+            Colors.Honeydew,
             15);
 
         var completeNights = Math.Max(
@@ -1148,6 +1188,20 @@ public sealed class EnergyReportExportService
             sheet.Cell("F3").Value = report.GeneratedUtc.LocalDateTime;
             sheet.Cell("F3").Style.DateFormat.Format = "dd-mm-yyyy hh:mm";
 
+            sheet.Range("A4:I4").Merge();
+            sheet.Cell("A4").Value =
+                L(report, "VENTANA EXACTA: ", "EXACT WINDOW: ") +
+                ExactLocalWindowLabel(report) +
+                L(
+                    report,
+                    $" · hora local ({report.Request.TimeZoneId}) · incluye completo el día final",
+                    $" · local time ({report.Request.TimeZoneId}) · includes the full final day");
+            sheet.Cell("A4").Style.Font.Italic = true;
+            sheet.Cell("A4").Style.Alignment.Horizontal =
+                XLAlignmentHorizontalValues.Center;
+            sheet.Cell("A4").Style.Alignment.WrapText = true;
+            sheet.Row(4).Height = 30;
+
             AddFamilySummarySheet(sheet, report);
             AddFamilyChartsExcel(sheet, report, familyCharts);
 
@@ -1165,9 +1219,13 @@ public sealed class EnergyReportExportService
             sheet.Cell("A1").Style.Font.Bold = true;
             sheet.Cell("A1").Style.Font.FontSize = 16;
 
-            sheet.Cell("A3").Value = L(report, "Período", "Period");
-            sheet.Cell("B3").Value =
-                $"{report.Request.LocalStartDate:dd-MM-yyyy} — {report.Request.LocalEndDate:dd-MM-yyyy}";
+            sheet.Cell("A3").Value =
+                L(report, "Ventana comparada", "Compared window");
+            sheet.Cell("B3").Value = ExactLocalWindowLabel(report) +
+                L(
+                    report,
+                    $" · hora local ({report.Request.TimeZoneId})",
+                    $" · local time ({report.Request.TimeZoneId})");
             sheet.Cell("A4").Value = L(report, "Agrupación", "Aggregation");
             sheet.Cell("B4").Value = AggregationLabel(report);
             sheet.Cell("A5").Value = L(report, "Tipo", "Type");
@@ -1239,15 +1297,15 @@ public sealed class EnergyReportExportService
         AddFamilyCard(
             sheet,
             "A10:C15",
-            L(report, "1. DESDE ENEL / RED", "1. FROM UTILITY / GRID"),
+            L(report, "1. ENEL → CASA (NO ES LA BOLETA)", "1. UTILITY → HOME (NOT THE BILL)"),
             report.Attribution.ObservedHouseKwh > 0
                 ? $"{report.Attribution.GridToHouseKwh:N2} kWh"
                 : L(report, "Sin datos suficientes", "Insufficient data"),
             AttributionCoverageLabel(report),
             L(
                 report,
-                "Energía que el motor pudo atribuir a Enel → casa. La parte no atribuible se mantiene separada.",
-                "Energy the engine could attribute to utility → home. Unattributed energy remains separate."));
+                "Sólo la parte del consumo de la vivienda atribuida a Enel. NO se compara con la boleta/medidor porque no incluye toda la energía importada por el sistema.",
+                "Only the part of household consumption attributed to the utility. DO NOT compare this with the bill/meter because it does not include all energy imported by the system."));
 
         AddFamilyCard(
             sheet,
@@ -1275,8 +1333,26 @@ public sealed class EnergyReportExportService
                 "Energía atribuida a batería → casa. No se sustituye por la descarga total de batería.",
                 "Energy attributed to battery → home. It is not replaced by total battery discharge."));
 
-        sheet.Range("A17:I18").Merge();
-        sheet.Cell("A17").Value =
+        AddFamilyCard(
+            sheet,
+            "A23:I21",
+            L(
+                report,
+                "IMPORTACIÓN TOTAL DESDE ENEL — ESTA SÍ SE COMPARA CON MEDIDOR / BOLETA",
+                "TOTAL IMPORT FROM UTILITY — THIS IS THE ONE TO COMPARE WITH METER / BILL"),
+            report.Summary.GridImportPower.SampleCount >= 2
+                ? $"{report.Summary.GridImportEnergyKwh:N2} kWh"
+                : L(report, "Sin datos suficientes", "Insufficient data"),
+            string.Format(
+                L(report, "Cobertura: {0:N1}%", "Coverage: {0:N1}%"),
+                report.Summary.GridImportPower.CoveragePercent),
+            L(
+                report,
+                "Toda la energía que entró desde Enel al sistema. Puede incluir Enel → Casa, carga/mantenimiento de batería y pérdidas/consumos internos; por eso puede ser mayor que Enel → Casa.",
+                "All energy entering the system from the utility. It can include Utility → Home, battery charging/maintenance, and internal losses/consumption; therefore it can be higher than Utility → Home."));
+
+        sheet.Range("A23:I24").Merge();
+        sheet.Cell("A23").Value =
             report.Summary.HouseLoadPower.SampleCount >= 2
                 ? string.Format(
                     L(
@@ -1289,26 +1365,26 @@ public sealed class EnergyReportExportService
                             : "TOTAL HOME CONSUMPTION: {0:N2} kWh"),
                     report.Summary.HouseEnergyKwh)
                 : L(report, "CONSUMO DE LA CASA: sin datos suficientes", "HOME CONSUMPTION: insufficient data");
-        sheet.Cell("A17").Style.Font.Bold = true;
-        sheet.Cell("A17").Style.Font.FontSize = 15;
-        sheet.Cell("A17").Style.Alignment.Horizontal =
+        sheet.Cell("A23").Style.Font.Bold = true;
+        sheet.Cell("A23").Style.Font.FontSize = 15;
+        sheet.Cell("A23").Style.Alignment.Horizontal =
             XLAlignmentHorizontalValues.Center;
-        sheet.Cell("A17").Style.Alignment.Vertical =
+        sheet.Cell("A23").Style.Alignment.Vertical =
             XLAlignmentVerticalValues.Center;
-        sheet.Cell("A17").Style.Fill.BackgroundColor =
+        sheet.Cell("A23").Style.Fill.BackgroundColor =
             XLColor.FromHtml("#D9EAF7");
-        sheet.Range("A17:I18").Style.Border.OutsideBorder =
+        sheet.Range("A23:I24").Style.Border.OutsideBorder =
             XLBorderStyleValues.Thin;
 
-        sheet.Range("A20:I20").Merge();
-        sheet.Cell("A20").Value =
+        sheet.Range("A26:I26").Merge();
+        sheet.Cell("A26").Value =
             L(report, "4. ¿ALCANZÓ LA BATERÍA DURANTE LA NOCHE?", "4. DID THE BATTERY COVER THE NIGHT?");
-        sheet.Cell("A20").Style.Font.Bold = true;
-        sheet.Cell("A20").Style.Font.FontSize = 13;
+        sheet.Cell("A26").Style.Font.Bold = true;
+        sheet.Cell("A26").Style.Font.FontSize = 13;
 
         AddNightCard(
             sheet,
-            "A22:C25",
+            "A28:C31",
             L(report, "SIN PROBLEMAS DE ALIMENTACION", "NO SUPPLY PROBLEMS"),
             nightsWithoutReserveGrid.ToString("N0"),
             string.Format(
@@ -1318,7 +1394,7 @@ public sealed class EnergyReportExportService
 
         AddNightCard(
             sheet,
-            "D22:F25",
+            "D28:F31",
             L(report, "QUEDAMOS CORTOS", "BATTERY RAN SHORT"),
             family.NightsWithReserveGridUse.ToString("N0"),
             string.Format(
@@ -1329,7 +1405,7 @@ public sealed class EnergyReportExportService
 
         AddNightCard(
             sheet,
-            "G22:I25",
+            "G28:I31",
             L(report, "NOCHES SIN DATOS SUFICIENTES", "NIGHTS WITHOUT ENOUGH DATA"),
             unknownNights.ToString("N0"),
             string.Format(
@@ -1337,7 +1413,7 @@ public sealed class EnergyReportExportService
                 selectedNights),
             "#E7E6E6");
 
-        sheet.Range("A27:I30").Merge();
+        sheet.Range("A33:I36").Merge();
         var interpretation = partial
             ? string.Format(
                 L(
@@ -1358,23 +1434,23 @@ public sealed class EnergyReportExportService
                 report.Attribution.GridToHouseKwh,
                 family.NightsWithReserveGridUse,
                 family.ObservableNightCount);
-        sheet.Cell("A27").Value = interpretation;
-        sheet.Cell("A27").Style.Font.Italic = true;
-        sheet.Cell("A27").Style.Alignment.Vertical =
+        sheet.Cell("A33").Value = interpretation;
+        sheet.Cell("A33").Style.Font.Italic = true;
+        sheet.Cell("A33").Style.Alignment.Vertical =
             XLAlignmentVerticalValues.Center;
-        sheet.Cell("A27").Style.Fill.BackgroundColor =
+        sheet.Cell("A33").Style.Fill.BackgroundColor =
             XLColor.FromHtml("#F3F6F9");
-        sheet.Range("A27:I30").Style.Border.OutsideBorder =
+        sheet.Range("A33:I36").Style.Border.OutsideBorder =
             XLBorderStyleValues.Thin;
 
         StyleFamilySection(
             sheet,
-            "A32:I32",
+            "A38:I38",
             L(report, "PÁGINA 2 — ¿QUÉ PASÓ CON TODA LA ENERGÍA?", "PAGE 2 — WHAT HAPPENED TO ALL THE ENERGY?"));
 
         AddFamilyCard(
             sheet,
-            "A34:C39",
+            "A40:C45",
             partial
                 ? L(report, "SOLAR PRODUCIDO REGISTRADO", "RECORDED SOLAR PRODUCTION")
                 : L(report, "SOLAR PRODUCIDO", "SOLAR PRODUCTION"),
@@ -1391,7 +1467,7 @@ public sealed class EnergyReportExportService
 
         AddFamilyCard(
             sheet,
-            "D34:F39",
+            "D40:F45",
             partial
                 ? L(report, "CONSUMO DE CASA REGISTRADO", "RECORDED HOME CONSUMPTION")
                 : L(report, "CONSUMO DE LA CASA", "HOME CONSUMPTION"),
@@ -1408,10 +1484,10 @@ public sealed class EnergyReportExportService
 
         AddFamilyCard(
             sheet,
-            "G34:I39",
+            "G40:I45",
             partial
-                ? L(report, "RED / ENEL REGISTRADA", "RECORDED UTILITY / GRID")
-                : L(report, "TOTAL TOMADO DE ENEL / RED", "TOTAL UTILITY / GRID IMPORT"),
+                ? L(report, "IMPORTACIÓN TOTAL DE ENEL REGISTRADA", "RECORDED TOTAL UTILITY IMPORT")
+                : L(report, "IMPORTACIÓN TOTAL DESDE ENEL", "TOTAL IMPORT FROM UTILITY"),
             report.Summary.GridImportPower.SampleCount >= 2
                 ? $"{report.Summary.GridImportEnergyKwh:N2} kWh"
                 : L(report, "Sin datos suficientes", "Insufficient data"),
@@ -1420,12 +1496,12 @@ public sealed class EnergyReportExportService
                 report.Summary.GridImportPower.CoveragePercent),
             L(
                 report,
-                "Importación total medida desde la compañía; puede incluir energía que no terminó directamente en la casa.",
-                "Total measured utility import; it can include energy that did not go directly to the home."));
+                "ESTA SÍ se compara con el medidor/boleta de Enel. Es toda la energía que entró desde la red al sistema; puede incluir casa, carga/mantenimiento de batería y pérdidas/consumos internos.",
+                "THIS is the value to compare with the utility meter/bill. It is all energy entering the system from the grid; it can include the home, battery charging/maintenance, and internal losses/consumption."));
 
         AddFamilyCard(
             sheet,
-            "A41:C46",
+            "A47:C52",
             L(report, "BATERÍA: ENERGÍA ENTREGADA", "BATTERY: ENERGY DISCHARGED"),
             report.Summary.BatteryPower.SampleCount >= 2
                 ? $"{report.Summary.BatteryDischargedEnergyKwh:N2} kWh"
@@ -1440,7 +1516,7 @@ public sealed class EnergyReportExportService
 
         AddFamilyCard(
             sheet,
-            "D41:F46",
+            "D47:F52",
             L(report, "BATERÍA: ENERGÍA RECIBIDA", "BATTERY: ENERGY CHARGED"),
             report.Summary.BatteryPower.SampleCount >= 2
                 ? $"{report.Summary.BatteryChargedEnergyKwh:N2} kWh"
@@ -1455,7 +1531,7 @@ public sealed class EnergyReportExportService
 
         AddFamilyCard(
             sheet,
-            "G41:I46",
+            "G47:I52",
             L(report, "ATRIBUCIÓN DE ORIGEN", "SOURCE ATTRIBUTION"),
             $"{report.Attribution.AttributionCoverageOfObservedPercent:N1} %",
             string.Format(
@@ -1466,22 +1542,22 @@ public sealed class EnergyReportExportService
                 "Qué parte del consumo observado pudo repartirse con evidencia entre Solar, Batería y Enel.",
                 "How much observed household consumption could be assigned with evidence to Solar, Battery and Utility."));
 
-        sheet.Range("A48:I50").Merge();
-        sheet.Cell("A48").Value =
+        sheet.Range("A54:I56").Merge();
+        sheet.Cell("A54").Value =
             L(
                 report,
                 "SOLAR QUE NO PUDIMOS APROVECHAR: todavía no puede calcularse con suficiente confianza. No se inventa como “solar producido menos solar usado”.",
                 "SOLAR WE COULD NOT USE: it still cannot be calculated with enough confidence. It is not invented as “solar produced minus solar used”.");
-        sheet.Cell("A48").Style.Font.Bold = true;
-        sheet.Cell("A48").Style.Fill.BackgroundColor =
+        sheet.Cell("A54").Style.Font.Bold = true;
+        sheet.Cell("A54").Style.Fill.BackgroundColor =
             XLColor.FromHtml("#FFF2CC");
-        sheet.Cell("A48").Style.Alignment.Vertical =
+        sheet.Cell("A54").Style.Alignment.Vertical =
             XLAlignmentVerticalValues.Center;
-        sheet.Range("A48:I50").Style.Border.OutsideBorder =
+        sheet.Range("A54:I56").Style.Border.OutsideBorder =
             XLBorderStyleValues.Thin;
-        sheet.Row(48).Height = 24;
-        sheet.Row(49).Height = 24;
-        sheet.Row(50).Height = 24;
+        sheet.Row(54).Height = 24;
+        sheet.Row(55).Height = 24;
+        sheet.Row(56).Height = 24;
     }
 
     private static void AddFamilyChartsExcel(
@@ -1494,7 +1570,7 @@ public sealed class EnergyReportExportService
             return;
         }
 
-        var anchors = new[] { 53, 74, 95 };
+        var anchors = new[] { 59, 80, 101 };
 
         for (var index = 0; index < 3; index++)
         {
@@ -1511,13 +1587,13 @@ public sealed class EnergyReportExportService
             }
         }
 
-        sheet.Range("A116:I117").Merge();
-        sheet.Cell("A116").Value =
+        sheet.Range("A122:I123").Merge();
+        sheet.Cell("A122").Value =
             L(
                 report,
                 "Los gráficos usan exactamente la agrupación elegida para este reporte. La energía que no pudo atribuirse permanece visible como “Sin atribuir”.",
                 "Charts use exactly the aggregation selected for this report. Energy that could not be attributed remains visible as “Unattributed”.");
-        sheet.Cell("A116").Style.Font.Italic = true;
+        sheet.Cell("A122").Style.Font.Italic = true;
     }
 
     private static void AddFamilyReportChartsPdf(
@@ -1659,6 +1735,18 @@ public sealed class EnergyReportExportService
                 "Atribución: {0:N1}% de la energía observada de la casa",
                 "Attribution: {0:N1}% of observed household energy"),
             report.Attribution.AttributionCoverageOfObservedPercent);
+
+    private static string ExactLocalWindowLabel(EnergyReportData report)
+    {
+        var start = SolarApiTime.ConvertToLocalTime(
+            report.Request.StartUtc,
+            report.Request.TimeZoneId);
+        var end = SolarApiTime.ConvertToLocalTime(
+            report.Request.EndUtc,
+            report.Request.TimeZoneId);
+
+        return $"{start:dd-MM-yyyy HH:mm:ss} — {end:dd-MM-yyyy HH:mm:ss}";
+    }
 
     private static string DisplayReportTitle(EnergyReportData report) =>
         report.Request.Title;
