@@ -211,20 +211,54 @@ public sealed class EnergyReportExportService
         pageTwo.Format.Font.Bold = true;
         pageTwo.Format.SpaceAfter = Unit.FromPoint(6);
 
-        var totals = section.AddTable();
-        totals.Borders.Width = 0.4;
-        totals.AddColumn(Unit.FromCentimeter(8.0));
-        totals.AddColumn(Unit.FromCentimeter(4.0));
-        AddPdfValueRow(totals, L(report, "Producción solar total", "Total solar production"),
-            EnergyValue(report.Summary.PvPower, report.Summary.PvEnergyKwh, report));
-        AddPdfValueRow(totals, L(report, "Consumo total de la casa", "Total home consumption"),
-            EnergyValue(report.Summary.HouseLoadPower, report.Summary.HouseEnergyKwh, report));
-        AddPdfValueRow(totals, L(report, "Total tomado de la red", "Total grid import"),
-            EnergyValue(report.Summary.GridImportPower, report.Summary.GridImportEnergyKwh, report));
-        AddPdfValueRow(totals, L(report, "Batería: energía entregada", "Battery energy discharged"),
-            EnergyValue(report.Summary.BatteryPower, report.Summary.BatteryDischargedEnergyKwh, report));
-        AddPdfValueRow(totals, L(report, "Batería: energía recibida", "Battery energy charged"),
-            EnergyValue(report.Summary.BatteryPower, report.Summary.BatteryChargedEnergyKwh, report));
+        var partial = FamilyCoveragePercent(report) < 80.0;
+        var cards = section.AddTable();
+        cards.Borders.Width = 0;
+        cards.AddColumn(Unit.FromCentimeter(4.35));
+        cards.AddColumn(Unit.FromCentimeter(4.35));
+        cards.AddColumn(Unit.FromCentimeter(4.35));
+
+        var firstCardRow = cards.AddRow();
+        AddPdfMetricCard(
+            firstCardRow.Cells[0],
+            partial
+                ? L(report, "Solar producido registrado", "Recorded solar production")
+                : L(report, "Solar producido", "Solar production"),
+            EnergyValue(report.Summary.PvPower, report.Summary.PvEnergyKwh, report),
+            string.Format(L(report, "Cobertura {0:N1}%", "Coverage {0:N1}%"), report.Summary.PvPower.CoveragePercent));
+        AddPdfMetricCard(
+            firstCardRow.Cells[1],
+            partial
+                ? L(report, "Consumo de casa registrado", "Recorded home consumption")
+                : L(report, "Consumo de la casa", "Home consumption"),
+            EnergyValue(report.Summary.HouseLoadPower, report.Summary.HouseEnergyKwh, report),
+            string.Format(L(report, "Cobertura {0:N1}%", "Coverage {0:N1}%"), report.Summary.HouseLoadPower.CoveragePercent));
+        AddPdfMetricCard(
+            firstCardRow.Cells[2],
+            partial
+                ? L(report, "Red / Enel registrada", "Recorded utility / grid")
+                : L(report, "Total tomado de Enel / red", "Total utility / grid import"),
+            EnergyValue(report.Summary.GridImportPower, report.Summary.GridImportEnergyKwh, report),
+            string.Format(L(report, "Cobertura {0:N1}%", "Coverage {0:N1}%"), report.Summary.GridImportPower.CoveragePercent));
+
+        var secondCardRow = cards.AddRow();
+        AddPdfMetricCard(
+            secondCardRow.Cells[0],
+            L(report, "Batería: energía entregada", "Battery: energy discharged"),
+            EnergyValue(report.Summary.BatteryPower, report.Summary.BatteryDischargedEnergyKwh, report),
+            L(report, "Movimiento total de salida", "Total movement out"));
+        AddPdfMetricCard(
+            secondCardRow.Cells[1],
+            L(report, "Batería: energía recibida", "Battery: energy charged"),
+            EnergyValue(report.Summary.BatteryPower, report.Summary.BatteryChargedEnergyKwh, report),
+            L(report, "Movimiento total de entrada", "Total movement in"));
+        AddPdfMetricCard(
+            secondCardRow.Cells[2],
+            L(report, "Atribución de origen", "Source attribution"),
+            $"{report.Attribution.AttributionCoverageOfObservedPercent:N1}%",
+            string.Format(
+                L(report, "Sin atribuir {0:N2} kWh", "Unattributed {0:N2} kWh"),
+                report.Attribution.UnattributedHouseKwh));
 
         var unavailable = section.AddParagraph(
             L(
@@ -773,9 +807,8 @@ public sealed class EnergyReportExportService
 
         var table = section.AddTable();
         table.Borders.Width = 0.25;
-        table.AddColumn(Unit.FromCentimeter(6.0));
-        table.AddColumn(Unit.FromCentimeter(2.5));
-        table.AddColumn(Unit.FromCentimeter(4.5));
+        table.AddColumn(Unit.FromCentimeter(8.0));
+        table.AddColumn(Unit.FromCentimeter(5.0));
 
         AddPdfValueRow(table, L(report, "Cobertura solar", "Solar coverage"), $"{report.Summary.PvPower.CoveragePercent:N1}%");
         AddPdfValueRow(table, L(report, "Cobertura casa", "Home coverage"), $"{report.Summary.HouseLoadPower.CoveragePercent:N1}%");
@@ -1065,7 +1098,7 @@ public sealed class EnergyReportExportService
                     report,
                     "¿QUÉ SIGNIFICA ESTO? Este informe es parcial. En la parte realmente observada se registraron {0:N2} kWh tomados de la red y {1:N2} kWh de consumo de la casa. Sólo {2} de {3} noches completas fueron suficientemente observables; en esas noches se detectaron {4} episodios en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
                     "WHAT DOES THIS MEAN? This report is partial. In the actually observed portion, {0:N2} kWh were taken from the grid and {1:N2} kWh of home consumption were recorded. Only {2} of {3} complete nights were sufficiently observable; those nights contained {4} episodes where the battery reached its normal reserve and grid was needed while solar was insufficient."),
-                report.Summary.GridImportEnergyKwh,
+                report.Attribution.GridToHouseKwh,
                 report.Summary.HouseEnergyKwh,
                 family.ObservableNightCount,
                 selectedNights,
@@ -1076,7 +1109,7 @@ public sealed class EnergyReportExportService
                     "¿QUÉ SIGNIFICA ESTO? La casa consumió {0:N2} kWh y tomó {1:N2} kWh desde la red. En {2} de {3} noches observables se detectó al menos un episodio en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
                     "WHAT DOES THIS MEAN? The home used {0:N2} kWh and took {1:N2} kWh from the grid. On {2} of {3} observable nights, at least one episode was detected where the battery reached its normal reserve and grid was needed while solar was insufficient."),
                 report.Summary.HouseEnergyKwh,
-                report.Summary.GridImportEnergyKwh,
+                report.Attribution.GridToHouseKwh,
                 family.NightsWithReserveGridUse,
                 family.ObservableNightCount);
         sheet.Cell("A27").Value = interpretation;
@@ -2177,6 +2210,34 @@ public sealed class EnergyReportExportService
 
     private static string NullableNumber(double? value) =>
         value.HasValue ? value.Value.ToString("N2") : "—";
+
+    private static void AddPdfMetricCard(
+        Cell cell,
+        string label,
+        string value,
+        string context)
+    {
+        cell.Borders.Width = 0.4;
+        cell.VerticalAlignment = VerticalAlignment.Center;
+        cell.Format.Alignment = ParagraphAlignment.Center;
+
+        var labelParagraph = cell.AddParagraph(label);
+        labelParagraph.Format.Font.Bold = true;
+        labelParagraph.Format.Font.Size = 9;
+        labelParagraph.Format.SpaceAfter = Unit.FromPoint(3);
+
+        var valueParagraph = cell.AddParagraph(value);
+        valueParagraph.Format.Font.Name = PreferredPdfNumericFont();
+        valueParagraph.Format.Font.Bold = true;
+        valueParagraph.Format.Font.Size = 14;
+        valueParagraph.Format.SpaceAfter = Unit.FromPoint(3);
+
+        var contextParagraph = cell.AddParagraph(context);
+        contextParagraph.Format.Font.Size = 8;
+        contextParagraph.Format.Font.Italic = true;
+
+        cell.Format.SpaceAfter = Unit.FromPoint(5);
+    }
 
     private static void AddPdfValueRow(
         Table table,
