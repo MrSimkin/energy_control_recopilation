@@ -49,6 +49,15 @@ public sealed class EnergyReportExportService
             request.EndUtc,
             request.TimeZoneId,
             request.Aggregation);
+        var dailyAttribution =
+            request.Aggregation == AggregationPeriod.Day
+                ? attribution
+                : _sourceAttribution.Get(
+                    request.DeviceId,
+                    request.StartUtc,
+                    request.EndUtc,
+                    request.TimeZoneId,
+                    AggregationPeriod.Day);
 
         return new EnergyReportData(
             request,
@@ -56,6 +65,7 @@ public sealed class EnergyReportExportService
             table,
             family,
             attribution,
+            dailyAttribution,
             DateTimeOffset.UtcNow);
     }
 
@@ -82,6 +92,7 @@ public sealed class EnergyReportExportService
             if (report.Request.Kind == ReportKind.SimpleEnergy)
             {
                 AddPatternsSheet(workbook, report);
+                AddGridUseSheet(workbook, report);
                 AddEventsSheet(workbook, report);
                 AddEvolutionSheet(workbook, report);
             }
