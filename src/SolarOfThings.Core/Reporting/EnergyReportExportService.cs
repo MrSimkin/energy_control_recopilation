@@ -295,16 +295,6 @@ public sealed class EnergyReportExportService
         Section section,
         EnergyReportData report)
     {
-        var intro = section.AddParagraph(
-            L(
-                report,
-                "Las cuatro preguntas principales de la casa",
-                "The household's four main questions"));
-        intro.Format.Font.Size = 13;
-        intro.Format.Font.Bold = true;
-        intro.Format.SpaceBefore = Unit.FromPoint(10);
-        intro.Format.SpaceAfter = Unit.FromPoint(5);
-
         var familyCoverage = FamilyCoveragePercent(report);
         if (familyCoverage < 80.0)
         {
@@ -315,34 +305,107 @@ public sealed class EnergyReportExportService
                     "PARTIAL SUMMARY: enough data is available for only approximately {0:N1}% of the period. Figures show measured data and do not project across gaps."),
                 familyCoverage));
             warning.Format.Font.Bold = true;
-            warning.Format.SpaceAfter = Unit.FromPoint(6);
+            warning.Format.SpaceBefore = Unit.FromPoint(8);
+            warning.Format.SpaceAfter = Unit.FromPoint(8);
         }
 
-        var table = section.AddTable();
-        table.Borders.Width = 0.4;
-        table.AddColumn(Unit.FromCentimeter(8.5));
-        table.AddColumn(Unit.FromCentimeter(4.5));
+        var overviewHeading = section.AddParagraph(
+            L(
+                report,
+                "Resumen de la casa",
+                "Household summary"));
+        overviewHeading.Format.Font.Size = 13;
+        overviewHeading.Format.Font.Bold = true;
+        overviewHeading.Format.SpaceBefore = Unit.FromPoint(8);
+        overviewHeading.Format.SpaceAfter = Unit.FromPoint(5);
 
-        AddPdfValueRow(
-            table,
-            L(report, "1. Desde Enel / red a la casa", "1. Utility/grid to home"),
+        var overview = section.AddTable();
+        overview.Borders.Width = 0;
+        overview.AddColumn(Unit.FromCentimeter(8.15));
+        overview.AddColumn(Unit.FromCentimeter(8.15));
+        var overviewRow = overview.AddRow();
+
+        AddPdfFamilyCard(
+            overviewRow.Cells[0],
+            L(report, "CONSUMO TOTAL DE LA CASA", "TOTAL HOUSEHOLD CONSUMPTION"),
+            report.Attribution.ObservedHouseKwh > 0
+                ? $"{report.Attribution.ObservedHouseKwh:N2} kWh"
+                : L(report, "Sin datos", "No data"),
+            L(
+                report,
+                "Todo lo usado por la vivienda en la parte observable del período.",
+                "Everything used by the home in the observable part of the period."),
+            Colors.AliceBlue,
+            17);
+
+        AddPdfFamilyCard(
+            overviewRow.Cells[1],
+            L(report, "ORIGEN IDENTIFICADO", "SOURCE IDENTIFIED"),
+            $"{report.Attribution.AttributionCoverageOfObservedPercent:N1}%",
+            string.Format(
+                L(
+                    report,
+                    "{0:N2} kWh permanecen sin atribuir; no se reparten artificialmente.",
+                    "{0:N2} kWh remain unattributed; they are not artificially distributed."),
+                report.Attribution.UnattributedHouseKwh),
+            Colors.AliceBlue,
+            17);
+
+        var sourceHeading = section.AddParagraph(
+            L(
+                report,
+                "¿De dónde vino la energía que usó la casa?",
+                "Where did the household's energy come from?"));
+        sourceHeading.Format.Font.Size = 13;
+        sourceHeading.Format.Font.Bold = true;
+        sourceHeading.Format.SpaceBefore = Unit.FromPoint(9);
+        sourceHeading.Format.SpaceAfter = Unit.FromPoint(5);
+
+        var sources = section.AddTable();
+        sources.Borders.Width = 0;
+        sources.AddColumn(Unit.FromCentimeter(5.4));
+        sources.AddColumn(Unit.FromCentimeter(5.4));
+        sources.AddColumn(Unit.FromCentimeter(5.4));
+        var sourceRow = sources.AddRow();
+
+        AddPdfFamilyCard(
+            sourceRow.Cells[0],
+            L(report, "1. DESDE ENEL / RED", "1. FROM UTILITY / GRID"),
             report.Attribution.ObservedHouseKwh > 0
                 ? $"{report.Attribution.GridToHouseKwh:N2} kWh"
-                : L(report, "Sin datos", "No data"));
+                : L(report, "Sin datos", "No data"),
+            SourceShareContext(
+                report,
+                report.Attribution.GridToHouseKwh,
+                L(report, "del consumo observado", "of observed consumption")),
+            Colors.AliceBlue,
+            15);
 
-        AddPdfValueRow(
-            table,
-            L(report, "2. Directamente del sol a la casa", "2. Direct solar to home"),
+        AddPdfFamilyCard(
+            sourceRow.Cells[1],
+            L(report, "2. DIRECTAMENTE DEL SOL", "2. DIRECTLY FROM SOLAR"),
             report.Attribution.ObservedHouseKwh > 0
                 ? $"{report.Attribution.SolarToHouseKwh:N2} kWh"
-                : L(report, "Sin datos", "No data"));
+                : L(report, "Sin datos", "No data"),
+            SourceShareContext(
+                report,
+                report.Attribution.SolarToHouseKwh,
+                L(report, "del consumo observado", "of observed consumption")),
+            Colors.AliceBlue,
+            15);
 
-        AddPdfValueRow(
-            table,
-            L(report, "3. Desde la batería a la casa", "3. Battery to home"),
+        AddPdfFamilyCard(
+            sourceRow.Cells[2],
+            L(report, "3. DESDE LA BATERÍA", "3. FROM THE BATTERY"),
             report.Attribution.ObservedHouseKwh > 0
                 ? $"{report.Attribution.BatteryToHouseKwh:N2} kWh"
-                : L(report, "Sin datos", "No data"));
+                : L(report, "Sin datos", "No data"),
+            SourceShareContext(
+                report,
+                report.Attribution.BatteryToHouseKwh,
+                L(report, "del consumo observado", "of observed consumption")),
+            Colors.AliceBlue,
+            15);
 
         var completeNights = Math.Max(
             0,
@@ -357,65 +420,83 @@ public sealed class EnergyReportExportService
             completeNights -
             report.Family.ObservableNightCount);
 
-        AddPdfValueRow(
-            table,
-            L(report, "4. SIN PROBLEMAS DE ALIMENTACION", "4. NO SUPPLY PROBLEMS"),
+        var nightHeading = section.AddParagraph(
+            L(
+                report,
+                "¿La batería alcanzó para cubrir la noche?",
+                "Did the battery cover the night?"));
+        nightHeading.Format.Font.Size = 13;
+        nightHeading.Format.Font.Bold = true;
+        nightHeading.Format.SpaceBefore = Unit.FromPoint(9);
+        nightHeading.Format.SpaceAfter = Unit.FromPoint(5);
+
+        var nights = section.AddTable();
+        nights.Borders.Width = 0;
+        nights.AddColumn(Unit.FromCentimeter(5.4));
+        nights.AddColumn(Unit.FromCentimeter(5.4));
+        nights.AddColumn(Unit.FromCentimeter(5.4));
+        var nightRow = nights.AddRow();
+
+        AddPdfFamilyCard(
+            nightRow.Cells[0],
+            L(report, "SIN PROBLEMAS DE ALIMENTACIÓN", "NO SUPPLY PROBLEMS"),
+            problemFreeNights.ToString("N0"),
             string.Format(
-                L(report, "{0} de {1} noches observables", "{0} of {1} observable nights"),
-                problemFreeNights,
-                report.Family.ObservableNightCount));
-
-        AddPdfValueRow(
-            table,
-            L(report, "Quedamos cortos", "Battery ran short"),
-            string.Format(
-                L(report, "{0} noches · {1} episodios", "{0} nights · {1} episodes"),
-                report.Family.NightsWithReserveGridUse,
-                report.Family.ReserveGridEpisodeCount));
-
-        AddPdfValueRow(
-            table,
-            L(report, "Noches sin datos suficientes", "Nights without enough data"),
-            unknownNights.ToString("N0"));
-
-        if (report.Family.ReserveGridEpisodeCount > 0)
-        {
-            AddPdfValueRow(
-                table,
                 L(
                     report,
-                    "Tiempo total en episodios reserva + red",
-                    "Total reserve + grid episode time"),
-                $"{report.Family.ReserveGridTotalMinutes / 60.0:N2} " +
-                L(report, "horas", "hours"));
-        }
+                    "de {0} noches observables",
+                    "of {0} observable nights"),
+                report.Family.ObservableNightCount),
+            Colors.Honeydew,
+            17);
+
+        AddPdfFamilyCard(
+            nightRow.Cells[1],
+            L(report, "QUEDAMOS CORTOS", "BATTERY RAN SHORT"),
+            report.Family.NightsWithReserveGridUse.ToString("N0"),
+            string.Format(
+                L(
+                    report,
+                    "{0} episodios · {1:N2} h acumuladas",
+                    "{0} episodes · {1:N2} accumulated h"),
+                report.Family.ReserveGridEpisodeCount,
+                report.Family.ReserveGridTotalMinutes / 60.0),
+            Colors.MistyRose,
+            17);
+
+        AddPdfFamilyCard(
+            nightRow.Cells[2],
+            L(report, "SIN DATOS SUFICIENTES", "INSUFFICIENT DATA"),
+            unknownNights.ToString("N0"),
+            L(
+                report,
+                "No se cuentan como noches sin problemas.",
+                "They are not counted as problem-free nights."),
+            Colors.WhiteSmoke,
+            17);
 
         if (report.Family.TypicalReserveTime.HasValue)
         {
-            AddPdfValueRow(
-                table,
-                L(report, "Hora típica de llegada a reserva", "Typical reserve-arrival time"),
-                report.Family.TypicalReserveTime.Value.ToString("HH:mm"));
+            var typical = section.AddParagraph(
+                string.Format(
+                    L(
+                        report,
+                        "Hora típica de llegada a la reserva: {0}.",
+                        "Typical reserve-arrival time: {0}."),
+                    report.Family.TypicalReserveTime.Value.ToString("HH:mm")));
+            typical.Format.Font.Bold = true;
+            typical.Format.SpaceBefore = Unit.FromPoint(6);
+            typical.Format.SpaceAfter = Unit.FromPoint(2);
         }
 
         var note = section.AddParagraph(
             L(
                 report,
-                "Un episodio nocturno se cuenta sólo cuando la batería está en su umbral normal de transferencia, hay uso de red y el solar es ausente o insuficiente. Una noche sin datos suficientes no se cuenta como una noche sin problemas.",
-                "A night episode is counted only when the battery is at its normal transfer threshold, grid is in use, and solar is absent or insufficient. A night without enough data is not counted as a problem-free night."));
-        note.Format.SpaceBefore = Unit.FromPoint(6);
+                "Una noche queda como “quedamos cortos” sólo cuando la batería llega a su umbral normal de transferencia, la casa necesita red y el solar es ausente o insuficiente. Los huecos de datos no se convierten en noches sin problemas.",
+                "A night is counted as “battery ran short” only when the battery reaches its normal transfer threshold, the home needs grid power, and solar is absent or insufficient. Data gaps are not converted into problem-free nights."));
+        note.Format.SpaceBefore = Unit.FromPoint(5);
+        note.Format.Font.Size = 8;
         note.Format.Font.Italic = true;
-
-        var attributionNote = section.AddParagraph(
-            string.Format(
-                L(
-                    report,
-                    "Atribución de origen: {0:N1}% de la energía observada de la casa. {1:N2} kWh quedaron sin atribuir y no se asignaron artificialmente a ninguna fuente.",
-                    "Source attribution: {0:N1}% of observed household energy. {1:N2} kWh remained unattributed and were not artificially assigned to any source."),
-                report.Attribution.AttributionCoverageOfObservedPercent,
-                report.Attribution.UnattributedHouseKwh));
-        attributionNote.Format.SpaceBefore = Unit.FromPoint(4);
-        attributionNote.Format.Font.Italic = true;
     }
 
     private static void AddFamilyPatternsPdf(
@@ -2355,26 +2436,62 @@ public sealed class EnergyReportExportService
         string value,
         string context)
     {
+        AddPdfFamilyCard(
+            cell,
+            label,
+            value,
+            context,
+            Colors.AliceBlue,
+            14);
+    }
+
+    private static void AddPdfFamilyCard(
+        Cell cell,
+        string label,
+        string value,
+        string context,
+        Color fillColor,
+        double valueFontSize)
+    {
         cell.Borders.Width = 0.4;
+        cell.Borders.Color = Colors.LightGray;
+        cell.Shading.Color = fillColor;
         cell.VerticalAlignment = VerticalAlignment.Center;
         cell.Format.Alignment = ParagraphAlignment.Center;
 
         var labelParagraph = cell.AddParagraph(label);
         labelParagraph.Format.Font.Bold = true;
         labelParagraph.Format.Font.Size = 9;
-        labelParagraph.Format.SpaceAfter = Unit.FromPoint(3);
+        labelParagraph.Format.SpaceBefore = Unit.FromPoint(4);
+        labelParagraph.Format.SpaceAfter = Unit.FromPoint(4);
 
         var valueParagraph = cell.AddParagraph(value);
         valueParagraph.Format.Font.Name = PreferredPdfNumericFont();
         valueParagraph.Format.Font.Bold = true;
-        valueParagraph.Format.Font.Size = 14;
-        valueParagraph.Format.SpaceAfter = Unit.FromPoint(3);
+        valueParagraph.Format.Font.Size = valueFontSize;
+        valueParagraph.Format.SpaceAfter = Unit.FromPoint(4);
 
         var contextParagraph = cell.AddParagraph(context);
         contextParagraph.Format.Font.Size = 8;
-        contextParagraph.Format.Font.Italic = true;
+        contextParagraph.Format.SpaceAfter = Unit.FromPoint(5);
+    }
 
-        cell.Format.SpaceAfter = Unit.FromPoint(5);
+    private static string SourceShareContext(
+        EnergyReportData report,
+        double sourceKwh,
+        string suffix)
+    {
+        if (report.Attribution.ObservedHouseKwh <= 0)
+        {
+            return L(report, "Sin base observable", "No observable base");
+        }
+
+        var percent =
+            sourceKwh /
+            report.Attribution.ObservedHouseKwh *
+            100.0;
+
+        return $"{percent:N1}% {suffix}";
     }
 
     private static void AddPdfValueRow(
