@@ -401,3 +401,39 @@ The 2026-09-19→2026-09-25 real workbook that triggered this correction had:
 ### Build-only repair after visual family-cover checkpoint
 
 Windows Build run 281 failed before smoke because `spanDays` was declared twice after moving selected-period length earlier for pattern-evidence gating. Removed the duplicate declaration; no reporting semantics changed.
+
+
+## Family-cover visual correction — CI GREEN — 2026-09-27
+
+Green code HEAD:
+- `04e64f3580b9571f5526322c8e580710f4f359d4`.
+
+Windows Build:
+- run ID: `36281469442`;
+- run number: 282;
+- restore: PASS;
+- build: PASS;
+- deterministic family event/pattern smoke: PASS;
+- XLSX generation: PASS;
+- PDF generation: PASS;
+- self-contained win-x64 publish: PASS;
+- artifact upload: PASS.
+
+Portable:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10919445323`;
+- size: 78,625,154 bytes;
+- SHA-256: `829858fe447acb1124ff1db5e13c46ff831c9eaf14da448a0603db48cb3ee75a`;
+- expires: 2026-12-26;
+- run: `https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36281469442`.
+
+This build supersedes artifact `10917741876` for family-report QA.
+
+Target-PC validation should re-export the same saved `Últimos 7 días` Simple Energy preset and inspect `Resumen` first. Expected changes:
+- visible partial-summary banner for the 38.9% real corpus;
+- three large source cards;
+- large home-consumption band;
+- explicit observed / shortfall / unknown night cards;
+- plain-language interpretation;
+- “registrado” rather than “total” wording under partial coverage;
+- no “habitual” hourly patterns when only 3 of 7 selected days contain usable observations.

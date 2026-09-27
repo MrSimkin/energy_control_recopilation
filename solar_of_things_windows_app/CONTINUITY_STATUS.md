@@ -976,3 +976,21 @@ Target-PC XLSX review of `SolarEnergy_20260919_20260925.xlsx` confirmed:
 The next code checkpoint corrects these issues by restoring the wireframe-like family cover, explicitly separating observed/unknown nights, making partial-data status prominent, and suppressing “habitual” hourly patterns unless at least 60% of selected days (minimum 3) have usable observations.
 
 Do not treat the prior XLSX screenshot as final family-report acceptance.
+
+
+## Current Reporting QA artifact after family-cover correction — 2026-09-27
+
+Use Windows Build run `36281469442`, artifact `10919445323` (SHA256 `829858fe447acb1124ff1db5e13c46ff831c9eaf14da448a0603db48cb3ee75a`).
+
+This replaces artifact `10917741876` for the next target-PC test.
+
+The correction was triggered by the real exported workbook `SolarEnergy_20260919_20260925.xlsx`, where the user correctly observed that key visual elements from the approved wireframe were missing.
+
+The next QA action is narrowly scoped:
+- reuse the full prior `Data\` directory;
+- open `SolarEnergyMonitor.exe`;
+- select the existing `Últimos 7 días` preset;
+- export Simple Energy XLSX;
+- inspect only `Resumen` first.
+
+Do not repeat prior sync, preset-persistence, Phase 6, or old exporter-mechanics QA.
