@@ -255,7 +255,7 @@ public sealed class SourceAttributionService
                     frame.HouseWatts = Math.Max(0, value);
                     break;
                 case "grid_import_power_w":
-                    frame.GridWatts = Math.Max(0, value);
+                    frame.GridWatts = value;
                     break;
                 case "battery_power_w":
                     frame.BatteryWatts = value;
@@ -421,9 +421,16 @@ public sealed class SourceAttributionService
             return AttributionFrame.Unresolved("MISSING_CORE_METRIC", frame);
         }
 
+        if (frame.GridWatts.Value < -50)
+        {
+            return AttributionFrame.Unresolved(
+                "NEGATIVE_GRID_SIGN_SEMANTICS_UNRESOLVED",
+                frame);
+        }
+
         var house = frame.HouseWatts.Value;
         var pv = frame.PvWatts.Value;
-        var grid = frame.GridWatts.Value;
+        var grid = Math.Max(0, frame.GridWatts.Value);
         var battery = frame.BatteryWatts.Value;
         var discharge = Math.Max(battery, 0);
         var charge = Math.Max(-battery, 0);
