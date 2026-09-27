@@ -1421,9 +1421,7 @@ public sealed class EnergyReportExportService
             report.Attribution.AttributionCoverageOfObservedPercent);
 
     private static string DisplayReportTitle(EnergyReportData report) =>
-        report.Request.Kind == ReportKind.SimpleEnergy
-            ? $"Reporte de Uso de Energia - Tipo : {report.Request.Title}"
-            : report.Request.Title;
+        report.Request.Title;
 
     private static string CreateChartTempDirectory()
     {
