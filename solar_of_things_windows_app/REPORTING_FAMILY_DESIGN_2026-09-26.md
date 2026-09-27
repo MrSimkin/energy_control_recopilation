@@ -780,3 +780,22 @@ Current Spanish labels such as:
 must be reviewed for clearer parent-facing language in the next UI tranche.
 
 Exact replacement wording is still an explicit user decision before implementation.
+
+
+## 17. Source-attribution investigation escalation — 2026-09-27
+
+Source attribution is now a **priority implementation dependency**, not a tolerated long-term unavailable field.
+
+Canonical investigation detail:
+- `SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md`.
+
+Locked additions:
+- family battery chart uses estimated stored battery energy in kWh, not SOC %, while retaining an explicit estimate label;
+- historical inverter settings are treated as time-varying where the downloaded corpus proves changes;
+- report source attribution must use historical/as-of configuration where available;
+- current EnergyFlow support must be investigated and persisted because the target commissioning profile reports `SUPPORTED`;
+- if a source-attribution chart is temporarily blocked, retain its intended report location with a clear unavailable/evidence message, but prioritize resolving it.
+
+Do not use today's 20/10/50 family policy as a blanket retrospective assumption.
+
+The completed backfill should be used for the next semantic QA after the consolidated attribution/reporting tranche.

@@ -1059,3 +1059,30 @@ Important carried Phase 6 finding:
 - next combined build must make current Battery state Live/fresh where safe and clearly labelled, while historical calculations remain stored-corpus based.
 
 Do not ask the user for another portable QA until the consolidated tranche is implemented and CI green.
+
+
+## Critical continuity checkpoint — dynamic source attribution — 2026-09-27
+
+A dedicated canonical investigation has been added:
+
+`solar_of_things_windows_app/SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md`
+
+Read it before resuming Reporting/source-attribution work.
+
+Key state:
+- historical update/backfill is complete for the current QA corpus;
+- historical config is demonstrably dynamic;
+- target profile: HPVINV02 / MH2083139 / dataSource 1 / EnergyFlow SUPPORTED;
+- downloaded history contains changing transfer thresholds but no explicit SBU/LBU/OSO key;
+- current raw DB has 12 LatestStateSnapshot captures and 167 selected-key-history captures;
+- no EnergyFlow raw JSON is persisted;
+- code inspection proves CommissioningService currently calls EnergyFlow but stores only status, discarding successful response data;
+- original API research confirms EnergyFlow can expose PV/grid/battery/load nodes, direction and values;
+- no historical endpoint for the full structured EnergyFlow view was established;
+- source attribution must therefore become dynamic/as-of and evidence-driven;
+- family battery graph uses estimated stored kWh, not SOC %, while retaining estimate labeling;
+- Battery page keeps the minimum protected level with a clearer family explanation;
+- do not request another manual Reporting build until the consolidated attribution/reporting/Battery tranche is implemented and CI green.
+
+Immediate next evidence query:
+- inspect the keys/values inside the 12 persisted LatestStateSnapshot JSON objects, as documented in the dedicated investigation file.

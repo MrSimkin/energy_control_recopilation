@@ -1537,3 +1537,21 @@ This requirement applies to all later dashboard, analysis, battery, grid, report
 Approved by the user/product owner on 2026-09-24.
 
 Phase 0 is complete. Subsequent requirement changes follow the classification in Section 44.
+
+
+## 6.4 Historical configuration and dynamic source attribution
+
+For the commissioned target installation, historical configuration must not be assumed static.
+
+Real target history demonstrates time-varying inverter thresholds. Therefore PV→Load, Battery→Load and Grid→Load derivations must, where configuration matters:
+- use configuration effective at that historical instant;
+- perform an as-of join against known configuration transitions;
+- preserve attribution coverage/confidence;
+- leave ambiguous intervals unresolved rather than applying present-day settings retrospectively.
+
+The commissioned target reports structured EnergyFlow as supported. Successful EnergyFlow responses should be preserved locally and evaluated as the highest-priority current attribution evidence.
+
+Current/latest EnergyFlow and remote configuration surfaces are not substitutes for missing historical configuration. Where no historical mode/config evidence exists, historical attribution may use only validated telemetry/behavioral derivation.
+
+See:
+- `SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md`.

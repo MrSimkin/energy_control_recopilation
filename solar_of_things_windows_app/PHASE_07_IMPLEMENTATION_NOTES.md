@@ -515,3 +515,30 @@ Two chart implementation questions remain open:
 2. whether evidence-gated source-attribution charts are hidden entirely or rendered as explicitly unavailable until attribution exists.
 
 Do not implement another Reporting tranche until those two choices are resolved.
+
+
+## Source-attribution blocker investigation checkpoint — 2026-09-27
+
+The completed target history and the original API research were cross-reviewed.
+
+Canonical detailed checkpoint:
+- `SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md`.
+
+Important findings:
+- target = HPVINV02 / gather protocol MH2083139 / dataSource 1;
+- EnergyFlow commissioning status = SUPPORTED;
+- historical low-cardinality settings show real changes over time;
+- 2026-08-09: return-to-battery voltage 54→53 V and return-to-mains voltage 46→51 V;
+- 2026-08-18: BMS return-to-battery SOC 95→50%;
+- ordinary historical gather catalog has no explicit SBU/LBU/OSO priority key;
+- raw capture currently contains LatestStateSnapshot and selected-key-history only;
+- CommissioningService calls EnergyFlow but discards successful raw EnergyFlow JSON.
+
+Reporting implications:
+- source attribution must become dynamic/as-of and validated;
+- family battery chart should use estimated stored kWh rather than SOC as the primary series;
+- source attribution is a priority before the next manual family-report acceptance;
+- next build should be consolidated, not another micro-layout build.
+
+Next DB evidence step:
+- inspect all keys/values present in the 12 saved LatestStateSnapshot JSON objects.
