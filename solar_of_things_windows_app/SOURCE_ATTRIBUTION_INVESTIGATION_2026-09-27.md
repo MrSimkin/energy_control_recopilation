@@ -651,3 +651,113 @@ For family reporting:
 - formula remains configured useful capacity × SOC fraction;
 - keep explicit “(estimado)” labeling.
 
+
+
+---
+
+## 18. Recovered enum evidence from original SiSeLi/API research
+
+A re-read of `solar_of_things_api_research/round_02_cloud_rest_api_repository_archaeology.md` recovered an important mapping that predates this Reporting investigation.
+
+Cross-repository SiSeLi issue captures documented:
+
+- `outputSourcePrioritySetting`:
+  - `0 = USO`;
+  - `1 = SUB`;
+  - `2 = SBU`.
+
+- `chargerSourcePrioritySetting`:
+  - `0 = CSO` — Solar First;
+  - `1 = SNU` — Solar + Utility;
+  - `2 = OSO` — Only Solar.
+
+Model aliases were also observed in the earlier research:
+- FCHAO `setOutputSourcePriority`;
+- FCHAO `chargeSourcePrioirty` typo/alias.
+
+### Relationship to the target LatestState fields
+
+Target current-state snapshots expose:
+
+- `chargingPriorityOrder = 2`;
+- `pvEnergyFeedingPriority = 1`;
+- `outputModel = 0`;
+- `workingMode = 1`;
+- `mode = B`.
+
+Interpretation status:
+
+#### `chargingPriorityOrder = 2`
+There is now **strong corroboration** that this may be a model-specific alias for charger-source priority, because:
+- the field name is semantically equivalent;
+- the known SiSeLi charger-priority enum uses `2 = OSO`;
+- the family installation's intended/current charger mode is OSO;
+- target snapshots also show `acChargingSwitch = 0`.
+
+However, the alias itself is not yet proven by target metadata/config-read output.
+
+Until proven, label as:
+- **PROBABLE: OSO / solar-only battery charging**.
+
+#### `pvEnergyFeedingPriority = 1`
+Public manuals for this inverter family identify the PV allocation setting as:
+- BLU = battery before load;
+- LBU = load before battery.
+
+External inverter-family protocol documentation commonly encodes:
+- `0 = BLU`;
+- `1 = LBU`.
+
+The target installation's documented current setting is LBU and the target snapshot shows `pvEnergyFeedingPriority = 1`.
+
+Therefore:
+- **PROBABLE: LBU / PV feeds household load before battery charging**.
+
+This is a stronger inference than before, but the target field's own enum metadata remains preferable evidence.
+
+#### `outputModel = 0`
+Do **not** equate this automatically with `outputSourcePrioritySetting`.
+
+If it shared the earlier SiSeLi output-priority enum, `0` would imply USO, which conflicts with the documented current target SBU configuration. The field name is different and may represent another output mode/function.
+
+Status:
+- **UNRESOLVED**.
+
+#### `workingMode = 1` / `mode = B`
+These appear more likely to describe current operating state than persistent priority configuration.
+
+The twelve snapshots were captured while `mainsPower = 0` and several show battery discharge / PV behavior, which is compatible with a battery/inverter operating state. That is not sufficient to define the enum.
+
+Status:
+- **UNRESOLVED operating-state enum**.
+
+### Do not conflate configuration with current operating mode
+
+The attribution model needs both:
+
+1. persistent/effective configuration:
+   - output source priority;
+   - charger source priority;
+   - PV allocation priority;
+   - SOC/voltage transfer thresholds;
+
+2. current observed operating state:
+   - grid active/bypass;
+   - inverter/battery supplying;
+   - PV active;
+   - battery charging/discharging.
+
+A current `mode=B` observation must not replace the historical configuration timeline.
+
+### Remaining best evidence step
+
+Inspect the full target field objects and/or read-only config cache before hard-coding aliases.
+
+Preferred target evidence order:
+
+1. saved `state/latest/v1` field object with display/enum metadata;
+2. `remote/device/configs/cache/get` read-only response;
+3. `remote/device/configs/read` + details read-only response;
+4. official-client mapping;
+5. only then cross-family/manual inference.
+
