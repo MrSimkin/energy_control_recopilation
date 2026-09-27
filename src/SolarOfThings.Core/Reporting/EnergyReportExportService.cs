@@ -752,7 +752,10 @@ public sealed class EnergyReportExportService
         EnergyReportData report)
     {
         var heading = section.AddParagraph(
-            L(report, "Todas las ocurrencias detectadas", "All detected occurrences"));
+            L(
+                report,
+                "Episodios nocturnos de batería en reserva + red",
+                "Nighttime battery-reserve + grid episodes"));
         heading.Format.Font.Bold = true;
         heading.Format.SpaceBefore = Unit.FromPoint(10);
         heading.Format.SpaceAfter = Unit.FromPoint(4);
@@ -1989,7 +1992,10 @@ public sealed class EnergyReportExportService
         row += 2;
         sheet.Range(row, 1, row, 5).Merge();
         sheet.Cell(row, 1).Value =
-            L(report, "Eventos del período", "Events in the period");
+            L(
+                report,
+                "Episodios nocturnos de reserva + red",
+                "Nighttime reserve + grid episodes");
         sheet.Cell(row, 1).Style.Font.Bold = true;
         sheet.Row(row).Height = 24;
         row++;
@@ -2001,13 +2007,13 @@ public sealed class EnergyReportExportService
             report.Family.Events.Count == 0
                 ? L(
                     report,
-                    "No se detectaron episodios de reserva + red con evidencia suficiente en la parte observable. La hoja Eventos conserva el detalle nocturno completo, incluidas las noches desconocidas.",
-                    "No sufficiently supported reserve + grid episodes were detected in the observable portion. The Events sheet keeps the complete nightly detail, including unknown nights.")
+                    "No se detectaron episodios nocturnos de reserva + red con evidencia suficiente en la parte observable. La hoja Uso de Enel resume por separado todos los días en que Enel aportó a la casa; la hoja Eventos conserva el detalle nocturno.",
+                    "No sufficiently supported nighttime reserve + grid episodes were detected in the observable portion. The Utility Use sheet separately summarizes every day when utility power contributed to the home; the Events sheet keeps the nighttime detail.")
                 : string.Format(
                     L(
                         report,
-                        "Se detectaron {0} episodios en {1} noches observables, con {2:N1} minutos acumulados. La hoja Eventos conserva cada ocurrencia completa.",
-                        "{0} episodes were detected across {1} observable nights, totaling {2:N1} minutes. The Events sheet preserves every occurrence."),
+                        "Se detectaron {0} episodios nocturnos de reserva + red en {1} noches observables, con {2:N1} minutos acumulados. Esto no representa todos los usos de Enel; la hoja Uso de Enel conserva ese resumen por día.",
+                        "{0} nighttime reserve + grid episodes were detected across {1} observable nights, totaling {2:N1} minutes. This is not the count of all utility use; the Utility Use sheet preserves that daily summary."),
                     report.Family.Events.Count,
                     report.Family.NightsWithReserveGridUse,
                     report.Family.ReserveGridTotalMinutes);
@@ -2146,7 +2152,10 @@ public sealed class EnergyReportExportService
             L(report, "Eventos", "Events"));
 
         sheet.Cell("A1").Value =
-            L(report, "Noches observables", "Observable nights");
+            L(
+                report,
+                "Noches observables — detector específico de reserva + red",
+                "Observable nights — specific reserve + grid detector");
         sheet.Cell("A1").Style.Font.Bold = true;
         sheet.Cell("A2").Value =
             string.Format(
@@ -2185,7 +2194,10 @@ public sealed class EnergyReportExportService
 
         row += 2;
         sheet.Cell(row, 1).Value =
-            L(report, "Todos los episodios detectados", "All detected episodes");
+            L(
+                report,
+                "Episodios nocturnos de batería en reserva + red",
+                "Nighttime battery-reserve + grid episodes");
         sheet.Cell(row, 1).Style.Font.Bold = true;
         row++;
 
