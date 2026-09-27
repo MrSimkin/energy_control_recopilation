@@ -192,7 +192,9 @@ public sealed class InvestigationDiagnosticsService
             }
 
             SolarApiResponse? last = null;
-            for (var attempt = 1; attempt <= 8; attempt++)
+            var completed = false;
+
+            for (var attempt = 1; attempt <= 60; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -209,17 +211,47 @@ public sealed class InvestigationDiagnosticsService
                     "remote/configs/read/details",
                     last);
 
-                if (!last.IsSuccess || LooksComplete(last.Data))
+                if (!last.IsSuccess)
                 {
                     break;
                 }
 
-                await Task.Delay(500, cancellationToken);
+                completed = LooksComplete(last.Data);
+                if (completed)
+                {
+                    break;
+                }
+
+                await Task.Delay(
+                    TimeSpan.FromSeconds(1),
+                    cancellationToken);
             }
 
-            return last is null
-                ? new("ConfigDirectRead", "WARN", "Batch read started but no details response was obtained.")
-                : ApiResult("ConfigDirectRead", last);
+            if (last is null)
+            {
+                return new(
+                    "ConfigDirectRead",
+                    "WARN",
+                    "Batch read started but no details response was obtained.");
+            }
+
+            if (!last.IsSuccess)
+            {
+                return ApiResult("ConfigDirectRead", last);
+            }
+
+            if (!completed)
+            {
+                return new(
+                    "ConfigDirectRead",
+                    "WARN",
+                    "Batch read remained unfinished after 60 seconds. The latest details response was preserved.");
+            }
+
+            return new(
+                "ConfigDirectRead",
+                "SUCCESS",
+                "Direct configuration batch read completed and the final details response was preserved.");
         }
         catch (Exception ex)
         {
@@ -288,8 +320,8 @@ public sealed class InvestigationDiagnosticsService
         {
             await CaptureLatestStateAsync(cancellationToken),
             await CaptureEnergyFlowAsync(cancellationToken),
-            await CaptureConfigCacheAsync(cancellationToken),
-            await CaptureDirectConfigReadAsync(cancellationToken)
+            await CaptureDirectConfigReadAsync(cancellationToken),
+            await CaptureConfigCacheAsync(cancellationToken)
         };
 
         var path = SaveInvestigationBundle();
@@ -465,6 +497,25 @@ public sealed class InvestigationDiagnosticsService
         if (data.ValueKind != JsonValueKind.Object)
         {
             return true;
+        }
+
+        if (data.TryGetProperty("isFinished", out var finished))
+        {
+            if (finished.ValueKind == JsonValueKind.True)
+            {
+                return true;
+            }
+
+            if (finished.ValueKind == JsonValueKind.False)
+            {
+                return false;
+            }
+
+            var finishedText = finished.ToString();
+            if (bool.TryParse(finishedText, out var finishedBool))
+            {
+                return finishedBool;
+            }
         }
 
         foreach (var name in new[] { "state", "status", "readState" })

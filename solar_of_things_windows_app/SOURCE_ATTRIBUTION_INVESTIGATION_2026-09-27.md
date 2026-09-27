@@ -959,3 +959,45 @@ The candidate detector remains intentionally diagnostic:
 - integration only across contiguous candidate frames with gap <= 20 minutes.
 
 Do not promote this to billing-grade Grid→Battery attribution without corroboration.
+
+
+---
+
+## 23. Build 308 target re-test — config batch lifecycle + Live cadence — 2026-09-27
+
+The Build 308 target bundle changed the config-read finding materially.
+
+### Cache
+`POST /remote/device/configs/cache/get` with body `{}`:
+- HTTP/API success;
+- current returned data was an empty object.
+
+Therefore:
+- the previous missing-body error is resolved;
+- empty cache is now an observed target result, not an API-call failure.
+
+### Direct batch read
+`POST /remote/device/configs/read` with body `{}`:
+- succeeds;
+- returns a batch object/id;
+- first details response returned `isFinished=false`;
+- targetConfig was present structurally but still null-valued at that early point.
+
+The existing LooksComplete helper did not inspect `isFinished`, so it stopped after that first details response.
+
+Correction:
+- treat explicit `isFinished=false` as incomplete;
+- treat `isFinished=true` as complete;
+- poll once per second for up to 60 seconds;
+- preserve every response;
+- report WARN rather than SUCCESS on timeout;
+- query config cache after the batch lifecycle in the one-click full diagnostic.
+
+### Live cadence target observation
+User cross-checked the Windows Home Live cards against the official mobile app.
+Observed official-app source refresh cadence is approximately five minutes.
+
+This independently supports:
+- 60-second client polling as detection-latency reduction;
+- keeping source-frame time visible;
+- not presenting repeated cloud frames as new measurements.

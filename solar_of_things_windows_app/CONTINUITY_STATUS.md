@@ -1431,3 +1431,26 @@ Next manual validation remains one consolidated pass:
 2. verify Home Live polling/progress behavior;
 3. run complete Debug and return its ZIP;
 4. export the same 7-day Simple Energy XLSX + PDF and return them.
+
+
+## Target Live cadence and config-batch QA confirmation — 2026-09-27
+
+User compared the Home Live cards against the official Solar of Things mobile app and confirmed:
+- the new Home cards do refresh from current cloud state;
+- the official mobile app itself receives/refreshes new inverter information approximately once every five minutes.
+
+This supports the implemented model:
+- client checks every 60 seconds while Home is visible;
+- actual source-frame timestamps may remain unchanged across several checks;
+- the 60-second progress line represents time until the next cloud check, not a promise of a new physical measurement.
+
+The first Build 308 debug bundle also proved:
+- config cache POST with an empty JSON body succeeds;
+- direct batch config read starts successfully;
+- the first details response can legitimately return isFinished=false.
+
+Correction for next build:
+- explicitly honor the isFinished boolean;
+- poll batch details for up to 60 seconds at 1-second cadence;
+- return WARN if still unfinished rather than falsely reporting success;
+- run config-cache capture after the direct batch read so a populated post-read cache can be preserved if the backend provides it.
