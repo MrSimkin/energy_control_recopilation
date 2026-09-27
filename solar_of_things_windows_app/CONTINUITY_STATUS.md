@@ -1733,3 +1733,47 @@ Next target-PC validation:
 6. return a new investigation ZIP after enrichment so attribution coverage/reasons can be compared against v1.
 
 No need to repeat the old Build 310 exhaustive API-discovery probe; its purpose is complete.
+
+
+## Build 317 — PDF Page 1 family-card redesign — GREEN — 2026-09-27
+
+Trigger:
+- target-PC review found the XLSX family summary substantially easier to scan than PDF Page 1;
+- PDF Page 1 was still a plain two-column value table with large unused whitespace, despite the canonical requirement that PDF mirror the Excel family hierarchy.
+
+Implemented:
+- replaced the Page 1 value table with a family dashboard/card hierarchy;
+- first row: total household consumption + percentage of source attribution identified;
+- second row: three source cards side-by-side:
+  - Enel / grid → house;
+  - direct solar → house;
+  - battery → house;
+  - each card also shows its share of observed household consumption;
+- third row: three night-status cards:
+  - SIN PROBLEMAS DE ALIMENTACIÓN;
+  - QUEDAMOS CORTOS;
+  - SIN DATOS SUFICIENTES;
+- typical reserve-arrival time remains visible when available;
+- Page 1 retains the conservative explanatory note about what qualifies as a shortfall;
+- PDF metric cards now use a light card background and subtle border so Page 2 uses the same visual language.
+
+Validation:
+- code commit: `0ee5cdd52bf5756d27f95ac750de1f82114ecaec`;
+- Windows Build 317 / run `36348470736`;
+- restore PASS;
+- build PASS;
+- smoke PASS;
+- portable publish PASS;
+- artifact upload PASS;
+- artifact ID: `10941730597`;
+- SHA-256: `29513638634efb86e8777970bfe4cda059aa6f8a7c5590c8c5a70a55c627d986`.
+
+Build 317 supersedes Build 316 for the next target-PC report validation. All Build 316 attribution/history/reporting changes are included.
+
+Next target action remains:
+1. reuse existing portable `Data\`;
+2. run `Actualizar datos` once and allow the one-time attribution-context enrichment to complete;
+3. generate one representative XLSX + matching PDF directly from current report configuration;
+4. return XLSX + PDF + new investigation ZIP.
+
+Visual QA must explicitly compare PDF Page 1 against the Excel family summary/card hierarchy.

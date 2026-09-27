@@ -923,3 +923,19 @@ If a returned chart is technically correct but visually poor, treat that as a re
 - Preset selection may load type/range/aggregation but must not force the report title.
 - Export must provide a visible progress/working state and must not appear frozen.
 - Custom date selection must provide fast month/year navigation in addition to precise day selection.
+
+
+### 19.1 PDF Page 1 visual parity correction — Build 317
+
+Target review after Build 316 identified that semantic parity alone was insufficient: the XLSX `Resumen` used readable family cards, while PDF Page 1 still rendered the same answers as a plain technical-looking table with excessive unused whitespace.
+
+Canonical correction:
+- PDF Page 1 must be a **family dashboard**, not a value table;
+- preserve the ordered household questions but express them through visually separated cards;
+- show total observed household consumption and attribution coverage as context;
+- show Grid→House, Solar→House and Battery→House as three peer cards with large values and source share;
+- show night outcome as peer status cards for problem-free / shortfall / insufficient-data nights;
+- keep explanatory technical nuance subordinate to the cards, not visually dominant;
+- Page 2 cards use the same background/border language so Page 1 and Page 2 read as one product.
+
+The PDF may use more pages than earlier versions. Page-count minimization is not a design objective when it conflicts with readability.
