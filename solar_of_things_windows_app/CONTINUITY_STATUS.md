@@ -1454,3 +1454,36 @@ Correction for next build:
 - poll batch details for up to 60 seconds at 1-second cadence;
 - return WARN if still unfinished rather than falsely reporting success;
 - run config-cache capture after the direct batch read so a populated post-read cache can be preserved if the backend provides it.
+
+
+## Config-batch wait fix — GREEN — 2026-09-27
+
+Validated code checkpoint:
+- HEAD: `bd14dc7d198fe3e62ed2f0b0d79ac4505f79cd36`;
+- Windows Build 309 / run `36292792063`;
+- restore PASS;
+- build PASS;
+- SQLite/reporting/source-attribution smoke PASS;
+- portable win-x64 publish PASS;
+- artifact `10922976498`.
+
+This build is the next target-PC diagnostic build.
+
+It additionally incorporates the user-observed Live validation:
+- Windows Home Live cards track official Solar of Things mobile state;
+- official mobile/source frames advance roughly every five minutes;
+- Windows polls every 60 seconds only to detect the next cloud frame sooner;
+- the subtle card progress line represents time to next cloud check, not new measurement cadence.
+
+Reporting status from the returned high-coverage XLSX/PDF:
+- family report layout accepted for the current tranche;
+- three charts present and coherent;
+- Patrones overlap corrected;
+- PDF reserve+grid duration label corrected;
+- no report re-export is required solely for this config-batch fix.
+
+Next manual test:
+- use Build 309;
+- verify the four 60-second progress lines;
+- run only complete Debug;
+- return the new investigation ZIP.
