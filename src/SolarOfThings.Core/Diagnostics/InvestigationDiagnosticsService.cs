@@ -8,7 +8,9 @@ using SolarOfThings.Core.Data;
 using SolarOfThings.Core.History;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Installation;
+using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.SolarOfThings;
+using SolarOfThings.Core.Statistics;
 
 namespace SolarOfThings.Core.Diagnostics;
 
@@ -47,6 +49,7 @@ public sealed class InvestigationDiagnosticsService
     private readonly HistoryRepository _history;
     private readonly CurrentStateSnapshotService _currentState;
     private readonly ApiDiagnosticsStore _apiDiagnostics;
+    private readonly SourceAttributionService _sourceAttribution;
     private readonly AppPaths _paths;
 
     public InvestigationDiagnosticsService(
@@ -56,6 +59,7 @@ public sealed class InvestigationDiagnosticsService
         HistoryRepository history,
         CurrentStateSnapshotService currentState,
         ApiDiagnosticsStore apiDiagnostics,
+        SourceAttributionService sourceAttribution,
         AppPaths paths)
     {
         _database = database;
@@ -64,6 +68,7 @@ public sealed class InvestigationDiagnosticsService
         _history = history;
         _currentState = currentState;
         _apiDiagnostics = apiDiagnostics;
+        _sourceAttribution = sourceAttribution;
         _paths = paths;
     }
 
@@ -404,6 +409,7 @@ public sealed class InvestigationDiagnosticsService
             """, profile.DeviceId);
 
         WritePowerBalanceCsv(zip, connection, profile.DeviceId);
+        WriteSourceAttributionEvidence(zip, connection, profile);
         WriteSelectedRawCaptures(zip, connection, profile.DeviceId);
         WriteProfileEvidence(zip, profile);
 
@@ -825,6 +831,111 @@ public sealed class InvestigationDiagnosticsService
              "battery_discharge_w","battery_charge_w","input_side_w","output_side_w",
              "residual_w","residual_pct_of_scale"],
             worst);
+    }
+
+    private void WriteSourceAttributionEvidence(
+        ZipArchive zip,
+        SqliteConnection connection,
+        CommissioningProfile profile)
+    {
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT
+                    MIN(recorded_at_utc),
+                    MAX(recorded_at_utc)
+                FROM normalized_metric_sample
+                WHERE device_id = $deviceId
+                  AND metric_key = 'house_load_power_w'
+                  AND normalized_value IS NOT NULL
+                  AND confidence <> 'UNRESOLVED';
+                """;
+            command.Parameters.AddWithValue("$deviceId", profile.DeviceId);
+
+            using var reader = command.ExecuteReader();
+            if (!reader.Read() ||
+                reader.IsDBNull(0) ||
+                reader.IsDBNull(1) ||
+                !DateTimeOffset.TryParse(reader.GetString(0), out var fromUtc) ||
+                !DateTimeOffset.TryParse(reader.GetString(1), out var toUtc))
+            {
+                WriteText(
+                    zip,
+                    "23-source-attribution-unavailable.txt",
+                    "No usable household-load range was available for attribution.");
+                return;
+            }
+
+            var report = _sourceAttribution.Get(
+                profile.DeviceId,
+                fromUtc,
+                toUtc,
+                string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                    ? "America/Santiago"
+                    : profile.StationTimeZone,
+                AggregationPeriod.Day);
+
+            var summary = $"""
+                SOURCE ATTRIBUTION — FULL AVAILABLE HISTORY
+                ==========================================
+                Rule version: {report.RuleVersion}
+                Range UTC: {report.RangeStartUtc:O} — {report.RangeEndUtc:O}
+                Aggregation: {report.Aggregation}
+                Solar → House: {report.SolarToHouseKwh:F6} kWh
+                Battery → House: {report.BatteryToHouseKwh:F6} kWh
+                Grid/Utility → House: {report.GridToHouseKwh:F6} kWh
+                Unattributed observed house: {report.UnattributedHouseKwh:F6} kWh
+                Observed house: {report.ObservedHouseKwh:F6} kWh
+                Attribution coverage of observed: {report.AttributionCoverageOfObservedPercent:F3}%
+                Observed time coverage: {report.ObservedTimeCoveragePercent:F3}%
+                Explicit mode snapshots: {report.ExplicitModeSnapshotCount}
+                Historical config changes: {report.HistoricalConfigurationChangeCount}
+                """;
+            WriteText(zip, "23-source-attribution-summary.txt", summary);
+
+            var rows = report.Buckets.Select(item => new[]
+            {
+                item.LocalLabel,
+                item.StartUtc.ToString("O"),
+                item.EndUtcExclusive.ToString("O"),
+                F(item.SolarToHouseKwh),
+                F(item.BatteryToHouseKwh),
+                F(item.GridToHouseKwh),
+                F(item.UnattributedHouseKwh),
+                F(item.ObservedHouseKwh),
+                F(item.AttributedHouseKwh),
+                F(item.ObservedCoveragePercent),
+                F(item.AttributionCoverageOfObservedPercent),
+                item.BatteryStoredEndingKwh.HasValue ? F(item.BatteryStoredEndingKwh.Value) : string.Empty,
+                item.SocEndingPercent.HasValue ? F(item.SocEndingPercent.Value) : string.Empty,
+                item.ObservedFrameCount.ToString(CultureInfo.InvariantCulture),
+                item.AttributedFrameCount.ToString(CultureInfo.InvariantCulture),
+                F(item.MeanAbsoluteBalanceResidualPercent),
+                F(item.MaximumAbsoluteBalanceResidualPercent)
+            });
+
+            WriteCsv(
+                zip,
+                "24-source-attribution-daily.csv",
+                [
+                    "local_label","start_utc","end_utc",
+                    "solar_to_house_kwh","battery_to_house_kwh","grid_to_house_kwh",
+                    "unattributed_house_kwh","observed_house_kwh","attributed_house_kwh",
+                    "observed_coverage_pct","attribution_coverage_observed_pct",
+                    "battery_stored_end_kwh_estimate","soc_end_pct",
+                    "observed_frames","attributed_frames",
+                    "mean_abs_balance_residual_pct","max_abs_balance_residual_pct"
+                ],
+                rows);
+        }
+        catch (Exception ex)
+        {
+            WriteText(
+                zip,
+                "23-source-attribution-error.txt",
+                DiagnosticSanitizer.SanitizeText(ex.ToString()));
+        }
     }
 
     private static string F(double value) =>
