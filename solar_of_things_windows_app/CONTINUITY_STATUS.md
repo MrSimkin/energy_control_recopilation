@@ -1396,3 +1396,38 @@ Material investigation finding:
   while grid power exceeded house load.
 - treat this as diagnostic evidence of possible utility-supported battery
   maintenance/charging, not yet as a final configuration verdict.
+
+
+## Consolidated QA correction build — GREEN — 2026-09-27
+
+Validated code checkpoint:
+- HEAD: `298844d1f200d41dd53b735ceaac9fc4ae28b3eb`;
+- Windows Build 308 / run `36291695463`;
+- restore PASS;
+- build PASS;
+- SQLite/reporting/source-attribution smoke PASS;
+- portable win-x64 publish PASS;
+- artifact upload PASS.
+
+Portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `10922233048`;
+- size: 78,686,064 bytes;
+- expires: 2026-12-26.
+
+This build consolidates the first high-coverage QA findings rather than issuing separate micro-builds:
+- Home four-card true 60-second Live polling from Build 306;
+- subtle synchronized 60-second progress line at the bottom of each Home Live card;
+- progress indicator is only next-check timing, not source-frame age;
+- Debug config-cache and batch-read probes send an empty JSON object instead of an absent POST body;
+- Debug exports strict possible Grid→Battery candidate frames + summary;
+- Debug exports parsed latest structured EnergyFlow interpretation;
+- Excel Patrones event-summary merged rows receive explicit heights/wrap;
+- PDF no longer mislabels reserve+grid episode duration as total observed time;
+- duration is omitted when no episode exists.
+
+Next manual validation remains one consolidated pass:
+1. new portable with copied Data folder;
+2. verify Home Live polling/progress behavior;
+3. run complete Debug and return its ZIP;
+4. export the same 7-day Simple Energy XLSX + PDF and return them.

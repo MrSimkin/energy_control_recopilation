@@ -935,3 +935,27 @@ The first target run showed:
 Research recorded these calls as POSTs with no JSON *fields*, but the live Spring controller now requires a body object.
 
 Next implementation sends `{}` rather than no body and preserves the response.
+
+
+---
+
+## 22. Consolidated correction build status — 2026-09-27
+
+The QA findings in §21 were implemented and compile/smoke validated in:
+- code HEAD `298844d1f200d41dd53b735ceaac9fc4ae28b3eb`;
+- Windows Build 308 / run `36291695463`;
+- artifact `10922233048`.
+
+New diagnostic outputs expected from the next target run:
+- `25-grid-charging-candidate-frames.csv`;
+- `25-grid-charging-candidate-summary.txt`;
+- `26-energy-flow-interpretation.txt`.
+
+The candidate detector remains intentionally diagnostic:
+- PV <= 50 W;
+- grid import >= 100 W;
+- derived battery charging >= 50 W;
+- grid import exceeds household load by >= 25 W;
+- integration only across contiguous candidate frames with gap <= 20 minutes.
+
+Do not promote this to billing-grade Grid→Battery attribution without corroboration.
