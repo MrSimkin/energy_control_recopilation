@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 8;
+    public const int CurrentSchemaVersion = 9;
 
     private readonly AppPaths _paths;
 
@@ -79,6 +79,12 @@ public sealed class SqliteDatabase
         if (current < 8)
         {
             ApplyMigration8(connection);
+            current = 8;
+        }
+
+        if (current < 9)
+        {
+            ApplyMigration9(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -397,6 +403,52 @@ public sealed class SqliteDatabase
             transaction,
             8,
             "Phase 4/5 contextual household behavior samples derived from normalized telemetry.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration9(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            CREATE TABLE utility_meter_reading (
+                reading_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reading_at_utc TEXT NOT NULL,
+                reading_kwh REAL NOT NULL,
+                reference TEXT NULL,
+                notes TEXT NULL,
+                created_utc TEXT NOT NULL,
+                updated_utc TEXT NOT NULL
+            );
+
+            CREATE UNIQUE INDEX ux_utility_meter_reading_time
+                ON utility_meter_reading(reading_at_utc);
+
+            CREATE INDEX ix_utility_meter_reading_time
+                ON utility_meter_reading(reading_at_utc DESC);
+
+            CREATE TABLE utility_bill (
+                bill_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                period_start_utc TEXT NOT NULL,
+                period_end_utc TEXT NOT NULL,
+                billed_consumption_kwh REAL NULL,
+                amount_clp REAL NULL,
+                invoice_reference TEXT NULL,
+                notes TEXT NULL,
+                created_utc TEXT NOT NULL,
+                updated_utc TEXT NOT NULL
+            );
+
+            CREATE INDEX ix_utility_bill_period
+                ON utility_bill(period_start_utc DESC, period_end_utc DESC);
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            9,
+            "Phase 8 utility meter readings, optional bill records and reconciliation foundation.");
 
         transaction.Commit();
     }

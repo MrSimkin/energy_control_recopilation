@@ -16,6 +16,7 @@ using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.SolarOfThings;
+using SolarOfThings.Core.Utility;
 
 namespace SolarOfThings.App;
 
@@ -65,6 +66,8 @@ public partial class App : Application
         builder.Services.AddSingleton<FamilyReportAnalysisService>();
         builder.Services.AddSingleton<SourceAttributionService>();
         builder.Services.AddSingleton<EnergyReportExportService>();
+        builder.Services.AddSingleton<UtilityMeterRepository>();
+        builder.Services.AddSingleton<UtilityReconciliationService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
