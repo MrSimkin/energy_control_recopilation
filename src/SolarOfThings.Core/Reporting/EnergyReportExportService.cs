@@ -1449,14 +1449,19 @@ public sealed class EnergyReportExportService
                 continue;
             }
 
-            used.Style.Font.FontName = "Aptos Narrow";
-
             foreach (var cell in used.Cells())
             {
-                if (cell.DataType is XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan)
-                {
-                    cell.Style.Font.FontName = "Aptos Mono";
-                }
+                var preserveMono =
+                    string.Equals(
+                        cell.Style.Font.FontName,
+                        "Aptos Mono",
+                        StringComparison.OrdinalIgnoreCase);
+
+                cell.Style.Font.FontName =
+                    preserveMono ||
+                    cell.DataType is XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan
+                        ? "Aptos Mono"
+                        : "Aptos Narrow";
             }
         }
     }
@@ -1503,6 +1508,7 @@ public sealed class EnergyReportExportService
         firstRow.Style.Font.Bold = true;
         firstRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         valueRows.Style.Font.Bold = true;
+        valueRows.Style.Font.FontName = "Aptos Mono";
         valueRows.Style.Font.FontSize = 16;
         valueRows.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         valueRows.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
@@ -1546,6 +1552,7 @@ public sealed class EnergyReportExportService
         titleRow.Style.Font.Bold = true;
         titleRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         valueRows.Style.Font.Bold = true;
+        valueRows.Style.Font.FontName = "Aptos Mono";
         valueRows.Style.Font.FontSize = 18;
         valueRows.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         valueRows.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
