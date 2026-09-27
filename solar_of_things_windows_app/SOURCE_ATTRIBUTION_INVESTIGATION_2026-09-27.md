@@ -872,3 +872,66 @@ Safety invariant:
 - no mutation endpoint.
 
 This harness exists specifically so a future chat can request one exported ZIP rather than reconstructing SQL manually.
+
+
+---
+
+## 21. First high-coverage QA + structured EnergyFlow finding — 2026-09-27
+
+The first consolidated high-coverage 7-day report reached ~99.7% metric coverage and ~92% household-source attribution coverage.
+
+### Report QA
+Confirmed:
+- all three required family charts render;
+- the stacked chart closes to household consumption by keeping `Sin atribuir` visible;
+- technical Detail exposes attribution and balance diagnostics;
+- Quality and Glossary are materially expanded.
+
+Corrections identified:
+- Excel Patrones event-summary merged rows can visually overlap without explicit heights;
+- PDF used the misleading label `Tiempo total observado` for the total duration of reserve+grid episodes even when the actual value was zero.
+
+Both are queued in the next consolidated build.
+
+### EnergyFlow target evidence
+The saved target EnergyFlow response at the investigated frame exposed:
+- `pvPanelFlow = 0.000 kW`;
+- `gridFlow = 0.567 kW`, active, direction `1`;
+- `loadFlow = 0.446 kW`, active, direction `2`;
+- `batteryFlow`, active, direction `2`;
+- `mode = Mains Mode`;
+- `workingMode = SBU`;
+- `chargingPriorityOrder = OSO`;
+- `pvEnergyFeedingPriority = LBU`;
+- battery voltage `51.4 V`;
+- BMS charging current `1.8 A`;
+- BMS discharge current `0 A`;
+- SOC `20%`.
+
+Derived battery power from the state fields is about:
+`51.4 V × (0 - 1.8 A) ≈ -92.5 W`, where negative is charging.
+
+At the same frame:
+- grid minus household load ≈ `121 W`;
+- PV is zero.
+
+This is physically consistent with a small utility-supported battery charge/maintenance flow plus conversion losses.
+
+Important:
+- do not reinterpret OSO configuration solely from one frame;
+- do not silently claim billing-grade Grid→Battery energy;
+- repeat/quantify this behavior from historical physical evidence and future EnergyFlow captures.
+
+The next debug bundle will therefore include:
+- candidate grid-charge frames requiring PV≈0, grid active, battery charging and grid surplus over house;
+- gap-aware candidate duration and integrated diagnostic energy;
+- parsed current EnergyFlow summary.
+
+### Debug config-read correction
+The first target run showed:
+- `configs/cache/get`: HTTP/backend error because request body was absent;
+- `configs/read`: same error.
+
+Research recorded these calls as POSTs with no JSON *fields*, but the live Spring controller now requires a body object.
+
+Next implementation sends `{}` rather than no body and preserves the response.

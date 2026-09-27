@@ -378,11 +378,17 @@ public sealed class EnergyReportExportService
             L(report, "Noches sin datos suficientes", "Nights without enough data"),
             unknownNights.ToString("N0"));
 
-        AddPdfValueRow(
-            table,
-            L(report, "Tiempo total observado", "Total observed time"),
-            $"{report.Family.ReserveGridTotalMinutes / 60.0:N2} " +
-            L(report, "horas", "hours"));
+        if (report.Family.ReserveGridEpisodeCount > 0)
+        {
+            AddPdfValueRow(
+                table,
+                L(
+                    report,
+                    "Tiempo total en episodios reserva + red",
+                    "Total reserve + grid episode time"),
+                $"{report.Family.ReserveGridTotalMinutes / 60.0:N2} " +
+                L(report, "horas", "hours"));
+        }
 
         if (report.Family.TypicalReserveTime.HasValue)
         {
@@ -1677,9 +1683,12 @@ public sealed class EnergyReportExportService
         sheet.Cell(row, 1).Value =
             L(report, "Eventos del período", "Events in the period");
         sheet.Cell(row, 1).Style.Font.Bold = true;
+        sheet.Row(row).Height = 24;
         row++;
 
         sheet.Range(row, 1, row + 1, 5).Merge();
+        sheet.Row(row).Height = 34;
+        sheet.Row(row + 1).Height = 34;
         sheet.Cell(row, 1).Value =
             report.Family.Events.Count == 0
                 ? L(
@@ -1695,6 +1704,9 @@ public sealed class EnergyReportExportService
                     report.Family.NightsWithReserveGridUse,
                     report.Family.ReserveGridTotalMinutes);
         sheet.Cell(row, 1).Style.Font.Italic = true;
+        sheet.Cell(row, 1).Style.Alignment.Vertical =
+            XLAlignmentVerticalValues.Center;
+        sheet.Range(row, 1, row + 1, 5).Style.Alignment.WrapText = true;
         row += 3;
 
         sheet.RangeUsed()?.Style.Alignment.WrapText = true;

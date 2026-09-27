@@ -1353,3 +1353,46 @@ Rationale:
 - therefore this is “check every minute for the newest cloud frame”, not fabricated one-minute inverter telemetry.
 
 The historical/latest-day summary below the four cards remains stored-history based and is not converted to Live.
+
+
+## Consolidated QA findings after first high-coverage report — 2026-09-27
+
+Reviewed together:
+- target investigation ZIP;
+- high-coverage 7-day XLSX;
+- matching PDF.
+
+Confirmed good:
+- 7-day data coverage ~99.7%;
+- three required charts are generated and legible;
+- household-source stack preserves unattributed energy;
+- source attribution coverage is explicitly reported (~92% for this sample);
+- Detail/Quality/Glossary contain the intended audit fields;
+- structured EnergyFlow succeeds on target HPVINV02.
+
+Defects found and folded into the next consolidated build:
+1. Home Live countdown:
+   - four subtle 60-second progress lines share the same polling cycle;
+   - they reset after each current-state check;
+   - they remain graphical only, with no numerical countdown.
+2. Debug config probes:
+   - current endpoints reject a truly absent POST body;
+   - research HAR had “no JSON fields” but still represented a POST body;
+   - probes now send an empty JSON object rather than no body.
+3. Debug energy behavior:
+   - export strong grid->battery candidate frames;
+   - export integrated candidate duration/energy summary;
+   - export a parsed latest EnergyFlow interpretation.
+4. Reporting:
+   - PDF no longer labels reserve+grid episode duration as “Tiempo total observado”;
+   - the duration row appears only when actual episodes exist;
+   - Excel Patterns event summary receives explicit heights to prevent merged-cell overlap.
+
+Material investigation finding:
+- latest EnergyFlow snapshot showed PV=0 kW, Grid=0.567 kW,
+  House=0.446 kW, battery voltage=51.4 V and BMS charging current=1.8 A,
+  while mode=Mains Mode, working mode=SBU and charging priority=OSO.
+- this is physically consistent with roughly 93 W of battery charging plus losses
+  while grid power exceeded house load.
+- treat this as diagnostic evidence of possible utility-supported battery
+  maintenance/charging, not yet as a final configuration verdict.

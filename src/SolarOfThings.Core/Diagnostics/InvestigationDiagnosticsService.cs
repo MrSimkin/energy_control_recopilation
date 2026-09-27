@@ -135,7 +135,7 @@ public sealed class InvestigationDiagnosticsService
                 "InvestigationDiagnostics",
                 "ConfigCacheSnapshot",
                 $"remote/device/configs/cache/get?deviceId={Uri.EscapeDataString(profile.DeviceId)}",
-                body: null,
+                body: new { },
                 TimeZone(profile),
                 cancellationToken);
 
@@ -164,7 +164,7 @@ public sealed class InvestigationDiagnosticsService
                 "InvestigationDiagnostics",
                 "ConfigDirectReadStart",
                 $"remote/device/configs/read?deviceId={Uri.EscapeDataString(profile.DeviceId)}",
-                body: null,
+                body: new { },
                 TimeZone(profile),
                 cancellationToken);
 
@@ -409,6 +409,8 @@ public sealed class InvestigationDiagnosticsService
             """, profile.DeviceId);
 
         WritePowerBalanceCsv(zip, connection, profile.DeviceId);
+        WriteGridChargingCandidates(zip, connection, profile.DeviceId);
+        WriteEnergyFlowInterpretation(zip, connection, profile.DeviceId);
         WriteSourceAttributionEvidence(zip, connection, profile);
         WriteSelectedRawCaptures(zip, connection, profile.DeviceId);
         WriteProfileEvidence(zip, profile);
@@ -937,6 +939,377 @@ public sealed class InvestigationDiagnosticsService
                 DiagnosticSanitizer.SanitizeText(ex.ToString()));
         }
     }
+
+    private static void WriteGridChargingCandidates(
+        ZipArchive zip,
+        SqliteConnection connection,
+        string deviceId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT recorded_at_utc,
+                   MAX(CASE WHEN metric_key='pv_power_w' THEN normalized_value END) AS pv_w,
+                   MAX(CASE WHEN metric_key='house_load_power_w' THEN normalized_value END) AS house_w,
+                   MAX(CASE WHEN metric_key='grid_import_power_w' THEN normalized_value END) AS grid_w,
+                   MAX(CASE WHEN metric_key='battery_power_w' THEN normalized_value END) AS battery_w
+            FROM normalized_metric_sample
+            WHERE device_id = $deviceId
+              AND metric_key IN (
+                  'pv_power_w',
+                  'house_load_power_w',
+                  'grid_import_power_w',
+                  'battery_power_w')
+              AND normalized_value IS NOT NULL
+              AND confidence <> 'UNRESOLVED'
+            GROUP BY recorded_at_utc
+            ORDER BY recorded_at_utc;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+
+        using var reader = command.ExecuteReader();
+        var candidates = new List<GridChargeCandidate>();
+
+        while (reader.Read())
+        {
+            if (reader.IsDBNull(1) ||
+                reader.IsDBNull(2) ||
+                reader.IsDBNull(3) ||
+                reader.IsDBNull(4) ||
+                !DateTimeOffset.TryParse(
+                    reader.GetString(0),
+                    out var timestamp))
+            {
+                continue;
+            }
+
+            var pv = reader.GetDouble(1);
+            var house = reader.GetDouble(2);
+            var grid = reader.GetDouble(3);
+            var battery = reader.GetDouble(4);
+            var batteryCharge = Math.Max(-battery, 0);
+            var gridSurplus = Math.Max(grid - house, 0);
+
+            if (pv > 50 ||
+                grid < 100 ||
+                batteryCharge < 50 ||
+                gridSurplus < 25)
+            {
+                continue;
+            }
+
+            candidates.Add(new GridChargeCandidate(
+                timestamp.ToUniversalTime(),
+                pv,
+                house,
+                grid,
+                battery,
+                batteryCharge,
+                gridSurplus));
+        }
+
+        var rows = candidates.Select(item => new[]
+        {
+            item.TimestampUtc.ToString("O"),
+            F(item.PvWatts),
+            F(item.HouseWatts),
+            F(item.GridWatts),
+            F(item.BatteryWatts),
+            F(item.BatteryChargeWatts),
+            F(item.GridSurplusWatts)
+        });
+
+        WriteCsv(
+            zip,
+            "25-grid-charging-candidate-frames.csv",
+            [
+                "recorded_at_utc",
+                "pv_w",
+                "house_w",
+                "grid_import_w",
+                "battery_power_w",
+                "battery_charge_w",
+                "grid_surplus_over_house_w"
+            ],
+            rows);
+
+        double observedHours = 0;
+        double batteryChargeKwh = 0;
+        double gridSurplusKwh = 0;
+
+        for (var index = 0; index < candidates.Count - 1; index++)
+        {
+            var current = candidates[index];
+            var next = candidates[index + 1];
+            var hours =
+                (next.TimestampUtc - current.TimestampUtc)
+                .TotalHours;
+
+            if (hours <= 0 ||
+                hours > 20.0 / 60.0)
+            {
+                continue;
+            }
+
+            observedHours += hours;
+            batteryChargeKwh +=
+                (current.BatteryChargeWatts +
+                 next.BatteryChargeWatts) /
+                2.0 * hours / 1000.0;
+            gridSurplusKwh +=
+                (current.GridSurplusWatts +
+                 next.GridSurplusWatts) /
+                2.0 * hours / 1000.0;
+        }
+
+        var summary = $"""
+            POSSIBLE GRID -> BATTERY BEHAVIOR
+            =================================
+            This is a diagnostic candidate detector, not a final attribution rule.
+
+            Candidate definition:
+            - PV <= 50 W;
+            - grid import >= 100 W;
+            - derived battery charging >= 50 W;
+            - grid import exceeds household load by >= 25 W.
+
+            Candidate frames: {candidates.Count}
+            Gap-aware candidate duration: {observedHours:F3} h
+            Integrated derived battery charge over contiguous candidates: {batteryChargeKwh:F3} kWh
+            Integrated grid surplus over house over contiguous candidates: {gridSurplusKwh:F3} kWh
+
+            Interpretation:
+            Repeated candidates are physically consistent with utility-supported
+            battery charging/maintenance, but inverter conversion losses and the
+            derived nature of battery power mean they must not be promoted to a
+            billing/source fact without corroboration.
+            """;
+        WriteText(zip, "25-grid-charging-candidate-summary.txt", summary);
+    }
+
+    private static void WriteEnergyFlowInterpretation(
+        ZipArchive zip,
+        SqliteConnection connection,
+        string deviceId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT response_json, retrieved_utc
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation = 'EnergyFlowSnapshot'
+            ORDER BY capture_id DESC
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            WriteText(
+                zip,
+                "26-energy-flow-interpretation.txt",
+                "No EnergyFlow snapshot was available.");
+            return;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(reader.GetString(0));
+            var root = document.RootElement;
+            if (root.TryGetProperty("data", out var data))
+            {
+                root = data;
+            }
+
+            var state = root.TryGetProperty(
+                "deviceAttributeState",
+                out var stateElement)
+                ? stateElement
+                : default;
+            var fields =
+                state.ValueKind == JsonValueKind.Object &&
+                state.TryGetProperty("fields", out var fieldElement)
+                    ? fieldElement
+                    : default;
+
+            var pvKw = ReadNestedDouble(root, "pvPanelFlow", "value", "value");
+            var gridKw = ReadNestedDouble(root, "gridFlow", "value", "value");
+            var loadKw = ReadNestedDouble(root, "loadFlow", "value", "value");
+            var gridDirection = ReadNestedString(root, "gridFlow", "flowDirection");
+            var batteryDirection = ReadNestedString(root, "batteryFlow", "flowDirection");
+            var loadDirection = ReadNestedString(root, "loadFlow", "flowDirection");
+
+            var batteryVoltage = ReadFieldDouble(fields, "batteryVoltage");
+            var bmsChargeCurrent = ReadFieldDouble(fields, "bmsChargingCurrent");
+            var bmsDischargeCurrent = ReadFieldDouble(fields, "bmsDischargeCurrent");
+            var estimatedBatteryWatts =
+                batteryVoltage.HasValue &&
+                bmsChargeCurrent.HasValue &&
+                bmsDischargeCurrent.HasValue
+                    ? batteryVoltage.Value *
+                      (bmsDischargeCurrent.Value -
+                       bmsChargeCurrent.Value)
+                    : (double?)null;
+
+            var summary = $"""
+                LATEST STRUCTURED ENERGY FLOW
+                =============================
+                Retrieved UTC: {reader.GetString(1)}
+                Device-state frame UTC: {ReadNestedString(state, "time") ?? "-"}
+
+                PV flow: {FormatMaybe(pvKw, "kW")}
+                Grid flow: {FormatMaybe(gridKw, "kW")} ; direction={gridDirection ?? "-"}
+                Load flow: {FormatMaybe(loadKw, "kW")} ; direction={loadDirection ?? "-"}
+                Battery flow direction: {batteryDirection ?? "-"}
+
+                Current mode: {ReadFieldDisplay(fields, "mode") ?? "-"}
+                Working mode: {ReadFieldDisplay(fields, "workingMode") ?? "-"}
+                Charging priority: {ReadFieldDisplay(fields, "chargingPriorityOrder") ?? "-"}
+                PV feeding priority: {ReadFieldDisplay(fields, "pvEnergyFeedingPriority") ?? "-"}
+
+                Battery voltage: {FormatMaybe(batteryVoltage, "V")}
+                BMS charging current: {FormatMaybe(bmsChargeCurrent, "A")}
+                BMS discharge current: {FormatMaybe(bmsDischargeCurrent, "A")}
+                Derived battery power: {FormatMaybe(estimatedBatteryWatts, "W")}
+                (positive = discharge, negative = charge)
+
+                Grid minus house at snapshot: {
+                    gridKw.HasValue && loadKw.HasValue
+                        ? ((gridKw.Value - loadKw.Value) * 1000.0).ToString("F1", CultureInfo.InvariantCulture) + " W"
+                        : "-"
+                }
+
+                A positive grid->inverter flow together with PV near zero,
+                battery charging current and grid power above household load is
+                consistent with grid-supported battery charging/maintenance.
+                Preserve as diagnostic evidence; do not silently override OSO
+                configuration semantics or historical source attribution.
+                """;
+
+            WriteText(zip, "26-energy-flow-interpretation.txt", summary);
+        }
+        catch (Exception ex)
+        {
+            WriteText(
+                zip,
+                "26-energy-flow-interpretation-error.txt",
+                DiagnosticSanitizer.SanitizeText(ex.ToString()));
+        }
+    }
+
+    private static double? ReadNestedDouble(
+        JsonElement element,
+        params string[] path)
+    {
+        var current = element;
+        foreach (var part in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object ||
+                !current.TryGetProperty(part, out current))
+            {
+                return null;
+            }
+        }
+
+        if (current.ValueKind == JsonValueKind.Number &&
+            current.TryGetDouble(out var value))
+        {
+            return value;
+        }
+
+        return double.TryParse(
+            current.ToString(),
+            NumberStyles.Float,
+            CultureInfo.InvariantCulture,
+            out value)
+            ? value
+            : null;
+    }
+
+    private static string? ReadNestedString(
+        JsonElement element,
+        params string[] path)
+    {
+        var current = element;
+        foreach (var part in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object ||
+                !current.TryGetProperty(part, out current))
+            {
+                return null;
+            }
+        }
+
+        return current.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
+            ? null
+            : current.ToString();
+    }
+
+    private static double? ReadFieldDouble(
+        JsonElement fields,
+        string key)
+    {
+        if (fields.ValueKind != JsonValueKind.Object ||
+            !fields.TryGetProperty(key, out var field) ||
+            field.ValueKind != JsonValueKind.Object ||
+            !field.TryGetProperty("value", out var value))
+        {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Number &&
+            value.TryGetDouble(out var numeric))
+        {
+            return numeric;
+        }
+
+        return double.TryParse(
+            value.ToString(),
+            NumberStyles.Float,
+            CultureInfo.InvariantCulture,
+            out numeric)
+            ? numeric
+            : null;
+    }
+
+    private static string? ReadFieldDisplay(
+        JsonElement fields,
+        string key)
+    {
+        if (fields.ValueKind != JsonValueKind.Object ||
+            !fields.TryGetProperty(key, out var field) ||
+            field.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (field.TryGetProperty(
+                "valueDisplay",
+                out var display))
+        {
+            return display.ToString();
+        }
+
+        return field.TryGetProperty("value", out var value)
+            ? value.ToString()
+            : null;
+    }
+
+    private static string FormatMaybe(
+        double? value,
+        string unit) =>
+        value.HasValue
+            ? $"{value.Value.ToString("F3", CultureInfo.InvariantCulture)} {unit}"
+            : "-";
+
+    private sealed record GridChargeCandidate(
+        DateTimeOffset TimestampUtc,
+        double PvWatts,
+        double HouseWatts,
+        double GridWatts,
+        double BatteryWatts,
+        double BatteryChargeWatts,
+        double GridSurplusWatts);
 
     private static string F(double value) =>
         value.ToString("0.########", CultureInfo.InvariantCulture);

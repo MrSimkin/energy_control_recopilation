@@ -36,6 +36,29 @@
             <Setter Property="BorderBrush" Value="#DEE2E6"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
+        <Style x:Key="LiveCountdownStyle" TargetType="ProgressBar">
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="Height" Value="2"/>
+            <Setter Property="Background" Value="#E9ECEF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid Background="{TemplateBinding Background}"
+                              ClipToBounds="True">
+                            <Border x:Name="PART_Track"
+                                    Background="{TemplateBinding Background}"/>
+                            <Border x:Name="PART_Indicator"
+                                    HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -131,35 +154,79 @@
                             </Grid.ColumnDefinitions>
 
                             <Border Grid.Column="0" Style="{StaticResource CardStyle}" BorderBrush="#17A2B8" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.PvPower}">
-                                <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.PvPower}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="PvPowerValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="PvPowerMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="{DynamicResource Metric.PvPower}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="PvPowerValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
+                                        <TextBlock x:Name="PvPowerMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                    <ProgressBar x:Name="PvLiveCountdown"
+                                                 Grid.Row="1"
+                                                 Style="{StaticResource LiveCountdownStyle}"
+                                                 Foreground="#17A2B8"
+                                                 Margin="-18,12,-18,-18"/>
+                                </Grid>
                             </Border>
 
                             <Border Grid.Column="1" Style="{StaticResource CardStyle}" BorderBrush="#28A745" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.HouseLoad}">
-                                <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.HouseLoad}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="HouseLoadValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="HouseLoadMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="{DynamicResource Metric.HouseLoad}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="HouseLoadValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
+                                        <TextBlock x:Name="HouseLoadMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                    <ProgressBar x:Name="HouseLiveCountdown"
+                                                 Grid.Row="1"
+                                                 Style="{StaticResource LiveCountdownStyle}"
+                                                 Foreground="#28A745"
+                                                 Margin="-18,12,-18,-18"/>
+                                </Grid>
                             </Border>
 
                             <Border Grid.Column="2" Style="{StaticResource CardStyle}" BorderBrush="#FFC107" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.BatterySoc}">
-                                <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.BatterySoc}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="BatterySocValueText" Text="— %" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="BatterySocMetaText" Text="{DynamicResource Metric.ConfiguredCapacity}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="{DynamicResource Metric.BatterySoc}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="BatterySocValueText" Text="— %" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
+                                        <TextBlock x:Name="BatterySocMetaText" Text="{DynamicResource Metric.ConfiguredCapacity}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                    <ProgressBar x:Name="BatteryLiveCountdown"
+                                                 Grid.Row="1"
+                                                 Style="{StaticResource LiveCountdownStyle}"
+                                                 Foreground="#FFC107"
+                                                 Margin="-18,12,-18,-18"/>
+                                </Grid>
                             </Border>
 
                             <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0" BorderBrush="#6C757D" BorderThickness="4,1,1,1" ToolTip="{DynamicResource Tooltip.GridImport}">
-                                <StackPanel>
-                                    <TextBlock Text="{DynamicResource Metric.GridImport}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="GridImportValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
-                                    <TextBlock x:Name="GridImportMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="{DynamicResource Metric.GridImport}" Foreground="#6C757D" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="GridImportValueText" Text="— kW" Foreground="#343A40" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/>
+                                        <TextBlock x:Name="GridImportMetaText" Text="{DynamicResource Metric.AwaitingSync}" Foreground="#6C757D" FontSize="12" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                    <ProgressBar x:Name="GridLiveCountdown"
+                                                 Grid.Row="1"
+                                                 Style="{StaticResource LiveCountdownStyle}"
+                                                 Foreground="#6C757D"
+                                                 Margin="-18,12,-18,-18"/>
+                                </Grid>
                             </Border>
                         </Grid>
 

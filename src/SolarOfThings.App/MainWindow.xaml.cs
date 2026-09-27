@@ -28,6 +28,8 @@ public partial class MainWindow : Window
     private readonly CommissioningProfileRepository _profiles;
     private readonly IServiceProvider _services;
     private readonly DispatcherTimer _dashboardLiveTimer;
+    private readonly DispatcherTimer _dashboardProgressTimer;
+    private DateTimeOffset _dashboardLiveCycleStartedUtc = DateTimeOffset.UtcNow;
     private CancellationTokenSource? _syncCancellation;
     private bool _currentStateRefreshInProgress;
     private bool _dashboardVisible;
@@ -58,6 +60,12 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(60)
         };
         _dashboardLiveTimer.Tick += DashboardLiveTimer_Tick;
+        _dashboardProgressTimer = new DispatcherTimer(
+            DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _dashboardProgressTimer.Tick += DashboardProgressTimer_Tick;
         Closed += MainWindow_Closed;
 
         InitializeComponent();
@@ -1544,11 +1552,13 @@ public partial class MainWindow : Window
         _dashboardVisible = isDashboard;
         if (isDashboard)
         {
-            _dashboardLiveTimer.Start();
+            ResetDashboardLiveCycle();
         }
         else
         {
             _dashboardLiveTimer.Stop();
+            _dashboardProgressTimer.Stop();
+            SetDashboardLiveCountdownVisibility(false);
         }
 
         DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
@@ -2338,7 +2348,65 @@ public partial class MainWindow : Window
         finally
         {
             _currentStateRefreshInProgress = false;
+            if (_dashboardVisible)
+            {
+                ResetDashboardLiveCycle();
+            }
         }
+    }
+
+    private void ResetDashboardLiveCycle()
+    {
+        _dashboardLiveCycleStartedUtc = DateTimeOffset.UtcNow;
+
+        _dashboardLiveTimer.Stop();
+        _dashboardLiveTimer.Start();
+
+        _dashboardProgressTimer.Stop();
+        _dashboardProgressTimer.Start();
+
+        UpdateDashboardLiveCountdown();
+    }
+
+    private void DashboardProgressTimer_Tick(
+        object? sender,
+        EventArgs e) =>
+        UpdateDashboardLiveCountdown();
+
+    private void UpdateDashboardLiveCountdown()
+    {
+        var visible =
+            _dashboardVisible &&
+            _session.HasSession;
+
+        SetDashboardLiveCountdownVisibility(visible);
+
+        if (!visible)
+        {
+            return;
+        }
+
+        var elapsed =
+            (DateTimeOffset.UtcNow - _dashboardLiveCycleStartedUtc)
+            .TotalSeconds;
+        var value = Math.Clamp(elapsed / 60.0 * 100.0, 0, 100);
+
+        PvLiveCountdown.Value = value;
+        HouseLiveCountdown.Value = value;
+        BatteryLiveCountdown.Value = value;
+        GridLiveCountdown.Value = value;
+    }
+
+    private void SetDashboardLiveCountdownVisibility(bool visible)
+    {
+        var value = visible
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        PvLiveCountdown.Visibility = value;
+        HouseLiveCountdown.Visibility = value;
+        BatteryLiveCountdown.Visibility = value;
+        GridLiveCountdown.Visibility = value;
     }
 
     private async void DashboardLiveTimer_Tick(
@@ -2368,6 +2436,8 @@ public partial class MainWindow : Window
     {
         _dashboardLiveTimer.Stop();
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
+        _dashboardProgressTimer.Stop();
+        _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
     }
 
     private bool GetAutoConnectEnabled()
