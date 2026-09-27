@@ -2,15 +2,16 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{DynamicResource Diagnostics.Title}"
-        Width="1040"
-        Height="760"
-        MinWidth="800"
-        MinHeight="600"
+        Width="1160"
+        Height="820"
+        MinWidth="900"
+        MinHeight="650"
         WindowStartupLocation="CenterOwner"
         Background="#F4F6F9"
         FontFamily="Consolas">
     <Grid Margin="14">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -19,9 +20,25 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,10">
             <TextBlock Text="{DynamicResource Diagnostics.Heading}" FontFamily="Segoe UI" FontSize="21" FontWeight="SemiBold"/>
             <TextBlock Text="{DynamicResource Diagnostics.SecurityNotice}" FontFamily="Segoe UI" Foreground="#6C757D" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            <TextBlock Text="{DynamicResource Diagnostics.InvestigationNotice}" FontFamily="Segoe UI" Foreground="#495057" TextWrapping="Wrap" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <TextBox Grid.Row="1"
+        <Border Grid.Row="1" Background="White" BorderBrush="#D8DEE6" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Diagnostics.InvestigationHeading}" FontFamily="Segoe UI" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <WrapPanel>
+                    <Button x:Name="RunAllButton" Content="{DynamicResource Diagnostics.RunAll}" Padding="12,7" Margin="0,0,8,8" Click="RunAll_Click"/>
+                    <Button x:Name="CaptureStateButton" Content="{DynamicResource Diagnostics.CaptureState}" Padding="12,7" Margin="0,0,8,8" Click="CaptureState_Click"/>
+                    <Button x:Name="CaptureFlowButton" Content="{DynamicResource Diagnostics.CaptureFlow}" Padding="12,7" Margin="0,0,8,8" Click="CaptureFlow_Click"/>
+                    <Button x:Name="ConfigCacheButton" Content="{DynamicResource Diagnostics.ConfigCache}" Padding="12,7" Margin="0,0,8,8" Click="ConfigCache_Click"/>
+                    <Button x:Name="ConfigReadButton" Content="{DynamicResource Diagnostics.ConfigRead}" Padding="12,7" Margin="0,0,8,8" Click="ConfigRead_Click"/>
+                    <Button x:Name="ExportBundleButton" Content="{DynamicResource Diagnostics.ExportBundle}" Padding="12,7" Margin="0,0,8,8" Click="ExportBundle_Click"/>
+                </WrapPanel>
+                <TextBlock x:Name="ActionStatusText" FontFamily="Segoe UI" Foreground="#495057" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <TextBox Grid.Row="2"
                  x:Name="ReportTextBox"
                  IsReadOnly="True"
                  AcceptsReturn="True"
@@ -30,12 +47,12 @@
                  HorizontalScrollBarVisibility="Auto"
                  VerticalScrollBarVisibility="Auto"/>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="{DynamicResource Diagnostics.Refresh}" Padding="12,6" Click="Refresh_Click"/>
+        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="{DynamicResource Diagnostics.Refresh}" Padding="12,6" Margin="8,0,0,0" Click="Refresh_Click"/>
             <Button Content="{DynamicResource Diagnostics.CopyReport}" Padding="12,6" Margin="8,0,0,0" Click="Copy_Click"/>
             <Button Content="{DynamicResource Diagnostics.SaveReport}" Padding="12,6" Margin="8,0,0,0" Click="Save_Click"/>
             <Button Content="{DynamicResource Diagnostics.OpenLogs}" Padding="12,6" Margin="8,0,0,0" Click="OpenLogs_Click"/>
             <Button Content="{DynamicResource Common.Close}" Padding="12,6" Margin="8,0,0,0" Click="Close_Click"/>
-        </StackPanel>
+        </WrapPanel>
     </Grid>
 </Window>

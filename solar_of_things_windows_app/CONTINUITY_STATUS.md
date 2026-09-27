@@ -1140,3 +1140,37 @@ Important remaining limitation:
 Canonical detail:
 - `SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md` §19.
 
+
+
+## Debug investigation harness implementation — 2026-09-27
+
+The development diagnostics window is being promoted from a log viewer to a reproducible read-only investigation harness for clean-build QA.
+
+New intended controls:
+- run complete diagnostics + export bundle;
+- capture current LatestState;
+- capture structured EnergyFlow;
+- read remote config cache;
+- trigger a direct/batch configuration read and preserve details;
+- export an investigation ZIP.
+
+The investigation ZIP includes:
+- sanitized API diagnostics;
+- DB/table inventory;
+- historical attribute inventory;
+- low-cardinality values;
+- automatically detected historical low-cardinality changes;
+- day-status coverage;
+- normalized metric inventory;
+- raw-capture inventory;
+- all LatestState fields and priority/mode subset;
+- installation configuration checks;
+- behavior-state counts;
+- all observable PV/house/grid/battery power-balance frames plus worst residuals;
+- latest sanitized LatestState/EnergyFlow/config raw evidence;
+- commissioned attribute catalog/capabilities/device/station metadata.
+
+No write/config mutation endpoint is used.
+The direct configuration read is classified by the research corpus as ACTIVE_DEVICE_READ: it can ask the device to report current configuration but does not write configuration.
+
+Commissioning also now preserves successful EnergyFlow JSON instead of discarding it after setting capability status.

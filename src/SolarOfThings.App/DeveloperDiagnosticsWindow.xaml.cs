@@ -8,13 +8,17 @@ namespace SolarOfThings.App;
 public partial class DeveloperDiagnosticsWindow : Window
 {
     private readonly ApiDiagnosticsStore _diagnostics;
+    private readonly InvestigationDiagnosticsService _investigation;
     private readonly AppPaths _paths;
+    private bool _busy;
 
     public DeveloperDiagnosticsWindow(
         ApiDiagnosticsStore diagnostics,
+        InvestigationDiagnosticsService investigation,
         AppPaths paths)
     {
         _diagnostics = diagnostics;
+        _investigation = investigation;
         _paths = paths;
 
         InitializeComponent();
@@ -31,11 +35,100 @@ public partial class DeveloperDiagnosticsWindow : Window
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         var path = _diagnostics.SaveSanitizedReport();
-        MessageBox.Show(
-            $"Informe guardado en:\n{path}",
-            "Diagnóstico",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        ShowSaved(path);
+    }
+
+    private async void RunAll_Click(object sender, RoutedEventArgs e)
+    {
+        await RunAsync(
+            async () =>
+            {
+                var result = await _investigation.RunCompleteAsync();
+                var summary = string.Join(
+                    Environment.NewLine,
+                    result.Actions.Select(action =>
+                        $"{action.Action}: {action.Outcome} — {action.Detail}"));
+
+                ActionStatusText.Text =
+                    summary + Environment.NewLine +
+                    $"Paquete: {result.BundlePath}";
+
+                ShowSaved(result.BundlePath);
+            });
+    }
+
+    private async void CaptureState_Click(object sender, RoutedEventArgs e) =>
+        await RunActionAsync(() => _investigation.CaptureLatestStateAsync());
+
+    private async void CaptureFlow_Click(object sender, RoutedEventArgs e) =>
+        await RunActionAsync(() => _investigation.CaptureEnergyFlowAsync());
+
+    private async void ConfigCache_Click(object sender, RoutedEventArgs e) =>
+        await RunActionAsync(() => _investigation.CaptureConfigCacheAsync());
+
+    private async void ConfigRead_Click(object sender, RoutedEventArgs e) =>
+        await RunActionAsync(() => _investigation.CaptureDirectConfigReadAsync());
+
+    private async Task RunActionAsync(
+        Func<Task<InvestigationActionResult>> action)
+    {
+        await RunAsync(
+            async () =>
+            {
+                var result = await action();
+                ActionStatusText.Text =
+                    $"{result.Action}: {result.Outcome} — {result.Detail}";
+            });
+    }
+
+    private void ExportBundle_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = _investigation.SaveInvestigationBundle();
+            ActionStatusText.Text = $"Paquete guardado: {path}";
+            ShowSaved(path);
+        }
+        catch (Exception ex)
+        {
+            ActionStatusText.Text = $"ERROR — {ex.Message}";
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        SetBusy(true);
+
+        try
+        {
+            ActionStatusText.Text = "Ejecutando diagnóstico read-only...";
+            await action();
+            RefreshReport();
+        }
+        catch (Exception ex)
+        {
+            ActionStatusText.Text = $"ERROR — {ex.Message}";
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private void SetBusy(bool busy)
+    {
+        _busy = busy;
+        RunAllButton.IsEnabled = !busy;
+        CaptureStateButton.IsEnabled = !busy;
+        CaptureFlowButton.IsEnabled = !busy;
+        ConfigCacheButton.IsEnabled = !busy;
+        ConfigReadButton.IsEnabled = !busy;
+        ExportBundleButton.IsEnabled = !busy;
     }
 
     private void OpenLogs_Click(object sender, RoutedEventArgs e)
@@ -51,6 +144,34 @@ public partial class DeveloperDiagnosticsWindow : Window
 
     private void RefreshReport()
     {
-        ReportTextBox.Text = _diagnostics.BuildSanitizedReport();
+        try
+        {
+            ReportTextBox.Text =
+                _investigation.BuildOverview() +
+                Environment.NewLine + Environment.NewLine +
+                "RECENT SANITIZED API EVENTS" +
+                Environment.NewLine +
+                "===========================" +
+                Environment.NewLine +
+                _diagnostics.BuildSanitizedReport(80);
+        }
+        catch (Exception ex)
+        {
+            ReportTextBox.Text =
+                "No se pudo construir el resumen de investigación." +
+                Environment.NewLine +
+                ex.Message +
+                Environment.NewLine + Environment.NewLine +
+                _diagnostics.BuildSanitizedReport(80);
+        }
+    }
+
+    private static void ShowSaved(string path)
+    {
+        MessageBox.Show(
+            $"Archivo guardado en:\n{path}",
+            "Diagnóstico",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 }

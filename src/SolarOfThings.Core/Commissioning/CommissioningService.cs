@@ -360,6 +360,20 @@ public sealed class CommissioningService
                     ? "UNSUPPORTED:70132"
                     : $"ERROR:{energyFlow.Code ?? energyFlow.HttpStatus.ToString()}";
 
+            if (energyFlow.IsSuccess)
+            {
+                _history.CaptureRaw(
+                    "EnergyFlowSnapshot",
+                    device.Id,
+                    null,
+                    "energy/flow/v1",
+                    null,
+                    null,
+                    DiagnosticSanitizer.SanitizeJson(energyFlow.RawJson, 4_000_000)
+                        ?? energyFlow.RawJson,
+                    DateTimeOffset.UtcNow);
+            }
+
             progress?.Report(new(
                 "EnergyFlow",
                 energyFlow.IsSuccess || energyFlow.Code == "70132" ? "PASS" : "WARN",

@@ -828,3 +828,47 @@ The next consolidated technical tranche should:
 4. attempt a safe read-only historical/API capability probe for these keys only if supported by the platform;
 5. never backfill historical mode labels by assuming the current setting applied earlier.
 
+
+
+---
+
+## 20. Reproducible debug harness requirement
+
+The user explicitly requires the next clean-build QA to avoid ad-hoc Navicat/manual-query cycles.
+
+Developer Diagnostics must provide buttons/functions that both:
+1. export the evidence already present locally; and
+2. actively resolve remaining read-only uncertainties by querying the target.
+
+Required read-only probes:
+- LatestState refresh/capture;
+- EnergyFlow capture;
+- remote config cache capture;
+- direct/batch remote configuration read + details capture.
+
+Required export bundle:
+- historical attribute inventory;
+- low-cardinality values;
+- detected historical configuration/value changes;
+- history-day coverage;
+- normalized metrics;
+- raw-capture inventory;
+- LatestState all fields + SBU/OSO/LBU candidate subset;
+- installation config checks;
+- behavior state counts;
+- full observable power-balance matrix and worst residuals;
+- latest sanitized raw evidence for LatestState/EnergyFlow/config;
+- commissioned schema/capability metadata;
+- recent sanitized API diagnostics.
+
+The one-click “complete diagnostics” path should execute the safe probes and then create the bundle.
+
+Safety invariant:
+- no config write;
+- no cache clear;
+- no passthrough;
+- no DTU restart;
+- no fast-report start/stop;
+- no mutation endpoint.
+
+This harness exists specifically so a future chat can request one exported ZIP rather than reconstructing SQL manually.
