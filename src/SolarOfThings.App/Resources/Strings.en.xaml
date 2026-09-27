@@ -251,7 +251,7 @@
     <sys:String x:Key="Settings.Intro">Normal-use options for this copy of Solar Energy Monitor.</sys:String>
     <sys:String x:Key="Settings.ConnectionHeading">Connection and session</sys:String>
     <sys:String x:Key="Settings.AutoConnect">Connect automatically at startup</sys:String>
-    <sys:String x:Key="Settings.AutoConnectHint">When a remembered session exists, the app performs one verification at startup and refreshes current state. It does not poll continuously.</sys:String>
+    <sys:String x:Key="Settings.AutoConnectHint">When a remembered session exists, the app verifies current state at startup. While Home is visible, it automatically checks current state every 60 seconds; polling stops when leaving Home.</sys:String>
     <sys:String x:Key="Settings.SessionVerified">Connected and verified with Solar of Things.</sys:String>
     <sys:String x:Key="Settings.SessionRemembered">A protected remembered session exists on this computer; it has not yet been verified with the server in this run.</sys:String>
     <sys:String x:Key="Settings.CredentialsRemembered">Protected remembered credentials exist on this computer.</sys:String>
@@ -259,9 +259,12 @@
     <sys:String x:Key="Settings.ForgetCredentials">Sign out and forget session</sys:String>
     <sys:String x:Key="Settings.PasswordPrivacy">For security, a remembered password is never refilled or displayed in the password field.</sys:String>
 
-    <sys:String x:Key="Dashboard.Overview">Latest available information</sys:String>
+    <sys:String x:Key="Dashboard.Overview">Current household state</sys:String>
     <sys:String x:Key="Dashboard.FreshnessRecent">Recent reading: {0}</sys:String>
     <sys:String x:Key="Dashboard.FreshnessStale">Note: the latest saved reading is from {0}. It may not represent the current state.</sys:String>
+    <sys:String x:Key="Dashboard.LiveFrame">Live · inverter frame: {0}</sys:String>
+    <sys:String x:Key="Dashboard.LivePollingRecent">LIVE active · checked {0} · inverter frame {1}</sys:String>
+    <sys:String x:Key="Dashboard.LivePollingStale">LIVE active · checked {0} · latest inverter frame is still from {1}</sys:String>
     <sys:String x:Key="Metric.PvPower">SOLAR PRODUCTION</sys:String>
     <sys:String x:Key="Metric.HouseLoad">HOME USE</sys:String>
     <sys:String x:Key="Metric.BatterySoc">BATTERY CHARGE</sys:String>
@@ -286,7 +289,7 @@
     <sys:String x:Key="Dashboard.ChartPending">Charting is added after real telemetry and normalization are proven.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">System Status</sys:String>
     <sys:String x:Key="Dashboard.RefreshCurrent">Refresh current state</sys:String>
-    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Performs one recent Solar of Things read. It does not enable repeated background polling.</sys:String>
+    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Forces an immediate read. While Home is visible, the app also checks Solar of Things automatically every 60 seconds.</sys:String>
     <sys:String x:Key="Dashboard.OperatingState">What the latest reading shows</sys:String>
     <sys:String x:Key="Operating.NO_DATA">There is not enough data yet to explain the home's current state.</sys:String>
     <sys:String x:Key="Operating.SOLAR_PRIMARY">The latest reading shows the home was using mainly solar energy.</sys:String>

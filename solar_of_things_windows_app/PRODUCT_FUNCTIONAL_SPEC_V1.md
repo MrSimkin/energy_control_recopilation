@@ -1586,3 +1586,26 @@ Report chart semantics are now fixed:
 - the selected Hour/Day/Week/Month/Year aggregation governs charts and report tables consistently.
 
 The Simple Energy family report now uses this attribution on its first page and exposes provenance/coverage in the technical annex.
+
+
+## 49. Home interactive Live-state polling clarification — 2026-09-27
+
+The four primary Home current-state cards are **interactive Live cards**, not merely the latest stored snapshot.
+
+When an authenticated session exists and Home is visible:
+- perform an immediate current-state read on entering Home;
+- re-check Solar of Things every 60 seconds while Home remains visible;
+- stop this interactive polling when Home is not visible;
+- serialize overlapping current-state requests;
+- show the actual source/inverter frame timestamp separately from the local check time;
+- do not relabel an unchanged cloud frame with the current wall-clock time.
+
+The cloud/device reporting cadence may remain around five minutes. A one-minute client poll only reduces detection latency for a newly arrived cloud frame; it does not imply one-minute physical measurement resolution.
+
+The four Live cards are:
+- solar production now;
+- household consumption now;
+- battery charge now;
+- grid use now.
+
+Historical daily summaries, charts and report aggregates remain local stored-history calculations.

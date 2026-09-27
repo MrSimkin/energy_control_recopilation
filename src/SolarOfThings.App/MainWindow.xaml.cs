@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using SolarOfThings.App.Localization;
@@ -26,7 +27,10 @@ public partial class MainWindow : Window
     private readonly SolarOfThingsSessionManager _session;
     private readonly CommissioningProfileRepository _profiles;
     private readonly IServiceProvider _services;
+    private readonly DispatcherTimer _dashboardLiveTimer;
     private CancellationTokenSource? _syncCancellation;
+    private bool _currentStateRefreshInProgress;
+    private bool _dashboardVisible;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
     private bool _suppressReportRangeSelection;
@@ -47,6 +51,14 @@ public partial class MainWindow : Window
         _session = session;
         _profiles = profiles;
         _services = services;
+
+        _dashboardLiveTimer = new DispatcherTimer(
+            DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(60)
+        };
+        _dashboardLiveTimer.Tick += DashboardLiveTimer_Tick;
+        Closed += MainWindow_Closed;
 
         InitializeComponent();
 
@@ -167,15 +179,23 @@ public partial class MainWindow : Window
 
         var repository = _services.GetRequiredService<NormalizationRepository>();
         var storedMetrics = repository.GetLatestMetrics(profile.DeviceId);
-        var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>().GetLatest(profile.DeviceId);
-        var metrics = current is { IsFresh: true } && current.Metrics.Count > 0 ? current.Metrics : storedMetrics;
+        var current = _services
+            .GetRequiredService<CurrentHouseholdSnapshotService>()
+            .GetLatest(profile.DeviceId);
+        var useCurrentSnapshot =
+            current is { Metrics.Count: > 0 };
+        var metrics = useCurrentSnapshot
+            ? current!.Metrics
+            : storedMetrics;
 
         SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
         SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
         SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
         SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
         RefreshOperatingState(metrics);
-        RefreshDashboardFreshness(metrics);
+        RefreshDashboardFreshness(
+            metrics,
+            useCurrentSnapshot ? current : null);
         RefreshDashboardLatestSavedDay(profile);
     }
 
@@ -221,6 +241,16 @@ public partial class MainWindow : Window
             "PROBABLE" => _localization.GetString("Confidence.Probable"),
             _ => _localization.GetString("Confidence.Unresolved")
         };
+
+        if (string.Equals(
+                metric.RuleVersion,
+                "latest-state.v1",
+                StringComparison.Ordinal))
+        {
+            return string.Format(
+                _localization.GetString("Dashboard.LiveFrame"),
+                metric.RecordedAtUtc.ToLocalTime().ToString("dd-MM HH:mm:ss"));
+        }
 
         return $"{confidence} · {metric.RecordedAtUtc.ToLocalTime():dd-MM HH:mm}";
     }
@@ -337,7 +367,8 @@ public partial class MainWindow : Window
     }
 
     private void RefreshDashboardFreshness(
-        IReadOnlyDictionary<string, NormalizedMetricValue> metrics)
+        IReadOnlyDictionary<string, NormalizedMetricValue> metrics,
+        CurrentHouseholdSnapshot? currentSnapshot)
     {
         if (metrics.Count == 0)
         {
@@ -346,18 +377,37 @@ public partial class MainWindow : Window
         }
 
         var latest = metrics.Values.Max(metric => metric.RecordedAtUtc);
-        var display = latest.ToLocalTime().ToString("dd-MM-yyyy HH:mm");
+        var sourceDisplay =
+            latest.ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss");
         var age = DateTimeOffset.UtcNow - latest;
 
         var recent = age >= TimeSpan.FromMinutes(-5) &&
                      age <= TimeSpan.FromMinutes(20);
+
+        if (currentSnapshot is not null)
+        {
+            var checkedDisplay =
+                currentSnapshot.RetrievedUtc.ToLocalTime()
+                    .ToString("HH:mm:ss");
+
+            DashboardFreshnessText.Text = string.Format(
+                _localization.GetString(
+                    recent
+                        ? "Dashboard.LivePollingRecent"
+                        : "Dashboard.LivePollingStale"),
+                checkedDisplay,
+                sourceDisplay);
+            DashboardFreshnessText.Foreground =
+                recent ? Brushes.Green : Brushes.DarkOrange;
+            return;
+        }
 
         DashboardFreshnessText.Text = string.Format(
             _localization.GetString(
                 recent
                     ? "Dashboard.FreshnessRecent"
                     : "Dashboard.FreshnessStale"),
-            display);
+            sourceDisplay);
 
         DashboardFreshnessText.Foreground =
             recent ? Brushes.Green : Brushes.DarkOrange;
@@ -1413,16 +1463,27 @@ public partial class MainWindow : Window
 
         ShowPage(pageKey);
 
-        if (!string.Equals(
-                pageKey,
-                "Battery",
-                StringComparison.Ordinal))
+        var profile = _profiles.Get();
+        if (profile is null || !_session.HasSession)
         {
             return;
         }
 
-        var profile = _profiles.Get();
-        if (profile is null || !_session.HasSession)
+        if (string.Equals(
+                pageKey,
+                "Dashboard",
+                StringComparison.Ordinal))
+        {
+            await RefreshCurrentStateAsync(
+                profile,
+                showError: false);
+            return;
+        }
+
+        if (!string.Equals(
+                pageKey,
+                "Battery",
+                StringComparison.Ordinal))
         {
             return;
         }
@@ -1479,6 +1540,16 @@ public partial class MainWindow : Window
         var isReports = string.Equals(pageKey, "Reports", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
+
+        _dashboardVisible = isDashboard;
+        if (isDashboard)
+        {
+            _dashboardLiveTimer.Start();
+        }
+        else
+        {
+            _dashboardLiveTimer.Stop();
+        }
 
         DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
         AnalysisContent.Visibility = isAnalysis ? Visibility.Visible : Visibility.Collapsed;
@@ -2223,12 +2294,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task<bool> RefreshCurrentStateAsync(CommissioningProfile profile, bool showError)
+    private async Task<bool> RefreshCurrentStateAsync(
+        CommissioningProfile profile,
+        bool showError)
     {
+        if (_currentStateRefreshInProgress)
+        {
+            return false;
+        }
+
+        _currentStateRefreshInProgress = true;
+
         try
         {
-            var snapshot = _services.GetRequiredService<CurrentStateSnapshotService>();
-            var refreshed = await snapshot.RefreshAsync(profile);
+            var snapshot =
+                _services.GetRequiredService<CurrentStateSnapshotService>();
+            var refreshed =
+                await snapshot.RefreshAsync(profile);
+
             if (refreshed)
             {
                 EvaluateInstallationHealth(profile);
@@ -2236,15 +2319,55 @@ public partial class MainWindow : Window
                 RefreshBatteryView();
                 RefreshDataCoverageView();
             }
+
             RefreshConnectionStatus();
             return refreshed;
         }
         catch (Exception ex)
         {
             RefreshConnectionStatus();
-            if (showError) MessageBox.Show(ex.Message, _localization.GetString("UpdateDialog.Title"));
+            if (showError)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    _localization.GetString("UpdateDialog.Title"));
+            }
+
             return false;
         }
+        finally
+        {
+            _currentStateRefreshInProgress = false;
+        }
+    }
+
+    private async void DashboardLiveTimer_Tick(
+        object? sender,
+        EventArgs e)
+    {
+        if (!_dashboardVisible ||
+            !_session.HasSession)
+        {
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            return;
+        }
+
+        await RefreshCurrentStateAsync(
+            profile,
+            showError: false);
+    }
+
+    private void MainWindow_Closed(
+        object? sender,
+        EventArgs e)
+    {
+        _dashboardLiveTimer.Stop();
+        _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
     }
 
     private bool GetAutoConnectEnabled()

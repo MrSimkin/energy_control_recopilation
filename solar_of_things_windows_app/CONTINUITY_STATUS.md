@@ -1325,3 +1325,31 @@ Do **not** ask for another micro-fix test. The next target-PC Reporting validati
 2. use a completed/high-coverage period;
 3. export both XLSX and PDF;
 4. review the complete artifacts in one pass.
+
+
+## Home four-card Live polling correction — 2026-09-27
+
+User QA found that the four Home cards were not truly Live:
+- they displayed the most recent current-state snapshot after a manual/startup update;
+- they did not keep checking for a newer cloud frame while Home remained visible.
+
+This violated the intended Live requirement.
+
+Correction:
+- Home now performs a read-only current-state check immediately when entered while authenticated;
+- while Home remains visible, it polls `state/latest` every **60 seconds**;
+- polling stops when leaving Home;
+- overlapping manual/navigation/timer current-state reads are serialized by an in-window guard;
+- the four cards use one coherent latest current-state snapshot when available rather than silently mixing with stored normalized data;
+- each current-state card labels the actual inverter frame timestamp;
+- the Home freshness line distinguishes:
+  - last automatic HTTP check time;
+  - actual inverter/cloud frame time;
+- repeated identical values across polls are expected when SiSeLi has not received a newer inverter frame.
+
+Rationale:
+- API research Round 12 recommends 60–120 seconds for an interactive visible dashboard;
+- target/source telemetry typically advances around every 5 minutes;
+- therefore this is “check every minute for the newest cloud frame”, not fabricated one-minute inverter telemetry.
+
+The historical/latest-day summary below the four cards remains stored-history based and is not converted to Live.

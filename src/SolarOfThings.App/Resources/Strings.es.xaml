@@ -251,7 +251,7 @@
     <sys:String x:Key="Settings.Intro">Opciones de uso normal de esta copia de Solar Energy Monitor.</sys:String>
     <sys:String x:Key="Settings.ConnectionHeading">Conexión y sesión</sys:String>
     <sys:String x:Key="Settings.AutoConnect">Conectarme automáticamente al iniciar</sys:String>
-    <sys:String x:Key="Settings.AutoConnectHint">Si existe una sesión recordada, la aplicación hará una sola comprobación al iniciar y actualizará el estado actual. No hace consultas continuas.</sys:String>
+    <sys:String x:Key="Settings.AutoConnectHint">Si existe una sesión recordada, la aplicación verifica el estado al iniciar. Mientras Inicio esté visible, consulta automáticamente el estado actual cada 60 segundos; al salir de Inicio, ese polling se detiene.</sys:String>
     <sys:String x:Key="Settings.SessionVerified">Conectado y verificado con Solar of Things.</sys:String>
     <sys:String x:Key="Settings.SessionRemembered">Hay una sesión protegida recordada en este computador; todavía no se ha verificado con el servidor en esta ejecución.</sys:String>
     <sys:String x:Key="Settings.CredentialsRemembered">Hay credenciales protegidas recordadas en este computador.</sys:String>
@@ -259,9 +259,12 @@
     <sys:String x:Key="Settings.ForgetCredentials">Cerrar y olvidar sesión</sys:String>
     <sys:String x:Key="Settings.PasswordPrivacy">Por seguridad, una contraseña recordada nunca se rellena ni se muestra en el campo de contraseña.</sys:String>
 
-    <sys:String x:Key="Dashboard.Overview">Última información disponible</sys:String>
+    <sys:String x:Key="Dashboard.Overview">Estado actual de la casa</sys:String>
     <sys:String x:Key="Dashboard.FreshnessRecent">Lectura reciente: {0}</sys:String>
     <sys:String x:Key="Dashboard.FreshnessStale">Atención: la última lectura guardada es del {0}. No representa necesariamente el estado actual.</sys:String>
+    <sys:String x:Key="Dashboard.LiveFrame">Live · frame del inversor: {0}</sys:String>
+    <sys:String x:Key="Dashboard.LivePollingRecent">LIVE activo · chequeo {0} · frame del inversor {1}</sys:String>
+    <sys:String x:Key="Dashboard.LivePollingStale">LIVE activo · chequeo {0} · el último frame del inversor sigue siendo del {1}</sys:String>
     <sys:String x:Key="Metric.PvPower">PRODUCCIÓN SOLAR</sys:String>
     <sys:String x:Key="Metric.HouseLoad">CONSUMO DE LA CASA</sys:String>
     <sys:String x:Key="Metric.BatterySoc">CARGA DE LA BATERÍA</sys:String>
@@ -286,7 +289,7 @@
     <sys:String x:Key="Dashboard.ChartPending">Los gráficos se añadirán después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">Estado del sistema</sys:String>
     <sys:String x:Key="Dashboard.RefreshCurrent">Actualizar estado actual</sys:String>
-    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Hace una sola lectura reciente de Solar of Things. No activa consultas repetitivas en segundo plano.</sys:String>
+    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Fuerza una lectura inmediata. Mientras Inicio esté visible, la aplicación también consulta automáticamente Solar of Things cada 60 segundos.</sys:String>
     <sys:String x:Key="Dashboard.OperatingState">Qué muestra la última lectura</sys:String>
     <sys:String x:Key="Operating.NO_DATA">Aún no hay datos suficientes para explicar el estado de la casa.</sys:String>
     <sys:String x:Key="Operating.SOLAR_PRIMARY">La última lectura muestra que la casa usaba principalmente energía solar.</sys:String>
