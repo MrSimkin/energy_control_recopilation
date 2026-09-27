@@ -245,6 +245,14 @@ public sealed class EnergyReportExportService
 
         AddFamilyPatternsPdf(section, report);
         AddFamilyEventsPdf(section, report);
+
+        var annex = section.AddParagraph(
+            L(report, "Anexo técnico — calidad y glosario", "Technical annex — quality and glossary"));
+        annex.Format.PageBreakBefore = true;
+        annex.Format.Font.Size = 15;
+        annex.Format.Font.Bold = true;
+        annex.Format.SpaceAfter = Unit.FromPoint(6);
+
         AddQuality(section, report);
         AddGlossary(section, report);
     }
@@ -763,22 +771,30 @@ public sealed class EnergyReportExportService
         heading.Format.SpaceBefore = Unit.FromPoint(10);
         heading.Format.SpaceAfter = Unit.FromPoint(4);
 
-        section.AddParagraph(string.Format(
-            L(
-                report,
-                "Cobertura — solar {0:N1}% · casa {1:N1}% · red {2:N1}% · batería {3:N1}%.",
-                "Coverage — solar {0:N1}% · home {1:N1}% · grid {2:N1}% · battery {3:N1}%."),
-            report.Summary.PvPower.CoveragePercent,
-            report.Summary.HouseLoadPower.CoveragePercent,
-            report.Summary.GridImportPower.CoveragePercent,
-            report.Summary.BatteryPower.CoveragePercent));
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.AddColumn(Unit.FromCentimeter(6.0));
+        table.AddColumn(Unit.FromCentimeter(2.5));
+        table.AddColumn(Unit.FromCentimeter(4.5));
+
+        AddPdfValueRow(table, L(report, "Cobertura solar", "Solar coverage"), $"{report.Summary.PvPower.CoveragePercent:N1}%");
+        AddPdfValueRow(table, L(report, "Cobertura casa", "Home coverage"), $"{report.Summary.HouseLoadPower.CoveragePercent:N1}%");
+        AddPdfValueRow(table, L(report, "Cobertura red", "Grid coverage"), $"{report.Summary.GridImportPower.CoveragePercent:N1}%");
+        AddPdfValueRow(table, L(report, "Cobertura batería", "Battery coverage"), $"{report.Summary.BatteryPower.CoveragePercent:N1}%");
+        AddPdfValueRow(table, L(report, "Cobertura de atribución", "Attribution coverage"), $"{report.Attribution.AttributionCoverageOfObservedPercent:N1}%");
+        AddPdfValueRow(table, L(report, "Casa sin atribuir", "Unattributed home energy"), $"{report.Attribution.UnattributedHouseKwh:N2} kWh");
+        AddPdfValueRow(
+            table,
+            L(report, "Noches observables", "Observable nights"),
+            $"{report.Family.ObservableNightCount}/{Math.Max(0, report.Request.LocalEndDate.DayNumber - report.Request.LocalStartDate.DayNumber)}");
 
         var note = section.AddParagraph(
             L(
                 report,
-                "Los períodos faltantes son desconocidos, no cero. La energía no se extrapola a través de huecos largos.",
-                "Missing periods are unknown, not zero. Energy is not extrapolated across long gaps."));
+                "Faltante/desconocido nunca se interpreta como cero. La energía no se extrapola a través de huecos largos y los residuales de balance se conservan como diagnóstico en vez de repartirse artificialmente entre fuentes.",
+                "Missing/unknown is never interpreted as zero. Energy is not extrapolated across long gaps, and balance residuals remain diagnostic instead of being artificially distributed among sources."));
         note.Format.Font.Italic = true;
+        note.Format.SpaceBefore = Unit.FromPoint(5);
     }
 
     private static void AddGlossary(
@@ -786,7 +802,7 @@ public sealed class EnergyReportExportService
         EnergyReportData report)
     {
         var heading = section.AddParagraph(
-            L(report, "Glosario", "Glossary"));
+            L(report, "Glosario esencial", "Essential glossary"));
         heading.Format.Font.Size = 13;
         heading.Format.Font.Bold = true;
         heading.Format.SpaceBefore = Unit.FromPoint(10);
@@ -796,26 +812,35 @@ public sealed class EnergyReportExportService
         table.AddColumn(Unit.FromCentimeter(4.0));
         table.AddColumn(Unit.FromCentimeter(9.0));
 
-        AddPdfValueRow(
-            table,
-            L(report, "Generación solar", "Solar generation"),
-            L(report, "Electricidad producida por los paneles solares.", "Electricity produced by the solar panels."));
-        AddPdfValueRow(
-            table,
-            L(report, "Consumo de la casa", "Home consumption"),
-            L(report, "Electricidad usada por los equipos y cargas de la vivienda.", "Electricity used by appliances and loads in the home."));
-        AddPdfValueRow(
-            table,
-            L(report, "Importación de red", "Grid import"),
-            L(report, "Electricidad tomada de la compañía eléctrica.", "Electricity taken from the utility grid."));
-        AddPdfValueRow(
-            table,
-            "SOC",
-            L(report, "Qué tan llena está la batería, expresado en porcentaje.", "How full the battery is, shown as a percentage."));
-        AddPdfValueRow(
-            table,
-            L(report, "Cobertura", "Coverage"),
-            L(report, "Qué parte del período tiene datos suficientes para el cálculo.", "How much of the period has enough data for the calculation."));
+        var items = new[]
+        {
+            (L(report, "Solar → Casa", "Solar → Home"), L(report, "Parte del consumo atribuida directamente al solar; no es igual a toda la generación.", "Part of consumption attributed directly to solar; not the same as all generation.")),
+            (L(report, "Batería → Casa", "Battery → Home"), L(report, "Parte del consumo atribuida a energía descargada de batería hacia la casa.", "Part of consumption attributed to battery energy supplied to the home.")),
+            (L(report, "Enel → Casa", "Utility → Home"), L(report, "Parte del consumo atribuida a la compañía eléctrica.", "Part of consumption attributed to the utility.")),
+            (L(report, "Sin atribuir", "Unattributed"), L(report, "Consumo observado cuyo origen no pudo demostrarse; no se asigna por residuo.", "Observed consumption whose source could not be demonstrated; it is not assigned by residual.")),
+            ("SOC", L(report, "Porcentaje de carga reportado por el BMS.", "Battery state-of-charge percentage reported by the BMS.")),
+            (L(report, "Energía guardada (estimada)", "Stored energy (estimate)"), L(report, "Capacidad útil configurada × SOC, expresada en kWh.", "Configured usable capacity × SOC, expressed in kWh.")),
+            (L(report, "Cobertura", "Coverage"), L(report, "Parte del período con continuidad suficiente; faltante no significa cero.", "Part of the period with sufficient continuity; missing does not mean zero.")),
+            (L(report, "Noche observable", "Observable night"), L(report, "Noche con evidencia suficiente para evaluar la alimentación.", "Night with enough evidence to evaluate supply.")),
+            (L(report, "Nivel mínimo protegido", "Protected minimum level"), L(report, "Límite inferior que el sistema intenta no cruzar para proteger la batería.", "Lower level the system tries not to cross to protect the battery.")),
+            ("kWh", L(report, "Cantidad de energía acumulada durante un período.", "Amount of energy accumulated over a period.")),
+            (L(report, "Residual de balance", "Balance residual"), L(report, "Diferencia diagnóstica entre entradas y salidas medidas; no se fuerza a cero.", "Diagnostic difference between measured inputs and outputs; it is not forced to zero."))
+        };
+
+        foreach (var item in items)
+        {
+            var row = table.AddRow();
+            row.Cells[0].AddParagraph(item.Item1);
+            row.Cells[1].AddParagraph(item.Item2);
+        }
+
+        var fullGlossary = section.AddParagraph(
+            L(
+                report,
+                "El Excel contiene un glosario ampliado que también explica todas las columnas de Detalle y los límites de interpretación.",
+                "The Excel workbook contains an expanded glossary that also explains all Detail columns and interpretation limits."));
+        fullGlossary.Format.Font.Italic = true;
+        fullGlossary.Format.SpaceBefore = Unit.FromPoint(5);
     }
 
     private static void AddSummarySheet(
@@ -1340,9 +1365,46 @@ public sealed class EnergyReportExportService
         }
     }
 
-    private static string PreferredPdfTextFont() => "Aptos Narrow";
+    private static string PreferredPdfTextFont() =>
+        WindowsFontExists("aptos", "narrow")
+            ? "Aptos Narrow"
+            : WindowsFontExists("arial", "narrow")
+                ? "Arial Narrow"
+                : "Arial";
 
-    private static string PreferredPdfNumericFont() => "Aptos Mono";
+    private static string PreferredPdfNumericFont() =>
+        WindowsFontExists("aptos", "mono")
+            ? "Aptos Mono"
+            : "Consolas";
+
+    private static bool WindowsFontExists(params string[] fragments)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        try
+        {
+            var windows = Environment.GetFolderPath(
+                Environment.SpecialFolder.Windows);
+            var fonts = Path.Combine(windows, "Fonts");
+
+            return Directory
+                .EnumerateFiles(fonts)
+                .Select(Path.GetFileNameWithoutExtension)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Any(name =>
+                    fragments.All(fragment =>
+                        name!.Contains(
+                            fragment,
+                            StringComparison.OrdinalIgnoreCase)));
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static void ApplyWorkbookTypography(XLWorkbook workbook)
     {
@@ -1491,7 +1553,7 @@ public sealed class EnergyReportExportService
             L(report, "Patrones", "Patterns"));
 
         sheet.Cell("A1").Value =
-            L(report, "Patrones y eventos del período", "Patterns and events for the selected period");
+            L(report, "Patrones del período", "Patterns for the selected period");
         sheet.Cell("A1").Style.Font.Bold = true;
         sheet.Cell("A1").Style.Font.FontSize = 15;
         sheet.Range("A1:E1").Merge();
@@ -1705,61 +1767,93 @@ public sealed class EnergyReportExportService
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Detalle", "Detail"));
+
         var headers = IsSpanish(report)
             ? new[]
             {
                 "Período", "Inicio UTC", "Fin UTC",
-                "Solar kWh", "Casa kWh", "Red kWh",
+                "Solar generado kWh", "Casa kWh", "Red importada kWh",
                 "Batería entregada kWh", "Batería recibida kWh",
                 "SOC prom %", "SOC mín %", "SOC máx %", "SOC fin %",
+                "Solar → Casa kWh", "Batería → Casa kWh", "Enel → Casa kWh",
+                "Casa sin atribuir kWh", "Cobertura atribución %", "Batería guardada fin kWh (estimada)",
                 "Cobertura solar %", "Cobertura casa %", "Cobertura red %",
-                "Cobertura batería %", "Cobertura SOC %", "Cobertura mínima %"
+                "Cobertura batería %", "Cobertura SOC %", "Cobertura mínima %",
+                "Residual balance medio abs %", "Residual balance máximo abs %"
             }
             : new[]
             {
                 "Period", "Start UTC", "End UTC",
-                "Solar kWh", "Home kWh", "Grid kWh",
-                "Battery supplied kWh", "Battery received kWh",
+                "Solar generated kWh", "Home kWh", "Grid imported kWh",
+                "Battery discharged kWh", "Battery charged kWh",
                 "SOC avg %", "SOC min %", "SOC max %", "SOC end %",
+                "Solar → Home kWh", "Battery → Home kWh", "Utility → Home kWh",
+                "Unattributed home kWh", "Attribution coverage %", "Battery stored end kWh (estimate)",
                 "PV coverage %", "Home coverage %", "Grid coverage %",
-                "Battery coverage %", "SOC coverage %", "Minimum coverage %"
+                "Battery coverage %", "SOC coverage %", "Minimum coverage %",
+                "Mean abs balance residual %", "Maximum abs balance residual %"
             };
 
         for (var column = 0; column < headers.Length; column++)
             sheet.Cell(1, column + 1).Value = headers[column];
+
         sheet.Range(1, 1, 1, headers.Length).Style.Font.Bold = true;
+
+        var attributionByStart = report.Attribution.Buckets
+            .ToDictionary(item => item.StartUtc);
 
         var targetRow = 2;
         foreach (var item in report.Table.Rows)
         {
+            attributionByStart.TryGetValue(item.StartUtc, out var attribution);
+
             sheet.Cell(targetRow, 1).Value = item.LocalLabel;
             sheet.Cell(targetRow, 2).Value = item.StartUtc.UtcDateTime;
             sheet.Cell(targetRow, 3).Value = item.EndUtcExclusive.UtcDateTime;
-            if (item.PvEnergyDisplayKwh.HasValue) sheet.Cell(targetRow, 4).Value = item.PvEnergyDisplayKwh.Value;
-            if (item.HouseEnergyDisplayKwh.HasValue) sheet.Cell(targetRow, 5).Value = item.HouseEnergyDisplayKwh.Value;
-            if (item.GridImportEnergyDisplayKwh.HasValue) sheet.Cell(targetRow, 6).Value = item.GridImportEnergyDisplayKwh.Value;
-            if (item.BatteryDischargedEnergyDisplayKwh.HasValue) sheet.Cell(targetRow, 7).Value = item.BatteryDischargedEnergyDisplayKwh.Value;
-            if (item.BatteryChargedEnergyDisplayKwh.HasValue) sheet.Cell(targetRow, 8).Value = item.BatteryChargedEnergyDisplayKwh.Value;
-            sheet.Range(targetRow, 4, targetRow, 8).Style.NumberFormat.Format = "0.00";
-            if (item.SocAveragePercent.HasValue) sheet.Cell(targetRow, 9).Value = item.SocAveragePercent.Value;
-            if (item.SocMinimumPercent.HasValue) sheet.Cell(targetRow, 10).Value = item.SocMinimumPercent.Value;
-            if (item.SocMaximumPercent.HasValue) sheet.Cell(targetRow, 11).Value = item.SocMaximumPercent.Value;
-            if (item.SocEndingPercent.HasValue) sheet.Cell(targetRow, 12).Value = item.SocEndingPercent.Value;
-            sheet.Range(targetRow, 9, targetRow, 12).Style.NumberFormat.Format = "0.00";
-            sheet.Cell(targetRow, 13).Value = item.PvCoveragePercent;
-            sheet.Cell(targetRow, 14).Value = item.HouseCoveragePercent;
-            sheet.Cell(targetRow, 15).Value = item.GridCoveragePercent;
-            sheet.Cell(targetRow, 16).Value = item.BatteryCoveragePercent;
-            sheet.Cell(targetRow, 17).Value = item.SocCoveragePercent;
-            sheet.Cell(targetRow, 18).Value = item.MinimumAvailableCoveragePercent;
-            sheet.Range(targetRow, 13, targetRow, 18).Style.NumberFormat.Format = "0.0";
+
+            SetNullableNumber(sheet.Cell(targetRow, 4), item.PvEnergyDisplayKwh);
+            SetNullableNumber(sheet.Cell(targetRow, 5), item.HouseEnergyDisplayKwh);
+            SetNullableNumber(sheet.Cell(targetRow, 6), item.GridImportEnergyDisplayKwh);
+            SetNullableNumber(sheet.Cell(targetRow, 7), item.BatteryDischargedEnergyDisplayKwh);
+            SetNullableNumber(sheet.Cell(targetRow, 8), item.BatteryChargedEnergyDisplayKwh);
+
+            SetNullableNumber(sheet.Cell(targetRow, 9), item.SocAveragePercent);
+            SetNullableNumber(sheet.Cell(targetRow, 10), item.SocMinimumPercent);
+            SetNullableNumber(sheet.Cell(targetRow, 11), item.SocMaximumPercent);
+            SetNullableNumber(sheet.Cell(targetRow, 12), item.SocEndingPercent);
+
+            if (attribution is not null)
+            {
+                sheet.Cell(targetRow, 13).Value = attribution.SolarToHouseKwh;
+                sheet.Cell(targetRow, 14).Value = attribution.BatteryToHouseKwh;
+                sheet.Cell(targetRow, 15).Value = attribution.GridToHouseKwh;
+                sheet.Cell(targetRow, 16).Value = attribution.UnattributedHouseKwh;
+                sheet.Cell(targetRow, 17).Value = attribution.AttributionCoverageOfObservedPercent;
+                SetNullableNumber(sheet.Cell(targetRow, 18), attribution.BatteryStoredEndingKwh);
+                sheet.Cell(targetRow, 25).Value = attribution.MeanAbsoluteBalanceResidualPercent;
+                sheet.Cell(targetRow, 26).Value = attribution.MaximumAbsoluteBalanceResidualPercent;
+            }
+
+            sheet.Cell(targetRow, 19).Value = item.PvCoveragePercent;
+            sheet.Cell(targetRow, 20).Value = item.HouseCoveragePercent;
+            sheet.Cell(targetRow, 21).Value = item.GridCoveragePercent;
+            sheet.Cell(targetRow, 22).Value = item.BatteryCoveragePercent;
+            sheet.Cell(targetRow, 23).Value = item.SocCoveragePercent;
+            sheet.Cell(targetRow, 24).Value = item.MinimumAvailableCoveragePercent;
+
+            sheet.Range(targetRow, 4, targetRow, 18).Style.NumberFormat.Format = "0.00";
+            sheet.Range(targetRow, 19, targetRow, 26).Style.NumberFormat.Format = "0.0";
             targetRow++;
         }
 
         sheet.Columns(2, 3).Style.DateFormat.Format = "yyyy-mm-dd hh:mm";
         sheet.SheetView.FreezeRows(1);
-        sheet.RangeUsed()?.SetAutoFilter();
+        sheet.Range(1, 1, Math.Max(1, targetRow - 1), headers.Length).SetAutoFilter();
         sheet.Columns().AdjustToContents();
+        for (var column = 1; column <= headers.Length; column++)
+        {
+            sheet.Column(column).Width = Math.Min(sheet.Column(column).Width, 28);
+        }
     }
 
     private static void AddQualitySheet(
@@ -1768,47 +1862,135 @@ public sealed class EnergyReportExportService
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Calidad", "Quality"));
+
         sheet.Cell("A1").Value =
-            L(report, "Calidad de datos", "Data quality");
+            L(report, "Calidad y límites de interpretación", "Quality and interpretation limits");
         sheet.Cell("A1").Style.Font.Bold = true;
-        sheet.Cell("A1").Style.Font.FontSize = 14;
+        sheet.Cell("A1").Style.Font.FontSize = 15;
+        sheet.Range("A1:D1").Merge();
 
-        sheet.Cell("A3").Value = L(report, "Métrica", "Metric");
-        sheet.Cell("B3").Value = L(report, "Cobertura (%)", "Coverage (%)");
-        sheet.Cell("C3").Value = L(report, "Muestras", "Samples");
-        sheet.Range("A3:C3").Style.Font.Bold = true;
+        sheet.Cell("A3").Value = L(report, "Indicador", "Indicator");
+        sheet.Cell("B3").Value = L(report, "Valor", "Value");
+        sheet.Cell("C3").Value = L(report, "Unidad / base", "Unit / basis");
+        sheet.Cell("D3").Value = L(report, "Qué significa", "What it means");
+        sheet.Range("A3:D3").Style.Font.Bold = true;
 
-        var items = new[]
+        var completeNights = Math.Max(
+            0,
+            report.Request.LocalEndDate.DayNumber -
+            report.Request.LocalStartDate.DayNumber);
+        var meanResidual = report.Attribution.Buckets.Count > 0
+            ? report.Attribution.Buckets.Average(item => item.MeanAbsoluteBalanceResidualPercent)
+            : 0;
+        var maxResidual = report.Attribution.Buckets.Count > 0
+            ? report.Attribution.Buckets.Max(item => item.MaximumAbsoluteBalanceResidualPercent)
+            : 0;
+
+        var rows = new (string Label, double Value, string Unit, string Meaning)[]
         {
-            (L(report, "Solar", "Solar"), report.Summary.PvPower),
-            (L(report, "Casa", "Home"), report.Summary.HouseLoadPower),
-            (L(report, "Red", "Grid"), report.Summary.GridImportPower),
-            (L(report, "Batería", "Battery"), report.Summary.BatteryPower)
+            (
+                L(report, "Cobertura solar", "Solar coverage"),
+                report.Summary.PvPower.CoveragePercent,
+                "%",
+                L(report, "Parte del rango con continuidad suficiente de producción solar.", "Part of the range with sufficient solar-data continuity.")),
+            (
+                L(report, "Cobertura casa", "Home coverage"),
+                report.Summary.HouseLoadPower.CoveragePercent,
+                "%",
+                L(report, "Parte del rango con continuidad suficiente del consumo de la casa.", "Part of the range with sufficient home-consumption continuity.")),
+            (
+                L(report, "Cobertura red", "Grid coverage"),
+                report.Summary.GridImportPower.CoveragePercent,
+                "%",
+                L(report, "Parte del rango con continuidad suficiente de la señal de red.", "Part of the range with sufficient grid-signal continuity.")),
+            (
+                L(report, "Cobertura batería", "Battery coverage"),
+                report.Summary.BatteryPower.CoveragePercent,
+                "%",
+                L(report, "Parte del rango con potencia de batería utilizable.", "Part of the range with usable battery-power data.")),
+            (
+                L(report, "Tiempo observado para atribución", "Observed time for attribution"),
+                report.Attribution.ObservedTimeCoveragePercent,
+                "%",
+                L(report, "Tiempo en que fue posible observar el consumo de casa con continuidad.", "Time where household consumption could be observed continuously.")),
+            (
+                L(report, "Cobertura de atribución del consumo observado", "Attribution coverage of observed consumption"),
+                report.Attribution.AttributionCoverageOfObservedPercent,
+                "%",
+                L(report, "Qué parte del consumo observado pudo asignarse con evidencia a Solar, Batería o Enel.", "Share of observed consumption that could be assigned with evidence to Solar, Battery or Utility.")),
+            (
+                L(report, "Consumo observado sin atribuir", "Observed consumption left unattributed"),
+                report.Attribution.UnattributedHouseKwh,
+                "kWh",
+                L(report, "Energía observada que no se forzó artificialmente a una fuente.", "Observed energy that was not artificially forced into a source.")),
+            (
+                L(report, "Noches observables", "Observable nights"),
+                report.Family.ObservableNightCount,
+                string.Format(L(report, "de {0} completas", "of {0} complete"), completeNights),
+                L(report, "Noches con evidencia suficiente para evaluar si la batería cubrió la alimentación.", "Nights with enough evidence to evaluate whether the battery covered supply.")),
+            (
+                L(report, "Residual medio de balance", "Mean balance residual"),
+                meanResidual,
+                "%",
+                L(report, "Diferencia diagnóstica entre entradas y salidas medidas; no se usa para forzar un balance perfecto.", "Diagnostic difference between measured inputs and outputs; it is not used to force a perfect balance.")),
+            (
+                L(report, "Residual máximo de balance", "Maximum balance residual"),
+                maxResidual,
+                "%",
+                L(report, "Peor diferencia observada dentro de los buckets del reporte.", "Worst observed difference within report buckets.")),
+            (
+                L(report, "Cambios históricos de configuración detectados", "Detected historical configuration changes"),
+                report.Attribution.HistoricalConfigurationChangeCount,
+                L(report, "cambios", "changes"),
+                L(report, "Confirma que la configuración del inversor no se trata como constante en toda la historia.", "Confirms inverter configuration is not treated as constant through all history.")),
+            (
+                L(report, "Snapshots explícitos de modo", "Explicit mode snapshots"),
+                report.Attribution.ExplicitModeSnapshotCount,
+                L(report, "snapshots", "snapshots"),
+                L(report, "Lecturas actuales con evidencia explícita SBU/OSO/LBU disponibles para contexto.", "Current-state readings with explicit SBU/OSO/LBU evidence available for context."))
         };
 
         var row = 4;
-        foreach (var item in items)
+        foreach (var item in rows)
         {
-            sheet.Cell(row, 1).Value = item.Item1;
-            sheet.Cell(row, 2).Value = item.Item2.CoveragePercent;
-            sheet.Cell(row, 2).Style.NumberFormat.Format = "0.0";
-            sheet.Cell(row, 3).Value = item.Item2.SampleCount;
+            sheet.Cell(row, 1).Value = item.Label;
+            sheet.Cell(row, 2).Value = item.Value;
+            sheet.Cell(row, 2).Style.NumberFormat.Format = "0.00";
+            sheet.Cell(row, 3).Value = item.Unit;
+            sheet.Cell(row, 4).Value = item.Meaning;
             row++;
         }
 
-        sheet.Cell(row + 1, 1).Value =
-            L(
-                report,
-                "Regla: faltante/desconocido nunca se interpreta como cero medido.",
-                "Rule: missing/unknown is never interpreted as measured zero.");
-        sheet.Range(row + 1, 1, row + 1, 3).Merge();
-        sheet.Cell(row + 2, 1).Value =
-            L(
-                report,
-                "La integración de energía excluye huecos largos en vez de extrapolarlos.",
-                "Energy integration excludes long gaps instead of extrapolating them.");
-        sheet.Range(row + 2, 1, row + 2, 3).Merge();
-        sheet.Columns().AdjustToContents();
+        row += 2;
+        sheet.Range(row, 1, row, 4).Merge();
+        sheet.Cell(row, 1).Value =
+            L(report, "REGLAS DE CALIDAD", "QUALITY RULES");
+        sheet.Cell(row, 1).Style.Font.Bold = true;
+        row++;
+
+        var rules = new[]
+        {
+            L(report, "Faltante o desconocido nunca significa cero medido.", "Missing or unknown never means measured zero."),
+            L(report, "La energía no se extrapola a través de huecos largos.", "Energy is not extrapolated across long gaps."),
+            L(report, "Descarga total de batería no se iguala automáticamente a Batería → Casa.", "Total battery discharge is not automatically equated with Battery → Home."),
+            L(report, "Producción solar total no se iguala a Solar → Casa.", "Total solar generation is not equated with Solar → Home."),
+            L(report, "Solar no aprovechado/curtailment no se calcula como un residuo ingenuo.", "Unused/curtailed solar is not calculated as a naive residual."),
+            L(report, "Un residual de balance se reporta como diagnóstico; no se reparte entre fuentes para hacer cerrar la ecuación.", "A balance residual is reported diagnostically; it is not distributed among sources to force the equation to close.")
+        };
+
+        foreach (var rule in rules)
+        {
+            sheet.Range(row, 1, row, 4).Merge();
+            sheet.Cell(row, 1).Value = "• " + rule;
+            row++;
+        }
+
+        sheet.Column(1).Width = 34;
+        sheet.Column(2).Width = 16;
+        sheet.Column(3).Width = 18;
+        sheet.Column(4).Width = 72;
+        sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+        sheet.SheetView.FreezeRows(3);
     }
 
     private static void AddGlossarySheet(
@@ -1817,39 +1999,69 @@ public sealed class EnergyReportExportService
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Glosario", "Glossary"));
-        sheet.Cell("A1").Value =
-            L(report, "Término", "Term");
-        sheet.Cell("B1").Value =
-            L(report, "Explicación", "Explanation");
-        sheet.Range("A1:B1").Style.Font.Bold = true;
 
-        var rows = new[]
+        sheet.Cell("A1").Value =
+            L(report, "Guía para leer el reporte", "Report reading guide");
+        sheet.Cell("A1").Style.Font.Bold = true;
+        sheet.Cell("A1").Style.Font.FontSize = 15;
+        sheet.Range("A1:C1").Merge();
+
+        sheet.Cell("A3").Value = L(report, "Término / campo", "Term / field");
+        sheet.Cell("B3").Value = L(report, "Categoría", "Category");
+        sheet.Cell("C3").Value = L(report, "Explicación", "Explanation");
+        sheet.Range("A3:C3").Style.Font.Bold = true;
+
+        var rows = new (string Term, string Category, string Explanation)[]
         {
-            (
-                L(report, "Generación solar", "Solar generation"),
-                L(report, "Electricidad producida por los paneles solares.", "Electricity produced by the solar panels.")),
-            (
-                L(report, "Consumo de la casa", "Home consumption"),
-                L(report, "Electricidad usada por los equipos y cargas de la vivienda.", "Electricity used by appliances and loads in the home.")),
-            (
-                L(report, "Importación de red", "Grid import"),
-                L(report, "Electricidad tomada de la compañía eléctrica.", "Electricity taken from the utility grid.")),
-            (
-                "SOC",
-                L(report, "Qué tan llena está la batería, expresado en porcentaje.", "How full the battery is, shown as a percentage.")),
-            (
-                L(report, "Cobertura", "Coverage"),
-                L(report, "Qué parte del período tiene datos suficientes para el cálculo.", "How much of the period has enough data for the calculation."))
+            (L(report, "Consumo de la casa", "Home consumption"), L(report, "Concepto", "Concept"), L(report, "Energía usada por todas las cargas de la vivienda, sin importar de qué fuente provino.", "Energy used by all household loads, regardless of source.")),
+            (L(report, "Generación solar", "Solar generation"), L(report, "Concepto", "Concept"), L(report, "Toda la electricidad producida por los paneles en el período observado.", "All electricity produced by the panels during the observed period.")),
+            (L(report, "Solar → Casa", "Solar → Home"), L(report, "Origen", "Source"), L(report, "Parte del consumo de la casa atribuida directamente a los paneles. No es igual a toda la generación solar.", "Household consumption attributed directly to the panels. It is not the same as total solar generation.")),
+            (L(report, "Batería → Casa", "Battery → Home"), L(report, "Origen", "Source"), L(report, "Parte del consumo de la casa atribuida a energía que salió de la batería.", "Household consumption attributed to energy supplied from the battery.")),
+            (L(report, "Enel / Red → Casa", "Utility / Grid → Home"), L(report, "Origen", "Source"), L(report, "Parte del consumo de la casa atribuida a la compañía eléctrica.", "Household consumption attributed to the utility grid.")),
+            (L(report, "Importación total de red", "Total grid import"), L(report, "Concepto", "Concept"), L(report, "Toda la energía medida entrando desde la red. Puede diferir de Enel → Casa si parte de esa energía tuvo otro destino.", "All energy measured entering from the grid. It may differ from Utility → Home if some energy had another destination.")),
+            (L(report, "Sin atribuir", "Unattributed"), L(report, "Calidad", "Quality"), L(report, "Consumo observado cuyo origen no pudo demostrarse con suficiente evidencia. No se reparte artificialmente.", "Observed consumption whose source could not be demonstrated with enough evidence. It is not artificially distributed.")),
+            ("SOC", L(report, "Batería", "Battery"), L(report, "Estado de carga de la batería en porcentaje. 100% significa llena según el BMS.", "Battery state of charge as a percentage. 100% means full according to the BMS.")),
+            (L(report, "Energía guardada (estimada)", "Stored energy (estimate)"), L(report, "Batería", "Battery"), L(report, "Estimación en kWh calculada con capacidad útil configurada × SOC. No es una medición directa de kWh dentro de la batería.", "Estimated kWh calculated as configured usable capacity × SOC. It is not a direct kWh measurement inside the battery.")),
+            (L(report, "Reserva normal", "Normal reserve"), L(report, "Batería", "Battery"), L(report, "Nivel en que el inversor normalmente puede pasar la casa a red según la configuración vigente.", "Level where the inverter can normally transfer the home to grid according to active configuration.")),
+            (L(report, "Nivel mínimo protegido", "Protected minimum level"), L(report, "Batería", "Battery"), L(report, "Límite inferior que el sistema intenta no cruzar para proteger la batería, especialmente durante cortes o situaciones excepcionales.", "Lower limit the system tries not to cross to protect the battery, especially during outages or exceptional operation.")),
+            (L(report, "Noche observable", "Observable night"), L(report, "Eventos", "Events"), L(report, "Noche con cobertura suficiente para decidir si hubo o no un problema de alimentación relacionado con reserva y uso de red.", "Night with enough coverage to decide whether a supply problem related to reserve/grid use occurred.")),
+            (L(report, "Episodio reserva + red", "Reserve + grid episode"), L(report, "Eventos", "Events"), L(report, "Ocurrencia nocturna en que la batería llegó al umbral normal, hubo uso de red y el solar era ausente o insuficiente.", "Night occurrence where the battery reached the normal threshold, grid was used, and solar was absent or insufficient.")),
+            (L(report, "Patrón", "Pattern"), L(report, "Análisis", "Analysis"), L(report, "Conclusión basada en observaciones repetidas con evidencia suficiente; no se construye a partir de un único máximo.", "Conclusion based on repeated observations with enough evidence; it is not built from one isolated maximum.")),
+            (L(report, "Evento", "Event"), L(report, "Análisis", "Analysis"), L(report, "Ocurrencia concreta con inicio/fin u otra evidencia individual preservada.", "Concrete occurrence with start/end or other individual evidence preserved.")),
+            (L(report, "Cobertura", "Coverage"), L(report, "Calidad", "Quality"), L(report, "Proporción del período con continuidad suficiente para calcular la métrica. Un hueco no se convierte en cero.", "Share of the period with enough continuity to calculate the metric. A gap is not converted to zero.")),
+            (L(report, "Cobertura de atribución", "Attribution coverage"), L(report, "Calidad", "Quality"), L(report, "Porcentaje del consumo observado de la casa cuyo origen pudo asignarse con evidencia.", "Percentage of observed household consumption whose source could be assigned with evidence.")),
+            ("W", L(report, "Unidad", "Unit"), L(report, "Watt: potencia instantánea.", "Watt: instantaneous power.")),
+            ("kW", L(report, "Unidad", "Unit"), L(report, "Kilowatt: 1.000 W de potencia.", "Kilowatt: 1,000 W of power.")),
+            ("kWh", L(report, "Unidad", "Unit"), L(report, "Kilowatt-hora: cantidad de energía acumulada durante un período.", "Kilowatt-hour: amount of energy accumulated over a period.")),
+            ("%", L(report, "Unidad", "Unit"), L(report, "Porcentaje; en SOC indica qué tan cargada está la batería.", "Percentage; for SOC it indicates how full the battery is.")),
+            (L(report, "Período", "Period"), L(report, "Detalle", "Detail"), L(report, "Bucket temporal definido por la agrupación elegida: hora, día, semana, mes o año.", "Time bucket defined by the selected aggregation: hour, day, week, month or year.")),
+            (L(report, "Inicio UTC / Fin UTC", "Start UTC / End UTC"), L(report, "Detalle", "Detail"), L(report, "Límites técnicos del bucket en UTC para trazabilidad y procesamiento.", "Technical bucket boundaries in UTC for traceability and processing.")),
+            (L(report, "Solar generado kWh", "Solar generated kWh"), L(report, "Detalle", "Detail"), L(report, "Energía solar total integrada en el bucket.", "Total solar energy integrated within the bucket.")),
+            (L(report, "Casa kWh", "Home kWh"), L(report, "Detalle", "Detail"), L(report, "Consumo de la casa integrado en el bucket.", "Household consumption integrated within the bucket.")),
+            (L(report, "Red importada kWh", "Grid imported kWh"), L(report, "Detalle", "Detail"), L(report, "Importación total de red integrada en el bucket.", "Total grid import integrated within the bucket.")),
+            (L(report, "Batería entregada / recibida kWh", "Battery discharged / charged kWh"), L(report, "Detalle", "Detail"), L(report, "Movimientos totales de salida/entrada de la batería. No equivalen automáticamente a Batería → Casa.", "Total battery discharge/charge movements. They do not automatically equal Battery → Home.")),
+            (L(report, "SOC prom / mín / máx / fin", "SOC avg / min / max / end"), L(report, "Detalle", "Detail"), L(report, "Resumen del estado de carga dentro del bucket y valor al cierre.", "Summary of state of charge within the bucket and ending value.")),
+            (L(report, "Coberturas por métrica", "Per-metric coverage"), L(report, "Detalle", "Detail"), L(report, "Cobertura individual de solar, casa, red, batería y SOC.", "Individual coverage for solar, home, grid, battery and SOC.")),
+            (L(report, "Cobertura mínima", "Minimum coverage"), L(report, "Detalle", "Detail"), L(report, "La menor cobertura entre las métricas disponibles usadas para describir el bucket.", "Lowest coverage among available metrics used to describe the bucket.")),
+            (L(report, "Residual de balance", "Balance residual"), L(report, "Detalle", "Detail"), L(report, "Diferencia diagnóstica entre entradas y salidas medidas. Puede reflejar pérdidas, desfase temporal o semántica de señales; no se fuerza a cero.", "Diagnostic difference between measured inputs and outputs. It can reflect losses, timing or signal semantics; it is not forced to zero.")),
+            (L(report, "Solar no aprovechado", "Unused solar"), L(report, "Límite", "Limit"), L(report, "No se calcula actualmente como generación menos uso, porque el inversor puede limitar la producción y no medimos curtailment directamente.", "It is not currently calculated as generation minus use because the inverter can curtail production and curtailment is not directly measured."))
         };
 
-        var row = 2;
+        var row = 4;
         foreach (var item in rows)
         {
-            sheet.Cell(row, 1).Value = item.Item1;
-            sheet.Cell(row, 2).Value = item.Item2;
+            sheet.Cell(row, 1).Value = item.Term;
+            sheet.Cell(row, 2).Value = item.Category;
+            sheet.Cell(row, 3).Value = item.Explanation;
             row++;
         }
-        sheet.Columns().AdjustToContents();
+
+        sheet.Column(1).Width = 34;
+        sheet.Column(2).Width = 18;
+        sheet.Column(3).Width = 90;
+        sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+        sheet.SheetView.FreezeRows(3);
+        sheet.Range(3, 1, Math.Max(3, row - 1), 3).SetAutoFilter();
     }
 
     private static double FamilyCoveragePercent(EnergyReportData report)
