@@ -1223,8 +1223,8 @@ public sealed class EnergyReportExportService
                 chartPaths[index],
                 $"family-chart-{index + 1}");
             picture
-                .WithSize(900, 270)
-                .MoveTo(sheet.Cell(anchors[index], 1));
+                .MoveTo(sheet.Cell(anchors[index], 1))
+                .WithSize(900, 270);
 
             for (var row = anchors[index]; row < anchors[index] + 18; row++)
             {
