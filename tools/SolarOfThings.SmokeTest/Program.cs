@@ -430,7 +430,7 @@ try
             var batteryWatts = gridWatts > 0
                 ? 0.0
                 : houseWatts > pvWatts
-                    ? Math.Min(800.0, houseWatts - pvWatts)
+                    ? houseWatts - pvWatts
                     : -Math.Min(800.0, pvWatts - houseWatts);
 
             foreach (var metric in new[]
@@ -471,10 +471,14 @@ try
         database,
         reportThresholds,
         reportAggregation);
+    var sourceAttribution = new SourceAttributionService(
+        database,
+        new BatteryConfigurationService(settings));
     var reportExporter = new EnergyReportExportService(
         new EnergyRangeStatisticsService(database),
         reportAggregation,
-        familyAnalysis);
+        familyAnalysis,
+        sourceAttribution);
 
     var reportData = reportExporter.Build(new EnergyReportRequest(
         "Smoke family energy report",
@@ -500,6 +504,22 @@ try
     {
         throw new InvalidOperationException(
             "Family event/pattern analysis smoke test failed.");
+    }
+
+    if (reportData.Attribution.Buckets.Count != 4 ||
+        reportData.Attribution.SolarToHouseKwh <= 0 ||
+        reportData.Attribution.BatteryToHouseKwh <= 0 ||
+        reportData.Attribution.GridToHouseKwh <= 0 ||
+        reportData.Attribution.AttributionCoverageOfObservedPercent < 95 ||
+        reportData.Attribution.UnattributedHouseKwh > 0.2)
+    {
+        throw new InvalidOperationException(
+            $"Source attribution smoke test failed: " +
+            $"solar={reportData.Attribution.SolarToHouseKwh:F2}, " +
+            $"battery={reportData.Attribution.BatteryToHouseKwh:F2}, " +
+            $"grid={reportData.Attribution.GridToHouseKwh:F2}, " +
+            $"coverage={reportData.Attribution.AttributionCoverageOfObservedPercent:F1}%, " +
+            $"unattributed={reportData.Attribution.UnattributedHouseKwh:F2}.");
     }
 
     var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
@@ -628,7 +648,7 @@ try
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
         "commissioning metadata/profile, protected secret storage, Phase 5 time-range/aggregation math, " +
-        "and Phase 7 report presets/family event-pattern analysis/Excel/PDF export are operational.");
+        "and Phase 7 report presets/family event-pattern analysis/source attribution/Excel/PDF export are operational.");
 }
 finally
 {
