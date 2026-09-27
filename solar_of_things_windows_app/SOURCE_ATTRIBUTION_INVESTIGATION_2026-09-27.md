@@ -761,3 +761,70 @@ Preferred target evidence order:
 4. official-client mapping;
 5. only then cross-family/manual inference.
 
+
+
+---
+
+## 19. Target enum mappings confirmed by Solar of Things `valueDisplay`
+
+This section **supersedes** the provisional enum interpretations in §§17–18.
+
+A Navicat extraction of the complete JSON objects for the target `LatestStateSnapshot` fields shows that Solar of Things itself returns `valueDisplay` labels.
+
+Confirmed target mappings:
+
+| field | raw value | Solar of Things `valueDisplay` | status |
+|---|---:|---|---|
+| `chargingPriorityOrder` | `2` | `OSO` | **CONFIRMED TARGET** |
+| `pvEnergyFeedingPriority` | `1` | `LBU` | **CONFIRMED TARGET** |
+| `workingMode` | `1` | `SBU` | **CONFIRMED TARGET** |
+| `mode` | `B` | `Battery Mode` | **CONFIRMED TARGET** |
+| `outputModel` | `0` | `SIG` | **CONFIRMED TARGET LABEL** |
+| `powerSupplyFromPVToLoadInACState` | `0` | `No` | **CONFIRMED TARGET** |
+
+Across all 12 saved current-state snapshots:
+- `chargingPriorityOrder` remained OSO;
+- `pvEnergyFeedingPriority` remained LBU;
+- `workingMode` remained SBU;
+- `outputModel` remained SIG;
+- `powerSupplyFromPVToLoadInACState` remained No;
+- `mode` remained Battery Mode.
+
+### Consequences
+
+The current target configuration is now directly confirmed by Solar of Things as:
+- **SBU** working mode;
+- **OSO** charging priority;
+- **LBU** PV energy feeding priority.
+
+This is no longer an inference from the family manual.
+
+The current operating-state code:
+- `mode = B` means **Battery Mode** in the saved snapshots.
+
+The `outputModel = SIG` field must not be treated as output-source priority. External/manual evidence for this inverter family uses `SIG` as the single-unit/parallel-mode selection alongside values such as PAR / 3P1 / 3P2 / 3P3, which is consistent with `outputModel` being a topology/output-configuration field rather than SBU/utility priority.
+
+### Historical limitation remains
+
+These confirmed mode/priority fields are present in `state/latest/v1`, but they are **not present in the ordinary historical 87-key gather catalog currently stored in `history_sample`**.
+
+Therefore:
+- current SBU/OSO/LBU is confirmed;
+- future local snapshots can preserve changes in these fields;
+- past SBU/OSO/LBU changes cannot yet be reconstructed directly from the existing historical DB;
+- historical attribution before local snapshot coverage must still use:
+  - historically available thresholds/config values;
+  - measured PV/load/grid/battery telemetry;
+  - validated behavioral inference;
+  - attribution coverage/confidence;
+  - unresolved state when evidence is insufficient.
+
+### Next implementation priority
+
+The next consolidated technical tranche should:
+1. promote these current-state fields into a versioned current-configuration/context snapshot model;
+2. persist successful EnergyFlow raw JSON;
+3. begin locally timestamping SBU/OSO/LBU changes going forward;
+4. attempt a safe read-only historical/API capability probe for these keys only if supported by the platform;
+5. never backfill historical mode labels by assuming the current setting applied earlier.
+

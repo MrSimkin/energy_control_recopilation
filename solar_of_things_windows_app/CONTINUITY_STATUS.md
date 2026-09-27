@@ -1115,3 +1115,28 @@ Canonical detailed investigation:
 
 Immediate next evidence step:
 - inspect the full JSON objects for the candidate priority/mode fields to see whether `valueDisplay`/labels/enums are already present in saved snapshots.
+
+
+## Target SBU / OSO / LBU mappings confirmed — 2026-09-27
+
+The full `LatestStateSnapshot` field objects were inspected.
+
+Solar of Things itself provides these `valueDisplay` mappings on the target device:
+
+- `workingMode = 1` → **SBU**;
+- `chargingPriorityOrder = 2` → **OSO**;
+- `pvEnergyFeedingPriority = 1` → **LBU**;
+- `mode = B` → **Battery Mode**;
+- `outputModel = 0` → **SIG**;
+- `powerSupplyFromPVToLoadInACState = 0` → **No**.
+
+Therefore current SBU/OSO/LBU is **CONFIRMED TARGET EVIDENCE**, not a family-manual inference.
+
+Important remaining limitation:
+- these priority/mode fields are in current `state/latest/v1`;
+- they are not present in the ordinary historical gather catalog already stored;
+- past priority-mode changes therefore remain unresolved from the existing DB alone.
+
+Canonical detail:
+- `SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md` §19.
+
