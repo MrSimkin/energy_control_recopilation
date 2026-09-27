@@ -465,3 +465,26 @@ Repair:
 - no data/reporting semantics changed.
 
 Page 1 is now materially aligned with the approved wireframe, but final family-readability acceptance remains with the target user after the repaired build is viewed.
+
+
+## Merged-row readability repair — CI GREEN — 2026-09-27
+
+Green code HEAD:
+- `3c21743bd59bfbb87fdf0506470fb591db1b9f0c`.
+
+Windows Build run 283 / `36281821463`:
+- restore PASS;
+- build PASS;
+- deterministic Reporting smoke PASS;
+- XLSX/PDF generation PASS;
+- portable publish/upload PASS.
+
+Portable:
+- artifact `SolarEnergyMonitor-win-x64-dev`;
+- ID `10919181734`;
+- size 78,625,291 bytes;
+- SHA256 `1823018f6ec5aaabde9b7f24ae3fc3efab4822559bcfda5db68ed03abd9ffd44`;
+- expires 2026-12-26;
+- run `https://github.com/MrSimkin/energy_control_recopilation/actions/runs/36281821463`.
+
+This artifact supersedes `10919445323` only to repair the Excel merged-row overlap at the bottom of `Resumen`. No report semantics changed.

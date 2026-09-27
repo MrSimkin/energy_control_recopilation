@@ -1009,3 +1009,18 @@ Do not revert:
 - evidence-gated direct solar and battery→house placeholders.
 
 One remaining Excel-only mechanical defect was observed at the bottom of Page 2: wrapped text in merged cells overlapped because merged rows were not auto-heighted. Explicit row heights/vertical alignment were added. Next target-PC check should only confirm that the bottom of `Resumen` is now readable before moving to `Patrones`.
+
+
+## Current QA artifact — merged family Summary text repair — 2026-09-27
+
+Use artifact `10919181734` from Windows Build run `36281821463`, SHA256 `1823018f6ec5aaabde9b7f24ae3fc3efab4822559bcfda5db68ed03abd9ffd44`.
+
+It contains the already-approved family-cover hierarchy plus explicit row-height/vertical-alignment repair for the bottom Page 2 narrative blocks.
+
+Next manual check:
+- migrate complete prior `Data\` directory;
+- run `SolarEnergyMonitor.exe`;
+- export the same Simple Energy preset;
+- inspect only the bottom of `Resumen` and confirm that “Solar que no pudimos aprovechar” and the final Patterns/Events/Quality note no longer overlap.
+
+After that, proceed to `Patrones`; do not repeat earlier checks.
