@@ -1151,6 +1151,12 @@ public sealed class InvestigationDiagnosticsService
                        bmsChargeCurrent.Value)
                     : (double?)null;
 
+            var gridMinusHouse =
+                gridKw.HasValue && loadKw.HasValue
+                    ? ((gridKw.Value - loadKw.Value) * 1000.0)
+                        .ToString("F1", CultureInfo.InvariantCulture) + " W"
+                    : "-";
+
             var summary = $"""
                 LATEST STRUCTURED ENERGY FLOW
                 =============================
@@ -1173,11 +1179,7 @@ public sealed class InvestigationDiagnosticsService
                 Derived battery power: {FormatMaybe(estimatedBatteryWatts, "W")}
                 (positive = discharge, negative = charge)
 
-                Grid minus house at snapshot: {
-                    gridKw.HasValue && loadKw.HasValue
-                        ? ((gridKw.Value - loadKw.Value) * 1000.0).ToString("F1", CultureInfo.InvariantCulture) + " W"
-                        : "-"
-                }
+                Grid minus house at snapshot: {gridMinusHouse}
 
                 A positive grid->inverter flow together with PV near zero,
                 battery charging current and grid power above household load is
