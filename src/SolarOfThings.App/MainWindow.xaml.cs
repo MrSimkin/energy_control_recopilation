@@ -20,6 +20,7 @@ namespace SolarOfThings.App;
 
 public partial class MainWindow : Window
 {
+    private const double DashboardLivePollSeconds = 150.0;
     private static readonly Brush ActiveNavigationBackground = new SolidColorBrush(Color.FromRgb(0x00, 0x7B, 0xFF));
 
     private readonly AppPaths _paths;
@@ -57,7 +58,7 @@ public partial class MainWindow : Window
         _dashboardLiveTimer = new DispatcherTimer(
             DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(60)
+            Interval = TimeSpan.FromSeconds(DashboardLivePollSeconds)
         };
         _dashboardLiveTimer.Tick += DashboardLiveTimer_Tick;
         _dashboardProgressTimer = new DispatcherTimer(
@@ -2145,8 +2146,16 @@ public partial class MainWindow : Window
         var ingestion = _services.GetRequiredService<HistoryIngestionService>();
 
         _syncCancellation = new CancellationTokenSource();
+        HistorySyncResult? syncResult = null;
+        var syncFailed = false;
+        var postProcessWarning = false;
+        string? failureDetail = null;
 
         button.IsEnabled = false;
+        button.Content = _localization.CurrentLanguage == "es"
+            ? "Actualizando..."
+            : "Updating...";
+
         HistorySyncProgressLabel.Visibility = Visibility.Visible;
         HistorySyncProgressBar.Visibility = Visibility.Visible;
         HistorySyncProgressText.Visibility = Visibility.Visible;
@@ -2155,17 +2164,37 @@ public partial class MainWindow : Window
         HistorySyncProgressBar.Minimum = 0;
         HistorySyncProgressBar.Maximum = 1;
         HistorySyncProgressBar.Value = 0;
+        HistorySyncProgressBar.IsIndeterminate = true;
+        HistorySyncProgressLabel.FontWeight = FontWeights.SemiBold;
+        HistorySyncProgressLabel.Foreground = Brushes.DodgerBlue;
+        HistorySyncProgressLabel.Text = _localization.CurrentLanguage == "es"
+            ? "Preparando actualización..."
+            : "Preparing update...";
+        HistorySyncProgressText.Text = _localization.CurrentLanguage == "es"
+            ? "1/3 · Leyendo el estado actual del inversor."
+            : "1/3 · Reading current inverter state.";
 
         LastUpdatedText.Text = _localization.CurrentLanguage == "es"
-            ? "Actualizando..."
-            : "Updating...";
+            ? "Actualización en curso..."
+            : "Update in progress...";
 
         var progress = new Progress<HistorySyncProgress>(p =>
         {
+            HistorySyncProgressBar.IsIndeterminate = false;
             HistorySyncProgressBar.Maximum = Math.Max(1, p.TotalDays);
             HistorySyncProgressBar.Value = Math.Min(p.CompletedDays, p.TotalDays);
+            HistorySyncProgressLabel.Text = _localization.CurrentLanguage == "es"
+                ? "2/3 · Descargando historial"
+                : "2/3 · Downloading history";
+            HistorySyncProgressLabel.Foreground = Brushes.DodgerBlue;
+
+            var dateText = p.LocalDate.HasValue
+                ? p.LocalDate.Value.ToString("yyyy-MM-dd")
+                : "—";
             HistorySyncProgressText.Text =
-                $"{p.CompletedDays}/{p.TotalDays} · {p.Frames} frames · {p.Samples} muestras\n{p.Message}";
+                $"{p.CompletedDays}/{p.TotalDays} días · fecha {dateText}\n" +
+                $"{p.Frames} frames · {p.Samples} muestras\n" +
+                p.Message;
         });
 
         try
@@ -2185,62 +2214,56 @@ public partial class MainWindow : Window
             {
                 HistorySyncProgressText.Text +=
                     _localization.CurrentLanguage == "es"
-                        ? $"\nNo se pudo actualizar el contexto actual: {snapshotError.Message}"
-                        : $"\nCurrent context could not be refreshed: {snapshotError.Message}";
+                        ? $"\nAviso: no se pudo refrescar el contexto actual ({snapshotError.Message})."
+                        : $"\nNotice: current context could not be refreshed ({snapshotError.Message}).";
             }
 
-            var result = await ingestion.SyncAsync(
+            HistorySyncProgressLabel.Text = _localization.CurrentLanguage == "es"
+                ? "2/3 · Descargando historial"
+                : "2/3 · Downloading history";
+            HistorySyncProgressText.Text += _localization.CurrentLanguage == "es"
+                ? "\nPreparando rango histórico..."
+                : "\nPreparing historical range...";
+
+            syncResult = await ingestion.SyncAsync(
                 profile,
                 history.GetSampleCount(profile.DeviceId) == 0,
                 progress,
                 _syncCancellation.Token,
                 GetRequestedCaptureStartDate());
-
-            HistorySyncProgressBar.Maximum = Math.Max(1, result.DaysAttempted);
-            HistorySyncProgressBar.Value = Math.Min(result.DaysCompleted, result.DaysAttempted);
-
-            if (result.Cancelled)
-            {
-                LastUpdatedText.Text = _localization.CurrentLanguage == "es"
-                    ? "Sincronización detenida; los datos descargados quedaron guardados"
-                    : "Synchronization stopped; downloaded data was kept";
-
-                HistorySyncProgressText.Text =
-                    $"{result.DaysCompleted}/{result.DaysAttempted} · {result.Frames} frames · {result.SamplesUpserted} muestras";
-            }
-            else
-            {
-                LastUpdatedText.Text =
-                    $"{result.DaysCompleted}/{result.DaysAttempted} días · {result.Frames} frames · {result.SamplesUpserted} muestras";
-            }
         }
         catch (Exception ex)
         {
+            syncFailed = true;
+            failureDetail = ex.Message;
             LastUpdatedText.Text = _localization.CurrentLanguage == "es"
-                ? "Sincronización detenida por seguridad/error"
-                : "Synchronization stopped for safety/error";
-
-            HistorySyncProgressText.Text = ex.Message;
+                ? "Actualización detenida por seguridad/error"
+                : "Update stopped for safety/error";
             MessageBox.Show(ex.Message, _localization.GetString("UpdateDialog.Title"));
         }
         finally
         {
+            if (!syncFailed &&
+                syncResult is not null &&
+                !syncResult.Cancelled)
+            {
+                HistorySyncProgressBar.IsIndeterminate = true;
+                HistorySyncProgressLabel.Text = _localization.CurrentLanguage == "es"
+                    ? "3/3 · Procesando datos descargados"
+                    : "3/3 · Processing downloaded data";
+                HistorySyncProgressLabel.Foreground = Brushes.DodgerBlue;
+                HistorySyncProgressText.Text =
+                    _localization.CurrentLanguage == "es"
+                        ? "La descarga terminó. Normalizando datos y reconstruyendo el contexto del hogar..."
+                        : "Download finished. Normalizing data and rebuilding household context...";
+            }
+
             try
             {
                 if (history.GetSampleCount(profile.DeviceId) > 0)
                 {
-                    HistorySyncProgressText.Text +=
-                        _localization.CurrentLanguage == "es"
-                            ? "\nNormalizando corpus local..."
-                            : "\nNormalizing local corpus...";
-
                     var normalizer = _services.GetRequiredService<NormalizationService>();
                     await normalizer.RebuildAsync(profile);
-
-                    HistorySyncProgressText.Text +=
-                        _localization.CurrentLanguage == "es"
-                            ? "\nInterpretando comportamiento local..."
-                            : "\nInterpreting local household behavior...";
 
                     var behavior =
                         _services.GetRequiredService<HouseholdBehaviorService>();
@@ -2254,13 +2277,79 @@ public partial class MainWindow : Window
             }
             catch (Exception normalizationError)
             {
-                HistorySyncProgressText.Text +=
-                    $"\nNormalization: {normalizationError.Message}";
+                postProcessWarning = true;
+                failureDetail = normalizationError.Message;
+            }
+
+            HistorySyncProgressBar.IsIndeterminate = false;
+
+            var coverage = history.GetCoverageSummary(profile.DeviceId);
+            var latestSaved = coverage.LastSampleAtUtc.HasValue
+                ? coverage.LastSampleAtUtc.Value.ToLocalTime().ToString("dd-MM-yyyy HH:mm:ss")
+                : "—";
+
+            if (syncFailed)
+            {
+                HistorySyncProgressLabel.Text = _localization.CurrentLanguage == "es"
+                    ? "Actualización detenida"
+                    : "Update stopped";
+                HistorySyncProgressLabel.Foreground = Brushes.Firebrick;
+                HistorySyncProgressText.Text =
+                    (_localization.CurrentLanguage == "es"
+                        ? "La actualización no terminó correctamente."
+                        : "The update did not finish correctly.") +
+                    (string.IsNullOrWhiteSpace(failureDetail)
+                        ? string.Empty
+                        : $"\n{failureDetail}");
+            }
+            else if (syncResult?.Cancelled == true)
+            {
+                HistorySyncProgressLabel.Text = _localization.CurrentLanguage == "es"
+                    ? "Actualización detenida de forma segura"
+                    : "Update stopped safely";
+                HistorySyncProgressLabel.Foreground = Brushes.DarkOrange;
+                HistorySyncProgressText.Text =
+                    (_localization.CurrentLanguage == "es"
+                        ? "Los datos descargados antes de detener se conservaron."
+                        : "Data downloaded before stopping was kept.") +
+                    $"\n{syncResult.DaysCompleted}/{syncResult.DaysAttempted} días · {syncResult.Frames} frames · {syncResult.SamplesUpserted} muestras" +
+                    $"\nÚltimo dato guardado: {latestSaved}";
+                LastUpdatedText.Text = _localization.CurrentLanguage == "es"
+                    ? $"Detenida · último dato guardado {latestSaved}"
+                    : $"Stopped · latest saved data {latestSaved}";
+            }
+            else if (syncResult is not null)
+            {
+                HistorySyncProgressBar.Maximum = Math.Max(1, syncResult.DaysAttempted);
+                HistorySyncProgressBar.Value = Math.Max(1, syncResult.DaysAttempted);
+
+                HistorySyncProgressLabel.Text = postProcessWarning
+                    ? (_localization.CurrentLanguage == "es"
+                        ? "Actualización completada con una observación"
+                        : "Update completed with a notice")
+                    : (_localization.CurrentLanguage == "es"
+                        ? "Actualización completada ✓"
+                        : "Update completed ✓");
+                HistorySyncProgressLabel.Foreground =
+                    postProcessWarning ? Brushes.DarkOrange : Brushes.ForestGreen;
+
+                HistorySyncProgressText.Text =
+                    $"{syncResult.DaysCompleted}/{syncResult.DaysAttempted} días · " +
+                    $"{syncResult.Frames} frames · {syncResult.SamplesUpserted} muestras" +
+                    $"\nÚltimo dato guardado: {latestSaved}" +
+                    (postProcessWarning && !string.IsNullOrWhiteSpace(failureDetail)
+                        ? $"\nAviso de procesamiento: {failureDetail}"
+                        : string.Empty);
+
+                LastUpdatedText.Text = _localization.CurrentLanguage == "es"
+                    ? $"Completada · último dato guardado {latestSaved}"
+                    : $"Completed · latest saved data {latestSaved}";
             }
 
             StopHistorySyncButton.IsEnabled = false;
             StopHistorySyncButton.Visibility = Visibility.Collapsed;
             button.IsEnabled = true;
+            button.SetResourceReference(ContentControl.ContentProperty, "Action.UpdateData");
 
             _syncCancellation.Dispose();
             _syncCancellation = null;
@@ -2389,7 +2478,7 @@ public partial class MainWindow : Window
         var elapsed =
             (DateTimeOffset.UtcNow - _dashboardLiveCycleStartedUtc)
             .TotalSeconds;
-        var value = Math.Clamp(elapsed / 60.0 * 100.0, 0, 100);
+        var value = Math.Clamp(elapsed / DashboardLivePollSeconds * 100.0, 0, 100);
 
         PvLiveCountdown.Value = value;
         HouseLiveCountdown.Value = value;

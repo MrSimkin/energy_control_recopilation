@@ -251,7 +251,7 @@
     <sys:String x:Key="Settings.Intro">Opciones de uso normal de esta copia de Solar Energy Monitor.</sys:String>
     <sys:String x:Key="Settings.ConnectionHeading">Conexión y sesión</sys:String>
     <sys:String x:Key="Settings.AutoConnect">Conectarme automáticamente al iniciar</sys:String>
-    <sys:String x:Key="Settings.AutoConnectHint">Si existe una sesión recordada, la aplicación verifica el estado al iniciar. Mientras Inicio esté visible, consulta automáticamente el estado actual cada 60 segundos; al salir de Inicio, ese polling se detiene.</sys:String>
+    <sys:String x:Key="Settings.AutoConnectHint">Si existe una sesión recordada, la aplicación verifica el estado al iniciar. Mientras Inicio esté visible, consulta automáticamente el estado actual cada 150 segundos (2,5 minutos); al salir de Inicio, ese polling se detiene.</sys:String>
     <sys:String x:Key="Settings.SessionVerified">Conectado y verificado con Solar of Things.</sys:String>
     <sys:String x:Key="Settings.SessionRemembered">Hay una sesión protegida recordada en este computador; todavía no se ha verificado con el servidor en esta ejecución.</sys:String>
     <sys:String x:Key="Settings.CredentialsRemembered">Hay credenciales protegidas recordadas en este computador.</sys:String>
@@ -289,7 +289,7 @@
     <sys:String x:Key="Dashboard.ChartPending">Los gráficos se añadirán después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Dashboard.SystemStatus">Estado del sistema</sys:String>
     <sys:String x:Key="Dashboard.RefreshCurrent">Actualizar estado actual</sys:String>
-    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Fuerza una lectura inmediata. Mientras Inicio esté visible, la aplicación también consulta automáticamente Solar of Things cada 60 segundos.</sys:String>
+    <sys:String x:Key="Tooltip.DashboardRefreshCurrent">Fuerza una lectura inmediata. Mientras Inicio esté visible, la aplicación también consulta automáticamente Solar of Things cada 150 segundos (2,5 minutos).</sys:String>
     <sys:String x:Key="Dashboard.OperatingState">Qué muestra la última lectura</sys:String>
     <sys:String x:Key="Operating.NO_DATA">Aún no hay datos suficientes para explicar el estado de la casa.</sys:String>
     <sys:String x:Key="Operating.SOLAR_PRIMARY">La última lectura muestra que la casa usaba principalmente energía solar.</sys:String>
@@ -374,7 +374,7 @@
 
     <sys:String x:Key="Diagnostics.InvestigationNotice">Estos controles ejecutan sólo lecturas y validaciones de desarrollo. No cambian parámetros del inversor. “Lectura directa de configuración” puede solicitar al equipo que reporte su configuración actual, pero no escribe valores.</sys:String>
     <sys:String x:Key="Diagnostics.InvestigationHeading">Investigación reproducible para build limpia</sys:String>
-    <sys:String x:Key="Diagnostics.RunAll">Ejecutar diagnóstico completo + paquete</sys:String>
+    <sys:String x:Key="Diagnostics.RunAll">Ejecutar diagnóstico exhaustivo + paquete</sys:String>
     <sys:String x:Key="Diagnostics.CaptureState">Capturar estado actual</sys:String>
     <sys:String x:Key="Diagnostics.CaptureFlow">Capturar EnergyFlow</sys:String>
     <sys:String x:Key="Diagnostics.ConfigCache">Leer cache de configuración</sys:String>

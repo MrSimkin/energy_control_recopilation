@@ -43,6 +43,50 @@ public sealed class InvestigationDiagnosticsService
         "returnToMainsModeVoltage"
     ];
 
+    private static readonly string[] HistoricalResearchFields =
+    [
+        "workingMode",
+        "chargingPriorityOrder",
+        "pvEnergyFeedingPriority",
+        "mode",
+        "outputModel",
+        "powerSupplyFromPVToLoadInACState",
+        "mainsCurrentFlowDirection",
+        "acChargingSwitch",
+        "solarChargingSwitch",
+        "chargingMainSwitch",
+        "outputSourcePrioritySetting",
+        "setOutputSourcePriority",
+        "chargerSourcePrioritySetting",
+        "chargeSourcePrioirty",
+        "exchangeChargingPower",
+        "batteryPower",
+        "batteryChargeDischargeRealTimePower",
+        "gridConnectedPower",
+        "inputMainsPower",
+        "mainsInputRealTimePower",
+        "generationPower",
+        "pvPower",
+        "outputActivePower",
+        "mainsPower",
+        "batteryVoltage",
+        "bmsChargingCurrent",
+        "bmsDischargeCurrent",
+        "batteryChargingCurrent",
+        "batteryDischargeCurrent",
+        "bmsCurrentSOC",
+        "batteryCapacity",
+        "bmsReturnsToBatteryModeSOC",
+        "bmsReturnsToMainsModeSOC",
+        "bmsLowPowerSOC",
+        "returnToBatteryModeVoltage",
+        "returnToMainsModeVoltage",
+        "maxUtilityChargeCurrent",
+        "maximumTotalChargingCurrent",
+        "mainsChargingStartingTime",
+        "mainsChargingEndingTime"
+    ];
+
     private readonly SqliteDatabase _database;
     private readonly CommissioningProfileRepository _profiles;
     private readonly SolarOfThingsSessionManager _session;
@@ -259,6 +303,198 @@ public sealed class InvestigationDiagnosticsService
         }
     }
 
+    public async Task<InvestigationActionResult> CaptureExhaustiveReadOnlyEvidenceAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var profile = RequireProfile();
+        var timeZone = TimeZone(profile);
+        var runStartedUtc = DateTimeOffset.UtcNow;
+        var samples = GetResearchSamplePoints(profile.DeviceId, timeZone);
+
+        var catalogKeys = ReadCatalogKeys(profile.AttributeCatalogJson);
+        var requestedKeys = catalogKeys
+            .Concat(HistoricalResearchFields)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        _history.CaptureRaw(
+            "ResearchManifest",
+            profile.DeviceId,
+            null,
+            "local-research-plan",
+            null,
+            null,
+            JsonSerializer.Serialize(new
+            {
+                runStartedUtc,
+                purpose = "Exhaustive read-only field/surface discovery for historical source attribution.",
+                requestedKeys,
+                samples = samples.Select(sample => new
+                {
+                    sample.Purpose,
+                    sample.TimestampUtc,
+                    localDate = SolarApiTime.GetLocalDate(sample.TimestampUtc, timeZone).ToString("yyyy-MM-dd")
+                }).ToArray()
+            }),
+            runStartedUtc);
+
+        var attempted = 0;
+        var succeeded = 0;
+        var failures = new List<string>();
+
+        async Task ProbeGetAsync(string operation, string source, string path)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            attempted++;
+            try
+            {
+                var response = await _session.GetAsync(
+                    "InvestigationDiagnostics",
+                    operation,
+                    path,
+                    timeZone,
+                    cancellationToken);
+                CaptureResearchResponse(operation, profile.DeviceId, null, source, null, null, response);
+                if (response.IsSuccess)
+                {
+                    succeeded++;
+                }
+                else
+                {
+                    failures.Add($"{operation}:{response.Code ?? response.HttpStatus.ToString()}");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{operation}:{DiagnosticSanitizer.SanitizeText(ex.Message)}");
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(400), cancellationToken);
+        }
+
+        async Task ProbePostAsync(
+            string operation,
+            string source,
+            string path,
+            object body,
+            DateOnly? localDate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            attempted++;
+            try
+            {
+                var response = await _session.PostAsync(
+                    "InvestigationDiagnostics",
+                    operation,
+                    path,
+                    body,
+                    timeZone,
+                    cancellationToken);
+                CaptureResearchResponse(operation, profile.DeviceId, localDate, source, 1, body, response);
+                if (response.IsSuccess)
+                {
+                    succeeded++;
+                }
+                else
+                {
+                    failures.Add($"{operation}:{response.Code ?? response.HttpStatus.ToString()}");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{operation}:{DiagnosticSanitizer.SanitizeText(ex.Message)}");
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(400), cancellationToken);
+        }
+
+        await ProbeGetAsync(
+            "ResearchGatherAttributes",
+            "gatherAttributes/v1",
+            $"deviceState/simple/gatherAttributes/v1?deviceId={Uri.EscapeDataString(profile.DeviceId)}&category=1&renderIn=2");
+
+        await ProbeGetAsync(
+            "ResearchRemoteLatestState",
+            "remote/device/state/latest",
+            $"remote/device/state/latest?deviceId={Uri.EscapeDataString(profile.DeviceId)}");
+
+        foreach (var sample in samples)
+        {
+            var localDate = SolarApiTime.GetLocalDate(sample.TimestampUtc, timeZone);
+            var (start, end) = SolarApiTime.GetLocalDayWindow(localDate, timeZone);
+            var fromTime = SolarApiTime.FormatDateTime(start, timeZone);
+            var toTime = SolarApiTime.FormatDateTime(end, timeZone);
+
+            var selectedBody = new
+            {
+                deviceId = profile.DeviceId,
+                keys = requestedKeys,
+                fromTime,
+                toTime,
+                page = 1,
+                count = 500,
+                orderByTimeAsc = true
+            };
+
+            var broadBody = new
+            {
+                deviceId = profile.DeviceId,
+                fromTime,
+                toTime,
+                page = 1,
+                count = 500,
+                orderByTimeAsc = true
+            };
+
+            await ProbePostAsync(
+                "ResearchSelectedKeyAllFields",
+                $"selected-key-v1:{sample.Purpose}",
+                "deviceState/simple/attribute/keys/history/v1",
+                selectedBody,
+                localDate);
+            await ProbePostAsync(
+                "ResearchSimpleRecordListV1",
+                $"simple-record-list-v1:{sample.Purpose}",
+                "deviceState/simple/attribute/record/list/v1",
+                broadBody,
+                localDate);
+            await ProbePostAsync(
+                "ResearchRecordListV1",
+                $"record-list-v1:{sample.Purpose}",
+                "deviceState/attribute/record/list",
+                broadBody,
+                localDate);
+            await ProbePostAsync(
+                "ResearchRecordListV2",
+                $"record-list-v2:{sample.Purpose}",
+                "deviceState/attribute/record/list/v2",
+                broadBody,
+                localDate);
+            await ProbePostAsync(
+                "ResearchFullKeysHistory",
+                $"full-keys-history:{sample.Purpose}",
+                "deviceState/attribute/keys/history",
+                selectedBody,
+                localDate);
+            await ProbePostAsync(
+                "ResearchDailyGeneratedEnergy",
+                $"generated-energy-daily:{sample.Purpose}",
+                $"deviceOverView/generatedEnergy/daily?deviceId={Uri.EscapeDataString(profile.DeviceId)}",
+                new { time = localDate.ToString("yyyy-MM-dd") },
+                localDate);
+        }
+
+        return new(
+            "ExhaustiveReadOnlyResearch",
+            succeeded == attempted ? "SUCCESS" : succeeded > 0 ? "WARN" : "ERROR",
+            $"{succeeded}/{attempted} read-only probes succeeded across {samples.Count} representative day(s)." +
+            (failures.Count == 0
+                ? " Raw responses and structural inventories are ready in the bundle."
+                : $" Non-success probes are preserved too: {string.Join(", ", failures.Take(8))}" +
+                  (failures.Count > 8 ? $" (+{failures.Count - 8} more)." : ".")));
+    }
+
     public string BuildOverview()
     {
         var profile = _profiles.Get();
@@ -321,7 +557,8 @@ public sealed class InvestigationDiagnosticsService
             await CaptureLatestStateAsync(cancellationToken),
             await CaptureEnergyFlowAsync(cancellationToken),
             await CaptureDirectConfigReadAsync(cancellationToken),
-            await CaptureConfigCacheAsync(cancellationToken)
+            await CaptureConfigCacheAsync(cancellationToken),
+            await CaptureExhaustiveReadOnlyEvidenceAsync(cancellationToken)
         };
 
         var path = SaveInvestigationBundle();
@@ -444,7 +681,11 @@ public sealed class InvestigationDiagnosticsService
         WriteGridChargingCandidates(zip, connection, profile.DeviceId);
         WriteEnergyFlowInterpretation(zip, connection, profile.DeviceId);
         WriteSourceAttributionEvidence(zip, connection, profile);
+        WriteLiveFrameCadence(zip, connection, profile.DeviceId);
+        WriteResearchCaptureInventory(zip, connection, profile.DeviceId);
+        WriteResearchJsonPathInventory(zip, connection, profile.DeviceId);
         WriteSelectedRawCaptures(zip, connection, profile.DeviceId);
+        WriteResearchRawCaptures(zip, connection, profile.DeviceId);
         WriteProfileEvidence(zip, profile);
 
         return path;
@@ -629,7 +870,8 @@ public sealed class InvestigationDiagnosticsService
 
         This ZIP is intended for development/debug review.
         It contains read-only database inventories, historical configuration changes,
-        latest-state field mappings, raw API evidence (sanitized), and power-balance diagnostics.
+        latest-state field mappings, raw API evidence (sanitized), power-balance diagnostics,
+        live-frame cadence measurements, and an exhaustive representative historical API probe.
 
         Target model: {profile.Model ?? "-"}
         Gather protocol: {profile.GatherProtocolNumber ?? "-"}
@@ -645,6 +887,8 @@ public sealed class InvestigationDiagnosticsService
         - EnergyFlow: read-only.
         - Config cache: read-only.
         - Direct config batch read: ACTIVE_DEVICE_READ but does not write/change configuration.
+        - Historical research probes: read-only selected-key/record-list/aggregate requests over representative days.
+        - Unsupported/failed read surfaces are captured as evidence and are not retried as mutations.
         - No config write, cache clear, passthrough, restart, fast-report start/stop, or other mutation is used.
         """;
 
@@ -1366,6 +1610,569 @@ public sealed class InvestigationDiagnosticsService
 
     private static string F(double value) =>
         value.ToString("0.########", CultureInfo.InvariantCulture);
+
+    private void CaptureResearchResponse(
+        string operation,
+        string deviceId,
+        DateOnly? localDate,
+        string source,
+        int? page,
+        object? requestBody,
+        SolarApiResponse response)
+    {
+        var safeRequest = requestBody is null
+            ? null
+            : DiagnosticSanitizer.SanitizeJson(
+                SolarOfThingsApiClient.SerializeCompact(requestBody),
+                2_000_000);
+        var safeResponse =
+            DiagnosticSanitizer.SanitizeJson(response.RawJson, 16_000_000)
+            ?? DiagnosticSanitizer.SanitizeText(response.RawJson);
+
+        _history.CaptureRaw(
+            operation,
+            deviceId,
+            localDate,
+            source,
+            page,
+            safeRequest,
+            safeResponse,
+            DateTimeOffset.UtcNow);
+    }
+
+    private IReadOnlyList<ResearchSamplePoint> GetResearchSamplePoints(
+        string deviceId,
+        string timeZone)
+    {
+        using var connection = _database.OpenConnection();
+        var points = new List<ResearchSamplePoint>();
+
+        void AddScalar(string purpose, string sql)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("$deviceId", deviceId);
+            var raw = command.ExecuteScalar()?.ToString();
+            if (DateTimeOffset.TryParse(
+                    raw,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var timestamp))
+            {
+                points.Add(new ResearchSamplePoint(purpose, timestamp.ToUniversalTime()));
+            }
+        }
+
+        AddScalar("latest-available", """
+            SELECT MAX(recorded_at_utc)
+            FROM normalized_metric_sample
+            WHERE device_id = $deviceId;
+            """);
+
+        AddScalar("grid-battery-candidate", """
+            WITH frames AS (
+                SELECT recorded_at_utc,
+                       MAX(CASE WHEN metric_key='pv_power_w' THEN normalized_value END) AS pv,
+                       MAX(CASE WHEN metric_key='house_load_power_w' THEN normalized_value END) AS house,
+                       MAX(CASE WHEN metric_key='grid_import_power_w' THEN normalized_value END) AS grid,
+                       MAX(CASE WHEN metric_key='battery_power_w' THEN normalized_value END) AS battery
+                FROM normalized_metric_sample
+                WHERE device_id = $deviceId
+                  AND metric_key IN ('pv_power_w','house_load_power_w','grid_import_power_w','battery_power_w')
+                  AND normalized_value IS NOT NULL
+                  AND confidence <> 'UNRESOLVED'
+                GROUP BY recorded_at_utc
+            )
+            SELECT recorded_at_utc
+            FROM frames
+            WHERE pv <= 50 AND grid >= 100 AND battery <= -50 AND (grid - house) >= 25
+            ORDER BY recorded_at_utc DESC
+            LIMIT 1;
+            """);
+
+        AddScalar("mixed-sources", """
+            WITH frames AS (
+                SELECT recorded_at_utc,
+                       MAX(CASE WHEN metric_key='pv_power_w' THEN normalized_value END) AS pv,
+                       MAX(CASE WHEN metric_key='house_load_power_w' THEN normalized_value END) AS house,
+                       MAX(CASE WHEN metric_key='grid_import_power_w' THEN normalized_value END) AS grid,
+                       MAX(CASE WHEN metric_key='battery_power_w' THEN normalized_value END) AS battery
+                FROM normalized_metric_sample
+                WHERE device_id = $deviceId
+                  AND metric_key IN ('pv_power_w','house_load_power_w','grid_import_power_w','battery_power_w')
+                  AND normalized_value IS NOT NULL
+                  AND confidence <> 'UNRESOLVED'
+                GROUP BY recorded_at_utc
+            )
+            SELECT recorded_at_utc
+            FROM frames
+            WHERE pv > 50 AND house > 50 AND grid > 50 AND ABS(battery) > 50
+            ORDER BY recorded_at_utc DESC
+            LIMIT 1;
+            """);
+
+        AddScalar("historical-config-change", """
+            WITH changes AS (
+                SELECT recorded_at_utc,
+                       value_json,
+                       LAG(value_json) OVER (ORDER BY recorded_at_utc) AS previous_value
+                FROM history_sample
+                WHERE device_id = $deviceId
+                  AND attribute_key = 'bmsReturnsToBatteryModeSOC'
+                  AND is_missing = 0
+            )
+            SELECT recorded_at_utc
+            FROM changes
+            WHERE previous_value IS NOT NULL
+              AND previous_value <> value_json
+            ORDER BY recorded_at_utc DESC
+            LIMIT 1;
+            """);
+
+        if (points.Count == 0)
+        {
+            points.Add(new ResearchSamplePoint("current-fallback", DateTimeOffset.UtcNow));
+        }
+
+        return points
+            .GroupBy(point => SolarApiTime.GetLocalDate(point.TimestampUtc, timeZone))
+            .OrderByDescending(group => group.Key)
+            .Take(4)
+            .Select(group => new ResearchSamplePoint(
+                string.Join("+", group.Select(item => item.Purpose).Distinct(StringComparer.Ordinal)),
+                group.Max(item => item.TimestampUtc)))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ReadCatalogKeys(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<string>();
+            }
+
+            return document.RootElement
+                .EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.Object)
+                .Select(item => item.TryGetProperty("key", out var key) ? key.ToString() : null)
+                .Where(key => !string.IsNullOrWhiteSpace(key))
+                .Select(key => key!)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static void WriteLiveFrameCadence(
+        ZipArchive zip,
+        SqliteConnection connection,
+        string deviceId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT response_json, retrieved_utc
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation = 'LatestStateSnapshot'
+            ORDER BY retrieved_utc;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<string[]>();
+        var newFrameIntervals = new List<double>();
+        var pollIntervals = new List<double>();
+        DateTimeOffset? previousRetrieved = null;
+        DateTimeOffset? previousObserved = null;
+        DateTimeOffset? previousDistinctObserved = null;
+        var repeatedPolls = 0;
+        var distinctFrames = 0;
+
+        while (reader.Read())
+        {
+            if (!DateTimeOffset.TryParse(
+                    reader.GetString(1),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var retrieved))
+            {
+                continue;
+            }
+
+            var observed = ReadSnapshotTime(reader.GetString(0));
+            var pollDelta = previousRetrieved.HasValue
+                ? (retrieved - previousRetrieved.Value).TotalSeconds
+                : (double?)null;
+            if (pollDelta is > 0)
+            {
+                pollIntervals.Add(pollDelta.Value);
+            }
+
+            var isNewFrame = observed.HasValue &&
+                             (!previousObserved.HasValue ||
+                              observed.Value != previousObserved.Value);
+            double? newFrameDelta = null;
+
+            if (isNewFrame)
+            {
+                distinctFrames++;
+                if (previousDistinctObserved.HasValue)
+                {
+                    newFrameDelta =
+                        (observed!.Value - previousDistinctObserved.Value).TotalSeconds;
+                    if (newFrameDelta > 0)
+                    {
+                        newFrameIntervals.Add(newFrameDelta.Value);
+                    }
+                }
+
+                previousDistinctObserved = observed;
+            }
+            else if (observed.HasValue)
+            {
+                repeatedPolls++;
+            }
+
+            var frameAge = observed.HasValue
+                ? (retrieved.ToUniversalTime() - observed.Value.ToUniversalTime()).TotalSeconds
+                : (double?)null;
+
+            rows.Add([
+                retrieved.ToUniversalTime().ToString("O"),
+                observed?.ToUniversalTime().ToString("O") ?? string.Empty,
+                isNewFrame ? "1" : "0",
+                pollDelta?.ToString("0.###", CultureInfo.InvariantCulture) ?? string.Empty,
+                newFrameDelta?.ToString("0.###", CultureInfo.InvariantCulture) ?? string.Empty,
+                frameAge?.ToString("0.###", CultureInfo.InvariantCulture) ?? string.Empty
+            ]);
+
+            previousRetrieved = retrieved;
+            if (observed.HasValue)
+            {
+                previousObserved = observed;
+            }
+        }
+
+        WriteCsv(zip, "27-live-frame-cadence.csv",
+            ["retrieved_utc","source_frame_utc","is_new_source_frame","seconds_since_prior_poll","seconds_since_prior_new_frame","source_frame_age_at_poll_seconds"],
+            rows);
+
+        var summary = $"""
+            LIVE SOURCE-FRAME CADENCE
+            =========================
+            Poll captures analyzed: {rows.Count}
+            Distinct source frames observed: {distinctFrames}
+            Repeated polls returning the same source frame: {repeatedPolls}
+            Median client poll interval: {FormatStatistic(pollIntervals)} s
+            Median interval between distinct source frames: {FormatStatistic(newFrameIntervals)} s
+            P90 interval between distinct source frames: {FormatStatistic(newFrameIntervals, 0.90)} s
+
+            Interpretation:
+            - client poll cadence and inverter/cloud source-frame cadence are separate clocks;
+            - repeated polls are expected when the source frame has not advanced;
+            - use the distinct-frame distribution to choose future polling cadence instead of assuming exactly five minutes.
+            """;
+        WriteText(zip, "27-live-frame-cadence-summary.txt", summary);
+    }
+
+    private static DateTimeOffset? ReadSnapshotTime(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty("data", out var data))
+            {
+                root = data;
+            }
+
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty("time", out var time) &&
+                DateTimeOffset.TryParse(
+                    time.ToString(),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var parsed))
+            {
+                return parsed;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private static string FormatStatistic(
+        IReadOnlyList<double> values,
+        double percentile = 0.50)
+    {
+        if (values.Count == 0)
+        {
+            return "-";
+        }
+
+        var ordered = values.OrderBy(value => value).ToArray();
+        var index = Math.Clamp(
+            (int)Math.Ceiling(percentile * ordered.Length) - 1,
+            0,
+            ordered.Length - 1);
+        return ordered[index].ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
+    private static string LatestResearchRunUtc(
+        SqliteConnection connection,
+        string deviceId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT MAX(retrieved_utc)
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation = 'ResearchManifest';
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        return command.ExecuteScalar()?.ToString() ?? string.Empty;
+    }
+
+    private static void WriteResearchCaptureInventory(
+        ZipArchive zip,
+        SqliteConnection connection,
+        string deviceId)
+    {
+        var since = LatestResearchRunUtc(connection, deviceId);
+        if (string.IsNullOrWhiteSpace(since))
+        {
+            WriteText(zip, "28-research-capture-inventory.txt", "No exhaustive research run has been captured yet.");
+            return;
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT capture_id, operation, source, local_date, page,
+                   LENGTH(COALESCE(request_json,'')) AS request_chars,
+                   LENGTH(COALESCE(response_json,'')) AS response_chars,
+                   retrieved_utc
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation LIKE 'Research%'
+              AND retrieved_utc >= $since
+            ORDER BY capture_id;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        command.Parameters.AddWithValue("$since", since);
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<string[]>();
+        while (reader.Read())
+        {
+            rows.Add(Enumerable.Range(0, reader.FieldCount)
+                .Select(index => reader.IsDBNull(index)
+                    ? string.Empty
+                    : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? string.Empty)
+                .ToArray());
+        }
+
+        WriteCsv(zip, "28-research-capture-inventory.csv",
+            ["capture_id","operation","source","local_date","page","request_chars","response_chars","retrieved_utc"],
+            rows);
+    }
+
+    private static void WriteResearchJsonPathInventory(
+        ZipArchive zip,
+        SqliteConnection connection,
+        string deviceId)
+    {
+        var since = LatestResearchRunUtc(connection, deviceId);
+        if (string.IsNullOrWhiteSpace(since))
+        {
+            return;
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT operation, source, request_json, response_json
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation LIKE 'Research%'
+              AND retrieved_utc >= $since
+            ORDER BY capture_id;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        command.Parameters.AddWithValue("$since", since);
+
+        using var reader = command.ExecuteReader();
+        var stats = new Dictionary<string, JsonPathStats>(StringComparer.Ordinal);
+
+        while (reader.Read())
+        {
+            var operation = reader.GetString(0);
+            var source = reader.GetString(1);
+
+            if (!reader.IsDBNull(2))
+            {
+                CollectJsonPaths(reader.GetString(2), operation, source, "request", stats);
+            }
+
+            if (!reader.IsDBNull(3))
+            {
+                CollectJsonPaths(reader.GetString(3), operation, source, "response", stats);
+            }
+        }
+
+        var rows = stats
+            .OrderBy(item => item.Key, StringComparer.Ordinal)
+            .Select(item => new[]
+            {
+                item.Value.Operation,
+                item.Value.Source,
+                item.Value.Payload,
+                item.Value.Path,
+                item.Value.Count.ToString(CultureInfo.InvariantCulture),
+                string.Join(" | ", item.Value.SampleValues)
+            });
+
+        WriteCsv(zip, "29-research-json-path-inventory.csv",
+            ["operation","source","payload","json_path","observations","sample_values"],
+            rows);
+    }
+
+    private static void CollectJsonPaths(
+        string json,
+        string operation,
+        string source,
+        string payload,
+        IDictionary<string, JsonPathStats> stats)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            VisitJson(document.RootElement, "$", operation, source, payload, stats);
+        }
+        catch
+        {
+        }
+    }
+
+    private static void VisitJson(
+        JsonElement element,
+        string path,
+        string operation,
+        string source,
+        string payload,
+        IDictionary<string, JsonPathStats> stats)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                VisitJson(property.Value, path + "." + property.Name, operation, source, payload, stats);
+            }
+
+            return;
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                VisitJson(item, path + "[]", operation, source, payload, stats);
+            }
+
+            return;
+        }
+
+        var key = $"{operation}\u001f{source}\u001f{payload}\u001f{path}";
+        if (!stats.TryGetValue(key, out var stat))
+        {
+            stat = new JsonPathStats(operation, source, payload, path);
+            stats[key] = stat;
+        }
+
+        stat.Count++;
+        if (stat.SampleValues.Count < 4)
+        {
+            var value = element.ToString();
+            if (value.Length > 160)
+            {
+                value = value[..160] + "…";
+            }
+
+            stat.SampleValues.Add(value);
+        }
+    }
+
+    private static void WriteResearchRawCaptures(
+        ZipArchive zip,
+        SqliteConnection connection,
+        string deviceId)
+    {
+        var since = LatestResearchRunUtc(connection, deviceId);
+        if (string.IsNullOrWhiteSpace(since))
+        {
+            return;
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT capture_id, operation, source, local_date, page,
+                   request_json, response_json, retrieved_utc
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation LIKE 'Research%'
+              AND retrieved_utc >= $since
+            ORDER BY capture_id;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        command.Parameters.AddWithValue("$since", since);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var captureId = reader.GetInt64(0);
+            var operation = reader.GetString(1);
+            var localDate = reader.IsDBNull(3) ? "no-date" : reader.GetString(3);
+            var safeOperation = new string(operation
+                .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
+                .ToArray());
+
+            if (!reader.IsDBNull(5))
+            {
+                WriteText(zip,
+                    $"50-research-{captureId}-{safeOperation}-{localDate}-request.json",
+                    DiagnosticSanitizer.SanitizeJson(reader.GetString(5), 16_000_000) ?? "{}");
+            }
+
+            WriteText(zip,
+                $"50-research-{captureId}-{safeOperation}-{localDate}-response.json",
+                DiagnosticSanitizer.SanitizeJson(reader.GetString(6), 16_000_000)
+                ?? DiagnosticSanitizer.SanitizeText(reader.GetString(6)));
+        }
+    }
+
+    private sealed record ResearchSamplePoint(string Purpose, DateTimeOffset TimestampUtc);
+
+    private sealed class JsonPathStats(
+        string operation,
+        string source,
+        string payload,
+        string path)
+    {
+        public string Operation { get; } = operation;
+        public string Source { get; } = source;
+        public string Payload { get; } = payload;
+        public string Path { get; } = path;
+        public int Count { get; set; }
+        public HashSet<string> SampleValues { get; } = new(StringComparer.Ordinal);
+    }
 
     private static void WriteSelectedRawCaptures(
         ZipArchive zip,
