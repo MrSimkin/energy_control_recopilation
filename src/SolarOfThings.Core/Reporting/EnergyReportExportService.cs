@@ -65,17 +65,36 @@ public sealed class EnergyReportExportService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        using var workbook = new XLWorkbook();
-        AddSummarySheet(workbook, report);
-        if (report.Request.Kind == ReportKind.SimpleEnergy)
+        string? chartDirectory = null;
+        IReadOnlyList<string>? familyCharts = null;
+
+        try
         {
-            AddPatternsSheet(workbook, report);
-            AddEventsSheet(workbook, report);
+            if (report.Request.Kind == ReportKind.SimpleEnergy)
+            {
+                chartDirectory = CreateChartTempDirectory();
+                familyCharts = new ReportChartRenderer()
+                    .RenderFamilyCharts(report, chartDirectory);
+            }
+
+            using var workbook = new XLWorkbook();
+            AddSummarySheet(workbook, report, familyCharts);
+            if (report.Request.Kind == ReportKind.SimpleEnergy)
+            {
+                AddPatternsSheet(workbook, report);
+                AddEventsSheet(workbook, report);
+                AddEvolutionSheet(workbook, report);
+            }
+            AddDetailSheet(workbook, report);
+            AddQualitySheet(workbook, report);
+            AddGlossarySheet(workbook, report);
+            ApplyWorkbookTypography(workbook);
+            workbook.SaveAs(path);
         }
-        AddDetailSheet(workbook, report);
-        AddQualitySheet(workbook, report);
-        AddGlossarySheet(workbook, report);
-        workbook.SaveAs(path);
+        finally
+        {
+            DeleteChartTempDirectory(chartDirectory);
+        }
     }
 
     public void ExportPdf(
@@ -85,12 +104,24 @@ public sealed class EnergyReportExportService
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         EnsurePdfFonts();
 
+        string? chartDirectory = null;
+        IReadOnlyList<string>? familyCharts = null;
+
+        if (report.Request.Kind == ReportKind.SimpleEnergy)
+        {
+            chartDirectory = CreateChartTempDirectory();
+            familyCharts = new ReportChartRenderer()
+                .RenderFamilyCharts(report, chartDirectory);
+        }
+
+        try
+        {
         var document = new Document();
-        document.Info.Title = report.Request.Title;
+        document.Info.Title = DisplayReportTitle(report);
         document.Info.Subject = "Solar Energy Monitor";
 
         var normal = document.Styles["Normal"]!;
-        normal.Font.Name = "Arial";
+        normal.Font.Name = PreferredPdfTextFont();
         normal.Font.Size = 9;
 
         var section = document.AddSection();
@@ -99,7 +130,7 @@ public sealed class EnergyReportExportService
         section.PageSetup.LeftMargin = Unit.FromCentimeter(1.3);
         section.PageSetup.RightMargin = Unit.FromCentimeter(1.3);
 
-        var heading = section.AddParagraph(report.Request.Title);
+        var heading = section.AddParagraph(DisplayReportTitle(report));
         heading.Format.Font.Size = 18;
         heading.Format.Font.Bold = true;
         heading.Format.SpaceAfter = Unit.FromPoint(8);
@@ -117,7 +148,7 @@ public sealed class EnergyReportExportService
 
         if (report.Request.Kind == ReportKind.SimpleEnergy)
         {
-            AddFamilySimplePdf(section, report);
+            AddFamilySimplePdf(section, report, familyCharts);
         }
         else
         {
@@ -159,11 +190,17 @@ public sealed class EnergyReportExportService
         };
         renderer.RenderDocument();
         renderer.PdfDocument.Save(path);
+        }
+        finally
+        {
+            DeleteChartTempDirectory(chartDirectory);
+        }
     }
 
     private static void AddFamilySimplePdf(
         Section section,
-        EnergyReportData report)
+        EnergyReportData report,
+        IReadOnlyList<string>? familyCharts)
     {
         AddFamilyPageOne(section, report);
 
@@ -183,7 +220,9 @@ public sealed class EnergyReportExportService
         AddPdfValueRow(totals, L(report, "Consumo total de la casa", "Total home consumption"),
             EnergyValue(report.Summary.HouseLoadPower, report.Summary.HouseEnergyKwh, report));
         AddPdfValueRow(totals, L(report, "Total tomado de la red", "Total grid import"),
-            EnergyValue(report.Summary.GridImportPower, report.Summary.GridImportEnergyKwh, report));
+            report.Attribution.ObservedHouseKwh > 0
+                ? $"{report.Attribution.GridToHouseKwh:N2} kWh"
+                : L(report, "Sin datos", "No data"));
         AddPdfValueRow(totals, L(report, "Batería: energía entregada", "Battery energy discharged"),
             EnergyValue(report.Summary.BatteryPower, report.Summary.BatteryDischargedEnergyKwh, report));
         AddPdfValueRow(totals, L(report, "Batería: energía recibida", "Battery energy charged"),
@@ -197,8 +236,7 @@ public sealed class EnergyReportExportService
         unavailable.Format.SpaceBefore = Unit.FromPoint(6);
         unavailable.Format.Font.Italic = true;
 
-        AddEnergyChart(section, report);
-        AddBatterySocChart(section, report);
+        AddFamilyReportChartsPdf(section, report, familyCharts);
 
         var pageThree = section.AddParagraph(
             L(report, "Página 3 — Patrones y eventos del período", "Page 3 — Patterns and events for the selected period"));
@@ -253,12 +291,16 @@ public sealed class EnergyReportExportService
         AddPdfValueRow(
             table,
             L(report, "2. Directamente del sol a la casa", "2. Direct solar to home"),
-            L(report, "Aún no disponible con suficiente confianza", "Not yet available with enough confidence"));
+            report.Attribution.ObservedHouseKwh > 0
+                ? $"{report.Attribution.SolarToHouseKwh:N2} kWh"
+                : L(report, "Sin datos", "No data"));
 
         AddPdfValueRow(
             table,
             L(report, "3. Desde la batería a la casa", "3. Battery to home"),
-            L(report, "Aún no disponible con suficiente confianza", "Not yet available with enough confidence"));
+            report.Attribution.ObservedHouseKwh > 0
+                ? $"{report.Attribution.BatteryToHouseKwh:N2} kWh"
+                : L(report, "Sin datos", "No data"));
 
         AddPdfValueRow(
             table,
@@ -746,7 +788,8 @@ public sealed class EnergyReportExportService
 
     private static void AddSummarySheet(
         XLWorkbook workbook,
-        EnergyReportData report)
+        EnergyReportData report,
+        IReadOnlyList<string>? familyCharts = null)
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Resumen", "Summary"));
@@ -754,7 +797,7 @@ public sealed class EnergyReportExportService
         if (report.Request.Kind == ReportKind.SimpleEnergy)
         {
             sheet.Range("A1:I1").Merge();
-            sheet.Cell("A1").Value = report.Request.Title;
+            sheet.Cell("A1").Value = DisplayReportTitle(report);
             sheet.Cell("A1").Style.Font.Bold = true;
             sheet.Cell("A1").Style.Font.FontSize = 18;
             sheet.Cell("A1").Style.Alignment.Horizontal =
@@ -770,6 +813,7 @@ public sealed class EnergyReportExportService
             sheet.Cell("F3").Style.DateFormat.Format = "dd-mm-yyyy hh:mm";
 
             AddFamilySummarySheet(sheet, report);
+            AddFamilyChartsExcel(sheet, familyCharts);
 
             for (var column = 1; column <= 9; column++)
             {
@@ -781,7 +825,7 @@ public sealed class EnergyReportExportService
         }
         else
         {
-            sheet.Cell("A1").Value = report.Request.Title;
+            sheet.Cell("A1").Value = DisplayReportTitle(report);
             sheet.Cell("A1").Style.Font.Bold = true;
             sheet.Cell("A1").Style.Font.FontSize = 16;
 
@@ -860,42 +904,40 @@ public sealed class EnergyReportExportService
             sheet,
             "A10:C15",
             L(report, "1. DESDE ENEL / RED", "1. FROM UTILITY / GRID"),
-            report.Summary.GridImportPower.SampleCount >= 2
-                ? $"{report.Summary.GridImportEnergyKwh:N2} kWh"
+            report.Attribution.ObservedHouseKwh > 0
+                ? $"{report.Attribution.GridToHouseKwh:N2} kWh"
                 : L(report, "Sin datos suficientes", "Insufficient data"),
-            string.Format(
-                L(report, "Cobertura del dato: {0:N1}%", "Data coverage: {0:N1}%"),
-                report.Summary.GridImportPower.CoveragePercent),
+            AttributionCoverageLabel(report),
             L(
                 report,
-                partial
-                    ? "Energía tomada de la red en la parte del período que sí fue medida."
-                    : "Energía tomada de la compañía eléctrica durante el período.",
-                partial
-                    ? "Energy taken from the grid in the measured part of the period."
-                    : "Energy taken from the utility during the period."));
+                "Energía que el motor pudo atribuir a Enel → casa. La parte no atribuible se mantiene separada.",
+                "Energy the engine could attribute to utility → home. Unattributed energy remains separate."));
 
         AddFamilyCard(
             sheet,
             "D10:F15",
             L(report, "2. DIRECTAMENTE DEL SOL", "2. DIRECTLY FROM SOLAR"),
-            L(report, "Aún no disponible", "Not yet available"),
-            L(report, "Requiere atribución PV → Casa validada", "Requires validated PV → Home attribution"),
+            report.Attribution.ObservedHouseKwh > 0
+                ? $"{report.Attribution.SolarToHouseKwh:N2} kWh"
+                : L(report, "Sin datos suficientes", "Insufficient data"),
+            AttributionCoverageLabel(report),
             L(
                 report,
-                "No se sustituye por “solar producido”, porque responde una pregunta diferente.",
-                "It is not replaced by “solar produced”, because that answers a different question."));
+                "Solar usado directamente por la casa; no es lo mismo que toda la producción de los paneles.",
+                "Solar used directly by the home; this is not the same as total panel production."));
 
         AddFamilyCard(
             sheet,
             "G10:I15",
             L(report, "3. DESDE LA BATERÍA", "3. FROM THE BATTERY"),
-            L(report, "Aún no disponible", "Not yet available"),
-            L(report, "Requiere atribución Batería → Casa validada", "Requires validated Battery → Home attribution"),
+            report.Attribution.ObservedHouseKwh > 0
+                ? $"{report.Attribution.BatteryToHouseKwh:N2} kWh"
+                : L(report, "Sin datos suficientes", "Insufficient data"),
+            AttributionCoverageLabel(report),
             L(
                 report,
-                "La energía descargada de la batería se informa en la Página 2, pero no se presenta como si toda hubiese ido a la casa.",
-                "Battery discharge is shown on Page 2, but is not presented as if all of it necessarily supplied the home."));
+                "Energía atribuida a batería → casa. No se sustituye por la descarga total de batería.",
+                "Energy attributed to battery → home. It is not replaced by total battery discharge."));
 
         sheet.Range("A17:I18").Merge();
         sheet.Cell("A17").Value =
@@ -931,7 +973,7 @@ public sealed class EnergyReportExportService
         AddNightCard(
             sheet,
             "A22:C25",
-            L(report, "SIN EPISODIO RESERVA + RED", "NO RESERVE + GRID EPISODE"),
+            L(report, "SIN PROBLEMAS DE ALIMENTACION", "NO SUPPLY PROBLEMS"),
             nightsWithoutReserveGrid.ToString("N0"),
             string.Format(
                 L(report, "de {0} noches observables", "of {0} observable nights"),
@@ -1077,6 +1119,188 @@ public sealed class EnergyReportExportService
         sheet.Row(row + 3).Height = 24;
         sheet.Row(row + 4).Height = 24;
         sheet.Row(row + 5).Height = 24;
+    }
+
+    private static void AddFamilyChartsExcel(
+        IXLWorksheet sheet,
+        IReadOnlyList<string>? chartPaths)
+    {
+        if (chartPaths is null || chartPaths.Count < 3)
+        {
+            return;
+        }
+
+        var anchors = new[] { 52, 73, 94 };
+
+        for (var index = 0; index < 3; index++)
+        {
+            var picture = sheet.AddPicture(
+                chartPaths[index],
+                $"family-chart-{index + 1}");
+            picture
+                .WithSize(900, 270)
+                .MoveTo(sheet.Cell(anchors[index], 1));
+
+            for (var row = anchors[index]; row < anchors[index] + 18; row++)
+            {
+                sheet.Row(row).Height = 22;
+            }
+        }
+
+        sheet.Range("A115:I116").Merge();
+        sheet.Cell("A115").Value =
+            "Los gráficos usan exactamente la agrupación elegida para este reporte.";
+        sheet.Cell("A115").Style.Font.Italic = true;
+    }
+
+    private static void AddFamilyReportChartsPdf(
+        Section section,
+        EnergyReportData report,
+        IReadOnlyList<string>? chartPaths)
+    {
+        if (chartPaths is null || chartPaths.Count < 3)
+        {
+            var unavailable = section.AddParagraph(
+                L(
+                    report,
+                    "Los gráficos no pudieron generarse en esta exportación.",
+                    "Charts could not be generated in this export."));
+            unavailable.Format.Font.Italic = true;
+            return;
+        }
+
+        foreach (var path in chartPaths.Take(3))
+        {
+            var image = section.AddImage(path);
+            image.LockAspectRatio = true;
+            image.Width = Unit.FromCentimeter(16);
+            image.WrapFormat.DistanceTop = Unit.FromPoint(5);
+            image.WrapFormat.DistanceBottom = Unit.FromPoint(5);
+        }
+
+        var note = section.AddParagraph(
+            L(
+                report,
+                "Los tres gráficos usan la misma agrupación seleccionada para el reporte. La energía sin atribuir se mantiene visible en vez de asignarse artificialmente a una fuente.",
+                "All three charts use the report's selected aggregation. Unattributed energy remains visible instead of being artificially assigned to a source."));
+        note.Format.Font.Size = 8;
+        note.Format.Font.Italic = true;
+    }
+
+    private static void AddEvolutionSheet(
+        XLWorkbook workbook,
+        EnergyReportData report)
+    {
+        var sheet = workbook.Worksheets.Add(
+            L(report, "Evolución", "Evolution"));
+
+        sheet.Cell("A1").Value =
+            string.Format(
+                L(report, "Evolución técnica ({0})", "Technical evolution ({0})"),
+                AggregationLabel(report, report.Family.EvolutionAggregation));
+        sheet.Cell("A1").Style.Font.Bold = true;
+        sheet.Cell("A1").Style.Font.FontSize = 14;
+
+        var headers = new[]
+        {
+            L(report, "Período", "Period"),
+            L(report, "Solar kWh", "Solar kWh"),
+            L(report, "Casa kWh", "Home kWh"),
+            L(report, "Red kWh", "Grid kWh"),
+            L(report, "Batería entregada kWh", "Battery discharged kWh"),
+            L(report, "Cobertura mín. %", "Min coverage %")
+        };
+
+        for (var column = 0; column < headers.Length; column++)
+        {
+            sheet.Cell(3, column + 1).Value = headers[column];
+        }
+
+        sheet.Range(3, 1, 3, headers.Length).Style.Font.Bold = true;
+
+        var row = 4;
+        foreach (var item in report.Family.Evolution)
+        {
+            sheet.Cell(row, 1).Value = item.LocalLabel;
+            SetNullableNumber(sheet.Cell(row, 2), item.PvEnergyKwh);
+            SetNullableNumber(sheet.Cell(row, 3), item.HouseEnergyKwh);
+            SetNullableNumber(sheet.Cell(row, 4), item.GridImportEnergyKwh);
+            SetNullableNumber(sheet.Cell(row, 5), item.BatteryDischargedEnergyKwh);
+            sheet.Cell(row, 6).Value = item.MinimumCoveragePercent;
+            sheet.Cell(row, 6).Style.NumberFormat.Format = "0.0";
+            row++;
+        }
+
+        sheet.SheetView.FreezeRows(3);
+        sheet.Range(3, 1, Math.Max(3, row - 1), headers.Length).SetAutoFilter();
+        sheet.Columns().AdjustToContents();
+    }
+
+    private static string AttributionCoverageLabel(EnergyReportData report) =>
+        string.Format(
+            L(
+                report,
+                "Atribución: {0:N1}% de la energía observada de la casa",
+                "Attribution: {0:N1}% of observed household energy"),
+            report.Attribution.AttributionCoverageOfObservedPercent);
+
+    private static string DisplayReportTitle(EnergyReportData report) =>
+        report.Request.Kind == ReportKind.SimpleEnergy
+            ? $"Reporte de Uso de Energia - Tipo : {report.Request.Title}"
+            : report.Request.Title;
+
+    private static string CreateChartTempDirectory()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            "SolarEnergyMonitor",
+            "report-charts",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static void DeleteChartTempDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch
+        {
+            // Best-effort cleanup must never invalidate a completed export.
+        }
+    }
+
+    private static string PreferredPdfTextFont() => "Aptos Narrow";
+
+    private static string PreferredPdfNumericFont() => "Aptos Mono";
+
+    private static void ApplyWorkbookTypography(XLWorkbook workbook)
+    {
+        foreach (var sheet in workbook.Worksheets)
+        {
+            var used = sheet.RangeUsed();
+            if (used is null)
+            {
+                continue;
+            }
+
+            used.Style.Font.FontName = "Aptos Narrow";
+
+            foreach (var cell in used.Cells())
+            {
+                if (cell.DataType is XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan)
+                {
+                    cell.Style.Font.FontName = "Aptos Mono";
+                }
+            }
+        }
     }
 
     private static void StyleFamilySection(
@@ -1268,38 +1492,6 @@ public sealed class EnergyReportExportService
             row++;
         }
 
-        row += 2;
-        sheet.Cell(row, 1).Value =
-            string.Format(
-                L(report, "Evolución ({0})", "Evolution ({0})"),
-                AggregationLabel(report, report.Family.EvolutionAggregation));
-        sheet.Cell(row, 1).Style.Font.Bold = true;
-        row++;
-
-        var headers = new[]
-        {
-            L(report, "Período", "Period"),
-            L(report, "Solar kWh", "Solar kWh"),
-            L(report, "Casa kWh", "Home kWh"),
-            L(report, "Red kWh", "Grid kWh"),
-            L(report, "Cobertura mín. %", "Min coverage %")
-        };
-        for (var col = 0; col < headers.Length; col++)
-            sheet.Cell(row, col + 1).Value = headers[col];
-        sheet.Range(row, 1, row, headers.Length).Style.Font.Bold = true;
-        row++;
-
-        foreach (var item in report.Family.Evolution)
-        {
-            sheet.Cell(row, 1).Value = item.LocalLabel;
-            SetNullableNumber(sheet.Cell(row, 2), item.PvEnergyKwh);
-            SetNullableNumber(sheet.Cell(row, 3), item.HouseEnergyKwh);
-            SetNullableNumber(sheet.Cell(row, 4), item.GridImportEnergyKwh);
-            sheet.Cell(row, 5).Value = item.MinimumCoveragePercent;
-            sheet.Cell(row, 5).Style.NumberFormat.Format = "0.0";
-            row++;
-        }
-
         sheet.RangeUsed()?.Style.Alignment.WrapText = true;
         sheet.Columns().AdjustToContents();
         sheet.SheetView.FreezeRows(3);
@@ -1382,6 +1574,21 @@ public sealed class EnergyReportExportService
             L(report, "Todos los episodios detectados", "All detected episodes");
         sheet.Cell(row, 1).Style.Font.Bold = true;
         row++;
+
+        if (report.Family.Events.Count == 0)
+        {
+            sheet.Range(row, 1, row + 1, 5).Merge();
+            sheet.Cell(row, 1).Value =
+                L(
+                    report,
+                    "No se detectaron episodios con evidencia suficiente en la parte observable del período.",
+                    "No sufficiently supported episodes were detected in the observable part of the period.");
+            sheet.Cell(row, 1).Style.Font.Italic = true;
+            sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+            sheet.Columns().AdjustToContents();
+            sheet.SheetView.FreezeRows(4);
+            return;
+        }
 
         var eventHeaders = new[]
         {
@@ -1592,7 +1799,7 @@ public sealed class EnergyReportExportService
             report.Summary.BatteryPower.CoveragePercent
         };
 
-        return values.Where(value => value > 0).DefaultIfEmpty(0).Min();
+        return values.Min();
     }
 
     private static int SelectedDayCount(EnergyReportData report) =>
@@ -1703,6 +1910,7 @@ public sealed class EnergyReportExportService
     {
         var row = table.AddRow();
         row.Cells[0].AddParagraph(label);
+        row.Cells[1].Format.Font.Name = PreferredPdfNumericFont();
         row.Cells[1].AddParagraph(value);
     }
 
