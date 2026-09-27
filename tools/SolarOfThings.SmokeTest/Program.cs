@@ -540,10 +540,12 @@ try
         var glossarySheet = exportedWorkbook.Worksheet("Glossary");
         _ = exportedWorkbook.Worksheet("Patterns");
         _ = exportedWorkbook.Worksheet("Events");
+        var utilityUseSheet = exportedWorkbook.Worksheet("Utility Use");
         _ = exportedWorkbook.Worksheet("Evolution");
         _ = exportedWorkbook.Worksheet("Quality");
 
         if (summarySheet.Pictures.Count != 3 ||
+            utilityUseSheet.LastRowUsed()?.RowNumber() is < 9 ||
             detailSheet.LastColumnUsed()?.ColumnNumber() is < 26 ||
             glossarySheet.LastRowUsed()?.RowNumber() is < 25 ||
             !string.Equals(
