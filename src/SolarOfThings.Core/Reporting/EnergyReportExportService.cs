@@ -1339,7 +1339,7 @@ public sealed class EnergyReportExportService
 
         AddFamilyCard(
             sheet,
-            "A17:I21",
+            "A17:I22",
             L(
                 report,
                 "IMPORTACIÓN TOTAL DESDE ENEL — ESTA SÍ SE COMPARA CON MEDIDOR / BOLETA",
