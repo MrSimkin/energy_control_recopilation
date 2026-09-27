@@ -1899,3 +1899,27 @@ Validation:
 - SHA-256: `5a57a9d0359a2e49ea66a1f46dbe4819ea3fc6c288dd0953bfe6759989a5cd73`.
 
 Build 329 supersedes Build 325 for the next report validation.
+
+
+## Formal transition — Phase 7 CLOSED / Phase 8 STARTED — 2026-09-27
+
+User decision:
+- close Phase 7 now;
+- proceed with Phase 8.
+
+Phase 7:
+- status: COMPLETE / ACCEPTED;
+- Build 329 remains the final reporting checkpoint entering Phase 8;
+- its deferred XLSX/PDF re-export is optional/non-blocking.
+
+Phase 8 first code checkpoint currently on main:
+- schema upgraded to v9;
+- new persistent `utility_meter_reading` and `utility_bill` tables;
+- cumulative meter readings preserve exact timestamps;
+- optional bill period/consumption/amount/reference/notes supported;
+- reconciliation compares cumulative-meter consumption against Solar of Things **total grid import** over the exact same interval;
+- signed/absolute/% difference and data coverage are calculated;
+- dedicated Grid & Utility page replaces the prior placeholder;
+- deterministic Phase 8 smoke added.
+
+Phase 8 target acceptance will require real meter data; no invented meter reading is acceptable.

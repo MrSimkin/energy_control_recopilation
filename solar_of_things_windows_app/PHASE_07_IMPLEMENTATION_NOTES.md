@@ -2,7 +2,7 @@
 
 Date started: 2026-09-26
 
-Status: **IN PROGRESS — FAMILY REPORT REDESIGN IMPLEMENTED; TARGET-PC READABILITY QA PENDING**
+Status: **COMPLETE / ACCEPTED — 2026-09-27**
 
 ## Scope
 
@@ -612,3 +612,37 @@ The two concrete report defects found in that artifact set were already folded i
 No XLSX/PDF re-export is required solely for the config-batch lifecycle fix.
 
 Next evidence gate is the Build-309 Debug ZIP only.
+
+
+## Formal Phase 7 closure — 2026-09-27
+
+The user explicitly authorized Phase 7 closure and transition to Phase 8.
+
+Accepted reporting foundation includes:
+- reusable configuration presets;
+- direct export from current report configuration without requiring a preset;
+- independent report title;
+- Excel + PDF output;
+- family-facing source attribution;
+- evidence-gated historical attribution v2;
+- household-source, whole-energy, evolution, utility-use, patterns/events and technical-annex views;
+- exact report time-window labeling;
+- explicit distinction between:
+  - Enel / Utility → House;
+  - total utility/grid import used for meter/bill comparison;
+- conservative missing-data and unattributed-energy semantics;
+- user-visible export progress;
+- target-driven visual/reporting corrections through Build 329.
+
+Latest accepted code/reporting checkpoint before Phase 8 work:
+- Build 329;
+- code commit `b5997c63e1b80697a500298c6cd742bf7ff133e4`;
+- CI GREEN;
+- artifact `10942618101`.
+
+A later visual re-export of Build 329 may still be reviewed, but it is **non-blocking** and does not keep Phase 7 open. Reopen Phase 7 only for a concrete reporting regression or a material semantic defect.
+
+**PHASE 7 IS FORMALLY COMPLETE.**
+
+Next authorized phase:
+**Phase 8 — Utility Meter Readings and Consumption Reconciliation.**

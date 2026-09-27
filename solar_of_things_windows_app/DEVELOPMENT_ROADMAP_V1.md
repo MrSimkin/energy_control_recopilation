@@ -487,7 +487,7 @@ Exit criterion:
 
 ---
 
-# Phase 7 — Saved Reports and Export
+# Phase 7 — Saved Reports and Export — COMPLETE / ACCEPTED
 
 Goal: provide reusable analyses and printable outputs that explain household behavior, not merely export inverter measurements.
 
@@ -545,7 +545,7 @@ Exit criterion:
 
 ---
 
-# Phase 8 — Utility Meter Readings and Consumption Reconciliation
+# Phase 8 — Utility Meter Readings and Consumption Reconciliation — IN PROGRESS
 
 Goal: compare the electricity company's meter history with inverter-derived grid import.
 
@@ -898,3 +898,24 @@ Latest green code checkpoint before documentation-only update:
 Phase 7 exit is **not yet declared** because the final target-PC family-readability/semantic acceptance still needs one consolidated XLSX+PDF review on a genuinely high-coverage period.
 
 Utility-meter reconciliation and tariff/financial reporting remain Phase 8/9 work and must not be fabricated inside Phase 7.
+
+
+## Phase 7 closure / Phase 8 start — 2026-09-27
+
+Phase 7 was explicitly accepted by the user after the Build 329 reporting checkpoint. The deferred Build 329 visual re-export is non-blocking.
+
+Phase 8 has started.
+
+First implementation tranche:
+- schema v9;
+- cumulative utility-meter readings with exact timestamp;
+- optional bill records with exact start/end timestamps, billed kWh, amount, reference and notes;
+- automatic reconciliation between consecutive cumulative meter readings;
+- Solar of Things comparison uses **total grid/utility import**, not Utility→House attribution;
+- comparison interval is exactly the same reading-to-reading UTC interval;
+- absolute/signed difference, percentage difference and inverter coverage;
+- explicit handling of meter decrease/reset/replacement;
+- dedicated Grid & Utility UI;
+- deterministic Phase 8 smoke test.
+
+Phase 8 remains open until real target-PC meter readings are entered and at least one historical interval is reconciled against the locally stored inverter data.
