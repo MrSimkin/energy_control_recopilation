@@ -395,7 +395,14 @@ public partial class MainWindow : Window
         }
 
         var repository = _services.GetRequiredService<NormalizationRepository>();
-        var metrics = repository.GetLatestMetrics(profile.DeviceId);
+        var storedMetrics = repository.GetLatestMetrics(profile.DeviceId);
+        var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>()
+            .GetLatest(profile.DeviceId);
+        var useLive = current?.IsFresh == true &&
+                      current.Metrics.ContainsKey("battery_soc_pct");
+        var metrics = useLive
+            ? current!.Metrics
+            : storedMetrics;
         var configuration = _services.GetRequiredService<BatteryConfigurationService>().Get();
         var thresholds = _services.GetRequiredService<BatteryThresholdContextService>().Get(profile.DeviceId);
 
@@ -449,9 +456,12 @@ public partial class MainWindow : Window
         BatteryStoredEnergyText.Text = $"{storedEnergy:F2} kWh";
         BatteryOrdinaryEnergyText.Text = $"{ordinaryEnergy:F2} kWh";
         BatteryEmergencyEnergyText.Text = $"{emergencyEnergy:F2} kWh";
-        BatteryLastReadingText.Text = soc.RecordedAtUtc
-            .ToLocalTime()
-            .ToString("dd-MM-yyyy HH:mm");
+        BatteryLastReadingText.Text =
+            $"{soc.RecordedAtUtc.ToLocalTime():dd-MM-yyyy HH:mm} · " +
+            _localization.GetString(
+                useLive
+                    ? "Battery.ReadingLive"
+                    : "Battery.ReadingStored");
 
         if (!metrics.TryGetValue("battery_power_w", out var batteryPower))
         {

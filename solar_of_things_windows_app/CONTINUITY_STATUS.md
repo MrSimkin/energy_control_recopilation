@@ -1208,3 +1208,26 @@ Current-state mode evidence recognized:
 - PV→load-in-AC flag.
 
 This engine is integrated into `EnergyReportData` but visual/chart export wiring is the next step of the same consolidated tranche.
+
+
+## Battery Live + family terminology implementation — 2026-09-27
+
+Battery current-state page now prefers one coherent fresh `CurrentHouseholdSnapshot` when available instead of mixing fresh and stored values.
+
+The current snapshot parser now promotes:
+- battery SOC;
+- battery voltage;
+- battery charge current;
+- battery discharge current;
+- derived current battery power.
+
+When a fresh current battery snapshot is not available, the whole Battery current-state block falls back to the stored normalized metrics and labels the reading as stored.
+
+Family labels were revised:
+- Carga actual de la batería;
+- Energía guardada en la batería (estimada);
+- Energía disponible antes de pasar a Enel (estimada);
+- Reserva para cortes de luz (estimada);
+- Nivel mínimo protegido de la batería.
+
+The protected minimum remains visible and its explanatory copy now states that it is the lower level the system tries not to cross to protect the battery, especially during outages/exceptional operation.
