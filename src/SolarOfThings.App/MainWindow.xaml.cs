@@ -17,6 +17,7 @@ using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.Statistics;
+using SolarOfThings.Core.Utility;
 
 namespace SolarOfThings.App;
 
@@ -109,6 +110,7 @@ public partial class MainWindow : Window
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
         RefreshBatteryView();
+        RefreshGridUtilityView();
         RefreshDataCoverageView();
         RefreshAnalysisView(initializeRange: true);
         RefreshReportsView(initializeRange: true);
@@ -1550,6 +1552,7 @@ public partial class MainWindow : Window
         var isDashboard = string.Equals(pageKey, "Dashboard", StringComparison.Ordinal);
         var isAnalysis = string.Equals(pageKey, "Analysis", StringComparison.Ordinal);
         var isBattery = string.Equals(pageKey, "Battery", StringComparison.Ordinal);
+        var isGridUtility = string.Equals(pageKey, "GridUtility", StringComparison.Ordinal);
         var isReports = string.Equals(pageKey, "Reports", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
@@ -1569,11 +1572,18 @@ public partial class MainWindow : Window
         DashboardContent.Visibility = isDashboard ? Visibility.Visible : Visibility.Collapsed;
         AnalysisContent.Visibility = isAnalysis ? Visibility.Visible : Visibility.Collapsed;
         BatteryContent.Visibility = isBattery ? Visibility.Visible : Visibility.Collapsed;
+        GridUtilityContent.Visibility = isGridUtility ? Visibility.Visible : Visibility.Collapsed;
         ReportsContent.Visibility = isReports ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
         SettingsContent.Visibility = isSettings ? Visibility.Visible : Visibility.Collapsed;
         PlaceholderContent.Visibility =
-            !isDashboard && !isAnalysis && !isBattery && !isReports && !isData && !isSettings
+            !isDashboard &&
+            !isAnalysis &&
+            !isBattery &&
+            !isGridUtility &&
+            !isReports &&
+            !isData &&
+            !isSettings
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -1584,6 +1594,10 @@ public partial class MainWindow : Window
         else if (isBattery)
         {
             RefreshBatteryView();
+        }
+        else if (isGridUtility)
+        {
+            RefreshGridUtilityView();
         }
         else if (isReports)
         {
@@ -1619,11 +1633,539 @@ public partial class MainWindow : Window
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
         RefreshBatteryView();
+        RefreshGridUtilityView();
         RefreshDataCoverageView();
         RefreshAnalysisView();
         RefreshReportsView();
     }
 
+
+    private void RefreshGridUtilityView()
+    {
+        if (!IsInitialized || GridUtilityContent is null)
+        {
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            UtilityTimeZoneText.Text =
+                _localization.GetString("GridUtility.NoProfile");
+            UtilityAddReadingButton.IsEnabled = false;
+            UtilityAddBillButton.IsEnabled = false;
+            UtilityReadingsGrid.ItemsSource = null;
+            UtilityReconciliationGrid.ItemsSource = null;
+            UtilityBillsGrid.ItemsSource = null;
+            ClearUtilitySummary();
+            return;
+        }
+
+        UtilityAddReadingButton.IsEnabled = true;
+        UtilityAddBillButton.IsEnabled = true;
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        UtilityTimeZoneText.Text = string.Format(
+            _localization.GetString("GridUtility.TimeZone"),
+            timeZone);
+
+        var nowLocal = SolarApiTime.ConvertToLocalTime(
+            DateTimeOffset.UtcNow,
+            timeZone);
+
+        if (!UtilityReadingDatePicker.SelectedDate.HasValue)
+        {
+            UtilityReadingDatePicker.SelectedDate = nowLocal.Date;
+            UtilityReadingTimeTextBox.Text = nowLocal.ToString("HH:mm");
+        }
+
+        var repository =
+            _services.GetRequiredService<UtilityMeterRepository>();
+        var reconciliation =
+            _services.GetRequiredService<UtilityReconciliationService>();
+
+        var readings = repository.GetReadings();
+        UtilityReadingsGrid.ItemsSource = readings
+            .OrderByDescending(item => item.ReadingAtUtc)
+            .Select(item => new UtilityReadingViewRow(
+                item.ReadingId,
+                FormatUtilityInstant(item.ReadingAtUtc, timeZone),
+                $"{item.ReadingKwh:N3}",
+                item.Reference ?? string.Empty,
+                item.Notes ?? string.Empty))
+            .ToArray();
+
+        var reconciliations =
+            reconciliation.GetMeterReconciliations(profile.DeviceId);
+
+        UtilityReconciliationGrid.ItemsSource = reconciliations
+            .OrderByDescending(item => item.ToUtc)
+            .Select(item => new UtilityReconciliationViewRow(
+                FormatUtilityInterval(
+                    item.FromUtc,
+                    item.ToUtc,
+                    timeZone),
+                item.MeterConsumptionKwh.HasValue
+                    ? $"{item.MeterConsumptionKwh.Value:N3}"
+                    : "—",
+                $"{item.InverterGridImportKwh:N3}",
+                item.SignedDifferenceKwh.HasValue
+                    ? FormatSigned(item.SignedDifferenceKwh.Value, "kWh")
+                    : "—",
+                item.DifferencePercent.HasValue
+                    ? $"{item.DifferencePercent.Value:N2}%"
+                    : "—",
+                $"{item.CoveragePercent:N1}%",
+                UtilityQualityLabel(item.Quality)))
+            .ToArray();
+
+        var latest = reconciliations.LastOrDefault();
+        if (latest is null)
+        {
+            ClearUtilitySummary();
+            UtilityLatestIntervalText.Text =
+                _localization.GetString(
+                    "GridUtility.NoReconciliation");
+        }
+        else
+        {
+            UtilityLatestMeterValueText.Text =
+                latest.MeterConsumptionKwh.HasValue
+                    ? $"{latest.MeterConsumptionKwh.Value:N2} kWh"
+                    : "—";
+            UtilityLatestInverterValueText.Text =
+                $"{latest.InverterGridImportKwh:N2} kWh";
+            UtilityLatestDifferenceValueText.Text =
+                latest.SignedDifferenceKwh.HasValue
+                    ? FormatSigned(
+                        latest.SignedDifferenceKwh.Value,
+                        "kWh")
+                    : "—";
+            UtilityLatestCoverageValueText.Text =
+                $"{latest.CoveragePercent:N1}%";
+            UtilityLatestIntervalText.Text = string.Format(
+                _localization.GetString(
+                    "GridUtility.LatestInterval"),
+                FormatUtilityInterval(
+                    latest.FromUtc,
+                    latest.ToUtc,
+                    timeZone));
+        }
+
+        var bills = repository.GetBills();
+        var billReconciliations = reconciliation
+            .GetBillReconciliations(profile.DeviceId)
+            .ToDictionary(item => item.BillId);
+
+        UtilityBillsGrid.ItemsSource = bills
+            .Select(bill =>
+            {
+                billReconciliations.TryGetValue(
+                    bill.BillId,
+                    out var comparison);
+
+                return new UtilityBillViewRow(
+                    bill.BillId,
+                    FormatUtilityInterval(
+                        bill.PeriodStartUtc,
+                        bill.PeriodEndUtc,
+                        timeZone),
+                    bill.BilledConsumptionKwh.HasValue
+                        ? $"{bill.BilledConsumptionKwh.Value:N3}"
+                        : "—",
+                    comparison is null
+                        ? "—"
+                        : $"{comparison.InverterGridImportKwh:N3}",
+                    comparison?.SignedDifferenceKwh is double difference
+                        ? FormatSigned(difference, "kWh")
+                        : "—",
+                    comparison is null
+                        ? "—"
+                        : $"{comparison.CoveragePercent:N1}%",
+                    bill.AmountClp.HasValue
+                        ? $"$ {bill.AmountClp.Value:N0}"
+                        : "—",
+                    bill.InvoiceReference ?? string.Empty,
+                    comparison is null
+                        ? string.Empty
+                        : UtilityQualityLabel(comparison.Quality));
+            })
+            .ToArray();
+    }
+
+    private void UtilityAddReading_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            UtilityReadingStatusText.Text =
+                _localization.GetString("GridUtility.NoProfile");
+            return;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        if (!TryParseUtilityLocalInstant(
+                UtilityReadingDatePicker,
+                UtilityReadingTimeTextBox,
+                timeZone,
+                out var readingAtUtc))
+        {
+            UtilityReadingStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.InvalidDateTime");
+            return;
+        }
+
+        if (!TryParseRequiredNonNegative(
+                UtilityReadingKwhTextBox.Text,
+                out var readingKwh))
+        {
+            UtilityReadingStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.InvalidNumber");
+            return;
+        }
+
+        try
+        {
+            _services
+                .GetRequiredService<UtilityMeterRepository>()
+                .AddReading(
+                    readingAtUtc,
+                    readingKwh,
+                    UtilityReadingReferenceTextBox.Text,
+                    UtilityReadingNotesTextBox.Text);
+
+            UtilityReadingKwhTextBox.Clear();
+            UtilityReadingReferenceTextBox.Clear();
+            UtilityReadingNotesTextBox.Clear();
+            UtilityReadingStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.ReadingSaved");
+            RefreshGridUtilityView();
+        }
+        catch (Exception ex)
+        {
+            UtilityReadingStatusText.Text = ex.Message;
+        }
+    }
+
+    private void UtilityDeleteReading_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (UtilityReadingsGrid.SelectedItem
+            is not UtilityReadingViewRow selected)
+        {
+            return;
+        }
+
+        if (MessageBox.Show(
+                _localization.GetString(
+                    "GridUtility.ConfirmDeleteReading"),
+                _localization.GetString(
+                    "Page.GridUtility.Title"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question)
+            != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _services
+            .GetRequiredService<UtilityMeterRepository>()
+            .DeleteReading(selected.ReadingId);
+
+        UtilityReadingStatusText.Text =
+            _localization.GetString(
+                "GridUtility.ReadingDeleted");
+        RefreshGridUtilityView();
+    }
+
+    private void UtilityAddBill_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            UtilityBillStatusText.Text =
+                _localization.GetString("GridUtility.NoProfile");
+            return;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        if (!TryParseUtilityLocalInstant(
+                UtilityBillStartDatePicker,
+                UtilityBillStartTimeTextBox,
+                timeZone,
+                out var startUtc) ||
+            !TryParseUtilityLocalInstant(
+                UtilityBillEndDatePicker,
+                UtilityBillEndTimeTextBox,
+                timeZone,
+                out var endUtc) ||
+            endUtc <= startUtc)
+        {
+            UtilityBillStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.InvalidDateTime");
+            return;
+        }
+
+        if (!TryParseOptionalNonNegative(
+                UtilityBillKwhTextBox.Text,
+                out var billedKwh) ||
+            !TryParseOptionalNonNegative(
+                UtilityBillAmountTextBox.Text,
+                out var amountClp))
+        {
+            UtilityBillStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.InvalidNumber");
+            return;
+        }
+
+        try
+        {
+            _services
+                .GetRequiredService<UtilityMeterRepository>()
+                .AddBill(
+                    startUtc,
+                    endUtc,
+                    billedKwh,
+                    amountClp,
+                    UtilityBillReferenceTextBox.Text,
+                    UtilityBillNotesTextBox.Text);
+
+            UtilityBillKwhTextBox.Clear();
+            UtilityBillAmountTextBox.Clear();
+            UtilityBillReferenceTextBox.Clear();
+            UtilityBillNotesTextBox.Clear();
+            UtilityBillStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.BillSaved");
+            RefreshGridUtilityView();
+        }
+        catch (Exception ex)
+        {
+            UtilityBillStatusText.Text = ex.Message;
+        }
+    }
+
+    private void UtilityDeleteBill_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (UtilityBillsGrid.SelectedItem
+            is not UtilityBillViewRow selected)
+        {
+            return;
+        }
+
+        if (MessageBox.Show(
+                _localization.GetString(
+                    "GridUtility.ConfirmDeleteBill"),
+                _localization.GetString(
+                    "Page.GridUtility.Title"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question)
+            != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _services
+            .GetRequiredService<UtilityMeterRepository>()
+            .DeleteBill(selected.BillId);
+
+        UtilityBillStatusText.Text =
+            _localization.GetString(
+                "GridUtility.BillDeleted");
+        RefreshGridUtilityView();
+    }
+
+    private static bool TryParseUtilityLocalInstant(
+        DatePicker datePicker,
+        TextBox timeTextBox,
+        string timeZoneId,
+        out DateTimeOffset utc)
+    {
+        utc = default;
+        if (!datePicker.SelectedDate.HasValue)
+        {
+            return false;
+        }
+
+        var formats = new[] { "H:mm", "HH:mm", "H:mm:ss", "HH:mm:ss" };
+        if (!TimeOnly.TryParseExact(
+                timeTextBox.Text?.Trim() ?? string.Empty,
+                formats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var time))
+        {
+            return false;
+        }
+
+        var local = DateTime.SpecifyKind(
+            datePicker.SelectedDate.Value.Date +
+            time.ToTimeSpan(),
+            DateTimeKind.Unspecified);
+        var zone = SolarApiTime.GetTimeZoneInfo(timeZoneId);
+
+        if (zone.IsInvalidTime(local) ||
+            zone.IsAmbiguousTime(local))
+        {
+            return false;
+        }
+
+        utc = new DateTimeOffset(
+            local,
+            zone.GetUtcOffset(local))
+            .ToUniversalTime();
+        return true;
+    }
+
+    private static bool TryParseRequiredNonNegative(
+        string? text,
+        out double value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return TryParseNumber(text, out value) &&
+               double.IsFinite(value) &&
+               value >= 0;
+    }
+
+    private static bool TryParseOptionalNonNegative(
+        string? text,
+        out double? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (!TryParseNumber(text, out var parsed) ||
+            !double.IsFinite(parsed) ||
+            parsed < 0)
+        {
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
+    private static bool TryParseNumber(
+        string text,
+        out double value)
+    {
+        if (double.TryParse(
+                text,
+                NumberStyles.Number,
+                CultureInfo.CurrentCulture,
+                out value))
+        {
+            return true;
+        }
+
+        var normalized = text
+            .Trim()
+            .Replace(" ", string.Empty)
+            .Replace(',', '.');
+
+        return double.TryParse(
+            normalized,
+            NumberStyles.Float,
+            CultureInfo.InvariantCulture,
+            out value);
+    }
+
+    private static string FormatUtilityInstant(
+        DateTimeOffset utc,
+        string timeZoneId) =>
+        SolarApiTime.ConvertToLocalTime(
+            utc,
+            timeZoneId)
+        .ToString("dd-MM-yyyy HH:mm:ss");
+
+    private static string FormatUtilityInterval(
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        string timeZoneId) =>
+        $"{FormatUtilityInstant(fromUtc, timeZoneId)} → " +
+        $"{FormatUtilityInstant(toUtc, timeZoneId)}";
+
+    private static string FormatSigned(
+        double value,
+        string unit) =>
+        $"{value:+0.00;-0.00;0.00} {unit}";
+
+    private string UtilityQualityLabel(string quality)
+    {
+        var key = $"GridUtility.Quality.{quality}";
+        var value = _localization.GetString(key);
+
+        return string.Equals(
+            value,
+            key,
+            StringComparison.Ordinal)
+                ? quality
+                : value;
+    }
+
+    private void ClearUtilitySummary()
+    {
+        UtilityLatestMeterValueText.Text = "— kWh";
+        UtilityLatestInverterValueText.Text = "— kWh";
+        UtilityLatestDifferenceValueText.Text = "— kWh";
+        UtilityLatestCoverageValueText.Text = "— %";
+    }
+
+    private sealed record UtilityReadingViewRow(
+        long ReadingId,
+        string LocalTimestamp,
+        string ReadingKwh,
+        string Reference,
+        string Notes);
+
+    private sealed record UtilityReconciliationViewRow(
+        string Interval,
+        string MeterKwh,
+        string InverterKwh,
+        string DifferenceKwh,
+        string DifferencePercent,
+        string Coverage,
+        string Quality);
+
+    private sealed record UtilityBillViewRow(
+        long BillId,
+        string Interval,
+        string BilledKwh,
+        string InverterKwh,
+        string DifferenceKwh,
+        string Coverage,
+        string AmountClp,
+        string Reference,
+        string Quality);
 
     private void RefreshReportsView(bool initializeRange = false)
     {
