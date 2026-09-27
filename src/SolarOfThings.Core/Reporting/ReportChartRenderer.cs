@@ -166,7 +166,7 @@ internal sealed class ReportChartRenderer
     {
         plot.Title(title);
 
-        var ticks = new TickGenerators.NumericManual();
+        var ticks = new ScottPlot.TickGenerators.NumericManual();
         var step = Math.Max(1, (int)Math.Ceiling(labels.Count / 12.0));
 
         for (var index = 0; index < labels.Count; index += step)
