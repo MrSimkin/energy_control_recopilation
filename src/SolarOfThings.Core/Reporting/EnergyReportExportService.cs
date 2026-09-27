@@ -1401,14 +1401,14 @@ public sealed class EnergyReportExportService
     private static string PreferredPdfTextFont() =>
         WindowsFontExists("aptos", "narrow")
             ? "Aptos Narrow"
-            : WindowsFontExists("arial", "narrow")
-                ? "Arial Narrow"
-                : "Arial";
+            : "Arial";
 
     private static string PreferredPdfNumericFont() =>
         WindowsFontExists("aptos", "mono")
             ? "Aptos Mono"
-            : "Consolas";
+            : WindowsFontExists("cour")
+                ? "Courier New"
+                : "Arial";
 
     private static bool WindowsFontExists(params string[] fragments)
     {
