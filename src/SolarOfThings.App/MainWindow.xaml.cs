@@ -1732,6 +1732,7 @@ public partial class MainWindow : Window
         }
 
         ApplyReportRangePreset();
+        SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
     }
 
@@ -1906,6 +1907,7 @@ public partial class MainWindow : Window
         RoutedEventArgs e)
     {
         ApplyReportRangePreset();
+        SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
     }
 
@@ -2170,6 +2172,7 @@ public partial class MainWindow : Window
             ApplyReportRangePreset();
         }
 
+        SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
     }
 
