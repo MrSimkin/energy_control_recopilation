@@ -894,3 +894,32 @@ The artifact set exposed only two report-layout/label defects:
 Both were corrected in the next consolidated build.
 
 No additional report-design decision is required before the next Debug-only target evidence pass.
+
+
+---
+
+## Canonical returned-report visual QA rule — 2026-09-27
+
+When the user returns an exported PDF for QA, review it **visually from rendered pages**, not only through parsed/extracted text.
+
+Mandatory chart QA includes:
+- chart physical height and effective plotting area;
+- x-axis label density, clipping and overlap;
+- legend readability and whether the legend obscures data;
+- readability of units, titles and labels at normal PDF viewing/print size;
+- whether the chosen chart type communicates the intended household question;
+- whether two charts are redundant;
+- whether Excel and PDF are appropriately different products:
+  - Excel prioritizes exploration, detail, filters and auditability;
+  - PDF prioritizes narrative hierarchy, large readable visuals and print/view readability.
+
+If a returned chart is technically correct but visually poor, treat that as a real QA defect and state it explicitly.
+
+### Reporting interaction semantics
+
+- A preset is a reusable **configuration template**, not a prerequisite for export.
+- The current on-screen configuration is always directly exportable.
+- Report name is independent from preset name.
+- Preset selection may load type/range/aggregation but must not force the report title.
+- Export must provide a visible progress/working state and must not appear frozen.
+- Custom date selection must provide fast month/year navigation in addition to precise day selection.

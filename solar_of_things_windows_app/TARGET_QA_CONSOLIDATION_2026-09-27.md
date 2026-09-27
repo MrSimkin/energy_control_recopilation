@@ -385,3 +385,37 @@ The source-attribution engine is intentionally unchanged in Build 310.
 An `Actualizar datos` run is optional for evidence collection, but useful to validate the new clearer three-stage UX.
 
 Do not request another family XLSX/PDF for this gate.
+
+
+---
+
+## 12. Build 310 evidence resolved / Build 316 is the next gate
+
+Build 310 returned the requested exhaustive target evidence. Its API-discovery gate is complete.
+
+Key result:
+- historical SBU/OSO/LBU/operating-mode context is available through selected-key history even though it is absent from the normal gather catalog;
+- full `record/list/v2` is richer but unnecessarily heavy for normal sync;
+- direct historical flow-power aliases investigated were null on target samples.
+
+The next gate is therefore not more API archaeology. It is:
+- enrich the stored history with the now-confirmed context fields;
+- recompute source attribution under rule v2;
+- validate the redesigned XLSX/PDF and report UX.
+
+Current target build:
+- Build 316;
+- code commit `1699ce50ade5f3202116475678f2e45b30773bff`;
+- run `36347515656`;
+- artifact `10941500961`;
+- SHA-256 `3bdb51301a3be7f8491ff4f9f7513b6723649873ad39d5992521350624e04aa3`;
+- CI GREEN.
+
+One target run of `Actualizar datos` is expected to be longer than an ordinary incremental update because Build 316 performs the versioned one-time historical attribution-context enrichment. Once it finishes successfully, ordinary updates return to incremental behavior.
+
+Return after that run:
+- one representative XLSX;
+- matching PDF;
+- new investigation ZIP.
+
+The next analysis must compare attribution coverage/unattributed kWh and attribution reasons against the pre-enrichment checkpoint, not assume that v2 necessarily lowers the unattributed percentage.

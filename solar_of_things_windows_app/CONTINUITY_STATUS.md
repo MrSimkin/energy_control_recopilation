@@ -1598,3 +1598,138 @@ From this checkpoint onward, whenever a build is handed to the user for target-P
 Do not require the user to navigate through GitHub Actions merely to obtain a build that the assistant requested them to test.
 
 This rule applies to Build 310 immediately and to every later manual-test build.
+
+
+## Build 310 target evidence review + reporting UX tranche — Build 316 GREEN — 2026-09-27
+
+Returned target artifacts reviewed:
+- `investigation-bundle-20260927-164316.zip`;
+- `SolarEnergy_20260826_20260926.xlsx`;
+- `SolarEnergy_20260826_20260926.pdf`.
+
+User QA:
+- the redesigned `Actualizar ahora` experience from Build 310 is accepted as materially clearer;
+- Home was left running through multiple 150-second cycles;
+- report UX/readability observations were returned together with XLSX/PDF.
+
+### Investigation findings
+
+The exhaustive Build 310 probe materially changed the historical-attribution evidence picture.
+
+Selected-key history can return historical fields that are absent from the commissioned 87-key gather catalog when they are explicitly requested. Confirmed non-null on representative historical days:
+- `workingMode`;
+- `chargingPriorityOrder`;
+- `pvEnergyFeedingPriority`;
+- `mode`;
+- `mainsCurrentFlowDirection`;
+- `acChargingSwitch`;
+- `solarChargingSwitch`;
+- `chargingMainSwitch`;
+- `powerSupplyFromPVToLoadInACState`.
+
+The selected-key endpoint remained compact (~116–159 KB for the sampled full days) and is therefore preferred over using full `record/list/v2` for normal operation.
+
+`record/list/v2` confirmed a much richer historical object:
+- 160 fields observed;
+- 73 fields outside the gather catalog;
+- useful corroborating fields include `batteryStatus`, `gridConnectionSign`, `mainOutputRelayStatus`, explicit display mappings, and operating-mode state.
+
+Direct-power aliases investigated such as `exchangeChargingPower`, `batteryPower`, `batteryChargeDischargeRealTimePower`, `gridConnectedPower`, `inputMainsPower` and `mainsInputRealTimePower` were present in the requested selected-key shape but returned null on the sampled target days. Therefore no direct historical Grid→Battery wattage field was found.
+
+Historical state evidence:
+- 2026-09-27: 130 sampled frames in `Mains Mode`, 77 in `Battery Mode`;
+- Mains Mode frames had grid input and no battery discharge; many showed the small battery-charging behavior already suspected;
+- Battery Mode frames in the sample had grid power = 0;
+- 2026-08-18 sampled history was Battery Mode for the day and showed a historical PV-feeding-priority transition BLU → LBU.
+
+Direct config-batch read is now proven end-to-end:
+- `isFinished=true`;
+- concrete `targetConfig` and `configAttributeStates` returned;
+- examples include charger priority OSO, PV feeding priority LBU, output-source priority setting, 30 A maximum mains charging current, 20% restore-mains-charging battery threshold, 20/50/10 battery thresholds and grid-connection disabled.
+
+Possible utility-supported battery-maintenance detector in the returned corpus:
+- candidate frames: 4,907;
+- gap-aware duration: 407.834 h;
+- integrated derived battery charge: 375.908 kWh;
+- integrated Grid-minus-House surplus: 363.250 kWh.
+This remains diagnostic/corroborating evidence rather than a billing-grade source fact.
+
+Live cadence evidence:
+- 36 polls analyzed;
+- 22 distinct source frames;
+- 14 repeated polls;
+- target-PC 150-second polling median ~157 s;
+- when long app-off/session gaps are excluded, the normal distinct source-frame cadence clusters around ~300 s.
+Keep 150 seconds as the current interactive check cadence for now.
+
+### Historical-attribution implementation
+
+Build 311 introduced the evidence-gated historical-context ingestion and passed CI.
+
+Normal selected-key history now explicitly includes the useful operating-context keys above plus:
+- `batteryStatus`;
+- `gridConnectionSign`;
+- `mainOutputRelayStatus`.
+
+A versioned one-time enrichment backfill is automatically planned over already stored history. It is marked complete only after all planned days complete; later updates return to normal incremental behavior.
+
+`SourceAttributionService` is now `hpvinv02.source-attribution.v2`:
+- historical operating context is read directly from `history_sample`;
+- latest-state context uses the actual source-frame timestamp rather than retrieval time;
+- mode context is not projected more than 20 minutes beyond an observed frame;
+- explicit grid-mode attribution requires actual `Mains Mode` plus the relevant SBU/PV-to-load evidence;
+- an explicit `Battery Mode` frame with simultaneous grid power is left unresolved unless route evidence exists.
+
+This is intended to reduce unattributed energy through newly available evidence while remaining more conservative in contradictory mixed-mode cases.
+
+### Reporting/UI changes
+
+The returned PDF visually confirmed:
+- three charts compressed onto one page were too short;
+- legends overlapped/competed with data;
+- daily x-axis labels crowded at the right edge;
+- the third line chart duplicated much of the first source-attribution chart;
+- PDF should be optimized as a readable narrative, not mirror the Excel workbook.
+
+The returned Excel confirmed that its overall exploration format is good, but long/wrapped rows need more automatic height.
+
+Build 316 implements:
+- report name is now independent from preset name;
+- presets store/reload configuration only;
+- export always uses the currently configured report, with no preset required;
+- configured report name is used directly as the Excel/PDF title and output filename stem;
+- each From/To date keeps a calendar field plus separate fast Month and Year selectors;
+- export runs off the UI thread with a visible staged 1/3 → 3/3 progress line and explicit terminal state;
+- Excel applies larger automatic minimum row heights based on content length;
+- report charts are now non-redundant:
+  1. stacked household consumption by source;
+  2. solar production vs household consumption;
+  3. estimated stored battery energy at bucket end;
+- chart PNGs are taller (1200×520);
+- daily x-axis labels use shorter dates and fewer major ticks;
+- PDF spreads chart content across pages:
+  - page 2: source-attribution story + one large chart;
+  - page 3: production/consumption and stored-battery evolution;
+  - page 4: patterns/events;
+  - page 5: technical quality/glossary.
+
+Validated final code checkpoint:
+- code HEAD: `1699ce50ade5f3202116475678f2e45b30773bff`;
+- Windows Build 316 / run `36347515656`;
+- restore PASS;
+- build PASS;
+- smoke PASS;
+- portable publish PASS;
+- artifact upload PASS;
+- artifact ID: `10941500961`;
+- SHA-256: `3bdb51301a3be7f8491ff4f9f7513b6723649873ad39d5992521350624e04aa3`.
+
+Next target-PC validation:
+1. use Build 316;
+2. reuse the existing portable `Data\` folder;
+3. run `Actualizar datos` once and allow the one-time historical context enrichment to finish;
+4. generate one representative XLSX + PDF from current configuration **without requiring a preset**;
+5. return both report files;
+6. return a new investigation ZIP after enrichment so attribution coverage/reasons can be compared against v1.
+
+No need to repeat the old Build 310 exhaustive API-discovery probe; its purpose is complete.
