@@ -546,8 +546,9 @@ try
         if (summarySheet.Pictures.Count != 3 ||
             detailSheet.LastColumnUsed()?.ColumnNumber() is < 26 ||
             glossarySheet.LastRowUsed()?.RowNumber() is < 25 ||
-            !summarySheet.Cell("A1").GetString().StartsWith(
-                "Reporte de Uso de Energia - Tipo : ",
+            !string.Equals(
+                summarySheet.Cell("A1").GetString(),
+                reportData.Request.Title,
                 StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
