@@ -972,3 +972,29 @@ For the accepted target example 2026-08-26 through 2026-09-26:
 - six contain the specific nighttime reserve+grid episode family.
 
 A page/section titled only `Eventos` must not imply that the reserve-event table exhausts all utility-use behavior.
+
+
+### 19.3 Utility bill comparison semantics and exact report window — Build 329
+
+Canonical family-report terminology:
+
+- **Enel → Casa**
+  - means only the part of observed household consumption attributed to the utility;
+  - is an analytical household-source metric;
+  - must be labeled as **not directly comparable with the utility bill/meter**.
+
+- **Importación total desde Enel**
+  - means all measured energy entering the system from the utility grid;
+  - may include household supply, battery charging/maintenance and internal conversion/consumption/losses;
+  - is the report metric intended for comparison with the Enel meter/bill, subject to matching time window and data coverage.
+
+Presentation rules:
+- keep both metrics visible;
+- duplicate the total-import metric on the first family-facing page/sheet rather than moving/removing its energy-flow card;
+- every card containing either metric must explain which one it is and whether it is the billing-comparison figure;
+- preserve the distinction in both PDF and Excel glossaries.
+
+Time-window rule:
+- never present only date labels when reporting integrated energy;
+- show the exact local start and end date/time used by the report;
+- state the station time zone and that the final selected civil day is included in full.

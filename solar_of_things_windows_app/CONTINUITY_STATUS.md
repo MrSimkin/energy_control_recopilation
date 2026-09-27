@@ -1858,3 +1858,44 @@ Validation:
 - SHA-256 `f6217e693154e662944afb74660dd384c45aab662dfdb33c3ec82f1a5d0a51bb`.
 
 Build 325 supersedes Build 317 for the next report validation.
+
+
+## Build 329 — clarify utility bill comparison + exact report window — GREEN — 2026-09-27
+
+Trigger:
+- report showed `Enel → Casa = 81.71 kWh` and `Importación total desde Enel = 94.54 kWh` without enough visual explanation;
+- user requested the billing-comparable figure duplicated on Page 1 / first Excel summary page;
+- report date range needed explicit start/end times, not dates only.
+
+Canonical semantics:
+- `Enel → Casa`: household-consumption attribution only; **do not compare directly with Enel bill/meter**;
+- `Importación total desde Enel`: all measured energy entering the system from the utility; **this is the report metric to compare with Enel bill/meter**, provided the bill uses the same time window and report coverage is considered;
+- the difference may include battery charging/maintenance and internal conversion/consumption/losses and is not automatically assigned to one destination.
+
+Reporting changes:
+- PDF Page 1 keeps the existing `Enel → Casa` card and explicitly labels it as not the billing figure;
+- PDF Page 1 adds a separate large `Importación total desde Enel — comparar con medidor/boleta` card;
+- PDF Page 2 retains its total-import card and now explains the same distinction;
+- Excel Summary Page 1 keeps `Enel → Casa`, adds a separate total-import card, and retains the existing Page 2 total-import card;
+- both PDF and Excel glossaries define the two concepts independently;
+- PDF header shows selected dates plus exact local comparison window;
+- Excel Summary shows exact local comparison window;
+- technical Excel reports show the exact local comparison window directly.
+
+Window semantics:
+- date-range reports use complete local civil days;
+- example 2026-08-26 through 2026-09-26 displays as `26-08-2026 00:00:00 — 26-09-2026 23:59:59` in the station time zone;
+- report explicitly states that the final day is included in full.
+
+Validation:
+- code commit: `b5997c63e1b80697a500298c6cd742bf7ff133e4`;
+- Windows Build 329 / run `36353099852`;
+- restore PASS;
+- build PASS;
+- smoke PASS;
+- publish PASS;
+- artifact upload PASS;
+- artifact ID: `10942618101`;
+- SHA-256: `5a57a9d0359a2e49ea66a1f46dbe4819ea3fc6c288dd0953bfe6759989a5cd73`.
+
+Build 329 supersedes Build 325 for the next report validation.
