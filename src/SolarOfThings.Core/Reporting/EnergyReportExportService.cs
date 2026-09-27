@@ -2534,6 +2534,77 @@ public sealed class EnergyReportExportService
         row.Cells[1].AddParagraph(value);
     }
 
+    private static IReadOnlyList<GridUseDaySummary> BuildGridUseDays(
+        EnergyReportData report)
+    {
+        var reserveDates = report.Family.Events
+            .Select(item => DateOnly.FromDateTime(item.StartLocal.DateTime))
+            .ToHashSet();
+
+        return report.DailyAttribution.Buckets
+            .Where(item =>
+                item.ObservedHouseKwh > 0.01 &&
+                item.GridToHouseKwh > 0.01)
+            .Select(item =>
+            {
+                var share =
+                    item.GridToHouseKwh /
+                    item.ObservedHouseKwh *
+                    100.0;
+                var otherAttributed =
+                    item.SolarToHouseKwh +
+                    item.BatteryToHouseKwh;
+                var kind =
+                    share >= 99.0
+                        ? GridUseDayKind.NearExclusive
+                        : otherAttributed > 0.01
+                            ? GridUseDayKind.Mixed
+                            : GridUseDayKind.GridPlusUnknown;
+
+                var hasReserve =
+                    DateOnly.TryParse(item.LocalLabel, out var date) &&
+                    reserveDates.Contains(date);
+
+                return new GridUseDaySummary(
+                    item.LocalLabel,
+                    item.GridToHouseKwh,
+                    item.ObservedHouseKwh,
+                    share,
+                    kind,
+                    hasReserve);
+            })
+            .OrderBy(item => item.LocalLabel, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string GridUseKindLabel(
+        EnergyReportData report,
+        GridUseDayKind kind) =>
+        kind switch
+        {
+            GridUseDayKind.NearExclusive =>
+                L(report, "Enel casi exclusivo", "Nearly all utility"),
+            GridUseDayKind.Mixed =>
+                L(report, "Aporte mixto en el día", "Mixed sources in the day"),
+            _ =>
+                L(report, "Enel + origen no resuelto", "Utility + unresolved source")
+        };
+
+    private enum GridUseDayKind
+    {
+        Mixed,
+        NearExclusive,
+        GridPlusUnknown
+    }
+
+    private sealed record GridUseDaySummary(
+        string LocalLabel,
+        double GridToHouseKwh,
+        double ObservedHouseKwh,
+        double GridSharePercent,
+        GridUseDayKind Kind,
+        bool HasReserveGridEpisode);
+
     private static bool IsSpanish(EnergyReportData report) =>
         report.Request.LanguageCode.StartsWith(
             "es",
