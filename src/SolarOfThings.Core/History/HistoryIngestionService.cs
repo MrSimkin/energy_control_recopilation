@@ -3,6 +3,7 @@ using System.Text.Json;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.SolarOfThings;
+using SolarOfThings.Core.Settings;
 
 namespace SolarOfThings.Core.History;
 
@@ -17,19 +18,39 @@ public sealed class HistoryIngestionService
     private const int MaxConsecutiveDangerResponses = 3;
     private const int MaxConsecutivePartialDays = 3;
     private const int MaxAutomaticRetriesPerHistoricalDay = 3;
+    private const string AttributionContextBackfillVersion = "hpvinv02-attribution-context-v1";
+
+    private static readonly string[] HistoricalAttributionContextKeys =
+    [
+        "workingMode",
+        "chargingPriorityOrder",
+        "pvEnergyFeedingPriority",
+        "mode",
+        "mainsCurrentFlowDirection",
+        "acChargingSwitch",
+        "solarChargingSwitch",
+        "chargingMainSwitch",
+        "powerSupplyFromPVToLoadInACState",
+        "batteryStatus",
+        "gridConnectionSign",
+        "mainOutputRelayStatus"
+    ];
 
     private readonly SolarOfThingsSessionManager _session;
     private readonly HistoryRepository _history;
     private readonly ApiDiagnosticsStore _diagnostics;
+    private readonly AppSettingsRepository _settings;
 
     public HistoryIngestionService(
         SolarOfThingsSessionManager session,
         HistoryRepository history,
-        ApiDiagnosticsStore diagnostics)
+        ApiDiagnosticsStore diagnostics,
+        AppSettingsRepository settings)
     {
         _session = session;
         _history = history;
         _diagnostics = diagnostics;
+        _settings = settings;
     }
 
     public async Task<HistorySyncResult> SyncAsync(
@@ -44,12 +65,31 @@ public sealed class HistoryIngestionService
             : profile.StationTimeZone;
 
         var today = SolarApiTime.GetLocalDate(DateTimeOffset.UtcNow, timeZone);
+        var contextBackfillKey =
+            $"history.attribution-context-backfill.{profile.DeviceId}";
+        var contextBackfillPending =
+            !string.Equals(
+                _settings.Get(contextBackfillKey),
+                AttributionContextBackfillVersion,
+                StringComparison.Ordinal);
+
         var startDate = DetermineStartDate(
             profile,
             today,
             timeZone,
             fullBackfill,
             requestedStartDate);
+
+        if (contextBackfillPending)
+        {
+            var existingCoverage = _history.GetCoverageSummary(profile.DeviceId);
+            if (existingCoverage.FirstTrackedDate.HasValue &&
+                existingCoverage.FirstTrackedDate.Value < startDate)
+            {
+                startDate = existingCoverage.FirstTrackedDate.Value;
+            }
+        }
+
         if (startDate > today)
         {
             startDate = today;
@@ -87,6 +127,8 @@ public sealed class HistoryIngestionService
             JsonSerializer.Serialize(new
             {
                 fullBackfill,
+                contextBackfillPending,
+                contextBackfillVersion = AttributionContextBackfillVersion,
                 requestedStartDate = requestedStartDate?.ToString("yyyy-MM-dd"),
                 firstSyncDate = firstSyncDate.ToString("yyyy-MM-dd"),
                 lastSyncDate = lastSyncDate.ToString("yyyy-MM-dd"),
@@ -96,6 +138,7 @@ public sealed class HistoryIngestionService
         var syncRunId = _history.StartSyncRun(JsonSerializer.Serialize(new
         {
             mode = fullBackfill ? "full-backfill" : "incremental",
+            contextBackfillPending,
             requestedStartDate = requestedStartDate?.ToString("yyyy-MM-dd"),
             profile.DeviceId,
             from = firstSyncDate.ToString("yyyy-MM-dd"),
@@ -138,6 +181,11 @@ public sealed class HistoryIngestionService
                     "pvGeneratedEnergyOfTotal"
                 ];
             }
+
+            keys = keys
+                .Concat(HistoricalAttributionContextKeys)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
 
             foreach (var day in orderedSyncDates)
             {
@@ -380,6 +428,27 @@ public sealed class HistoryIngestionService
                 daysCompleted == daysAttempted ? "SUCCESS" : "PARTIAL",
                 $"History synchronization completed: {daysCompleted}/{daysAttempted} days.",
                 JsonSerializer.Serialize(resultSummary));
+
+            if (contextBackfillPending &&
+                daysAttempted > 0 &&
+                daysCompleted == daysAttempted)
+            {
+                _settings.Set(
+                    contextBackfillKey,
+                    AttributionContextBackfillVersion);
+                _diagnostics.RecordLocal(
+                    "HistorySync",
+                    "AttributionContextBackfill",
+                    "SUCCESS",
+                    "Historical operating-mode/context enrichment is complete.",
+                    JsonSerializer.Serialize(new
+                    {
+                        version = AttributionContextBackfillVersion,
+                        from = firstSyncDate.ToString("yyyy-MM-dd"),
+                        to = lastSyncDate.ToString("yyyy-MM-dd"),
+                        keys = HistoricalAttributionContextKeys
+                    }));
+            }
 
             return resultSummary;
         }

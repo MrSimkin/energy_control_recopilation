@@ -8,7 +8,7 @@ namespace SolarOfThings.Core.Reporting;
 
 public sealed class SourceAttributionService
 {
-    public const string RuleVersion = "hpvinv02.source-attribution.v1";
+    public const string RuleVersion = "hpvinv02.source-attribution.v2";
 
     private const double GridActiveThresholdWatts = 100;
     private const double BatteryActiveThresholdWatts = 100;
@@ -271,52 +271,220 @@ public sealed class SourceAttributionService
 
     private List<ModeContext> LoadModeContexts(string deviceId)
     {
-        using var connection = _database.OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT response_json, retrieved_utc
-            FROM raw_api_capture
-            WHERE device_id = $deviceId
-              AND operation = 'LatestStateSnapshot'
-            ORDER BY retrieved_utc;
-            """;
-        command.Parameters.AddWithValue("$deviceId", deviceId);
+        var byTimestamp =
+            new SortedDictionary<DateTimeOffset, Dictionary<string, string?>>();
 
-        using var reader = command.ExecuteReader();
-        var result = new List<ModeContext>();
-
-        while (reader.Read())
+        var keys = new[]
         {
-            if (!DateTimeOffset.TryParse(reader.GetString(1), out var timestamp))
+            "workingMode",
+            "chargingPriorityOrder",
+            "pvEnergyFeedingPriority",
+            "mode",
+            "powerSupplyFromPVToLoadInACState",
+            "mainsCurrentFlowDirection",
+            "acChargingSwitch",
+            "solarChargingSwitch",
+            "chargingMainSwitch",
+            "batteryStatus",
+            "gridConnectionSign",
+            "mainOutputRelayStatus"
+        };
+
+        using (var connection = _database.OpenConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"""
+                SELECT recorded_at_utc, attribute_key, value_json
+                FROM history_sample
+                WHERE device_id = $deviceId
+                  AND is_missing = 0
+                  AND attribute_key IN ({string.Join(",", keys.Select((_, index) => $"$key{index}"))})
+                ORDER BY recorded_at_utc, attribute_key;
+                """;
+            command.Parameters.AddWithValue("$deviceId", deviceId);
+            for (var index = 0; index < keys.Length; index++)
             {
-                continue;
+                command.Parameters.AddWithValue($"$key{index}", keys[index]);
             }
 
-            try
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
             {
-                using var document = JsonDocument.Parse(reader.GetString(0));
-                var root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object ||
-                    !root.TryGetProperty("fields", out var fields) ||
-                    fields.ValueKind != JsonValueKind.Object)
+                if (!DateTimeOffset.TryParse(
+                        reader.GetString(0),
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out var timestamp))
                 {
                     continue;
                 }
 
-                result.Add(new ModeContext(
-                    timestamp.ToUniversalTime(),
-                    ReadDisplay(fields, "workingMode"),
-                    ReadDisplay(fields, "chargingPriorityOrder"),
-                    ReadDisplay(fields, "pvEnergyFeedingPriority"),
-                    ReadDisplay(fields, "powerSupplyFromPVToLoadInACState")));
-            }
-            catch
-            {
-                // Raw evidence that cannot be parsed must not break attribution.
+                timestamp = timestamp.ToUniversalTime();
+                if (!byTimestamp.TryGetValue(timestamp, out var values))
+                {
+                    values = new Dictionary<string, string?>(StringComparer.Ordinal);
+                    byTimestamp[timestamp] = values;
+                }
+
+                values[reader.GetString(1)] =
+                    ReadJsonScalar(reader.GetString(2));
             }
         }
 
-        return result;
+        var result = byTimestamp
+            .Select(item => BuildModeContext(item.Key, item.Value))
+            .ToList();
+
+        using (var connection = _database.OpenConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT response_json, retrieved_utc
+                FROM raw_api_capture
+                WHERE device_id = $deviceId
+                  AND operation = 'LatestStateSnapshot'
+                ORDER BY retrieved_utc;
+                """;
+            command.Parameters.AddWithValue("$deviceId", deviceId);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!DateTimeOffset.TryParse(
+                        reader.GetString(1),
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out var retrieved))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    using var document = JsonDocument.Parse(reader.GetString(0));
+                    var root = document.RootElement;
+                    var timestamp = retrieved.ToUniversalTime();
+
+                    if (root.ValueKind == JsonValueKind.Object &&
+                        root.TryGetProperty("time", out var time) &&
+                        DateTimeOffset.TryParse(
+                            time.ToString(),
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.RoundtripKind,
+                            out var observed))
+                    {
+                        timestamp = observed.ToUniversalTime();
+                    }
+
+                    if (root.ValueKind != JsonValueKind.Object ||
+                        !root.TryGetProperty("fields", out var fields) ||
+                        fields.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    result.Add(new ModeContext(
+                        timestamp,
+                        NormalizeContextValue("workingMode", ReadDisplay(fields, "workingMode")),
+                        NormalizeContextValue("chargingPriorityOrder", ReadDisplay(fields, "chargingPriorityOrder")),
+                        NormalizeContextValue("pvEnergyFeedingPriority", ReadDisplay(fields, "pvEnergyFeedingPriority")),
+                        NormalizeContextValue("mode", ReadDisplay(fields, "mode")),
+                        NormalizeContextValue("powerSupplyFromPVToLoadInACState", ReadDisplay(fields, "powerSupplyFromPVToLoadInACState")),
+                        NormalizeContextValue("mainsCurrentFlowDirection", ReadDisplay(fields, "mainsCurrentFlowDirection")),
+                        NormalizeContextValue("acChargingSwitch", ReadDisplay(fields, "acChargingSwitch")),
+                        NormalizeContextValue("solarChargingSwitch", ReadDisplay(fields, "solarChargingSwitch")),
+                        NormalizeContextValue("chargingMainSwitch", ReadDisplay(fields, "chargingMainSwitch")),
+                        NormalizeContextValue("batteryStatus", ReadDisplay(fields, "batteryStatus")),
+                        NormalizeContextValue("gridConnectionSign", ReadDisplay(fields, "gridConnectionSign")),
+                        NormalizeContextValue("mainOutputRelayStatus", ReadDisplay(fields, "mainOutputRelayStatus"))));
+                }
+                catch
+                {
+                    // Raw evidence that cannot be parsed must not break attribution.
+                }
+            }
+        }
+
+        return result
+            .OrderBy(item => item.TimestampUtc)
+            .GroupBy(item => item.TimestampUtc)
+            .Select(group => group.Last())
+            .ToList();
+    }
+
+    private static ModeContext BuildModeContext(
+        DateTimeOffset timestamp,
+        IReadOnlyDictionary<string, string?> values) =>
+        new(
+            timestamp,
+            NormalizeContextValue("workingMode", Value(values, "workingMode")),
+            NormalizeContextValue("chargingPriorityOrder", Value(values, "chargingPriorityOrder")),
+            NormalizeContextValue("pvEnergyFeedingPriority", Value(values, "pvEnergyFeedingPriority")),
+            NormalizeContextValue("mode", Value(values, "mode")),
+            NormalizeContextValue("powerSupplyFromPVToLoadInACState", Value(values, "powerSupplyFromPVToLoadInACState")),
+            NormalizeContextValue("mainsCurrentFlowDirection", Value(values, "mainsCurrentFlowDirection")),
+            NormalizeContextValue("acChargingSwitch", Value(values, "acChargingSwitch")),
+            NormalizeContextValue("solarChargingSwitch", Value(values, "solarChargingSwitch")),
+            NormalizeContextValue("chargingMainSwitch", Value(values, "chargingMainSwitch")),
+            NormalizeContextValue("batteryStatus", Value(values, "batteryStatus")),
+            NormalizeContextValue("gridConnectionSign", Value(values, "gridConnectionSign")),
+            NormalizeContextValue("mainOutputRelayStatus", Value(values, "mainOutputRelayStatus")));
+
+    private static string? Value(
+        IReadOnlyDictionary<string, string?> values,
+        string key) =>
+        values.TryGetValue(key, out var value) ? value : null;
+
+    private static string? ReadJsonScalar(string raw)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            return document.RootElement.ValueKind switch
+            {
+                JsonValueKind.String => document.RootElement.GetString(),
+                JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False =>
+                    document.RootElement.ToString(),
+                _ => null
+            };
+        }
+        catch
+        {
+            return raw.Trim().Trim('"');
+        }
+    }
+
+    private static string? NormalizeContextValue(string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return key switch
+        {
+            "workingMode" when value == "1" => "SBU",
+            "chargingPriorityOrder" when value == "2" => "OSO",
+            "pvEnergyFeedingPriority" when value == "0" => "BLU",
+            "pvEnergyFeedingPriority" when value == "1" => "LBU",
+            "mode" when value == "L" => "Mains Mode",
+            "mode" when value == "B" => "Battery Mode",
+            "powerSupplyFromPVToLoadInACState" when value == "0" => "No",
+            "powerSupplyFromPVToLoadInACState" when value == "1" => "Yes",
+            "mainsCurrentFlowDirection" when value == "+" => "Mains To Inverter",
+            "batteryStatus" when value == "0" => "Static",
+            "batteryStatus" when value == "1" => "Discharge",
+            "batteryStatus" when value == "2" => "Charge",
+            "acChargingSwitch" when value == "0" => "Close",
+            "acChargingSwitch" when value == "1" => "Open",
+            "solarChargingSwitch" when value == "0" => "Close",
+            "solarChargingSwitch" when value == "1" => "Open",
+            "chargingMainSwitch" when value == "0" => "Close",
+            "chargingMainSwitch" when value == "1" => "Open",
+            "mainOutputRelayStatus" when value == "0" => "Off",
+            "mainOutputRelayStatus" when value == "1" => "On",
+            _ => value
+        };
     }
 
     private List<ConfigPoint> LoadHistoricalConfiguration(string deviceId)
@@ -404,7 +572,12 @@ public sealed class SourceAttributionService
                 }
             }
 
-            frame.Mode = currentMode;
+            frame.Mode =
+                currentMode is not null &&
+                frame.TimestampUtc >= currentMode.TimestampUtc &&
+                frame.TimestampUtc - currentMode.TimestampUtc <= TimeSpan.FromMinutes(20)
+                    ? currentMode
+                    : null;
             frame.TransferToGridSocPercent = transferSoc;
             frame.ReturnToBatterySocPercent = returnSoc;
             frame.ProtectedSocPercent = protectedSoc;
@@ -458,6 +631,10 @@ public sealed class SourceAttributionService
             string.Equals(frame.Mode?.ChargingPriority, "OSO", StringComparison.OrdinalIgnoreCase);
         var explicitLbu =
             string.Equals(frame.Mode?.PvFeedingPriority, "LBU", StringComparison.OrdinalIgnoreCase);
+        var explicitMainsMode =
+            string.Equals(frame.Mode?.OperatingMode, "Mains Mode", StringComparison.OrdinalIgnoreCase);
+        var explicitBatteryMode =
+            string.Equals(frame.Mode?.OperatingMode, "Battery Mode", StringComparison.OrdinalIgnoreCase);
         var explicitNoPvToLoadInAc =
             string.Equals(frame.Mode?.PvToLoadInAcState, "No", StringComparison.OrdinalIgnoreCase);
 
@@ -498,7 +675,10 @@ public sealed class SourceAttributionService
                 explicitSbu || explicitLbu || explicitOso);
         }
 
-        if (explicitSbu && explicitNoPvToLoadInAc && !batteryDischarging)
+        if (explicitMainsMode &&
+            explicitSbu &&
+            explicitNoPvToLoadInAc &&
+            !batteryDischarging)
         {
             if (grid + tolerance < house)
             {
@@ -534,7 +714,10 @@ public sealed class SourceAttributionService
                         false);
                 }
 
-                if (explicitSbu && explicitOso && explicitNoPvToLoadInAc)
+                if (explicitMainsMode &&
+                    explicitSbu &&
+                    explicitOso &&
+                    explicitNoPvToLoadInAc)
                 {
                     return AttributionFrame.Resolved(
                         0,
@@ -591,8 +774,17 @@ public sealed class SourceAttributionService
                 balanceResidualPercent);
         }
 
-        // Transitional/mixed frame: measured grid and measured battery discharge
-        // are used first; PV may cover the remaining load only if sufficient.
+        if (explicitBatteryMode && gridActive)
+        {
+            return AttributionFrame.Unresolved(
+                "BATTERY_MODE_WITH_GRID_ACTIVE_REQUIRES_ROUTE_EVIDENCE",
+                frame,
+                balanceResidualPercent);
+        }
+
+        // Transitional/mixed frame: without an explicit contradictory operating
+        // state, measured grid and measured battery discharge are used first;
+        // PV may cover the remaining load only if sufficient.
         var mixedGrid = Math.Clamp(grid, 0, house);
         var remainingAfterGrid = house - mixedGrid;
         var mixedBattery = Math.Min(discharge, remainingAfterGrid);
@@ -798,7 +990,15 @@ public sealed class SourceAttributionService
         string? WorkingMode,
         string? ChargingPriority,
         string? PvFeedingPriority,
-        string? PvToLoadInAcState);
+        string? OperatingMode,
+        string? PvToLoadInAcState,
+        string? MainsFlowDirection,
+        string? AcChargingSwitch,
+        string? SolarChargingSwitch,
+        string? ChargingMainSwitch,
+        string? BatteryStatus,
+        string? GridConnectionSign,
+        string? MainOutputRelayStatus);
 
     private sealed record ConfigPoint(
         DateTimeOffset TimestampUtc,
