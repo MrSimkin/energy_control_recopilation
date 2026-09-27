@@ -10,6 +10,7 @@ using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.Installation;
 using SolarOfThings.Core.SolarOfThings;
+using SolarOfThings.Core.Utility;
 
 var root = Path.Combine(
     Path.GetTempPath(),
@@ -29,7 +30,7 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 8)
+        SqliteDatabase.CurrentSchemaVersion != 9)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
@@ -571,6 +572,79 @@ try
         }
     }
 
+    var utilityRepository = new UtilityMeterRepository(database);
+    var utilityStatistics = new EnergyRangeStatisticsService(database);
+    var utilityReconciliation = new UtilityReconciliationService(
+        utilityRepository,
+        utilityStatistics);
+
+    var utilityFromUtc = familyLocalStart.ToUniversalTime();
+    var utilityToUtc = familyLocalEnd.ToUniversalTime();
+    var expectedGridImport = utilityStatistics
+        .GetMetric(
+            familySmokeDeviceId,
+            "grid_import_power_w",
+            utilityFromUtc,
+            utilityToUtc)
+        .PositiveEnergyKwh;
+
+    var firstReadingId = utilityRepository.AddReading(
+        utilityFromUtc,
+        12500.0,
+        "smoke-start",
+        "Phase 8 smoke start");
+    var secondReadingId = utilityRepository.AddReading(
+        utilityToUtc,
+        12500.0 + expectedGridImport,
+        "smoke-end",
+        "Phase 8 smoke end");
+
+    var utilityRows =
+        utilityReconciliation.GetMeterReconciliations(
+            familySmokeDeviceId);
+
+    if (utilityRows.Count != 1 ||
+        utilityRows[0].FromReadingId != firstReadingId ||
+        utilityRows[0].ToReadingId != secondReadingId ||
+        !utilityRows[0].MeterConsumptionKwh.HasValue ||
+        Math.Abs(
+            utilityRows[0].MeterConsumptionKwh.Value -
+            expectedGridImport) > 0.000001 ||
+        Math.Abs(
+            utilityRows[0].InverterGridImportKwh -
+            expectedGridImport) > 0.000001 ||
+        utilityRows[0].AbsoluteDifferenceKwh is null ||
+        utilityRows[0].AbsoluteDifferenceKwh.Value > 0.000001 ||
+        utilityRows[0].CoveragePercent < 95)
+    {
+        throw new InvalidOperationException(
+            "Phase 8 utility meter reconciliation smoke test failed.");
+    }
+
+    var billId = utilityRepository.AddBill(
+        utilityFromUtc,
+        utilityToUtc,
+        expectedGridImport,
+        12345,
+        "SMOKE-BILL",
+        "Phase 8 optional bill");
+
+    var billRows =
+        utilityReconciliation.GetBillReconciliations(
+            familySmokeDeviceId);
+
+    if (billRows.Count != 1 ||
+        billRows[0].BillId != billId ||
+        billRows[0].AbsoluteDifferenceKwh is null ||
+        billRows[0].AbsoluteDifferenceKwh.Value > 0.000001 ||
+        billRows[0].CoveragePercent < 95 ||
+        utilityRepository.GetReadings().Count != 2 ||
+        utilityRepository.GetBills().Count != 1)
+    {
+        throw new InvalidOperationException(
+            "Phase 8 optional bill reconciliation/persistence smoke test failed.");
+    }
+
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
     apiDiagnostics.Record(new ApiDiagnosticEntry(
         DateTimeOffset.UtcNow,
@@ -674,7 +748,8 @@ try
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
         "commissioning metadata/profile, protected secret storage, Phase 5 time-range/aggregation math, " +
-        "and Phase 7 report presets/family event-pattern analysis/source attribution/Excel/PDF export are operational.");
+        "Phase 7 report presets/family event-pattern analysis/source attribution/Excel/PDF export, " +
+        "and Phase 8 utility meter/bill reconciliation are operational.");
 }
 finally
 {
