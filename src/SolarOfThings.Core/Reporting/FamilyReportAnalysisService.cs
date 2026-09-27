@@ -108,11 +108,6 @@ public sealed class FamilyReportAnalysisService
 
         var highlights = BuildHighlights(daily);
 
-        var spanDays = Math.Max(
-            1,
-            request.LocalEndDate.DayNumber -
-            request.LocalStartDate.DayNumber + 1);
-
         var evolutionPeriod = spanDays <= 21
             ? AggregationPeriod.Day
             : spanDays <= 180

@@ -396,3 +396,8 @@ The 2026-09-19→2026-09-25 real workbook that triggered this correction had:
 - only 3 days with meaningful energy observations out of 7;
 - 2 observable complete nights out of 6;
 - therefore the old labels “total” and “habitual” were too strong.
+
+
+### Build-only repair after visual family-cover checkpoint
+
+Windows Build run 281 failed before smoke because `spanDays` was declared twice after moving selected-period length earlier for pattern-evidence gating. Removed the duplicate declaration; no reporting semantics changed.
