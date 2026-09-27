@@ -1096,8 +1096,8 @@ public sealed class EnergyReportExportService
             ? string.Format(
                 L(
                     report,
-                    "¿QUÉ SIGNIFICA ESTO? Este informe es parcial. En la parte realmente observada se registraron {0:N2} kWh tomados de la red y {1:N2} kWh de consumo de la casa. Sólo {2} de {3} noches completas fueron suficientemente observables; en esas noches se detectaron {4} episodios en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
-                    "WHAT DOES THIS MEAN? This report is partial. In the actually observed portion, {0:N2} kWh were taken from the grid and {1:N2} kWh of home consumption were recorded. Only {2} of {3} complete nights were sufficiently observable; those nights contained {4} episodes where the battery reached its normal reserve and grid was needed while solar was insufficient."),
+                    "¿QUÉ SIGNIFICA ESTO? Este informe es parcial. En la parte observada se pudieron atribuir {0:N2} kWh del consumo de la casa a Enel/red, y se registraron {1:N2} kWh de consumo de la casa. Sólo {2} de {3} noches completas fueron suficientemente observables; en esas noches se detectaron {4} episodios en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
+                    "WHAT DOES THIS MEAN? This report is partial. In the observed portion, {0:N2} kWh of household consumption could be attributed to the utility/grid, and {1:N2} kWh of household consumption were recorded. Only {2} of {3} complete nights were sufficiently observable; those nights contained {4} episodes where the battery reached its normal reserve and grid was needed while solar was insufficient."),
                 report.Attribution.GridToHouseKwh,
                 report.Summary.HouseEnergyKwh,
                 family.ObservableNightCount,
@@ -1106,8 +1106,8 @@ public sealed class EnergyReportExportService
             : string.Format(
                 L(
                     report,
-                    "¿QUÉ SIGNIFICA ESTO? La casa consumió {0:N2} kWh y tomó {1:N2} kWh desde la red. En {2} de {3} noches observables se detectó al menos un episodio en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
-                    "WHAT DOES THIS MEAN? The home used {0:N2} kWh and took {1:N2} kWh from the grid. On {2} of {3} observable nights, at least one episode was detected where the battery reached its normal reserve and grid was needed while solar was insufficient."),
+                    "¿QUÉ SIGNIFICA ESTO? La casa consumió {0:N2} kWh; de ese consumo, {1:N2} kWh pudieron atribuirse a Enel/red. En {2} de {3} noches observables se detectó al menos un episodio en que la batería llegó a su reserva normal y fue necesario usar red por falta de solar suficiente.",
+                    "WHAT DOES THIS MEAN? The home used {0:N2} kWh; of that consumption, {1:N2} kWh could be attributed to the utility/grid. On {2} of {3} observable nights, at least one episode was detected where the battery reached its normal reserve and grid was needed while solar was insufficient."),
                 report.Summary.HouseEnergyKwh,
                 report.Attribution.GridToHouseKwh,
                 family.NightsWithReserveGridUse,
@@ -1473,6 +1473,7 @@ public sealed class EnergyReportExportService
         range.Style.Font.FontSize = 13;
         range.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9EAF7");
         range.Style.Border.BottomBorder = XLBorderStyleValues.Medium;
+        sheet.Row(range.RangeAddress.FirstAddress.RowNumber).Height = 24;
     }
 
     private static void AddFamilyCard(
@@ -1511,6 +1512,14 @@ public sealed class EnergyReportExportService
         explanationRows.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         range.Style.Fill.BackgroundColor = XLColor.FromHtml("#F8FBFD");
         range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+        var firstRowNumber = range.RangeAddress.FirstAddress.RowNumber;
+        sheet.Row(firstRowNumber).Height = 22;
+        sheet.Row(firstRowNumber + 1).Height = 24;
+        sheet.Row(firstRowNumber + 2).Height = 24;
+        sheet.Row(firstRowNumber + 3).Height = 20;
+        sheet.Row(firstRowNumber + 4).Height = 24;
+        sheet.Row(firstRowNumber + 5).Height = 24;
     }
 
     private static void AddNightCard(
@@ -1543,6 +1552,12 @@ public sealed class EnergyReportExportService
         contextRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         range.Style.Fill.BackgroundColor = XLColor.FromHtml(fillColor);
         range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+        var firstRowNumber = range.RangeAddress.FirstAddress.RowNumber;
+        sheet.Row(firstRowNumber).Height = 22;
+        sheet.Row(firstRowNumber + 1).Height = 26;
+        sheet.Row(firstRowNumber + 2).Height = 26;
+        sheet.Row(firstRowNumber + 3).Height = 22;
     }
 
     private static void AddTechnicalSummarySheet(
@@ -1649,6 +1664,31 @@ public sealed class EnergyReportExportService
             sheet.Cell(row, 4).Style.NumberFormat.Format = "0.0";
             row++;
         }
+
+        row += 2;
+        sheet.Range(row, 1, row, 5).Merge();
+        sheet.Cell(row, 1).Value =
+            L(report, "Eventos del período", "Events in the period");
+        sheet.Cell(row, 1).Style.Font.Bold = true;
+        row++;
+
+        sheet.Range(row, 1, row + 1, 5).Merge();
+        sheet.Cell(row, 1).Value =
+            report.Family.Events.Count == 0
+                ? L(
+                    report,
+                    "No se detectaron episodios de reserva + red con evidencia suficiente en la parte observable. La hoja Eventos conserva el detalle nocturno completo, incluidas las noches desconocidas.",
+                    "No sufficiently supported reserve + grid episodes were detected in the observable portion. The Events sheet keeps the complete nightly detail, including unknown nights.")
+                : string.Format(
+                    L(
+                        report,
+                        "Se detectaron {0} episodios en {1} noches observables, con {2:N1} minutos acumulados. La hoja Eventos conserva cada ocurrencia completa.",
+                        "{0} episodes were detected across {1} observable nights, totaling {2:N1} minutes. The Events sheet preserves every occurrence."),
+                    report.Family.Events.Count,
+                    report.Family.NightsWithReserveGridUse,
+                    report.Family.ReserveGridTotalMinutes);
+        sheet.Cell(row, 1).Style.Font.Italic = true;
+        row += 3;
 
         sheet.RangeUsed()?.Style.Alignment.WrapText = true;
         sheet.Columns().AdjustToContents();
@@ -2023,6 +2063,10 @@ public sealed class EnergyReportExportService
         sheet.Column(3).Width = 18;
         sheet.Column(4).Width = 72;
         sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+        for (var visualRow = 4; visualRow < row; visualRow++)
+        {
+            sheet.Row(visualRow).Height = 34;
+        }
         sheet.SheetView.FreezeRows(3);
     }
 
@@ -2093,6 +2137,10 @@ public sealed class EnergyReportExportService
         sheet.Column(2).Width = 18;
         sheet.Column(3).Width = 90;
         sheet.RangeUsed()?.Style.Alignment.WrapText = true;
+        for (var glossaryRow = 4; glossaryRow < row; glossaryRow++)
+        {
+            sheet.Row(glossaryRow).Height = 42;
+        }
         sheet.SheetView.FreezeRows(3);
         sheet.Range(3, 1, Math.Max(3, row - 1), 3).SetAutoFilter();
     }
