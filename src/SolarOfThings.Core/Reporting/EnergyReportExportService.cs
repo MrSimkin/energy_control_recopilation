@@ -404,7 +404,10 @@ public sealed class EnergyReportExportService
 
         AddPdfFamilyCard(
             sourceRow.Cells[0],
-            L(report, "1. DESDE ENEL / RED", "1. FROM UTILITY / GRID"),
+            L(
+                report,
+                "1. ENEL → CASA (NO ES LA BOLETA)",
+                "1. UTILITY → HOME (NOT THE BILL)"),
             report.Attribution.ObservedHouseKwh > 0
                 ? $"{report.Attribution.GridToHouseKwh:N2} kWh"
                 : L(report, "Sin datos", "No data"),
@@ -1335,7 +1338,7 @@ public sealed class EnergyReportExportService
 
         AddFamilyCard(
             sheet,
-            "A23:I21",
+            "A17:I21",
             L(
                 report,
                 "IMPORTACIÓN TOTAL DESDE ENEL — ESTA SÍ SE COMPARA CON MEDIDOR / BOLETA",
