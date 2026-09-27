@@ -551,3 +551,103 @@ The most important facts to preserve across chats are:
 6. **Past attribution therefore needs historical constituent telemetry + as-of configuration + target-specific validation.**
 7. **Source attribution is now a priority blocker for the family report, not a deferred nice-to-have.**
 8. **Battery family charts should use estimated stored kWh, not SOC %, while SOC remains technical evidence.**
+
+
+---
+
+## 17. LatestStateSnapshot hidden/current configuration fields — confirmed from target DB
+
+A Navicat JSON scan over the 12 persisted `LatestStateSnapshot` captures revealed that the current-state payload contains a much richer field set than the 87-key historical gather catalog.
+
+This directly invalidates the earlier working assumption that priority/mode fields may simply be unavailable from Solar of Things.
+
+Important current-state-only/config-like fields observed:
+
+| field | observed value(s) in 12 snapshots | interpretation status |
+|---|---:|---|
+| `chargingPriorityOrder` | `2` | likely charger-source-priority enum; exact enum mapping not yet proven |
+| `pvEnergyFeedingPriority` | `1` | likely PV allocation/load-vs-battery priority enum; exact enum mapping not yet proven |
+| `workingMode` | `1` | operating-mode enum; exact meaning not yet proven |
+| `outputModel` | `0` | output/source-related enum; exact meaning not yet proven |
+| `mode` | `B` | current operating state/mode code; exact meaning not yet proven |
+| `acChargingSwitch` | `0` | AC charging disabled in all captured snapshots |
+| `solarChargingSwitch` | `0,1` | solar charging state/switch changed across snapshots |
+| `chargingMainSwitch` | `0,1` | charging master state/switch changed |
+| `powerSupplyFromPVToLoadInACState` | `0` | PV→load behavior-related flag; exact semantics require enum/field metadata |
+| `mainsCurrentFlowDirection` | `+` | current flow direction marker |
+| `mainsPower` | `0` | no material grid power in these 12 specific snapshots |
+| `pvEnergyFeedingPriority` | `1` | stable in these snapshots |
+| `chargingPriorityOrder` | `2` | stable in these snapshots |
+
+Other useful current-state evidence observed:
+- `generationPower` / `pvPower`;
+- `outputActivePower`;
+- battery charge/discharge currents;
+- BMS charge/discharge currents;
+- BMS SOC;
+- battery voltage;
+- grid input voltage;
+- current thresholds;
+- current charging switches and lights;
+- current battery/working status.
+
+### Why this matters
+
+The historical `gatherAttributes` catalog does not include the priority/mode fields above, but `state/latest/v1` does.
+
+Therefore:
+- current operating/configuration interpretation can be materially richer than historical raw-key history;
+- current snapshots should preserve these fields as evidence;
+- future snapshots can build a local time series of mode/priority changes even if the cloud offers no historical API for them;
+- historical attribution before local snapshotting still requires measured-flow inference + historically available numeric settings.
+
+### External/manual corroboration
+
+Public manuals/catalogs for this inverter family confirm the relevant configuration concepts exist:
+- output source priority modes including Utility/Solar/SBU/SUB-family behavior;
+- charger-source priority including Solar First / Solar+Utility / Only Solar;
+- solar/load priority where solar can feed load before battery charging;
+- target-family SUNPRO/SPRO documentation explicitly lists multiple output priorities including UTL, SOL, SBU and SUB.
+
+However, **the numeric JSON enum mapping is not yet proven**.
+
+Do not freeze:
+- `chargingPriorityOrder=2 → OSO`;
+- `pvEnergyFeedingPriority=1 → LBU`;
+- `workingMode=1 → ...`;
+- `outputModel=0 → ...`;
+
+until the target response metadata, remote-config display values, official-client mapping, or controlled read-only comparison proves the mapping.
+
+### Next evidence query: inspect candidate field objects, not only `.value`
+
+Run this against the target DB:
+
+```sql
+SELECT
+    r.retrieved_utc,
+    json_extract(r.response_json, '$.fields.chargingPriorityOrder') AS chargingPriorityOrder_object,
+    json_extract(r.response_json, '$.fields.pvEnergyFeedingPriority') AS pvEnergyFeedingPriority_object,
+    json_extract(r.response_json, '$.fields.workingMode') AS workingMode_object,
+    json_extract(r.response_json, '$.fields.outputModel') AS outputModel_object,
+    json_extract(r.response_json, '$.fields.mode') AS mode_object,
+    json_extract(r.response_json, '$.fields.powerSupplyFromPVToLoadInACState') AS pvToLoadInAc_object
+FROM raw_api_capture AS r
+WHERE r.operation = 'LatestStateSnapshot'
+ORDER BY r.retrieved_utc;
+```
+
+Purpose:
+- determine whether each field object contains `valueDisplay`, label, enum text, unit or other metadata;
+- avoid inferring enum meanings from current settings alone.
+
+If these objects contain only `value`, the next evidence source is read-only remote configuration / official-client mapping.
+
+### Battery-energy chart remains locked
+
+For family reporting:
+- use estimated stored battery energy in kWh as the main battery quantity;
+- retain `SOC` as technical evidence;
+- formula remains configured useful capacity × SOC fraction;
+- keep explicit “(estimado)” labeling.
+

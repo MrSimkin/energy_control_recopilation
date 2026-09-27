@@ -1086,3 +1086,32 @@ Key state:
 
 Immediate next evidence query:
 - inspect the keys/values inside the 12 persisted LatestStateSnapshot JSON objects, as documented in the dedicated investigation file.
+
+
+## Latest-state priority/mode fields discovered — 2026-09-27
+
+Target DB inspection of the 12 persisted `LatestStateSnapshot` responses confirms that `state/latest/v1` exposes configuration/operating fields not present in the historical gather catalog.
+
+Confirmed current-state keys include:
+- `chargingPriorityOrder = 2`;
+- `pvEnergyFeedingPriority = 1`;
+- `workingMode = 1`;
+- `outputModel = 0`;
+- `mode = B`;
+- `acChargingSwitch = 0`;
+- `solarChargingSwitch = 0/1`;
+- `chargingMainSwitch = 0/1`;
+- `powerSupplyFromPVToLoadInACState = 0`;
+- `mainsCurrentFlowDirection = +`.
+
+This is important:
+- current mode/priority information **is available** from Solar of Things;
+- it is simply not part of the ordinary historical 87-key gather catalog;
+- exact numeric enum mapping is still unresolved and must not be guessed;
+- future current snapshots should preserve these fields and can establish a local mode/config history.
+
+Canonical detailed investigation:
+`SOURCE_ATTRIBUTION_INVESTIGATION_2026-09-27.md`, §17.
+
+Immediate next evidence step:
+- inspect the full JSON objects for the candidate priority/mode fields to see whether `valueDisplay`/labels/enums are already present in saved snapshots.
