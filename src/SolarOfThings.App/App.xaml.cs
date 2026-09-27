@@ -63,6 +63,7 @@ public partial class App : Application
         builder.Services.AddSingleton<EnergyAggregationTableService>();
         builder.Services.AddSingleton<ReportPresetStore>();
         builder.Services.AddSingleton<FamilyReportAnalysisService>();
+        builder.Services.AddSingleton<SourceAttributionService>();
         builder.Services.AddSingleton<EnergyReportExportService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();

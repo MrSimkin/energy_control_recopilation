@@ -1174,3 +1174,37 @@ No write/config mutation endpoint is used.
 The direct configuration read is classified by the research corpus as ACTIVE_DEVICE_READ: it can ask the device to report current configuration but does not write configuration.
 
 Commissioning also now preserves successful EnergyFlow JSON instead of discarding it after setting capability status.
+
+
+## Dynamic household source-attribution engine — implementation checkpoint — 2026-09-27
+
+A new reporting service is introduced:
+- `SourceAttributionService`;
+- rule version `hpvinv02.source-attribution.v1`.
+
+It derives, per selected report aggregation bucket:
+- direct Solar → House kWh;
+- Battery → House kWh;
+- Grid/Enel → House kWh;
+- measured house energy that remains unattributed;
+- attribution coverage of observed house energy;
+- observed-time coverage;
+- ending battery SOC;
+- estimated battery stored energy at bucket end using configured usable kWh;
+- balance residual diagnostics.
+
+Evidence policy:
+- does NOT assume today's SBU/OSO/LBU for pre-snapshot history;
+- uses as-of current-mode snapshots only from the point they actually exist;
+- uses as-of historical SOC thresholds where present;
+- uses physical flow inference for older intervals;
+- ambiguous intervals remain unattributed;
+- source components never silently absorb an unresolved residual.
+
+Current-state mode evidence recognized:
+- SBU;
+- OSO;
+- LBU;
+- PV→load-in-AC flag.
+
+This engine is integrated into `EnergyReportData` but visual/chart export wiring is the next step of the same consolidated tranche.

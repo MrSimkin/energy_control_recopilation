@@ -13,16 +13,19 @@ public sealed class EnergyReportExportService
     private readonly EnergyRangeStatisticsService _statistics;
     private readonly EnergyAggregationTableService _aggregation;
     private readonly FamilyReportAnalysisService _familyAnalysis;
+    private readonly SourceAttributionService _sourceAttribution;
     private static int _pdfFontsInitialized;
 
     public EnergyReportExportService(
         EnergyRangeStatisticsService statistics,
         EnergyAggregationTableService aggregation,
-        FamilyReportAnalysisService familyAnalysis)
+        FamilyReportAnalysisService familyAnalysis,
+        SourceAttributionService sourceAttribution)
     {
         _statistics = statistics;
         _aggregation = aggregation;
         _familyAnalysis = familyAnalysis;
+        _sourceAttribution = sourceAttribution;
     }
 
     public EnergyReportData Build(EnergyReportRequest request)
@@ -40,12 +43,19 @@ public sealed class EnergyReportExportService
             request.Aggregation);
 
         var family = _familyAnalysis.Analyze(request);
+        var attribution = _sourceAttribution.Get(
+            request.DeviceId,
+            request.StartUtc,
+            request.EndUtc,
+            request.TimeZoneId,
+            request.Aggregation);
 
         return new EnergyReportData(
             request,
             summary,
             table,
             family,
+            attribution,
             DateTimeOffset.UtcNow);
     }
 
