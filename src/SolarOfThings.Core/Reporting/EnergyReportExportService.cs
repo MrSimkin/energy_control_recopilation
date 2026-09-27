@@ -620,6 +620,133 @@ public sealed class EnergyReportExportService
                 SelectedDayCount(report)));
     }
 
+    private static void AddGridUsePdf(
+        Section section,
+        EnergyReportData report)
+    {
+        var days = BuildGridUseDays(report);
+        var mixedDays = days.Count(item => item.Kind == GridUseDayKind.Mixed);
+        var nearExclusiveDays = days.Count(item => item.Kind == GridUseDayKind.NearExclusive);
+        var reserveDays = days.Count(item => item.HasReserveGridEpisode);
+
+        var cards = section.AddTable();
+        cards.Borders.Width = 0;
+        cards.AddColumn(Unit.FromCentimeter(4.05));
+        cards.AddColumn(Unit.FromCentimeter(4.05));
+        cards.AddColumn(Unit.FromCentimeter(4.05));
+        cards.AddColumn(Unit.FromCentimeter(4.05));
+        var row = cards.AddRow();
+
+        AddPdfFamilyCard(
+            row.Cells[0],
+            L(report, "DÍAS CON ENEL → CASA", "DAYS WITH UTILITY → HOME"),
+            days.Count.ToString("N0"),
+            string.Format(
+                L(report, "de {0} días del período", "of {0} days in the period"),
+                SelectedDayCount(report)),
+            Colors.AliceBlue,
+            16);
+        AddPdfFamilyCard(
+            row.Cells[1],
+            L(report, "APORTE MIXTO EN EL DÍA", "MIXED SOURCES IN THE DAY"),
+            mixedDays.ToString("N0"),
+            L(
+                report,
+                "Varias fuentes aportaron dentro del día; no implica simultaneidad.",
+                "Several sources contributed within the day; this does not imply simultaneity."),
+            Colors.AliceBlue,
+            16);
+        AddPdfFamilyCard(
+            row.Cells[2],
+            L(report, "CASI SÓLO ENEL", "NEARLY ALL UTILITY"),
+            nearExclusiveDays.ToString("N0"),
+            L(
+                report,
+                "Enel cubrió al menos 99% del consumo observado del día.",
+                "Utility supplied at least 99% of observed household consumption that day."),
+            Colors.AliceBlue,
+            16);
+        AddPdfFamilyCard(
+            row.Cells[3],
+            L(report, "CON RESERVA + RED NOCTURNA", "WITH NIGHT RESERVE + GRID"),
+            reserveDays.ToString("N0"),
+            L(
+                report,
+                "Subconjunto de los días con Enel.",
+                "Subset of days with utility contribution."),
+            Colors.AliceBlue,
+            16);
+
+        var explanation = section.AddParagraph(
+            L(
+                report,
+                "Esta página cuenta días en los que Enel aportó efectivamente al consumo de la casa (Enel → Casa). Es una pregunta distinta del detector “quedamos cortos”, que sólo busca episodios nocturnos de batería en reserva.",
+                "This page counts days when utility power actually contributed to household consumption (Utility → Home). This is a different question from the “battery ran short” detector, which only looks for nighttime battery-reserve episodes."));
+        explanation.Format.SpaceBefore = Unit.FromPoint(7);
+        explanation.Format.SpaceAfter = Unit.FromPoint(6);
+        explanation.Format.Font.Size = 8;
+        explanation.Format.Font.Italic = true;
+
+        if (days.Count == 0)
+        {
+            section.AddParagraph(
+                L(
+                    report,
+                    "No se detectaron días con aporte de Enel → Casa en el período observable.",
+                    "No days with Utility → Home contribution were detected in the observable period."));
+            return;
+        }
+
+        var notable = days
+            .Where(item => item.Kind == GridUseDayKind.NearExclusive)
+            .OrderByDescending(item => item.GridSharePercent)
+            .FirstOrDefault();
+        if (notable is not null)
+        {
+            var callout = section.AddParagraph(
+                string.Format(
+                    L(
+                        report,
+                        "Caso especial: {0} — Enel → Casa {1:N2} kWh de {2:N2} kWh observados ({3:N1}%).",
+                        "Special case: {0} — Utility → Home {1:N2} kWh out of {2:N2} observed kWh ({3:N1}%)."),
+                    notable.LocalLabel,
+                    notable.GridToHouseKwh,
+                    notable.ObservedHouseKwh,
+                    notable.GridSharePercent));
+            callout.Format.Font.Bold = true;
+            callout.Format.SpaceAfter = Unit.FromPoint(6);
+        }
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.AddColumn(Unit.FromCentimeter(2.7));
+        table.AddColumn(Unit.FromCentimeter(3.0));
+        table.AddColumn(Unit.FromCentimeter(2.3));
+        table.AddColumn(Unit.FromCentimeter(5.0));
+        table.AddColumn(Unit.FromCentimeter(3.0));
+
+        var header = table.AddRow();
+        header.Format.Font.Bold = true;
+        header.Cells[0].AddParagraph(L(report, "Fecha", "Date"));
+        header.Cells[1].AddParagraph(L(report, "Enel → Casa", "Utility → Home"));
+        header.Cells[2].AddParagraph(L(report, "% casa", "% home"));
+        header.Cells[3].AddParagraph(L(report, "Tipo de día", "Day type"));
+        header.Cells[4].AddParagraph(L(report, "Reserva+red", "Reserve+grid"));
+
+        foreach (var item in days)
+        {
+            var dataRow = table.AddRow();
+            dataRow.Cells[0].AddParagraph(item.LocalLabel);
+            dataRow.Cells[1].AddParagraph($"{item.GridToHouseKwh:N2} kWh");
+            dataRow.Cells[2].AddParagraph($"{item.GridSharePercent:N1}%");
+            dataRow.Cells[3].AddParagraph(GridUseKindLabel(report, item.Kind));
+            dataRow.Cells[4].AddParagraph(
+                item.HasReserveGridEpisode
+                    ? L(report, "Sí", "Yes")
+                    : L(report, "No", "No"));
+        }
+    }
+
     private static void AddFamilyEventsPdf(
         Section section,
         EnergyReportData report)
