@@ -1337,6 +1337,15 @@
                                            Margin="0,0,0,10"/>
                                 <WrapPanel>
                                     <StackPanel Margin="0,0,14,10">
+                                        <TextBlock Text="{DynamicResource Reports.ReportName}"
+                                                   Foreground="#6C757D"
+                                                   FontSize="12"/>
+                                        <TextBox x:Name="ReportTitleTextBox"
+                                                 Width="260"
+                                                 MinHeight="28"
+                                                 VerticalContentAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,14,10">
                                         <TextBlock Text="{DynamicResource Reports.Type}"
                                                    Foreground="#6C757D"
                                                    FontSize="12"/>
@@ -1372,16 +1381,42 @@
                                                    Foreground="#6C757D"
                                                    FontSize="12"/>
                                         <DatePicker x:Name="ReportFromDatePicker"
-                                                    Width="145"
+                                                    Width="190"
                                                     SelectedDateChanged="ReportDatePicker_SelectedDateChanged"/>
+                                        <WrapPanel Margin="0,4,0,0">
+                                            <ComboBox x:Name="ReportFromMonthSelector"
+                                                      Width="108"
+                                                      DisplayMemberPath="Value"
+                                                      SelectedValuePath="Key"
+                                                      ToolTip="{DynamicResource Reports.Month}"
+                                                      SelectionChanged="ReportDatePartSelector_SelectionChanged"/>
+                                            <ComboBox x:Name="ReportFromYearSelector"
+                                                      Width="76"
+                                                      Margin="6,0,0,0"
+                                                      ToolTip="{DynamicResource Reports.Year}"
+                                                      SelectionChanged="ReportDatePartSelector_SelectionChanged"/>
+                                        </WrapPanel>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,14,10">
                                         <TextBlock Text="{DynamicResource Analysis.To}"
                                                    Foreground="#6C757D"
                                                    FontSize="12"/>
                                         <DatePicker x:Name="ReportToDatePicker"
-                                                    Width="145"
+                                                    Width="190"
                                                     SelectedDateChanged="ReportDatePicker_SelectedDateChanged"/>
+                                        <WrapPanel Margin="0,4,0,0">
+                                            <ComboBox x:Name="ReportToMonthSelector"
+                                                      Width="108"
+                                                      DisplayMemberPath="Value"
+                                                      SelectedValuePath="Key"
+                                                      ToolTip="{DynamicResource Reports.Month}"
+                                                      SelectionChanged="ReportDatePartSelector_SelectionChanged"/>
+                                            <ComboBox x:Name="ReportToYearSelector"
+                                                      Width="76"
+                                                      Margin="6,0,0,0"
+                                                      ToolTip="{DynamicResource Reports.Year}"
+                                                      SelectionChanged="ReportDatePartSelector_SelectionChanged"/>
+                                        </WrapPanel>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,14,10">
                                         <TextBlock Text="{DynamicResource Analysis.Aggregation}"
@@ -1465,10 +1500,23 @@
                                             Margin="8,0,0,0"
                                             Click="ReportExportPdf_Click"/>
                                 </StackPanel>
+                                <TextBlock x:Name="ReportExportProgressLabel"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#495057"
+                                           Margin="0,12,0,4"
+                                           TextWrapping="Wrap"
+                                           Visibility="Collapsed"/>
+                                <ProgressBar x:Name="ReportExportProgressBar"
+                                             Height="16"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="0"
+                                             Visibility="Collapsed"/>
                                 <TextBlock x:Name="ReportStatusText"
                                            FontSize="12"
                                            Foreground="#6C757D"
-                                           Margin="0,12,0,0"
+                                           Margin="0,8,0,0"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>

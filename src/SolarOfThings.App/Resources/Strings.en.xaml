@@ -177,7 +177,8 @@
     <sys:String x:Key="Page.Reports.Placeholder">Reusable reports and exports.</sys:String>
     <sys:String x:Key="Reports.Heading">Reports</sys:String>
     <sys:String x:Key="Reports.Intro">Create a reusable report from the same calculations and coverage rules used by History &amp; charts. Missing periods stay visible; zero is never invented.</sys:String>
-    <sys:String x:Key="Reports.PeriodHeading">Type, period and detail</sys:String>
+    <sys:String x:Key="Reports.PeriodHeading">Configure and generate the report</sys:String>
+    <sys:String x:Key="Reports.ReportName">Report name</sys:String>
     <sys:String x:Key="Reports.Type">Report type</sys:String>
     <sys:String x:Key="Reports.Type.Simple">Simple summary</sys:String>
     <sys:String x:Key="Reports.Type.Detailed">Detailed report</sys:String>
@@ -191,13 +192,15 @@
     <sys:String x:Key="Reports.Range.Rolling12Months">Latest 12 months in history</sys:String>
     <sys:String x:Key="Reports.Range.YearToDate">Year to latest saved data</sys:String>
     <sys:String x:Key="Reports.Range.Custom">Custom range</sys:String>
+    <sys:String x:Key="Reports.Month">Month</sys:String>
+    <sys:String x:Key="Reports.Year">Year</sys:String>
     <sys:String x:Key="Reports.UpdateSelection">Update selection</sys:String>
     <sys:String x:Key="Reports.PresetsHeading">Saved presets</sys:String>
-    <sys:String x:Key="Reports.PresetsIntro">Save the name, relative or custom period, and aggregation level so the same report type can be generated again.</sys:String>
+    <sys:String x:Key="Reports.PresetsIntro">A preset stores only configuration (type, period and aggregation) for later reuse. The report name is defined above and is independent from the preset.</sys:String>
     <sys:String x:Key="Reports.SavePreset">Save preset</sys:String>
     <sys:String x:Key="Reports.DeletePreset">Delete</sys:String>
     <sys:String x:Key="Reports.ExportHeading">Export</sys:String>
-    <sys:String x:Key="Reports.ExportIntro">Excel includes Summary, Detail and Quality sheets. PDF creates a printable summary with coverage and a compact table.</sys:String>
+    <sys:String x:Key="Reports.ExportIntro">Export the current configuration directly. Excel prioritizes detail and exploration; PDF prioritizes clear reading and printing.</sys:String>
     <sys:String x:Key="Reports.ExportExcel">Export Excel (.xlsx)</sys:String>
     <sys:String x:Key="Reports.ExportPdf">Export PDF</sys:String>
     <sys:String x:Key="Reports.NoProfile">Connect and configure the equipment before generating reports.</sys:String>
@@ -212,6 +215,10 @@
     <sys:String x:Key="Reports.PresetDeleted">Preset deleted.</sys:String>
     <sys:String x:Key="Reports.SaveTitle">Save report</sys:String>
     <sys:String x:Key="Reports.ExportSaved">Report saved to: {0}</sys:String>
+    <sys:String x:Key="Reports.ExportPreparing">1/3 · Preparing report data…</sys:String>
+    <sys:String x:Key="Reports.ExportGenerating">2/3 · Generating the file…</sys:String>
+    <sys:String x:Key="Reports.ExportComplete">3/3 · Export completed ✓</sys:String>
+    <sys:String x:Key="Reports.ExportFailed">The export could not be completed.</sys:String>
 
     <sys:String x:Key="Page.Data.Title">Data</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Local data, synchronization and historical coverage</sys:String>

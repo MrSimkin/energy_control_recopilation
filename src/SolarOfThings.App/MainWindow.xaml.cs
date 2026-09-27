@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Globalization;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
     private bool _suppressAnalysisRangeSelection;
     private bool _suppressReportRangeSelection;
     private bool _suppressReportPresetSelection;
+    private bool _suppressReportDatePartSelection;
     private IReadOnlyList<EnergyAggregationRow> _analysisAggregationRows =
         Array.Empty<EnergyAggregationRow>();
     private double[] _analysisChartPositions = Array.Empty<double>();
@@ -99,6 +101,7 @@ public partial class MainWindow : Window
         _suppressReportRangeSelection = false;
         ReportAggregationSelector.SelectedValue = "Day";
         ReportTypeSelector.SelectedValue = "SimpleEnergy";
+        ReportTitleTextBox.Text = GetDefaultReportTitle(ReportKind.SimpleEnergy);
 
         AutoConnectCheckBox.IsChecked = GetAutoConnectEnabled();
         RefreshConnectionStatus();
@@ -1677,6 +1680,12 @@ public partial class MainWindow : Window
 
         ReportExportExcelButton.IsEnabled = true;
         ReportExportPdfButton.IsEnabled = true;
+        InitializeReportDatePartSelectors(profile, coverage);
+        SyncReportDatePartSelectorsFromDates();
+        if (string.IsNullOrWhiteSpace(ReportTitleTextBox.Text))
+        {
+            ReportTitleTextBox.Text = GetDefaultReportTitle(GetReportKind());
+        }
         LoadSavedReportPresets();
         UpdateReportSelectionSummary();
     }
@@ -1737,7 +1746,124 @@ public partial class MainWindow : Window
         _suppressReportRangeSelection = true;
         ReportRangePresetSelector.SelectedValue = "custom";
         _suppressReportRangeSelection = false;
+        SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
+    }
+
+    private void ReportDatePartSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_suppressReportDatePartSelection || !IsInitialized)
+        {
+            return;
+        }
+
+        var isFrom =
+            ReferenceEquals(sender, ReportFromMonthSelector) ||
+            ReferenceEquals(sender, ReportFromYearSelector);
+
+        var picker = isFrom ? ReportFromDatePicker : ReportToDatePicker;
+        var monthSelector =
+            isFrom ? ReportFromMonthSelector : ReportToMonthSelector;
+        var yearSelector =
+            isFrom ? ReportFromYearSelector : ReportToYearSelector;
+
+        if (monthSelector.SelectedValue is not int month ||
+            yearSelector.SelectedItem is not int year)
+        {
+            return;
+        }
+
+        var current = picker.SelectedDate ?? DateTime.Today;
+        var day = Math.Min(
+            current.Day,
+            DateTime.DaysInMonth(year, month));
+
+        _suppressReportRangeSelection = true;
+        picker.SelectedDate = new DateTime(year, month, day);
+        ReportRangePresetSelector.SelectedValue = "custom";
+        _suppressReportRangeSelection = false;
+
+        SyncReportDatePartSelectorsFromDates();
+        UpdateReportSelectionSummary();
+    }
+
+    private void InitializeReportDatePartSelectors(
+        CommissioningProfile profile,
+        HistoryCoverageSummary coverage)
+    {
+        if (!coverage.FirstSampleAtUtc.HasValue ||
+            !coverage.LastSampleAtUtc.HasValue)
+        {
+            return;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+        var first = SolarApiTime.GetLocalDate(
+            coverage.FirstSampleAtUtc.Value,
+            timeZone);
+        var last = SolarApiTime.GetLocalDate(
+            coverage.LastSampleAtUtc.Value,
+            timeZone);
+
+        var culture = CultureInfo.GetCultureInfo(
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase)
+                ? "es-CL"
+                : "en-US");
+
+        var months = Enumerable.Range(1, 12)
+            .Select(month => new KeyValuePair<int, string>(
+                month,
+                culture.TextInfo.ToTitleCase(
+                    culture.DateTimeFormat.GetMonthName(month))))
+            .ToArray();
+        var years = Enumerable.Range(
+                first.Year,
+                Math.Max(1, last.Year - first.Year + 1))
+            .ToArray();
+
+        _suppressReportDatePartSelection = true;
+        ReportFromMonthSelector.ItemsSource = months;
+        ReportToMonthSelector.ItemsSource = months;
+        ReportFromYearSelector.ItemsSource = years;
+        ReportToYearSelector.ItemsSource = years;
+        _suppressReportDatePartSelection = false;
+    }
+
+    private void SyncReportDatePartSelectorsFromDates()
+    {
+        if (ReportFromMonthSelector is null ||
+            ReportFromYearSelector is null ||
+            ReportToMonthSelector is null ||
+            ReportToYearSelector is null)
+        {
+            return;
+        }
+
+        _suppressReportDatePartSelection = true;
+
+        if (ReportFromDatePicker.SelectedDate.HasValue)
+        {
+            ReportFromMonthSelector.SelectedValue =
+                ReportFromDatePicker.SelectedDate.Value.Month;
+            ReportFromYearSelector.SelectedItem =
+                ReportFromDatePicker.SelectedDate.Value.Year;
+        }
+
+        if (ReportToDatePicker.SelectedDate.HasValue)
+        {
+            ReportToMonthSelector.SelectedValue =
+                ReportToDatePicker.SelectedDate.Value.Month;
+            ReportToYearSelector.SelectedItem =
+                ReportToDatePicker.SelectedDate.Value.Year;
+        }
+
+        _suppressReportDatePartSelection = false;
     }
 
     private void ReportAggregationSelector_SelectionChanged(
@@ -1754,10 +1880,24 @@ public partial class MainWindow : Window
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (IsInitialized)
+        if (!IsInitialized)
         {
-            UpdateReportSelectionSummary();
+            return;
         }
+
+        var currentTitle = ReportTitleTextBox.Text?.Trim() ?? string.Empty;
+        var knownDefaults = Enum.GetValues<ReportKind>()
+            .Select(GetDefaultReportTitle)
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(currentTitle) ||
+            knownDefaults.Contains(currentTitle))
+        {
+            ReportTitleTextBox.Text =
+                GetDefaultReportTitle(GetReportKind());
+        }
+
+        UpdateReportSelectionSummary();
     }
 
     private void ReportRefreshSelection_Click(
@@ -1908,9 +2048,9 @@ public partial class MainWindow : Window
 
         var kind = GetReportKind();
         var title =
-            string.IsNullOrWhiteSpace(ReportPresetNameTextBox.Text)
+            string.IsNullOrWhiteSpace(ReportTitleTextBox.Text)
                 ? GetDefaultReportTitle(kind)
-                : ReportPresetNameTextBox.Text.Trim();
+                : ReportTitleTextBox.Text.Trim();
 
         return new EnergyReportRequest(
             title,
@@ -2049,21 +2189,21 @@ public partial class MainWindow : Window
             _localization.GetString("Reports.PresetDeleted");
     }
 
-    private void ReportExportExcel_Click(
+    private async void ReportExportExcel_Click(
         object sender,
         RoutedEventArgs e)
     {
-        ExportEnergyReport("xlsx");
+        await ExportEnergyReportAsync("xlsx");
     }
 
-    private void ReportExportPdf_Click(
+    private async void ReportExportPdf_Click(
         object sender,
         RoutedEventArgs e)
     {
-        ExportEnergyReport("pdf");
+        await ExportEnergyReportAsync("pdf");
     }
 
-    private void ExportEnergyReport(string format)
+    private async Task ExportEnergyReportAsync(string format)
     {
         var request = GetCurrentReportRequest();
         if (request is null)
@@ -2081,7 +2221,7 @@ public partial class MainWindow : Window
             DefaultExt = extension,
             AddExtension = true,
             FileName =
-                $"SolarEnergy_{request.LocalStartDate:yyyyMMdd}_{request.LocalEndDate:yyyyMMdd}.{extension}"
+                $"{SafeReportFileStem(request.Title)}_{request.LocalStartDate:yyyyMMdd}_{request.LocalEndDate:yyyyMMdd}.{extension}"
         };
 
         if (dialog.ShowDialog(this) != true)
@@ -2089,27 +2229,51 @@ public partial class MainWindow : Window
             return;
         }
 
+        ReportExportExcelButton.IsEnabled = false;
+        ReportExportPdfButton.IsEnabled = false;
+        ReportExportProgressLabel.Visibility = Visibility.Visible;
+        ReportExportProgressBar.Visibility = Visibility.Visible;
+        ReportExportProgressBar.IsIndeterminate = false;
+        ReportExportProgressBar.Value = 15;
+        ReportExportProgressLabel.Text =
+            _localization.GetString("Reports.ExportPreparing");
+        ReportStatusText.Text = string.Empty;
+
         try
         {
             var exporter =
                 _services.GetRequiredService<EnergyReportExportService>();
-            var report = exporter.Build(request);
 
-            if (format == "xlsx")
-            {
-                exporter.ExportExcel(dialog.FileName, report);
-            }
-            else
-            {
-                exporter.ExportPdf(dialog.FileName, report);
-            }
+            var report = await Task.Run(() => exporter.Build(request));
 
+            ReportExportProgressBar.Value = 55;
+            ReportExportProgressLabel.Text =
+                _localization.GetString("Reports.ExportGenerating");
+
+            await Task.Run(() =>
+            {
+                if (format == "xlsx")
+                {
+                    exporter.ExportExcel(dialog.FileName, report);
+                }
+                else
+                {
+                    exporter.ExportPdf(dialog.FileName, report);
+                }
+            });
+
+            ReportExportProgressBar.Value = 100;
+            ReportExportProgressLabel.Text =
+                _localization.GetString("Reports.ExportComplete");
             ReportStatusText.Text = string.Format(
                 _localization.GetString("Reports.ExportSaved"),
                 dialog.FileName);
         }
         catch (Exception ex)
         {
+            ReportExportProgressBar.Value = 100;
+            ReportExportProgressLabel.Text =
+                _localization.GetString("Reports.ExportFailed");
             ReportStatusText.Text = ex.Message;
             MessageBox.Show(
                 ex.Message,
@@ -2117,6 +2281,29 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+        finally
+        {
+            ReportExportExcelButton.IsEnabled = true;
+            ReportExportPdfButton.IsEnabled = true;
+        }
+    }
+
+    private static string SafeReportFileStem(string title)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = title
+            .Select(ch => invalid.Contains(ch) ? '_' : ch)
+            .ToArray();
+        var stem = new string(chars)
+            .Trim()
+            .Trim('.');
+
+        if (string.IsNullOrWhiteSpace(stem))
+        {
+            return "SolarEnergy";
+        }
+
+        return stem.Length <= 72 ? stem : stem[..72].TrimEnd();
     }
 
     private async void UpdateData_Click(object sender, RoutedEventArgs e)

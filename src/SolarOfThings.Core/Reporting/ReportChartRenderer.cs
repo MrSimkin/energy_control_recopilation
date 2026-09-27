@@ -1,3 +1,4 @@
+using System.Globalization;
 using ScottPlot;
 
 namespace SolarOfThings.Core.Reporting;
@@ -11,13 +12,13 @@ internal sealed class ReportChartRenderer
         var paths = new[]
         {
             Path.Combine(directory, "01-consumption-sources.png"),
-            Path.Combine(directory, "02-energy-and-battery.png"),
-            Path.Combine(directory, "03-house-and-sources.png")
+            Path.Combine(directory, "02-solar-vs-home.png"),
+            Path.Combine(directory, "03-stored-battery.png")
         };
 
         RenderConsumptionSources(report, paths[0]);
-        RenderEnergyAndBattery(report, paths[1]);
-        RenderHouseAndSources(report, paths[2]);
+        RenderSolarVsHome(report, paths[1]);
+        RenderStoredBattery(report, paths[2]);
         return paths;
     }
 
@@ -40,7 +41,10 @@ internal sealed class ReportChartRenderer
             var nextBase = 0.0;
             for (var series = 0; series < values.Length; series++)
             {
-                if (values[series] <= 0) continue;
+                if (values[series] <= 0)
+                {
+                    continue;
+                }
 
                 plot.Add.Bar(new Bar
                 {
@@ -69,22 +73,25 @@ internal sealed class ReportChartRenderer
         ApplyCommonAxes(
             plot,
             rows.Select(row => row.LocalLabel).ToArray(),
-            IsSpanish(report) ? "Consumo de la casa por origen" : "Household consumption by source");
+            IsSpanish(report)
+                ? "De dónde vino el consumo de la casa"
+                : "Where household consumption came from");
 
         plot.YLabel("kWh");
         plot.ShowLegend(Alignment.UpperRight);
-        plot.Axes.Margins(bottom: 0, top: .20);
-        plot.SavePng(path, 1100, 330);
+        plot.Axes.Margins(left: .03, right: .03, bottom: .08, top: .38);
+        plot.SavePng(path, 1200, 520);
     }
 
-    private static void RenderEnergyAndBattery(EnergyReportData report, string path)
+    private static void RenderSolarVsHome(EnergyReportData report, string path)
     {
         var rows = report.Attribution.Buckets.ToArray();
         var table = report.Table.Rows.ToDictionary(row => row.StartUtc);
-        var xs = Enumerable.Range(0, rows.Length).Select(index => (double)index).ToArray();
+        var xs = Enumerable.Range(0, rows.Length)
+            .Select(index => (double)index)
+            .ToArray();
         var solar = new double[rows.Length];
         var home = new double[rows.Length];
-        var stored = new double[rows.Length];
 
         for (var index = 0; index < rows.Length; index++)
         {
@@ -98,87 +105,104 @@ internal sealed class ReportChartRenderer
                 solar[index] = double.NaN;
                 home[index] = double.NaN;
             }
-
-            stored[index] = rows[index].BatteryStoredEndingKwh ?? double.NaN;
         }
 
         var plot = new Plot();
         var solarLine = plot.Add.Scatter(xs, solar);
-        solarLine.LegendText = IsSpanish(report) ? "Solar producido" : "Solar produced";
+        solarLine.LegendText =
+            IsSpanish(report) ? "Solar producido" : "Solar produced";
         var homeLine = plot.Add.Scatter(xs, home);
-        homeLine.LegendText = IsSpanish(report) ? "Consumo de la casa" : "Home consumption";
-        var batteryLine = plot.Add.Scatter(xs, stored);
-        batteryLine.LegendText = IsSpanish(report)
-            ? "Energía guardada en batería (estimada)"
-            : "Energy stored in battery (estimate)";
+        homeLine.LegendText =
+            IsSpanish(report) ? "Consumo de la casa" : "Home consumption";
 
         ApplyCommonAxes(
             plot,
             rows.Select(row => row.LocalLabel).ToArray(),
             IsSpanish(report)
-                ? "Solar, consumo y energía guardada en batería"
-                : "Solar, consumption and energy stored in battery");
+                ? "Producción solar y consumo de la casa"
+                : "Solar production and household consumption");
 
         plot.YLabel("kWh");
         plot.ShowLegend(Alignment.UpperRight);
-        plot.SavePng(path, 1100, 330);
+        plot.SavePng(path, 1200, 520);
     }
 
-    private static void RenderHouseAndSources(EnergyReportData report, string path)
+    private static void RenderStoredBattery(EnergyReportData report, string path)
     {
         var rows = report.Attribution.Buckets.ToArray();
-        var xs = Enumerable.Range(0, rows.Length).Select(index => (double)index).ToArray();
+        var xs = Enumerable.Range(0, rows.Length)
+            .Select(index => (double)index)
+            .ToArray();
+        var stored = rows
+            .Select(row => row.BatteryStoredEndingKwh ?? double.NaN)
+            .ToArray();
+
         var plot = new Plot();
-
-        var home = plot.Add.Scatter(
-            xs,
-            rows.Select(row => row.ObservedCoveragePercent > 0 ? row.ObservedHouseKwh : double.NaN).ToArray());
-        home.LegendText = IsSpanish(report) ? "Consumo de la casa" : "Home consumption";
-
-        var solar = plot.Add.Scatter(
-            xs,
-            rows.Select(row => row.AttributionCoverageOfObservedPercent > 0 ? row.SolarToHouseKwh : double.NaN).ToArray());
-        solar.LegendText = IsSpanish(report) ? "Solar → casa" : "Solar → home";
-
-        var battery = plot.Add.Scatter(
-            xs,
-            rows.Select(row => row.AttributionCoverageOfObservedPercent > 0 ? row.BatteryToHouseKwh : double.NaN).ToArray());
-        battery.LegendText = IsSpanish(report) ? "Batería → casa" : "Battery → home";
-
-        var grid = plot.Add.Scatter(
-            xs,
-            rows.Select(row => row.AttributionCoverageOfObservedPercent > 0 ? row.GridToHouseKwh : double.NaN).ToArray());
-        grid.LegendText = IsSpanish(report) ? "Enel → casa" : "Utility → home";
+        plot.Add.Scatter(xs, stored);
 
         ApplyCommonAxes(
             plot,
             rows.Select(row => row.LocalLabel).ToArray(),
             IsSpanish(report)
-                ? "Consumo de la casa y origen de la energía"
-                : "Household consumption and energy sources");
+                ? "Energía estimada guardada en batería al cierre"
+                : "Estimated battery energy stored at period end");
 
         plot.YLabel("kWh");
-        plot.ShowLegend(Alignment.UpperRight);
-        plot.SavePng(path, 1100, 330);
+        plot.SavePng(path, 1200, 520);
     }
 
-    private static void ApplyCommonAxes(Plot plot, IReadOnlyList<string> labels, string title)
+    private static void ApplyCommonAxes(
+        Plot plot,
+        IReadOnlyList<string> labels,
+        string title)
     {
         plot.Title(title);
 
         var ticks = new ScottPlot.TickGenerators.NumericManual();
-        var step = Math.Max(1, (int)Math.Ceiling(labels.Count / 12.0));
+        var step = Math.Max(
+            1,
+            (int)Math.Ceiling(labels.Count / 8.0));
 
         for (var index = 0; index < labels.Count; index += step)
-            ticks.AddMajor(index, labels[index]);
+        {
+            ticks.AddMajor(index, FormatAxisLabel(labels[index]));
+        }
 
-        if (labels.Count > 1 && (labels.Count - 1) % step != 0)
-            ticks.AddMajor(labels.Count - 1, labels[labels.Count - 1]);
+        if (labels.Count > 1 &&
+            (labels.Count - 1) % step != 0)
+        {
+            ticks.AddMajor(
+                labels.Count - 1,
+                FormatAxisLabel(labels[^1]));
+        }
 
         plot.Axes.Bottom.TickGenerator = ticks;
-        plot.Axes.Margins(left: .03, right: .03, bottom: .08, top: .15);
+        plot.Axes.Margins(
+            left: .03,
+            right: .03,
+            bottom: .08,
+            top: .28);
+    }
+
+    private static string FormatAxisLabel(string label)
+    {
+        if (DateOnly.TryParseExact(
+                label,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var date))
+        {
+            return date.ToString("dd-MM", CultureInfo.InvariantCulture);
+        }
+
+        return label.Length > 12
+            ? label[..12]
+            : label;
     }
 
     private static bool IsSpanish(EnergyReportData report) =>
-        report.Request.LanguageCode.StartsWith("es", StringComparison.OrdinalIgnoreCase);
+        report.Request.LanguageCode.StartsWith(
+            "es",
+            StringComparison.OrdinalIgnoreCase);
 }

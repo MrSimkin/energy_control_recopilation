@@ -271,7 +271,7 @@ public sealed class EnergyReportExportService
         AddFamilyReportChartsPdf(section, report, familyCharts);
 
         var pageThree = section.AddParagraph(
-            L(report, "Página 3 — Patrones y eventos del período", "Page 3 — Patterns and events for the selected period"));
+            L(report, "Página 4 — Patrones y eventos del período", "Page 4 — Patterns and events for the selected period"));
         pageThree.Format.PageBreakBefore = true;
         pageThree.Format.Font.Size = 15;
         pageThree.Format.Font.Bold = true;
@@ -281,7 +281,7 @@ public sealed class EnergyReportExportService
         AddFamilyEventsPdf(section, report);
 
         var annex = section.AddParagraph(
-            L(report, "Anexo técnico — calidad y glosario", "Technical annex — quality and glossary"));
+            L(report, "Página 5 — Anexo técnico: calidad y glosario", "Page 5 — Technical annex: quality and glossary"));
         annex.Format.PageBreakBefore = true;
         annex.Format.Font.Size = 15;
         annex.Format.Font.Bold = true;
@@ -1296,22 +1296,71 @@ public sealed class EnergyReportExportService
             return;
         }
 
-        foreach (var path in chartPaths.Take(3))
-        {
-            var image = section.AddImage(path);
-            image.LockAspectRatio = true;
-            image.Width = Unit.FromCentimeter(16);
-            image.WrapFormat.DistanceTop = Unit.FromPoint(5);
-            image.WrapFormat.DistanceBottom = Unit.FromPoint(5);
-        }
-
-        var note = section.AddParagraph(
+        var sourceCaption = section.AddParagraph(
             L(
                 report,
-                "Los tres gráficos usan la misma agrupación seleccionada para el reporte. La energía sin atribuir se mantiene visible en vez de asignarse artificialmente a una fuente.",
-                "All three charts use the report's selected aggregation. Unattributed energy remains visible instead of being artificially assigned to a source."));
-        note.Format.Font.Size = 8;
-        note.Format.Font.Italic = true;
+                "Origen del consumo por período",
+                "Household-source mix by period"));
+        sourceCaption.Format.Font.Bold = true;
+        sourceCaption.Format.SpaceBefore = Unit.FromPoint(8);
+        sourceCaption.Format.SpaceAfter = Unit.FromPoint(3);
+
+        var sourceImage = section.AddImage(chartPaths[0]);
+        sourceImage.LockAspectRatio = true;
+        sourceImage.Width = Unit.FromCentimeter(16.5);
+        sourceImage.WrapFormat.DistanceBottom = Unit.FromPoint(4);
+
+        var sourceNote = section.AddParagraph(
+            L(
+                report,
+                "Cada barra es el consumo de la casa del período y se divide sólo entre las fuentes que pudieron demostrarse. La parte “Sin atribuir” permanece separada.",
+                "Each bar is household consumption for the period, split only among sources supported by evidence. The “Unattributed” portion remains separate."));
+        sourceNote.Format.Font.Size = 8;
+        sourceNote.Format.Font.Italic = true;
+
+        var evolutionHeading = section.AddParagraph(
+            L(
+                report,
+                "Página 3 — Evolución de producción, consumo y batería",
+                "Page 3 — Production, consumption and battery evolution"));
+        evolutionHeading.Format.PageBreakBefore = true;
+        evolutionHeading.Format.Font.Size = 15;
+        evolutionHeading.Format.Font.Bold = true;
+        evolutionHeading.Format.SpaceAfter = Unit.FromPoint(6);
+
+        var solarCaption = section.AddParagraph(
+            L(
+                report,
+                "Producción solar frente al consumo de la casa",
+                "Solar production versus household consumption"));
+        solarCaption.Format.Font.Bold = true;
+        solarCaption.Format.SpaceAfter = Unit.FromPoint(3);
+
+        var solarImage = section.AddImage(chartPaths[1]);
+        solarImage.LockAspectRatio = true;
+        solarImage.Width = Unit.FromCentimeter(16.5);
+        solarImage.WrapFormat.DistanceBottom = Unit.FromPoint(6);
+
+        var batteryCaption = section.AddParagraph(
+            L(
+                report,
+                "Energía estimada guardada en batería al cierre de cada período",
+                "Estimated battery energy stored at the end of each period"));
+        batteryCaption.Format.Font.Bold = true;
+        batteryCaption.Format.SpaceAfter = Unit.FromPoint(3);
+
+        var batteryImage = section.AddImage(chartPaths[2]);
+        batteryImage.LockAspectRatio = true;
+        batteryImage.Width = Unit.FromCentimeter(16.5);
+        batteryImage.WrapFormat.DistanceBottom = Unit.FromPoint(4);
+
+        var evolutionNote = section.AddParagraph(
+            L(
+                report,
+                "Estos gráficos muestran evolución, no reparto de fuentes. La energía guardada es una estimación de capacidad útil configurada × SOC.",
+                "These charts show evolution, not source allocation. Stored energy is estimated as configured usable capacity × SOC."));
+        evolutionNote.Format.Font.Size = 8;
+        evolutionNote.Format.Font.Italic = true;
     }
 
     private static void AddEvolutionSheet(
@@ -1468,6 +1517,30 @@ public sealed class EnergyReportExportService
                     cell.DataType is XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan
                         ? "Aptos Mono"
                         : "Aptos Narrow";
+            }
+
+            used.Style.Alignment.Vertical =
+                XLAlignmentVerticalValues.Center;
+
+            foreach (var row in sheet.RowsUsed())
+            {
+                var longest = row.CellsUsed()
+                    .Select(cell => cell.GetString().Length)
+                    .DefaultIfEmpty(0)
+                    .Max();
+
+                var minimumHeight = longest switch
+                {
+                    > 120 => 44.0,
+                    > 70 => 36.0,
+                    > 35 => 28.0,
+                    _ => 22.0
+                };
+
+                if (row.Height < minimumHeight)
+                {
+                    row.Height = minimumHeight;
+                }
             }
         }
     }

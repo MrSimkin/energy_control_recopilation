@@ -177,7 +177,8 @@
     <sys:String x:Key="Page.Reports.Placeholder">Informes reutilizables y exportaciones.</sys:String>
     <sys:String x:Key="Reports.Heading">Informes</sys:String>
     <sys:String x:Key="Reports.Intro">Crea un informe reutilizable desde los mismos cálculos y coberturas que usa Historial y gráficos. Los huecos de datos permanecen visibles; no se inventan ceros.</sys:String>
-    <sys:String x:Key="Reports.PeriodHeading">Tipo, período y detalle</sys:String>
+    <sys:String x:Key="Reports.PeriodHeading">Configura y genera el informe</sys:String>
+    <sys:String x:Key="Reports.ReportName">Nombre del informe</sys:String>
     <sys:String x:Key="Reports.Type">Tipo de informe</sys:String>
     <sys:String x:Key="Reports.Type.Simple">Resumen simple</sys:String>
     <sys:String x:Key="Reports.Type.Detailed">Informe detallado</sys:String>
@@ -191,13 +192,15 @@
     <sys:String x:Key="Reports.Range.Rolling12Months">Últimos 12 meses del historial</sys:String>
     <sys:String x:Key="Reports.Range.YearToDate">Año hasta el último dato</sys:String>
     <sys:String x:Key="Reports.Range.Custom">Rango personalizado</sys:String>
+    <sys:String x:Key="Reports.Month">Mes</sys:String>
+    <sys:String x:Key="Reports.Year">Año</sys:String>
     <sys:String x:Key="Reports.UpdateSelection">Actualizar selección</sys:String>
     <sys:String x:Key="Reports.PresetsHeading">Presets guardados</sys:String>
-    <sys:String x:Key="Reports.PresetsIntro">Guarda el nombre, período relativo o personalizado y nivel de agregación para volver a generar el mismo tipo de informe.</sys:String>
+    <sys:String x:Key="Reports.PresetsIntro">Un preset guarda sólo la configuración (tipo, período y agrupación) para reutilizarla después. El nombre del informe se define arriba y no depende del preset.</sys:String>
     <sys:String x:Key="Reports.SavePreset">Guardar preset</sys:String>
     <sys:String x:Key="Reports.DeletePreset">Eliminar</sys:String>
     <sys:String x:Key="Reports.ExportHeading">Exportar</sys:String>
-    <sys:String x:Key="Reports.ExportIntro">Excel incluye Resumen, Detalle y Calidad. PDF genera una versión imprimible con resumen, cobertura y tabla compacta.</sys:String>
+    <sys:String x:Key="Reports.ExportIntro">Exporta directamente la configuración actual. Excel prioriza detalle y exploración; PDF prioriza lectura clara e impresión.</sys:String>
     <sys:String x:Key="Reports.ExportExcel">Exportar Excel (.xlsx)</sys:String>
     <sys:String x:Key="Reports.ExportPdf">Exportar PDF</sys:String>
     <sys:String x:Key="Reports.NoProfile">Conecta y configura el equipo antes de generar informes.</sys:String>
@@ -212,6 +215,10 @@
     <sys:String x:Key="Reports.PresetDeleted">Preset eliminado.</sys:String>
     <sys:String x:Key="Reports.SaveTitle">Guardar informe</sys:String>
     <sys:String x:Key="Reports.ExportSaved">Informe guardado en: {0}</sys:String>
+    <sys:String x:Key="Reports.ExportPreparing">1/3 · Preparando datos del informe…</sys:String>
+    <sys:String x:Key="Reports.ExportGenerating">2/3 · Generando el archivo…</sys:String>
+    <sys:String x:Key="Reports.ExportComplete">3/3 · Exportación completada ✓</sys:String>
+    <sys:String x:Key="Reports.ExportFailed">La exportación no pudo completarse.</sys:String>
 
     <sys:String x:Key="Page.Data.Title">Datos</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
