@@ -1777,3 +1777,84 @@ Next target action remains:
 4. return XLSX + PDF + new investigation ZIP.
 
 Visual QA must explicitly compare PDF Page 1 against the Excel family summary/card hierarchy.
+
+
+## Build 325 — separate utility-use days from nighttime reserve episodes — GREEN — 2026-09-27
+
+Trigger from returned Build 317 artifacts:
+- PDF/XLSX period 2026-08-26 through 2026-09-26 showed six `quedamos cortos` episodes;
+- user correctly observed many more daily bars containing Enel→House and a special 2026-08-26 day that was almost entirely supplied by Enel.
+
+Reconciliation from returned XLSX/diagnostic evidence:
+- days in report period: 32;
+- days with Enel→House > 0.01 kWh: 15;
+- of those, 14 are mixed-source **daily totals**;
+- 1 day is near-exclusive Enel by daily household-source attribution:
+  - 2026-08-26;
+  - Enel→House ≈ 13.54 kWh of ≈ 13.56 kWh observed house consumption;
+  - ≈99.9% of household consumption;
+- six nighttime reserve+grid episodes are a subset of the 15 Enel-use days:
+  - 2026-08-28;
+  - 2026-08-31;
+  - 2026-09-02;
+  - 2026-09-09;
+  - 2026-09-11;
+  - 2026-09-12;
+- additional mixed Enel-use days without a reserve-night episode:
+  - 2026-08-27;
+  - 2026-09-10;
+  - 2026-09-19;
+  - 2026-09-20;
+  - 2026-09-23;
+  - 2026-09-24;
+  - 2026-09-25;
+  - 2026-09-26;
+- 2026-09-20 has only ≈0.72 kWh Enel→House and can be visually easy to miss in the stacked daily chart.
+
+2026-08-26 frame evidence in returned diagnostic:
+- 286 observable power-balance frames for that local date;
+- positive grid import in all 286;
+- battery discharge in 0 frames;
+- battery charge >50 W in 262 frames;
+- therefore this is not semantically a `battery ran short at night` event even though Enel supplied essentially the entire day's house consumption.
+
+Root cause of prior reporting ambiguity:
+- `FamilyReportAnalysisService.DetectReserveGridEvents` intentionally detects only nighttime (18:00–09:00) frames with:
+  - grid >=100 W;
+  - PV absent/insufficient;
+  - SOC at/below normal grid-transfer threshold;
+  - repeated samples;
+- therefore the six count was correct for that narrow event family, but the report presentation made it too easy to interpret it as the count of all Enel-use occurrences.
+
+Build 325 correction:
+- do not change the reserve-event detector;
+- add daily source-attribution view to `EnergyReportData` independent of selected report aggregation;
+- add Excel sheet `Uso de Enel` / `Utility Use`;
+- add PDF Page 4 `Uso de Enel / red`;
+- show:
+  - days with Enel→House;
+  - mixed-source daily totals;
+  - near-exclusive Enel days (>=99% of observed household consumption);
+  - which days also contain a nighttime reserve+grid episode;
+- explicitly state that a mixed daily bar means several sources contributed within the day and does **not** prove simultaneous supply;
+- Page 1 now states that `quedamos cortos` is not the count of every day with Enel;
+- Page 2 chart note now explains the same distinction;
+- the old event table is renamed `Episodios nocturnos de batería en reserva + red`;
+- PDF sequence becomes:
+  1. household dashboard;
+  2. whole-energy story + source chart;
+  3. solar/home/battery evolution;
+  4. utility/grid-use days;
+  5. patterns + nighttime reserve episodes;
+  6. technical annex.
+
+Validation:
+- code commit: `6c8835e7fe55be70d192a803052fd34144e4b734`;
+- Windows Build 325 / run `36351556974`;
+- build PASS;
+- smoke PASS, including required `Utility Use` workbook sheet;
+- portable publish/upload PASS;
+- artifact ID `10942945322`;
+- SHA-256 `f6217e693154e662944afb74660dd384c45aab662dfdb33c3ec82f1a5d0a51bb`.
+
+Build 325 supersedes Build 317 for the next report validation.

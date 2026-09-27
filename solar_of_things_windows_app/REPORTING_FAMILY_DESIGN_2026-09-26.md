@@ -939,3 +939,36 @@ Canonical correction:
 - Page 2 cards use the same background/border language so Page 1 and Page 2 read as one product.
 
 The PDF may use more pages than earlier versions. Page-count minimization is not a design objective when it conflicts with readability.
+
+
+### 19.2 Utility-use days are not the same event family as nighttime reserve shortfalls
+
+Target review of the 2026-08-26 through 2026-09-26 report exposed an important family-semantics distinction.
+
+The stacked source-attribution chart answers:
+- on which reporting buckets did utility/grid energy contribute to household consumption?
+- how much of each bucket came from utility vs solar vs battery?
+
+The `BATTERY_RESERVE_GRID_EPISODE` detector answers a narrower question:
+- did the battery reach its normal reserve during the night and require grid support before sufficient solar returned?
+
+These must never share an unlabeled generic `events` count.
+
+Canonical reporting rules:
+- call the six detector occurrences **nighttime battery-reserve + grid episodes**;
+- separately summarize **days with Utility/Enel → Home contribution**;
+- for daily reporting, classify:
+  - `near-exclusive utility`: utility supplied >=99% of observed household consumption;
+  - `mixed sources in the day`: utility and another attributed household source both contributed during the day's aggregate;
+  - a mixed daily bucket does **not** assert simultaneous power flow;
+- mark whether a utility-use day also contains a nighttime reserve episode;
+- preserve all qualifying utility-use days in Excel;
+- PDF may dedicate a separate page when needed.
+
+For the accepted target example 2026-08-26 through 2026-09-26:
+- 15 days have Enel→House;
+- 14 are mixed daily totals;
+- 1 is near-exclusive Enel (2026-08-26, ~99.9%);
+- six contain the specific nighttime reserve+grid episode family.
+
+A page/section titled only `Eventos` must not imply that the reserve-event table exhausts all utility-use behavior.
