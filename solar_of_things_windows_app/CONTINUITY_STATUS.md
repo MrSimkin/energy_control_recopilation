@@ -2622,3 +2622,21 @@ Canonical scoped target checklist:
 - `TARGET_QA_BUILD_486_2026-09-28.md`.
 
 Do not repeat unrelated Build 441 QA.
+
+## Build 486 target-PC tariff QA — still failing — 2026-09-28
+
+User result:
+- tariff update on the target PC still produces no useful visible outcome (“sigue sin pasar nada”);
+- therefore item 6 remains FAIL;
+- items 7 and bill-audit PDF remain blocked.
+
+Important distinction:
+- Build 486 live CI proved that CNE is reachable and capturable from .NET on Windows;
+- the target-PC failure therefore moves the investigation away from source availability and toward application execution/UI integration, state refresh, exception visibility, or build/runtime path behavior.
+
+Next action:
+- inspect the exact target-side button/event/service path;
+- make failures impossible to swallow silently;
+- add durable local diagnostic output for the tariff update path;
+- validate the same packaged application path as closely as possible before another user handoff.
+
