@@ -1729,7 +1729,7 @@ public partial class MainWindow : Window
             .OrderBy(item => item.ReadingAtUtc)
             .Select(item => new UtilityReadingChoice(
                 item.ReadingId,
-                $"{FormatUtilityInstant(item.ReadingAtUtc, timeZone)} · {item.ReadingKwh:N3} kWh · {UtilityReadingSourceLabel(item.SourceKind)}"))
+                $"{FormatUtilityReadingTimestamp(item, timeZone)} · {item.ReadingKwh:N3} kWh · {UtilityReadingSourceLabel(item.SourceKind)}"))
             .ToArray();
 
         var previousCompareFrom = UtilityCompareFromSelector.SelectedValue;
@@ -2025,7 +2025,10 @@ public partial class MainWindow : Window
             UtilityReadingSourceKind.UtilityOfficial,
             StringComparison.Ordinal);
 
+        UtilityReadingTimePanel.Visibility =
+            official ? Visibility.Collapsed : Visibility.Visible;
         UtilityReadingTimeTextBox.IsEnabled = !official;
+
         if (official)
         {
             UtilityReadingTimeTextBox.Text = "00:00";
@@ -2301,6 +2304,70 @@ public partial class MainWindow : Window
             _localization.GetString(
                 "GridUtility.ReadingDeleted");
         RefreshGridUtilityView();
+    }
+
+    private void UtilityBillDatePicker_SelectedDateChanged(
+        object? sender,
+        EventArgs e)
+    {
+        if (!IsInitialized)
+            return;
+
+        TryAutoMatchBillReadings();
+    }
+
+    private void TryAutoMatchBillReadings()
+    {
+        var profile = _profiles.Get();
+        if (profile is null ||
+            !UtilityBillStartDatePicker.SelectedDate.HasValue ||
+            !UtilityBillEndDatePicker.SelectedDate.HasValue)
+        {
+            return;
+        }
+
+        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+            ? "America/Santiago"
+            : profile.StationTimeZone;
+
+        var startDate = UtilityBillStartDatePicker.SelectedDate.Value.Date;
+        var endDate = UtilityBillEndDatePicker.SelectedDate.Value.Date;
+        if (endDate <= startDate)
+            return;
+
+        var readings = _services
+            .GetRequiredService<UtilityMeterRepository>()
+            .GetReadings()
+            .Where(item => string.Equals(
+                item.SourceKind,
+                UtilityReadingSourceKind.UtilityOfficial,
+                StringComparison.Ordinal))
+            .ToArray();
+
+        var from = readings
+            .Where(item =>
+                SolarApiTime.ConvertToLocalTime(
+                    item.ReadingAtUtc,
+                    timeZone).Date == startDate)
+            .OrderByDescending(item => item.UpdatedUtc)
+            .FirstOrDefault();
+
+        var to = readings
+            .Where(item =>
+                SolarApiTime.ConvertToLocalTime(
+                    item.ReadingAtUtc,
+                    timeZone).Date == endDate)
+            .OrderByDescending(item => item.UpdatedUtc)
+            .FirstOrDefault();
+
+        if (from is null || to is null || to.ReadingAtUtc <= from.ReadingAtUtc)
+            return;
+
+        UtilityBillFromReadingSelector.SelectedValue = from.ReadingId;
+        UtilityBillToReadingSelector.SelectedValue = to.ReadingId;
+        UtilityBillStatusText.Text =
+            _localization.GetString(
+                "GridUtility.BillReadingsSuggested");
     }
 
     private void UtilityAddBill_Click(
