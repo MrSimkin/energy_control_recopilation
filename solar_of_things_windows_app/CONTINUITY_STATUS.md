@@ -2583,3 +2583,42 @@ Research and live CI established the real source behavior:
 5. Bill audit may use CNE as regulatory provenance but final Enel-rate verification still requires Enel tariff-table evidence until a complete CNE-derived final-tariff engine is proven.
 
 This finding supersedes the assumption that the Enel archive itself can be fetched reliably with raw HttpClient from the desktop application.
+
+
+## Build 486 — repaired tariff-source QA candidate — GREEN — 2026-09-28
+
+Build 486 is the scoped follow-up to Build 441 items 6/7/8B.
+
+Identity:
+- code commit: `788171056ccd438f19e9836acce856466e76a49e`;
+- workflow run: `36498902491`;
+- artifact ID: `11004089059`;
+- SHA-256: `bc921d563059beb59db93cd5c7887d9dbd9a43ef95a20a862567ba6721140623`;
+- CI/build/smoke/publish/upload: PASS;
+- **live official CNE capture: PASS**.
+
+Live CNE 2026 evidence before handoff:
+- 14 candidate PDFs reviewed;
+- 12 VAD documents captured;
+- 2 corrections;
+- 0 failures;
+- Jan original 816 + correction 819 retained;
+- Aug original 368 + correction 380 retained;
+- correction 380 resolved to effective month 2026-08 and retains its own resolution identity;
+- Sep 440 and Oct 506 retained.
+
+Root-cause handling from Build 441:
+- Enel raw HTTP remains blocked by Imperva/Reese and is not bypassed;
+- automatic year update now has machine-accessible CNE official evidence;
+- UI explains Enel protection rather than remaining blank;
+- UI provides browser opening + controlled multi-PDF Enel import;
+- imported Enel official PDFs preserve hash/effective period/retroactivity/text/normalization.
+
+Additional report correction:
+- reading-comparison PDF quality label no longer says "Hora asumida" for date-only Enel evidence;
+- it now uses "Límite de fecha Enel", consistent with the canonical boundary model.
+
+Canonical scoped target checklist:
+- `TARGET_QA_BUILD_486_2026-09-28.md`.
+
+Do not repeat unrelated Build 441 QA.
