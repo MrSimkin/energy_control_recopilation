@@ -2322,3 +2322,23 @@ Two previously open product questions are now resolved:
    - The UI should expose per-year acquisition status and failures clearly.
 
 These decisions supersede the earlier proposal in which the default tariff range was derived from saved bills. Bill-driven tariff applicability remains required for audit/reconstruction, but acquisition itself should be initiated by explicit year selection.
+
+
+### Retroactive tariff verification rule — 2026-09-28
+
+User requirement:
+
+If an official tariff publication changes a tariff retroactively, the application must explicitly verify and resolve that change.
+
+Required behavior:
+- year-based tariff acquisition must detect multiple publications that affect the same effective period;
+- preserve every official publication and its provenance rather than overwriting prior evidence;
+- identify retroactive/corrective/superseding publications;
+- determine which publication/version is authoritative for each affected effective interval;
+- re-evaluate any bill audit/reconstruction whose period is affected by a later retroactive correction;
+- make the applied tariff version and the superseded version(s) traceable in the UI/report;
+- never silently keep using an older locally cached tariff after an official retroactive replacement is discovered.
+
+A tariff PDF being newer by publication date is not by itself sufficient: applicability must be resolved from effective dates, retroactive language/version relationships and the official source evidence.
+
+This rule applies both when first acquiring a year and when re-running an update for a year already stored locally.
