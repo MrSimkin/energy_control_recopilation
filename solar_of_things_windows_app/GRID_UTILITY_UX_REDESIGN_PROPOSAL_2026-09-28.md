@@ -337,3 +337,43 @@ Before the next substantive build:
 4. implementation plan is split into small testable tranches rather than rebuilding every Phase 8–10 feature at once.
 
 No code implementation is authorized by this proposal alone.
+
+
+## Cross-application tabbed UX rule — clarification
+
+The tab/task-separation principle in this proposal is not limited to Grid & Utility.
+
+For any materially complex page/window that currently combines several distinct user tasks in one long vertical surface:
+- prefer tabs or equivalent task-level navigation;
+- keep one dominant task per tab;
+- move dense edit forms out of always-visible stacked layouts;
+- use responsive stacking rather than shrinking controls until they become hard to read;
+- preserve consistent visual language across the application.
+
+This rule should be considered during the next UX pass across all relevant screens.
+
+## Confirmed comparison/report split
+
+The application must expose two clearly distinct analytical products:
+
+### A. Reading comparison report
+User selects readings and compares meter-derived consumption against Solar of Things total grid import over the equivalent interval.
+
+This report is independent of bill reconstruction.
+
+### B. Enel bill audit report
+User starts from an actual bill and receives:
+- linked official reading boundaries;
+- inverter comparison over the bill interval;
+- verifiable tariff-based reconstruction of bill components;
+- actual-versus-expected component comparison;
+- explicit handling of charges that cannot be independently reconstructed;
+- a separate audit PDF.
+
+The two reports must not be merged into one generic export.
+
+## QA cadence
+
+Development may use multiple internal CI/build iterations.
+
+Target-PC QA should be requested only after a coherent tranche is assembled. Avoid repeated user-facing mini-QA handoffs unless a narrow blocker genuinely requires target-machine evidence.
