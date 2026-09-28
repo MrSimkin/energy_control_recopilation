@@ -97,6 +97,9 @@ public partial class App : Application
         builder.Services.AddSingleton<UtilityReconciliationReportService>();
         builder.Services.AddSingleton<UtilityBillAuditReportService>();
         builder.Services.AddSingleton<TariffPublicationRepository>();
+        builder.Services.AddSingleton<TariffRateCandidateRepository>();
+        builder.Services.AddSingleton<EnelBt1TariffTextParser>();
+        builder.Services.AddSingleton<EnelTariffNormalizationService>();
         builder.Services.AddSingleton<EnelTariffCaptureService>();
         builder.Services.AddSingleton<DataImportService>();
         builder.Services.AddSingleton<HelpManualExportService>();
