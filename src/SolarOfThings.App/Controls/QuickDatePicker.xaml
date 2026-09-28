@@ -1,0 +1,17 @@
+<UserControl x:Class="SolarOfThings.App.Controls.QuickDatePicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <DatePicker x:Name="InnerDatePicker"
+                    SelectedDateChanged="InnerDatePicker_SelectedDateChanged"/>
+        <WrapPanel Margin="0,4,0,0">
+            <ComboBox x:Name="MonthSelector"
+                      Width="64"
+                      SelectionChanged="DatePartSelector_SelectionChanged"/>
+            <ComboBox x:Name="YearSelector"
+                      Width="78"
+                      Margin="6,0,0,0"
+                      SelectionChanged="DatePartSelector_SelectionChanged"/>
+        </WrapPanel>
+    </StackPanel>
+</UserControl>

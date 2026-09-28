@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using SolarOfThings.App.Localization;
+using SolarOfThings.App.Controls;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Installation;
@@ -654,7 +655,7 @@ public partial class MainWindow : Window
 
     private void AnalysisDatePicker_SelectedDateChanged(
         object? sender,
-        SelectionChangedEventArgs e)
+        EventArgs e)
     {
         if (_suppressAnalysisRangeSelection ||
             !IsInitialized ||
@@ -1997,7 +1998,7 @@ public partial class MainWindow : Window
     }
 
     private static bool TryParseUtilityLocalInstant(
-        DatePicker datePicker,
+        QuickDatePicker datePicker,
         TextBox timeTextBox,
         string timeZoneId,
         out DateTimeOffset utc)
