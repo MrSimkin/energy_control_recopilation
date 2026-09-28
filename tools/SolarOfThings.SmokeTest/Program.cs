@@ -813,6 +813,30 @@ try
         }
     }
 
+    if (string.Equals(
+            Environment.GetEnvironmentVariable(
+                "SOLAR_ENEL_LIVE_CATALOG"),
+            "1",
+            StringComparison.Ordinal))
+    {
+        var liveCatalog =
+            await EnelTariffCaptureService
+                .ProbeOfficialCatalogAsync(2026);
+
+        Console.WriteLine(
+            $"Live Enel catalog probe: HTTP {liveCatalog.HttpStatusCode}; " +
+            $"{liveCatalog.HtmlLength:N0} chars; " +
+            $"{liveCatalog.PdfHrefCount} PDF href(s); " +
+            $"{liveCatalog.DiscoveredPublications} supply publication(s) for {liveCatalog.Year}.");
+
+        if (liveCatalog.HttpStatusCode != 200 ||
+            liveCatalog.DiscoveredPublications < 1)
+        {
+            throw new InvalidOperationException(
+                "Live Enel catalog probe did not discover any official supply publications.");
+        }
+    }
+
     var tariffRepository =
         new TariffPublicationRepository(database);
     const string tariffFixtureHtml = """
