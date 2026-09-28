@@ -657,7 +657,8 @@ public sealed class UtilityReconciliationReportService
             "GOOD" => spanish ? "Buena" : "Good",
             "PARTIAL" => spanish ? "Parcial" : "Partial",
             "LOW_COVERAGE" => spanish ? "Cobertura baja" : "Low coverage",
-            "ASSUMED_TIME" => spanish ? "Hora asumida" : "Assumed time",
+            "ASSUMED_TIME" =>
+                spanish ? "Límite de fecha Enel" : "Enel date boundary",
             "METER_RESET_OR_REPLACEMENT" =>
                 spanish ? "Revisar medidor" : "Review meter",
             "INVALID_INTERVAL" =>
