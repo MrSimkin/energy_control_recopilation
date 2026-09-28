@@ -2173,3 +2173,20 @@ Planned remaining manual test order:
 3. item 7 — end-to-end import/restart/active-data validation.
 
 No fix authorized yet.
+
+
+### Build 350 QA follow-up — items 6 and 5 validated
+
+Manual target-PC results:
+
+6. Guided import entry point / start of import flow: **PASS**.
+   - User located the control and confirmed the entry path works.
+   - Earlier discoverability friction remains recorded as UX feedback, but this item is no longer blocked.
+
+5. Export activity indicator: **PASS**.
+   - User confirmed the export activity feedback behaves as expected once data was available.
+
+Remaining Build 350 manual validation:
+- item 7 — end-to-end import/restart/active-data validation.
+
+No code fix authorized by this update.
