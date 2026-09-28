@@ -198,3 +198,40 @@ Before declaring tariff reconstruction usable:
 3. normalized candidates must retain provenance;
 4. applicability must not be guessed;
 5. bill-audit PDF must distinguish verified, ambiguous and actual-only lines.
+
+
+## 2026 cross-publication BT1 validation — 2026-09-28
+
+Official Enel January 2026 (24T), August 2026 retroactive (8T) and September 2026 (8T) publications were cross-checked.
+
+Confirmed across all three:
+- BT1 residential tables use ETR **T1 through T6**:
+  - T1 <= 200 kWh prior-year average;
+  - T2 >200 <=210;
+  - T3 >210 <=220;
+  - T4 >220 <=230;
+  - T5 >230 <=240;
+  - T6 >240;
+- connection-network types remain BT_AA / BT_SA / BT_AS / BT_SS;
+- the official table says BT1 selection depends on RED + ETR;
+- FET bands/rates shown in these three publications are the same;
+- the table presents repeated territorial/service columns with paired published Neto / IVA values.
+
+Important parser consequence:
+- PdfPig content-order text does not necessarily emit the explanatory labels before the RED/ETR numeric rows.
+- Therefore RED/ETR row semantics must not be assigned solely from nearest preceding text.
+
+Safe semantic identity available in the official table:
+- **Electricidad consumida (6) = Cargo por energía (3) + Cargo por compras de potencia (4) + Cargo por potencia base / distribución (5).**
+
+Parser v2 may use this arithmetic identity to classify a pair of previously raw RED/ETR blocks only when the published values satisfy the identity within a small numeric tolerance.
+- the earlier row becomes `POWER_BASE_DISTRIBUTION`;
+- the matching sum row becomes `ELECTRICITY_CONSUMED`;
+- any row that does not satisfy the identity remains raw/unapplied.
+
+This is a semantic classification of official evidence, **not** customer applicability. It still does not identify the user's commune/service column, RED or ETR.
+
+Historical caution:
+- 2020–2026 archive titles/layouts include different decree/vintage and T1/T2/T3 document variants;
+- do not assume a 2026 territorial column map applies unchanged to every historical year;
+- commune/service-column resolution requires separate version-aware validation.
