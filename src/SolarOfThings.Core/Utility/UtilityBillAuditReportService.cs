@@ -14,14 +14,17 @@ public sealed class UtilityBillAuditReportService
 {
     private readonly UtilityMeterRepository _repository;
     private readonly UtilityReconciliationService _reconciliation;
+    private readonly TariffBillRateVerificationService _tariffVerification;
     private static int _pdfFontsInitialized;
 
     public UtilityBillAuditReportService(
         UtilityMeterRepository repository,
-        UtilityReconciliationService reconciliation)
+        UtilityReconciliationService reconciliation,
+        TariffBillRateVerificationService tariffVerification)
     {
         _repository = repository;
         _reconciliation = reconciliation;
+        _tariffVerification = tariffVerification;
     }
 
     public void ExportPdf(
@@ -165,13 +168,14 @@ public sealed class UtilityBillAuditReportService
         AddActualBillLines(section, bill, spanish);
 
         AddHeading(section, L("Reconstrucción tarifaria", "Tariff reconstruction"), 13);
-        AddCallout(
+        var tariffVerifications =
+            _tariffVerification.VerifyBill(
+                bill.BillId,
+                timeZoneId);
+        AddTariffVerification(
             section,
-            L("ESTADO DE EVIDENCIA", "EVIDENCE STATUS"),
-            L(
-                "Las fuentes tarifarias oficiales se conservan por separado. Este reporte no presentará un cargo esperado como autoritativo hasta que la publicación aplicable, su versión/retroactividad y los componentes correspondientes al servicio estén normalizados y verificados. Los cargos no reconstruibles permanecen como evidencia real sin valor esperado inventado.",
-                "Official tariff sources are preserved separately. This report will not present an expected charge as authoritative until the applicable publication, version/retroactivity and service components are normalized and verified. Non-reconstructable charges remain actual evidence without an invented expected value."),
-            Colors.AliceBlue);
+            tariffVerifications,
+            spanish);
 
         AddHeading(section, L("Trazabilidad de lecturas", "Reading traceability"), 13);
         var readings = section.AddTable();
@@ -200,6 +204,136 @@ public sealed class UtilityBillAuditReportService
         renderer.RenderDocument();
         renderer.PdfDocument.Save(path);
     }
+
+    private static void AddTariffVerification(
+        Section section,
+        IReadOnlyList<BillLineTariffVerification> verifications,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        if (verifications.Count == 0)
+        {
+            AddCallout(
+                section,
+                L("ESTADO DE EVIDENCIA", "EVIDENCE STATUS"),
+                L(
+                    "No hay líneas de boleta guardadas para contrastar con tasas oficiales.",
+                    "No stored bill lines are available for official-rate verification."),
+                Colors.WhiteSmoke);
+            return;
+        }
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.AddColumn(Unit.FromCentimeter(4.4));
+        table.AddColumn(Unit.FromCentimeter(2.0));
+        table.AddColumn(Unit.FromCentimeter(3.8));
+        table.AddColumn(Unit.FromCentimeter(2.0));
+        table.AddColumn(Unit.FromCentimeter(2.2));
+        table.AddColumn(Unit.FromCentimeter(2.3));
+
+        var header = table.AddRow();
+        header.Format.Font.Bold = true;
+        header.Cells[0].AddParagraph(L("Línea", "Line"));
+        header.Cells[1].AddParagraph(L("Tasa impresa", "Printed rate"));
+        header.Cells[2].AddParagraph(L("Verificación", "Verification"));
+        header.Cells[3].AddParagraph(L("Fuente", "Source"));
+        header.Cells[4].AddParagraph(L("Reconstruido", "Reconstructed"));
+        header.Cells[5].AddParagraph(L("Dif. monto", "Amount diff."));
+
+        foreach (var item in verifications)
+        {
+            var row = table.AddRow();
+            row.Cells[0].AddParagraph(item.Description);
+            row.Cells[1].AddParagraph(
+                item.PrintedUnitRateClp.HasValue
+                    ? $"$ {item.PrintedUnitRateClp.Value:N3}"
+                    : "—");
+            row.Cells[2].AddParagraph(
+                VerificationStatusLabel(
+                    item.Status,
+                    spanish));
+            row.Cells[3].AddParagraph(
+                item.PublicationIds.Count == 0
+                    ? "—"
+                    : string.Join(
+                        ", ",
+                        item.PublicationIds.Select(id => $"#{id}")));
+            row.Cells[4].AddParagraph(
+                item.ReconstructedAmountClp.HasValue
+                    ? $"$ {item.ReconstructedAmountClp.Value:N0}"
+                    : "—");
+            row.Cells[5].AddParagraph(
+                item.AmountDifferenceClp.HasValue
+                    ? $"$ {item.AmountDifferenceClp.Value:+0;-0;0}"
+                    : "—");
+        }
+
+        var verified = verifications.Count(item =>
+            item.Status.StartsWith(
+                "VERIFIED_",
+                StringComparison.Ordinal) ||
+            item.Status.StartsWith(
+                "RATE_VERIFIED_",
+                StringComparison.Ordinal));
+        var pending = verifications.Count - verified;
+
+        AddCallout(
+            section,
+            L("ESTADO DE EVIDENCIA", "EVIDENCE STATUS"),
+            string.Format(
+                L(
+                    "{0} línea(s) con tasa encontrada en fuente oficial; {1} línea(s) permanecen pendientes, ambiguas o sólo como evidencia real. Una coincidencia de tasa no identifica por sí sola comuna/RED/ETR.",
+                    "{0} line(s) have a rate found in official source evidence; {1} line(s) remain pending, ambiguous or actual-only. A rate match alone does not identify commune/RED/ETR."),
+                verified,
+                pending),
+            verified > 0
+                ? Colors.Honeydew
+                : Colors.AliceBlue);
+
+        foreach (var item in verifications.Where(item =>
+                     !string.IsNullOrWhiteSpace(item.Detail)))
+        {
+            var detail = section.AddParagraph(
+                $"• {item.Description}: {item.Detail}");
+            detail.Format.Font.Size = 7.5;
+            detail.Format.Font.Color = Colors.DimGray;
+            detail.Format.SpaceAfter = Unit.FromPoint(1);
+        }
+    }
+
+    private static string VerificationStatusLabel(
+        string status,
+        bool spanish) =>
+        status switch
+        {
+            "VERIFIED_RECONSTRUCTED_SOURCE_UNIQUE" =>
+                spanish ? "Tasa verificada · reconstruida" : "Rate verified · reconstructed",
+            "VERIFIED_RECONSTRUCTED_APPLICABILITY_AMBIGUOUS" =>
+                spanish ? "Tasa verificada · aplicabilidad ambigua" : "Rate verified · applicability ambiguous",
+            "RATE_VERIFIED_SOURCE_UNIQUE" =>
+                spanish ? "Tasa verificada" : "Rate verified",
+            "RATE_VERIFIED_APPLICABILITY_AMBIGUOUS" =>
+                spanish ? "Tasa verificada · aplicabilidad ambigua" : "Rate verified · applicability ambiguous",
+            "ACTUAL_ONLY_UNMAPPED" =>
+                spanish ? "Sólo evidencia real" : "Actual-only evidence",
+            "ACTUAL_ONLY_NO_UNIT_RATE" =>
+                spanish ? "Sin tasa impresa" : "No printed rate",
+            "MISSING_TARIFF_SOURCE" =>
+                spanish ? "Falta fuente tarifaria" : "Missing tariff source",
+            "TARIFF_VERSION_AMBIGUOUS" =>
+                spanish ? "Versión tarifaria ambigua" : "Ambiguous tariff version",
+            "TARIFF_NOT_NORMALIZED" =>
+                spanish ? "Fuente aún no normalizada" : "Source not normalized",
+            "MISSING_COMPONENT_SOURCE" =>
+                spanish ? "Componente no extraído" : "Component not extracted",
+            "RATE_NOT_FOUND" =>
+                spanish ? "Tasa no encontrada" : "Rate not found",
+            "TARIFF_INTERVAL_INVALID" =>
+                spanish ? "Intervalo inválido" : "Invalid interval",
+            _ => status
+        };
 
     private void AddActualBillLines(
         Section section,
