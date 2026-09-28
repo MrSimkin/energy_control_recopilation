@@ -832,6 +832,10 @@ try
         if (liveCatalog.HttpStatusCode != 200 ||
             liveCatalog.DiscoveredPublications < 1)
         {
+            Console.WriteLine("----- BEGIN ENEL CATALOG RAW HTML -----");
+            Console.WriteLine(liveCatalog.RawHtml);
+            Console.WriteLine("----- END ENEL CATALOG RAW HTML -----");
+
             throw new InvalidOperationException(
                 "Live Enel catalog probe did not discover any official supply publications.");
         }
