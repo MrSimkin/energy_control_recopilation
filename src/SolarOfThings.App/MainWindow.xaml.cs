@@ -2617,12 +2617,12 @@ public partial class MainWindow : Window
                                 ? $"$ {item.PrintedUnitRateClp.Value:N3}"
                                 : "—",
                             AuditVerificationStatusLabel(item.Status),
-                            item.PublicationIds.Count == 0
+                            item.Publications.Count == 0
                                 ? "—"
                                 : string.Join(
-                                    ", ",
-                                    item.PublicationIds.Select(
-                                        id => $"#{id}")),
+                                    " · ",
+                                    item.Publications.Select(
+                                        FormatAuditTariffPublication)),
                             item.ReconstructedAmountClp.HasValue
                                 ? $"$ {item.ReconstructedAmountClp.Value:N0}"
                                 : "—",
@@ -2650,6 +2650,22 @@ public partial class MainWindow : Window
             UtilityAuditVerificationGrid.ItemsSource = null;
             UtilityAuditStatusText.Text = ex.Message;
         }
+    }
+
+    private string FormatAuditTariffPublication(
+        BillTariffPublicationEvidence publication)
+    {
+        var effective = publication.EffectiveFrom.HasValue
+            ? publication.EffectiveFrom.Value.ToString("yyyy-MM")
+            : _localization.GetString(
+                "GridUtility.TariffVersion.NoDate");
+        var revision = publication.IsRetroactive
+            ? _localization.GetString(
+                "GridUtility.TariffRetroactive.Yes")
+            : _localization.GetString(
+                "GridUtility.TariffRetroactive.No");
+
+        return $"{effective} · {revision} · {publication.Title}";
     }
 
     private string AuditVerificationStatusLabel(
