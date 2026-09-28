@@ -30,7 +30,7 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 9)
+        SqliteDatabase.CurrentSchemaVersion != 10)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
@@ -591,13 +591,19 @@ try
     var firstReadingId = utilityRepository.AddReading(
         utilityFromUtc,
         12500.0,
-        "smoke-start",
-        "Phase 8 smoke start");
+        "smoke-personal-start",
+        "Phase 8 exact personal reading",
+        UtilityReadingSourceKind.Personal,
+        UtilityTimePrecision.Exact,
+        UtilityTimeAssumption.Exact);
     var secondReadingId = utilityRepository.AddReading(
         utilityToUtc,
         12500.0 + expectedGridImport,
-        "smoke-end",
-        "Phase 8 smoke end");
+        "smoke-personal-end",
+        "Phase 8 exact personal reading",
+        UtilityReadingSourceKind.Personal,
+        UtilityTimePrecision.Exact,
+        UtilityTimeAssumption.Exact);
 
     var utilityRows =
         utilityReconciliation.GetMeterReconciliations(
@@ -606,6 +612,7 @@ try
     if (utilityRows.Count != 1 ||
         utilityRows[0].FromReadingId != firstReadingId ||
         utilityRows[0].ToReadingId != secondReadingId ||
+        utilityRows[0].TimeBasis != "EXACT" ||
         !utilityRows[0].MeterConsumptionKwh.HasValue ||
         Math.Abs(
             utilityRows[0].MeterConsumptionKwh.Value -
@@ -621,28 +628,124 @@ try
             "Phase 8 utility meter reconciliation smoke test failed.");
     }
 
+    var arbitrary = utilityReconciliation.ReconcileReadings(
+        familySmokeDeviceId,
+        firstReadingId,
+        secondReadingId);
+    if (arbitrary.FromReadingId != firstReadingId ||
+        arbitrary.ToReadingId != secondReadingId ||
+        arbitrary.TimeBasis != "EXACT" ||
+        arbitrary.AbsoluteDifferenceKwh is null ||
+        arbitrary.AbsoluteDifferenceKwh.Value > 0.000001)
+    {
+        throw new InvalidOperationException(
+            "Phase 8 arbitrary-reading reconciliation smoke test failed.");
+    }
+
     var billId = utilityRepository.AddBill(
         utilityFromUtc,
         utilityToUtc,
         expectedGridImport,
         12345,
         "SMOKE-BILL",
-        "Phase 8 optional bill");
+        "Phase 8 linked optional bill",
+        fromReadingId: firstReadingId,
+        toReadingId: secondReadingId,
+        meterStartKwh: 12500.0,
+        meterEndKwh: 12500.0 + expectedGridImport,
+        tariffPlan: "BT1-SMOKE",
+        taxableAmountClp: 10000,
+        ivaClp: 1900,
+        exemptAmountClp: 445,
+        grossBillAmountClp: 12345,
+        otherChargesClp: -345,
+        totalDueClp: 12000,
+        periodPrecision: UtilityTimePrecision.Exact);
+
+    var chargeLineId = utilityRepository.AddBillLine(
+        billId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad consumida",
+        10000,
+        quantity: expectedGridImport,
+        unit: "kWh",
+        unitRateClp: expectedGridImport > 0
+            ? 10000 / expectedGridImport
+            : null,
+        taxTreatment: "AFECTO",
+        sortOrder: 10);
+    var creditLineId = utilityRepository.AddBillLine(
+        billId,
+        "OTROS_CARGOS",
+        "Subsidio smoke",
+        -345,
+        taxTreatment: "CREDITO",
+        sortOrder: 20);
 
     var billRows =
         utilityReconciliation.GetBillReconciliations(
             familySmokeDeviceId);
+    var billRecord = utilityRepository.GetBills().Single();
+    var billLines = utilityRepository.GetBillLines(billId);
 
     if (billRows.Count != 1 ||
         billRows[0].BillId != billId ||
+        billRows[0].TimeBasis != "EXACT" ||
         billRows[0].AbsoluteDifferenceKwh is null ||
         billRows[0].AbsoluteDifferenceKwh.Value > 0.000001 ||
         billRows[0].CoveragePercent < 95 ||
-        utilityRepository.GetReadings().Count != 2 ||
-        utilityRepository.GetBills().Count != 1)
+        billRecord.FromReadingId != firstReadingId ||
+        billRecord.ToReadingId != secondReadingId ||
+        billRecord.TotalDueClp != 12000 ||
+        billRecord.OtherChargesClp != -345 ||
+        billLines.Count != 2 ||
+        !billLines.Any(line => line.BillLineId == chargeLineId && line.AmountClp == 10000) ||
+        !billLines.Any(line => line.BillLineId == creditLineId && line.AmountClp == -345))
     {
         throw new InvalidOperationException(
-            "Phase 8 optional bill reconciliation/persistence smoke test failed.");
+            "Phase 8 linked bill/line persistence smoke test failed.");
+    }
+
+    var officialReadingId = utilityRepository.AddReading(
+        utilityToUtc.AddDays(1),
+        13000,
+        "Lectura Enel smoke",
+        "Official date-only evidence",
+        UtilityReadingSourceKind.UtilityOfficial,
+        UtilityTimePrecision.DateOnly,
+        UtilityTimeAssumption.StartOfDayAssumed);
+    var officialReading = utilityRepository.GetReading(officialReadingId);
+    if (officialReading is null ||
+        officialReading.SourceKind != UtilityReadingSourceKind.UtilityOfficial ||
+        officialReading.TimePrecision != UtilityTimePrecision.DateOnly ||
+        officialReading.TimeAssumption != UtilityTimeAssumption.StartOfDayAssumed)
+    {
+        throw new InvalidOperationException(
+            "Phase 8 official/date-only reading metadata smoke test failed.");
+    }
+
+    if (OperatingSystem.IsWindows())
+    {
+        var reconciliationReport =
+            new UtilityReconciliationReportService(
+                utilityRepository,
+                utilityReconciliation);
+        var utilityPdfPath =
+            Path.Combine(root, "smoke-utility-reconciliation.pdf");
+        reconciliationReport.ExportPdf(
+            utilityPdfPath,
+            familySmokeDeviceId,
+            firstReadingId,
+            secondReadingId,
+            "America/Santiago",
+            "es");
+
+        if (!File.Exists(utilityPdfPath) ||
+            new FileInfo(utilityPdfPath).Length < 500)
+        {
+            throw new InvalidOperationException(
+                "Phase 8 reconciliation PDF smoke test failed.");
+        }
     }
 
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
