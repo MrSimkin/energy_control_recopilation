@@ -904,14 +904,17 @@ try
             $"VAD document(s); {liveCneResult.Corrections} correction(s); " +
             $"{liveCneResult.Failed} failure(s).");
 
-        if (liveCneResult.CapturedVadIndexDocuments < 1 ||
+        if (liveCneResult.CapturedVadIndexDocuments < 10 ||
+            liveCneResult.Corrections < 1 ||
             !liveCneRepository.GetAll().Any(item =>
                 item.Provider == "CNE_CHILE" &&
                 item.Category == "VAD_INDEX" &&
+                item.IsRetroactive &&
+                item.EffectiveFrom == new DateOnly(2026, 8, 1) &&
                 item.CaptureStatus == "CAPTURED"))
         {
             throw new InvalidOperationException(
-                "Live CNE tariff-evidence documents were not captured.");
+                "Live CNE tariff-evidence capture did not preserve the expected 2026 VAD correction chain.");
         }
     }
 
