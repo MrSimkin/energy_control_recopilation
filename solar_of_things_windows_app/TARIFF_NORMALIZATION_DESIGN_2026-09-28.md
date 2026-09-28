@@ -25,7 +25,7 @@ For BT1/residential material it exposes, among other evidence:
 - ETR residential-equity tranche;
 - FET consumption-band recarges;
 - commune-dependent columns;
-- paired official values labelled Neto / IVA.
+- paired official columns labelled Neto / IVA.
 
 The document itself states that BT1 total tariff selection depends on:
 - client connection-network type (RED);
@@ -40,10 +40,11 @@ The user confirmed Chilean VAT is 19%, but does not want taxable applicability g
 
 Preferred evidence order:
 
-1. where the official Enel tariff publication already provides paired Neto / IVA-inclusive values, preserve and use those official values;
-2. do not independently infer that every line is taxable merely by multiplying by 1.19;
-3. preserve actual bill taxable/exempt/IVA totals as printed evidence;
-4. only calculate VAT independently where an authoritative rule clearly defines the taxable base.
+1. where the official Enel tariff publication provides paired columns labelled Neto / IVA, preserve both published values exactly as source evidence;
+2. do not assume the published IVA-column value is simply a gross/net×1.19 value unless the document/rule for that component establishes that interpretation;
+3. do not independently infer that every line is taxable merely by multiplying by 1.19;
+4. preserve actual bill taxable/exempt/IVA totals as printed evidence;
+5. only calculate VAT independently where an authoritative rule clearly defines the taxable base.
 
 This avoids inventing tax treatment.
 
@@ -78,7 +79,7 @@ Candidate record should preserve:
 - ETR when the row is ETR-specific;
 - commune/service column identity when deterministically parsed;
 - net rate;
-- IVA-inclusive official rate when supplied;
+- raw published IVA-column value when supplied, without prematurely interpreting it as gross;
 - source coordinates/text evidence or equivalent parser provenance;
 - parser version;
 - validation state.
