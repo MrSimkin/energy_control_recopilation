@@ -100,6 +100,8 @@ public partial class App : Application
         builder.Services.AddSingleton<TariffRateCandidateRepository>();
         builder.Services.AddSingleton<EnelBt1TariffTextParser>();
         builder.Services.AddSingleton<EnelTariffNormalizationService>();
+        builder.Services.AddSingleton<CneTariffEvidenceCaptureService>();
+        builder.Services.AddSingleton<EnelTariffPdfImportService>();
         builder.Services.AddSingleton<TariffPublicationVersionResolver>();
         builder.Services.AddSingleton<TariffBillRateVerificationService>();
         builder.Services.AddSingleton<EnelTariffCaptureService>();
