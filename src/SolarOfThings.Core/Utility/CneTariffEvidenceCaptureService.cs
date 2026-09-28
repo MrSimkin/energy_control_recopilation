@@ -44,6 +44,12 @@ public sealed class CneTariffEvidenceCaptureService
         RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
 
+    private static readonly Regex CorrectionRegex = new(
+        @"Rectifica\s+(?:,\s*)?Resoluci[óo]n",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
     private static readonly Regex EffectiveTableMonthRegex = new(
         @"(?<![A-Za-z])(?<month>ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)-(?<year>\d{2})(?!\d)",
         RegexOptions.IgnoreCase |
@@ -304,18 +310,11 @@ public sealed class CneTariffEvidenceCaptureService
         (text.Contains(
              "periodo comprendido",
              StringComparison.OrdinalIgnoreCase) ||
-         text.Contains(
-             "Rectifica Resolución",
-             StringComparison.OrdinalIgnoreCase));
+         CorrectionRegex.IsMatch(text));
 
     private static bool IsCorrection(
         string text) =>
-        text.Contains(
-            "Rectifica Resolución",
-            StringComparison.OrdinalIgnoreCase) ||
-        text.Contains(
-            "Rectifica,",
-            StringComparison.OrdinalIgnoreCase);
+        CorrectionRegex.IsMatch(text);
 
     private static DateOnly? ParseEffectiveDate(
         string text)
