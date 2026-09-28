@@ -2006,20 +2006,33 @@ public partial class MainWindow : Window
                     item.PublicationId,
                     out var resolution);
 
+                var cne = string.Equals(
+                    item.Provider,
+                    "CNE_CHILE",
+                    StringComparison.Ordinal);
+
                 return new TariffPublicationViewRow(
+                    cne ? "CNE" : "Enel",
                     item.EffectiveFrom.HasValue
                         ? item.EffectiveFrom.Value.ToString("dd-MM-yyyy")
                         : "—",
                     item.IsRetroactive
                         ? _localization.GetString(
-                            "GridUtility.TariffRetroactive.Yes")
+                            cne
+                                ? "GridUtility.TariffCorrection"
+                                : "GridUtility.TariffRetroactive.Yes")
                         : _localization.GetString(
-                            "GridUtility.TariffRetroactive.No"),
+                            cne
+                                ? "GridUtility.TariffStandard"
+                                : "GridUtility.TariffRetroactive.No"),
                     TariffCaptureStatusLabel(item.CaptureStatus),
-                    TariffNormalizationStatusLabel(
-                        item.NormalizationStatus),
+                    cne
+                        ? "—"
+                        : TariffNormalizationStatusLabel(
+                            item.NormalizationStatus),
                     TariffVersionStatusLabel(
-                        resolution?.Status),
+                        resolution?.Status,
+                        cne),
                     item.PageCount?.ToString() ?? "—",
                     string.IsNullOrWhiteSpace(item.ContentSha256)
                         ? "—"
@@ -2049,12 +2062,139 @@ public partial class MainWindow : Window
             : DateTime.Now.Year;
 
         TariffCaptureButton.IsEnabled = false;
+        TariffImportEnelButton.IsEnabled = false;
         TariffYearSelector.IsEnabled = false;
         SetGlobalOperation(
             true,
             _localization.CurrentLanguage == "es"
-                ? $"Actualizando tarifas oficiales {year}..."
-                : $"Updating official tariffs for {year}...");
+                ? $"Actualizando evidencia tarifaria oficial {year}..."
+                : $"Updating official tariff evidence for {year}...");
+
+        try
+        {
+            var progress = new Progress<string>(
+                message =>
+                    TariffCaptureStatusText.Text = message);
+
+            CneTariffEvidenceCaptureResult? cneResult = null;
+            string? cneError = null;
+            try
+            {
+                cneResult = await _services
+                    .GetRequiredService<CneTariffEvidenceCaptureService>()
+                    .CaptureVadIndexEvidenceAsync(
+                        year,
+                        progress);
+            }
+            catch (Exception ex)
+            {
+                cneError = ex.Message;
+            }
+
+            TariffCaptureResult? enelResult = null;
+            string enelStatus;
+            try
+            {
+                enelResult = await _services
+                    .GetRequiredService<EnelTariffCaptureService>()
+                    .CaptureSupplyTariffsAsync(
+                        year,
+                        progress);
+
+                enelStatus = string.Format(
+                    _localization.GetString(
+                        "GridUtility.TariffEnelOk"),
+                    enelResult.Captured,
+                    enelResult.Discovered,
+                    enelResult.NormalizedCandidates);
+            }
+            catch
+            {
+                enelStatus = _localization.GetString(
+                    "GridUtility.TariffEnelBlocked");
+            }
+
+            TariffCaptureStatusText.Text = string.Format(
+                _localization.GetString(
+                    "GridUtility.TariffAutoCaptureResult"),
+                year,
+                cneResult?.CapturedVadIndexDocuments ?? 0,
+                cneResult?.Corrections ?? 0,
+                cneResult?.Failed ?? (cneError is null ? 0 : 1),
+                enelStatus);
+
+            if (!string.IsNullOrWhiteSpace(cneError))
+            {
+                TariffCaptureStatusText.Text +=
+                    $" CNE: {cneError}";
+            }
+            else if (cneResult is not null &&
+                     cneResult.Messages.Count > 0)
+            {
+                TariffCaptureStatusText.Text +=
+                    " " +
+                    string.Join(
+                        " | ",
+                        cneResult.Messages.Take(3));
+            }
+
+            RefreshTariffPublications();
+            RefreshUtilityAuditPreview();
+        }
+        finally
+        {
+            TariffCaptureButton.IsEnabled = true;
+            TariffImportEnelButton.IsEnabled = true;
+            TariffYearSelector.IsEnabled = true;
+            SetGlobalOperation(false, string.Empty);
+        }
+    }
+
+    private void TariffOpenEnelButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(
+                    EnelTariffCaptureService.OfficialArchiveUrl)
+                {
+                    UseShellExecute = true
+                });
+        }
+        catch (Exception ex)
+        {
+            TariffCaptureStatusText.Text = ex.Message;
+        }
+    }
+
+    private async void TariffImportEnelButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Multiselect = true,
+            Filter = "PDF (*.pdf)|*.pdf",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog(this) != true ||
+            dialog.FileNames.Length == 0)
+        {
+            return;
+        }
+
+        TariffCaptureButton.IsEnabled = false;
+        TariffImportEnelButton.IsEnabled = false;
+        TariffYearSelector.IsEnabled = false;
+        SetGlobalOperation(
+            true,
+            _localization.CurrentLanguage == "es"
+                ? "Importando PDFs oficiales Enel..."
+                : "Importing official Enel PDFs...");
+
         try
         {
             var progress = new Progress<string>(
@@ -2062,35 +2202,34 @@ public partial class MainWindow : Window
                     TariffCaptureStatusText.Text = message);
 
             var result = await _services
-                .GetRequiredService<EnelTariffCaptureService>()
-                .CaptureSupplyTariffsAsync(year, progress);
+                .GetRequiredService<EnelTariffPdfImportService>()
+                .ImportAsync(
+                    dialog.FileNames,
+                    progress);
 
             TariffCaptureStatusText.Text = string.Format(
                 _localization.GetString(
-                    "GridUtility.TariffCaptureResult"),
-                result.Captured,
-                result.Discovered,
-                result.Failed,
-                result.RetroactiveDetected,
-                result.MultiVersionPeriods,
+                    "GridUtility.TariffImportResult"),
+                result.Imported,
                 result.NormalizedCandidates,
-                result.NormalizationFailures);
+                result.Failed);
+
+            if (result.Messages.Count > 0)
+            {
+                TariffCaptureStatusText.Text +=
+                    " " +
+                    string.Join(
+                        " | ",
+                        result.Messages.Take(3));
+            }
 
             RefreshTariffPublications();
-        }
-        catch (Exception ex)
-        {
-            TariffCaptureStatusText.Text = ex.Message;
-            MessageBox.Show(
-                ex.Message,
-                _localization.GetString(
-                    "GridUtility.TariffHeading"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            RefreshUtilityAuditPreview();
         }
         finally
         {
             TariffCaptureButton.IsEnabled = true;
+            TariffImportEnelButton.IsEnabled = true;
             TariffYearSelector.IsEnabled = true;
             SetGlobalOperation(false, string.Empty);
         }
@@ -2161,7 +2300,8 @@ public partial class MainWindow : Window
     }
 
     private string TariffVersionStatusLabel(
-        string? status)
+        string? status,
+        bool cne = false)
     {
         return status switch
         {
@@ -2170,10 +2310,14 @@ public partial class MainWindow : Window
                     "GridUtility.TariffVersion.Single"),
             "VERSION_PREFERRED_RETROACTIVE" =>
                 _localization.GetString(
-                    "GridUtility.TariffVersion.RetroactivePreferred"),
+                    cne
+                        ? "GridUtility.TariffVersion.CneCorrection"
+                        : "GridUtility.TariffVersion.RetroactivePreferred"),
             "VERSION_SUPERSEDED_BY_RETROACTIVE" =>
                 _localization.GetString(
-                    "GridUtility.TariffVersion.Superseded"),
+                    cne
+                        ? "GridUtility.TariffVersion.CneSuperseded"
+                        : "GridUtility.TariffVersion.Superseded"),
             "VERSION_AMBIGUOUS_MULTIPLE_RETROACTIVE" =>
                 _localization.GetString(
                     "GridUtility.TariffVersion.Ambiguous"),
@@ -3338,6 +3482,7 @@ public partial class MainWindow : Window
     }
 
     private sealed record TariffPublicationViewRow(
+        string Authority,
         string Effective,
         string Retroactive,
         string Status,
