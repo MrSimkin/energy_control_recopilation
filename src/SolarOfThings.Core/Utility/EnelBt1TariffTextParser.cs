@@ -11,7 +11,7 @@ namespace SolarOfThings.Core.Utility;
 /// </summary>
 public sealed class EnelBt1TariffTextParser
 {
-    public const string ParserVersion = "enel-bt1-text-v1";
+    public const string ParserVersion = "enel-bt1-text-v2";
 
     private static readonly Regex NumberRegex = new(
         @"(?<![A-Za-z0-9])(?<value>\d+(?:[.,]\d+)?)(?![A-Za-z0-9])",
@@ -214,7 +214,168 @@ public sealed class EnelBt1TariffTextParser
             }
         }
 
+        ClassifyRedEtrBlocksByOfficialSumRule(result);
         return result;
+    }
+
+    private static void ClassifyRedEtrBlocksByOfficialSumRule(
+        List<ParsedTariffRateCandidate> candidates)
+    {
+        const double tolerance = 0.005;
+
+        var energyByIndex = candidates
+            .Where(item =>
+                item.ComponentKey == "ENERGY_CHARGE" &&
+                item.NetworkType is null &&
+                item.EtrBand is null &&
+                item.NetRateClp.HasValue)
+            .GroupBy(item => item.CandidateIndex)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First());
+
+        var purchaseByIndex = candidates
+            .Where(item =>
+                item.ComponentKey == "POWER_PURCHASE" &&
+                item.NetworkType is null &&
+                item.EtrBand is null &&
+                item.NetRateClp.HasValue)
+            .GroupBy(item => item.CandidateIndex)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First());
+
+        var rawBlocks = candidates
+            .Select((candidate, index) => new
+            {
+                Candidate = candidate,
+                Index = index
+            })
+            .Where(item =>
+                item.Candidate.NetworkType is not null &&
+                item.Candidate.EtrBand is not null &&
+                IsRawRedEtrBlock(item.Candidate.ComponentKey))
+            .GroupBy(item => new
+            {
+                item.Candidate.NetworkType,
+                item.Candidate.EtrBand,
+                item.Candidate.CandidateIndex
+            });
+
+        foreach (var group in rawBlocks)
+        {
+            if (!energyByIndex.TryGetValue(
+                    group.Key.CandidateIndex,
+                    out var energy) ||
+                !purchaseByIndex.TryGetValue(
+                    group.Key.CandidateIndex,
+                    out var purchase))
+            {
+                continue;
+            }
+
+            var ordered = group
+                .OrderBy(item => item.Index)
+                .ToArray();
+
+            for (var index = 0; index + 1 < ordered.Length; index++)
+            {
+                var powerBase = ordered[index];
+                var electricity = ordered[index + 1];
+
+                if (!MatchesElectricityConsumedIdentity(
+                        powerBase.Candidate,
+                        electricity.Candidate,
+                        energy,
+                        purchase,
+                        tolerance))
+                {
+                    continue;
+                }
+
+                candidates[powerBase.Index] =
+                    powerBase.Candidate with
+                    {
+                        ComponentKey = "POWER_BASE_DISTRIBUTION",
+                        PrintedDescription =
+                            $"{powerBase.Candidate.NetworkType} " +
+                            $"{powerBase.Candidate.EtrBand} · " +
+                            "Cargo por potencia base en su componente de distribución",
+                        ValidationState =
+                            "CLASSIFIED_BY_SUM_RULE_UNAPPLIED"
+                    };
+
+                candidates[electricity.Index] =
+                    electricity.Candidate with
+                    {
+                        ComponentKey = "ELECTRICITY_CONSUMED",
+                        PrintedDescription =
+                            $"{electricity.Candidate.NetworkType} " +
+                            $"{electricity.Candidate.EtrBand} · " +
+                            "Electricidad consumida (3 + 4 + 5)",
+                        ValidationState =
+                            "CLASSIFIED_BY_SUM_RULE_UNAPPLIED"
+                    };
+
+                // One validated pair is sufficient for this RED/ETR/column
+                // identity. Do not relabel additional raw blocks by guess.
+                break;
+            }
+        }
+    }
+
+    private static bool IsRawRedEtrBlock(string componentKey) =>
+        componentKey.StartsWith(
+            "RED_ETR_RATE_BLOCK_",
+            StringComparison.Ordinal) ||
+        componentKey is "POWER_BASE_RAW" or "TOTAL_BT1_BASE_RAW";
+
+    private static bool MatchesElectricityConsumedIdentity(
+        ParsedTariffRateCandidate powerBase,
+        ParsedTariffRateCandidate electricity,
+        ParsedTariffRateCandidate energy,
+        ParsedTariffRateCandidate purchase,
+        double tolerance)
+    {
+        if (!powerBase.NetRateClp.HasValue ||
+            !electricity.NetRateClp.HasValue ||
+            !energy.NetRateClp.HasValue ||
+            !purchase.NetRateClp.HasValue)
+        {
+            return false;
+        }
+
+        var expectedNet =
+            energy.NetRateClp.Value +
+            purchase.NetRateClp.Value +
+            powerBase.NetRateClp.Value;
+
+        if (Math.Abs(
+                electricity.NetRateClp.Value -
+                expectedNet) > tolerance)
+        {
+            return false;
+        }
+
+        if (powerBase.PublishedIvaColumnClp.HasValue &&
+            electricity.PublishedIvaColumnClp.HasValue &&
+            energy.PublishedIvaColumnClp.HasValue &&
+            purchase.PublishedIvaColumnClp.HasValue)
+        {
+            var expectedIvaColumn =
+                energy.PublishedIvaColumnClp.Value +
+                purchase.PublishedIvaColumnClp.Value +
+                powerBase.PublishedIvaColumnClp.Value;
+
+            if (Math.Abs(
+                    electricity.PublishedIvaColumnClp.Value -
+                    expectedIvaColumn) > tolerance)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool LooksLikeBt1Evidence(string text)
