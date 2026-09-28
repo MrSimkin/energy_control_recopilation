@@ -895,14 +895,34 @@ try
                 liveCneRepository,
                 paths);
 
+        var liveCneProgress = new Progress<string>(
+            message =>
+                Console.WriteLine(
+                    $"Live CNE progress: {message}"));
+
         var liveCneResult =
             await liveCneCapture.CaptureVadIndexEvidenceAsync(
-                2026);
+                2026,
+                liveCneProgress);
 
         Console.WriteLine(
             $"Live CNE capture: {liveCneResult.CapturedVadIndexDocuments} " +
             $"VAD document(s); {liveCneResult.Corrections} correction(s); " +
             $"{liveCneResult.Failed} failure(s).");
+
+        foreach (var item in liveCneRepository
+                     .GetAll()
+                     .Where(item =>
+                         item.Provider == "CNE_CHILE" &&
+                         item.Category == "VAD_INDEX")
+                     .OrderBy(item => item.EffectiveFrom)
+                     .ThenBy(item => item.PublicationId))
+        {
+            Console.WriteLine(
+                $"Live CNE captured source: " +
+                $"{item.EffectiveFrom?.ToString("yyyy-MM-dd") ?? "no-date"}; " +
+                $"correction={item.IsRetroactive}; {item.Title}; {item.SourceUrl}");
+        }
 
         if (liveCneResult.CapturedVadIndexDocuments < 10 ||
             liveCneResult.Corrections < 1 ||
