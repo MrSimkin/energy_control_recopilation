@@ -416,3 +416,18 @@ Therefore:
 - RED should come from bill/service evidence, distributor evidence or an independently defensible network classification;
 - ETR should be derived from the applicable official rule plus historical consumption evidence;
 - if RED/ETR remain unresolved, rate matching may be used as evidence but must remain explicitly applicability-ambiguous.
+
+## 19. Live Enel archive access constraint — 2026-09-28
+
+Independent Windows/.NET live probes reproduced the user's tariff-download failure.
+
+The Enel archive and a known direct tariff-PDF URL return an Imperva/Reese `Pardon Our Interruption` interstitial to unattended HTTP clients. The response is HTTP 200, so status code alone is insufficient; the app must validate expected document/content signatures.
+
+Research consequence:
+- Enel remains an important distributor/publication authority, but its protected web surface cannot be the sole machine-download dependency;
+- the acquisition engine should prioritize accessible official CNE/regulatory sources for structured/versioned rules and tariff inputs;
+- Enel documents can remain corroborating/source evidence when available;
+- a user-assisted official-PDF import may be retained as a fallback;
+- no anti-bot circumvention should be implemented.
+
+This finding supersedes the earlier assumption that a more tolerant HTML parser alone would solve the target capture failure.
