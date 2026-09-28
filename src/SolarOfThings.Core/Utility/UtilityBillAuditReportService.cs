@@ -255,11 +255,15 @@ public sealed class UtilityBillAuditReportService
                     item.Status,
                     spanish));
             row.Cells[3].AddParagraph(
-                item.PublicationIds.Count == 0
+                item.Publications.Count == 0
                     ? "—"
                     : string.Join(
-                        ", ",
-                        item.PublicationIds.Select(id => $"#{id}")));
+                        " · ",
+                        item.Publications.Select(
+                            publication =>
+                                FormatTariffPublicationEvidence(
+                                    publication,
+                                    spanish))));
             row.Cells[4].AddParagraph(
                 item.ReconstructedAmountClp.HasValue
                     ? $"$ {item.ReconstructedAmountClp.Value:N0}"
@@ -301,6 +305,20 @@ public sealed class UtilityBillAuditReportService
             detail.Format.Font.Color = Colors.DimGray;
             detail.Format.SpaceAfter = Unit.FromPoint(1);
         }
+    }
+
+    private static string FormatTariffPublicationEvidence(
+        BillTariffPublicationEvidence publication,
+        bool spanish)
+    {
+        var effective = publication.EffectiveFrom.HasValue
+            ? publication.EffectiveFrom.Value.ToString("yyyy-MM")
+            : (spanish ? "sin fecha" : "no date");
+        var revision = publication.IsRetroactive
+            ? (spanish ? "retroactiva" : "retroactive")
+            : (spanish ? "normal" : "standard");
+
+        return $"{effective} · {revision} · {publication.Title}";
     }
 
     private static string VerificationStatusLabel(
