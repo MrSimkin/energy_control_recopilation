@@ -1986,24 +1986,40 @@ public partial class MainWindow : Window
             .GetRequiredService<TariffPublicationRepository>()
             .GetAll();
 
+        var resolutions = _services
+            .GetRequiredService<TariffPublicationVersionResolver>()
+            .Resolve(publications)
+            .ToDictionary(item => item.PublicationId);
+
         TariffPublicationsGrid.ItemsSource = publications
-            .Select(item => new TariffPublicationViewRow(
-                item.EffectiveFrom.HasValue
-                    ? item.EffectiveFrom.Value.ToString("dd-MM-yyyy")
-                    : "—",
-                item.IsRetroactive
-                    ? _localization.GetString(
-                        "GridUtility.TariffRetroactive.Yes")
-                    : _localization.GetString(
-                        "GridUtility.TariffRetroactive.No"),
-                TariffCaptureStatusLabel(item.CaptureStatus),
-                item.PageCount?.ToString() ?? "—",
-                string.IsNullOrWhiteSpace(item.ContentSha256)
-                    ? "—"
-                    : item.ContentSha256[..Math.Min(
-                        12,
-                        item.ContentSha256.Length)],
-                item.Title))
+            .Select(item =>
+            {
+                resolutions.TryGetValue(
+                    item.PublicationId,
+                    out var resolution);
+
+                return new TariffPublicationViewRow(
+                    item.EffectiveFrom.HasValue
+                        ? item.EffectiveFrom.Value.ToString("dd-MM-yyyy")
+                        : "—",
+                    item.IsRetroactive
+                        ? _localization.GetString(
+                            "GridUtility.TariffRetroactive.Yes")
+                        : _localization.GetString(
+                            "GridUtility.TariffRetroactive.No"),
+                    TariffCaptureStatusLabel(item.CaptureStatus),
+                    TariffNormalizationStatusLabel(
+                        item.NormalizationStatus),
+                    TariffVersionStatusLabel(
+                        resolution?.Status),
+                    item.PageCount?.ToString() ?? "—",
+                    string.IsNullOrWhiteSpace(item.ContentSha256)
+                        ? "—"
+                        : item.ContentSha256[..Math.Min(
+                            12,
+                            item.ContentSha256.Length)],
+                    item.Title);
+            })
             .ToArray();
 
         if (publications.Count == 0 &&
@@ -2102,6 +2118,65 @@ public partial class MainWindow : Window
         }
 
         return status;
+    }
+
+    private string TariffNormalizationStatusLabel(
+        string status)
+    {
+        if (string.Equals(
+                status,
+                "CANDIDATES_EXTRACTED",
+                StringComparison.Ordinal))
+        {
+            return _localization.GetString(
+                "GridUtility.TariffNormalization.Candidates");
+        }
+
+        if (string.Equals(
+                status,
+                "NOT_NORMALIZED",
+                StringComparison.Ordinal))
+        {
+            return _localization.GetString(
+                "GridUtility.TariffNormalization.Pending");
+        }
+
+        if (status.StartsWith(
+                "FAILED",
+                StringComparison.Ordinal))
+        {
+            return _localization.GetString(
+                "GridUtility.TariffNormalization.Failed");
+        }
+
+        return status;
+    }
+
+    private string TariffVersionStatusLabel(
+        string? status)
+    {
+        return status switch
+        {
+            "VERSION_SINGLE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.Single"),
+            "VERSION_PREFERRED_RETROACTIVE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.RetroactivePreferred"),
+            "VERSION_SUPERSEDED_BY_RETROACTIVE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.Superseded"),
+            "VERSION_AMBIGUOUS_MULTIPLE_RETROACTIVE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.Ambiguous"),
+            "VERSION_AMBIGUOUS_MULTIPLE_VARIANTS" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.Ambiguous"),
+            "NO_EFFECTIVE_DATE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.NoDate"),
+            _ => "—"
+        };
     }
 
     private void UtilityReadingSourceSelector_SelectionChanged(
@@ -3082,6 +3157,8 @@ public partial class MainWindow : Window
         string Effective,
         string Retroactive,
         string Status,
+        string Normalization,
+        string Version,
         string Pages,
         string Sha,
         string Title);
