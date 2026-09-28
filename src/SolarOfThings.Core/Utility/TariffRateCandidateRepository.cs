@@ -119,23 +119,42 @@ public sealed class TariffRateCandidateRepository
         string detail)
     {
         using var connection = _database.OpenConnection();
-        using var command = connection.CreateCommand();
+        using var transaction = connection.BeginTransaction();
         var status = $"FAILED: {detail}";
-        command.CommandText = """
-            UPDATE tariff_publication
-            SET normalization_status = $status,
-                normalization_parser_version = $parserVersion,
-                normalized_utc = $normalizedUtc,
-                updated_utc = $normalizedUtc
-            WHERE publication_id = $publicationId;
-            """;
-        command.Parameters.AddWithValue("$publicationId", publicationId);
-        command.Parameters.AddWithValue("$parserVersion", parserVersion);
-        command.Parameters.AddWithValue(
-            "$status",
-            status[..Math.Min(500, status.Length)]);
-        command.Parameters.AddWithValue("$normalizedUtc", DateTimeOffset.UtcNow.ToString("O"));
-        command.ExecuteNonQuery();
+        var normalizedUtc = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var delete = connection.CreateCommand())
+        {
+            delete.Transaction = transaction;
+            delete.CommandText = """
+                DELETE FROM tariff_rate_candidate
+                WHERE publication_id = $publicationId;
+                """;
+            delete.Parameters.AddWithValue("$publicationId", publicationId);
+            delete.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                UPDATE tariff_publication
+                SET normalization_status = $status,
+                    normalization_parser_version = $parserVersion,
+                    normalized_utc = $normalizedUtc,
+                    updated_utc = $normalizedUtc
+                WHERE publication_id = $publicationId;
+                """;
+            command.Parameters.AddWithValue("$publicationId", publicationId);
+            command.Parameters.AddWithValue("$parserVersion", parserVersion);
+            command.Parameters.AddWithValue(
+                "$status",
+                status[..Math.Min(500, status.Length)]);
+            command.Parameters.AddWithValue("$normalizedUtc", normalizedUtc);
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     public IReadOnlyList<TariffRateCandidate> GetForPublication(long publicationId)
