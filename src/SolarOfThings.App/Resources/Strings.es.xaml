@@ -243,6 +243,9 @@
     <sys:String x:Key="GridUtility.DifferenceKwh">Dif. kWh</sys:String>
     <sys:String x:Key="GridUtility.DifferencePercent">Dif. %</sys:String>
     <sys:String x:Key="GridUtility.Coverage">Cobertura</sys:String>
+    <sys:String x:Key="GridUtility.Sensitivity">Sensibilidad de datos</sys:String>
+    <sys:String x:Key="GridUtility.SensitivityUpperUnknown">límite superior no cuantificable con la evidencia disponible</sys:String>
+    <sys:String x:Key="GridUtility.SensitivityNotConfidence">no es un intervalo de confianza</sys:String>
     <sys:String x:Key="GridUtility.Quality">Calidad</sys:String>
     <sys:String x:Key="GridUtility.BillsHeading">Boletas de Enel (opcional)</sys:String>
     <sys:String x:Key="GridUtility.BillsIntro">Puedes guardar el consumo facturado, fechas y horas del período, monto, referencia y notas. La comparación usa el mismo intervalo exacto; una boleta no reemplaza las lecturas acumuladas del medidor.</sys:String>
