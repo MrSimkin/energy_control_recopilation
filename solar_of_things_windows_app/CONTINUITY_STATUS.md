@@ -1923,3 +1923,40 @@ Phase 8 first code checkpoint currently on main:
 - deterministic Phase 8 smoke added.
 
 Phase 8 target acceptance will require real meter data; no invented meter reading is acceptable.
+
+
+## Build 342 — Phase 8 evidence-model expansion — GREEN — 2026-09-27
+
+Target feedback from the first real Grid & Utility test has been incorporated.
+
+Current Phase 8 code checkpoint:
+- code commit `7ac676812497679402beb4593773b3cd3c3c6419`;
+- Windows Build 342 / run `36361589847`;
+- artifact `10945173432`;
+- SHA-256 `eb877687fb5491e1ae662caa4acc9f9c36e309f6730dd24590902e461df040aa`;
+- CI GREEN.
+
+Key changes:
+- schema v10;
+- official/date-only Enel readings separated from personal/exact-time readings;
+- visible time-boundary assumption for date-only utility evidence;
+- migration of recognizable prior Phase 8 reading provenance without requiring re-entry;
+- arbitrary reading-pair reconciliation;
+- consecutive reconciliation retained as overview;
+- reusable quick day/month/year selector used transversally outside Reports;
+- utility bills can link directly to saved reading pairs;
+- expanded bill totals;
+- flexible signed bill-line evidence;
+- PDF reconciliation report for external/utility technical review.
+
+No personal meter values or bill amounts are stored in repository documentation.
+
+Next target gate:
+- validate Build 342 against the user's existing real `Data\`;
+- confirm migrated official/personal provenance;
+- compare at least one arbitrary official reading pair;
+- link/recreate one bill using its two official readings;
+- store representative bill lines without forcing arithmetic reinterpretation;
+- export and return one reconciliation PDF for visual/semantic QA.
+
+Phase 9 official-tariff acquisition and Phase 10 bill reconstruction remain queued immediately after Phase 8 acceptance.

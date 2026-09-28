@@ -316,3 +316,32 @@ Each estimated bill should be reproducible from:
 
 The report/detail view should expose the official tariff source used.
 
+
+
+## 16. Phase 8 bill-shape validation — 2026-09-27
+
+Real household bill review confirms that the previously proposed flexible actual-bill model is necessary.
+
+Observed bill structure includes multiple conceptual groups such as:
+- electric-service charges;
+- consumption-linked charges;
+- transport/network charges;
+- meter/service charges;
+- common-service items;
+- subsidy/credit-style items;
+- taxable/VAT/exempt accumulations;
+- gross bill amount;
+- signed other adjustments;
+- final total due.
+
+Product implication:
+- do not reduce an actual bill to `billed_kWh + total_amount`;
+- preserve printed bill lines independently as evidence;
+- keep actual bill-line semantics separate from the future tariff engine's normalized component taxonomy;
+- later Phase 10 may map a preserved actual line to a normalized tariff category, but the original description/amount must remain recoverable.
+
+Phase 9 and Phase 10 remain unchanged in sequencing:
+1. acquire/version official tariff schedules with provenance;
+2. reconstruct expected charges using the schedules effective inside each billing interval;
+3. compare expected components against preserved actual bill components;
+4. explain differences rather than assuming meter or provider error.
