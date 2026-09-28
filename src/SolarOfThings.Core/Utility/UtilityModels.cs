@@ -85,7 +85,10 @@ public sealed record UtilityMeterReconciliation(
     double CoveragePercent,
     string TimeBasis,
     string Quality,
-    string Detail);
+    string Detail)
+{
+    public UtilitySensitivityRange? Sensitivity { get; init; }
+}
 
 public sealed record UtilityBillReconciliation(
     long BillId,
@@ -99,4 +102,17 @@ public sealed record UtilityBillReconciliation(
     double CoveragePercent,
     string TimeBasis,
     string Quality,
-    string Detail);
+    string Detail)
+{
+    public UtilitySensitivityRange? Sensitivity { get; init; }
+}
+
+public sealed record UtilitySensitivityRange(
+    double LowerKwh,
+    double? UpperKwh,
+    double BaselineObservedKwh,
+    double? BoundaryAlternativeKwh,
+    double UncoveredHours,
+    double? ObservedMaximumKw,
+    string Basis,
+    bool IsFormalConfidenceInterval);
