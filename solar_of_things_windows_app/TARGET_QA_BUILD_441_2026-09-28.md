@@ -200,3 +200,45 @@ This QA is intended to answer four questions in one pass:
 2. Does every noticeable process visibly communicate that work is occurring?
 3. Does official Enel year capture finally work against the real site and preserve retroactive/version evidence?
 4. Is the new bill-first audit understandable and conservative enough to continue toward full tariff applicability/reconstruction?
+
+## Target-PC results received — Build 441 — 2026-09-28 (partial)
+
+Immediate user-reported results recorded before further diagnosis/fixes:
+
+### Item 6 — Official tariff acquisition: **FAIL**
+- Selecting/running official tariff acquisition leaves the tariff area blank.
+- No usable official tariff publications are downloaded/listed on the target PC.
+- Therefore the real-site acquisition gate is **not accepted** despite internal fixture/smoke coverage.
+- Treat this as a live-source integration defect, not a user configuration problem.
+- Do not mark Phase 9 acquisition complete.
+
+### Item 7 — Bill audit preview: **NOT TESTABLE / BLOCKED BY ITEM 6**
+- The tariff-dependent audit cannot be meaningfully tested while no official tariff evidence is captured.
+- Do not infer pass/fail for tariff verification or line reconstruction from this run.
+
+### Item 8 — Two reports: **PARTIAL**
+- The user successfully generated and returned the **reading-comparison PDF**.
+- The bill-audit PDF was not produced/tested because the tariff/audit path is blocked by item 6/7.
+- Returned comparison PDF evidence:
+  - title explicitly identifies it as “Comparación de lecturas - Medidor vs Solar of Things”;
+  - it explicitly states that it is **not** a bill audit;
+  - interval: 27-08-2026 boundary -> 27-09-2026 17:56;
+  - meter delta: 97.400 kWh;
+  - Solar of Things total grid import: 84.080 kWh;
+  - signed difference: -13.320 kWh / 13.68%;
+  - coverage: 99.3%;
+  - sensitivity range: 84.080–98.032 kWh;
+  - report preserves the Enel date-boundary convention and warns that discrepancy alone does not prove billing error.
+- This supports the separation between arbitrary reading comparison and bill audit.
+
+### Service-location clue for later applicability research
+- User reports the service is in **Ñuñoa, Villa Olímpica, Santiago** and in an apartment building.
+- This may be used only as a research clue for official territorial/service applicability.
+- Do **not** infer RED, ETR, commune-specific tariff column, meter topology or building/common-service treatment from location alone.
+
+Immediate priority after recording:
+1. diagnose/fix live Enel tariff acquisition;
+2. revalidate capture against the real official source internally where possible;
+3. only then request the blocked tariff/audit subset of QA;
+4. do not make the user repeat unrelated Build 441 checks.
+
