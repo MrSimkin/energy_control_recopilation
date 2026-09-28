@@ -299,10 +299,21 @@
     <sys:String x:Key="GridUtility.DeleteBillLine">Eliminar línea</sys:String>
     <sys:String x:Key="GridUtility.BillLineSaved">Línea guardada.</sys:String>
     <sys:String x:Key="GridUtility.BillLineDeleted">Línea eliminada.</sys:String>
-    <sys:String x:Key="GridUtility.TariffHeading">Tarifas oficiales Enel</sys:String>
-    <sys:String x:Key="GridUtility.TariffIntro">Selecciona un año y captura o actualiza todas las publicaciones oficiales de tarifas de suministro eléctrico que Enel expone para ese período. Se conserva el PDF original, hash SHA-256, vigencia, condición retroactiva y texto extraído.</sys:String>
+    <sys:String x:Key="GridUtility.TariffHeading">Tarifas y evidencia oficial</sys:String>
+    <sys:String x:Key="GridUtility.TariffIntro">Selecciona un año para actualizar toda la evidencia oficial disponible automáticamente. CNE se captura directamente; si Enel bloquea el acceso automatizado, la app lo informa y permite importar PDFs oficiales obtenidos normalmente en el navegador. Cada fuente conserva vigencia, versión/corrección, PDF y SHA-256.</sys:String>
     <sys:String x:Key="GridUtility.TariffYear">Año</sys:String>
     <sys:String x:Key="GridUtility.TariffCapture">Descargar / actualizar año</sys:String>
+    <sys:String x:Key="GridUtility.TariffImportEnel">Importar PDFs oficiales Enel…</sys:String>
+    <sys:String x:Key="GridUtility.TariffOpenEnel">Abrir página oficial Enel</sys:String>
+    <sys:String x:Key="GridUtility.TariffAuthority">Fuente</sys:String>
+    <sys:String x:Key="GridUtility.TariffAutoCaptureResult">Actualización {0}: CNE {1} documento(s) VAD capturado(s), {2} corrección(es), {3} fallo(s). Enel automático: {4}</sys:String>
+    <sys:String x:Key="GridUtility.TariffEnelBlocked">no disponible por protección web; usa “Abrir página oficial Enel” + “Importar PDFs oficiales Enel”</sys:String>
+    <sys:String x:Key="GridUtility.TariffEnelOk">{0}/{1} publicación(es) Enel capturada(s); {2} candidato(s) normalizado(s)</sys:String>
+    <sys:String x:Key="GridUtility.TariffImportResult">Importación Enel: {0} PDF(s) importado(s), {1} candidato(s) normalizado(s), {2} fallo(s).</sys:String>
+    <sys:String x:Key="GridUtility.TariffCorrection">Corrección</sys:String>
+    <sys:String x:Key="GridUtility.TariffStandard">Normal</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.CneCorrection">Corrección vigente</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.CneSuperseded">Rectificada</sys:String>
     <sys:String x:Key="GridUtility.TariffNotCaptured">Aún no se han capturado publicaciones tarifarias oficiales.</sys:String>
     <sys:String x:Key="GridUtility.TariffCaptureResult">Captura terminada: {0}/{1} publicaciones; {2} fallos; {3} retroactivas; {4} períodos con múltiples versiones; {5} candidatos extraídos; {6} fallos de normalización.</sys:String>
     <sys:String x:Key="GridUtility.TariffEffective">Vigencia</sys:String>
@@ -325,7 +336,7 @@
     <sys:String x:Key="GridUtility.TariffStatus.Failed">Error</sys:String>
     <sys:String x:Key="GridUtility.TariffPages">Páginas</sys:String>
     <sys:String x:Key="GridUtility.TariffPublication">Publicación oficial</sys:String>
-    <sys:String x:Key="GridUtility.TariffNormalizationNote">Esta sección conserva la fuente oficial completa. La siguiente etapa normaliza los valores aplicables por comuna, tipo de red, ETR y plan; una fuente capturada todavía NO significa “tarifa aplicada a tu boleta”.</sys:String>
+    <sys:String x:Key="GridUtility.TariffNormalizationNote">CNE se conserva como evidencia regulatoria; los PDFs Enel importados se conservan como cuadros tarifarios finales. Ninguna fuente se marca como aplicada a una boleta hasta resolver vigencia, correcciones/retroactividad y aplicabilidad por comuna, RED, ETR y plan.</sys:String>
 
     <sys:String x:Key="GridUtility.SelectBillFirst">Selecciona primero una boleta guardada.</sys:String>
 
