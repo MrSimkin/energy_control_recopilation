@@ -84,6 +84,14 @@ public sealed class UtilityReconciliationService
         var quality = Quality(grid.CoveragePercent, timeBasis);
         var detail = QualityDetail(grid.CoveragePercent, timeBasis);
 
+        var sensitivity = BuildSensitivity(
+            deviceId,
+            previous.ReadingAtUtc,
+            current.ReadingAtUtc,
+            grid,
+            previous.TimePrecision == UtilityTimePrecision.DateOnly,
+            current.TimePrecision == UtilityTimePrecision.DateOnly);
+
         return new UtilityMeterReconciliation(
             previous.ReadingId,
             current.ReadingId,
@@ -99,7 +107,10 @@ public sealed class UtilityReconciliationService
             grid.CoveragePercent,
             timeBasis,
             quality,
-            detail);
+            detail)
+        {
+            Sensitivity = sensitivity
+        };
     }
 
     public IReadOnlyList<UtilityBillReconciliation> GetBillReconciliations(
@@ -117,6 +128,10 @@ public sealed class UtilityReconciliationService
         var timeBasis = bill.PeriodPrecision == UtilityTimePrecision.DateOnly
             ? "DATE_ONLY_ASSUMED"
             : "EXACT";
+        var fromDateOnly =
+            bill.PeriodPrecision == UtilityTimePrecision.DateOnly;
+        var toDateOnly =
+            bill.PeriodPrecision == UtilityTimePrecision.DateOnly;
 
         if (bill.FromReadingId.HasValue && bill.ToReadingId.HasValue)
         {
@@ -127,6 +142,10 @@ public sealed class UtilityReconciliationService
                 fromUtc = from.ReadingAtUtc;
                 toUtc = to.ReadingAtUtc;
                 timeBasis = TimeBasis(from, to);
+                fromDateOnly =
+                    from.TimePrecision == UtilityTimePrecision.DateOnly;
+                toDateOnly =
+                    to.TimePrecision == UtilityTimePrecision.DateOnly;
             }
         }
 
@@ -148,6 +167,14 @@ public sealed class UtilityReconciliationService
                 percent = absolute.Value / bill.BilledConsumptionKwh.Value * 100.0;
         }
 
+        var sensitivity = BuildSensitivity(
+            deviceId,
+            fromUtc,
+            toUtc,
+            grid,
+            fromDateOnly,
+            toDateOnly);
+
         return new UtilityBillReconciliation(
             bill.BillId,
             fromUtc,
@@ -160,7 +187,10 @@ public sealed class UtilityReconciliationService
             grid.CoveragePercent,
             timeBasis,
             Quality(grid.CoveragePercent, timeBasis),
-            QualityDetail(grid.CoveragePercent, timeBasis));
+            QualityDetail(grid.CoveragePercent, timeBasis))
+        {
+            Sensitivity = sensitivity
+        };
     }
 
     private static UtilityMeterReconciliation Invalid(
@@ -193,6 +223,148 @@ public sealed class UtilityReconciliationService
         to.TimePrecision == UtilityTimePrecision.Exact
             ? "EXACT"
             : "DATE_ONLY_ASSUMED";
+
+    private UtilitySensitivityRange BuildSensitivity(
+        string deviceId,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc,
+        PowerMetricStatistics baseline,
+        bool fromDateOnly,
+        bool toDateOnly)
+    {
+        var baselineUpper = MissingDataUpper(
+            baseline,
+            fromUtc,
+            toUtc);
+        var lower = baseline.PositiveEnergyKwh;
+        double? upper = baselineUpper;
+        double? boundaryAlternative = null;
+        var uncoveredHours = EffectiveUncoveredHours(
+            baseline,
+            fromUtc,
+            toUtc);
+        var observedMaximumKw = baseline.MaximumWatts.HasValue
+            ? Math.Max(0, baseline.MaximumWatts.Value) / 1000.0
+            : (double?)null;
+
+        if (fromDateOnly || toDateOnly)
+        {
+            var alternateFrom =
+                fromDateOnly ? fromUtc.AddMinutes(-1) : fromUtc;
+            var alternateTo =
+                toDateOnly ? toUtc.AddMinutes(-1) : toUtc;
+
+            if (alternateTo > alternateFrom)
+            {
+                var alternate = _statistics.GetMetric(
+                    deviceId,
+                    "grid_import_power_w",
+                    alternateFrom,
+                    alternateTo);
+                boundaryAlternative =
+                    alternate.PositiveEnergyKwh;
+                lower = Math.Min(
+                    lower,
+                    alternate.PositiveEnergyKwh);
+
+                var alternateUpper = MissingDataUpper(
+                    alternate,
+                    alternateFrom,
+                    alternateTo);
+                upper = CombineUpper(
+                    upper,
+                    alternateUpper);
+
+                uncoveredHours = Math.Max(
+                    uncoveredHours,
+                    EffectiveUncoveredHours(
+                        alternate,
+                        alternateFrom,
+                        alternateTo));
+
+                if (alternate.MaximumWatts.HasValue)
+                {
+                    observedMaximumKw = Math.Max(
+                        observedMaximumKw ?? 0,
+                        Math.Max(0, alternate.MaximumWatts.Value) / 1000.0);
+                }
+            }
+        }
+
+        var hasGapSensitivity = uncoveredHours > 0.000001;
+        var hasBoundarySensitivity = fromDateOnly || toDateOnly;
+        var basis = (hasGapSensitivity, hasBoundarySensitivity) switch
+        {
+            (true, true) =>
+                "GAPS_OBSERVED_MAX_PLUS_ENEL_BOUNDARY",
+            (true, false) =>
+                "GAPS_OBSERVED_MAX",
+            (false, true) =>
+                "ENEL_ONE_MINUTE_BOUNDARY",
+            _ =>
+                "OBSERVED_INTERVAL_ONLY"
+        };
+
+        return new UtilitySensitivityRange(
+            lower,
+            upper,
+            baseline.PositiveEnergyKwh,
+            boundaryAlternative,
+            uncoveredHours,
+            observedMaximumKw,
+            basis,
+            IsFormalConfidenceInterval: false);
+    }
+
+    private static double EffectiveUncoveredHours(
+        PowerMetricStatistics statistics,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc)
+    {
+        if (statistics.SampleCount == 0)
+        {
+            return Math.Max(
+                0,
+                (toUtc - fromUtc).TotalHours);
+        }
+
+        return Math.Max(
+            0,
+            statistics.UncoveredHours);
+    }
+
+    private static double? MissingDataUpper(
+        PowerMetricStatistics statistics,
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc)
+    {
+        var uncoveredHours = EffectiveUncoveredHours(
+            statistics,
+            fromUtc,
+            toUtc);
+
+        if (uncoveredHours <= 0.000001)
+            return statistics.PositiveEnergyKwh;
+
+        if (!statistics.MaximumWatts.HasValue)
+            return null;
+
+        var maximumImportKw =
+            Math.Max(0, statistics.MaximumWatts.Value) / 1000.0;
+
+        return statistics.PositiveEnergyKwh +
+               uncoveredHours * maximumImportKw;
+    }
+
+    private static double? CombineUpper(
+        double? left,
+        double? right)
+    {
+        if (!left.HasValue || !right.HasValue)
+            return null;
+
+        return Math.Max(left.Value, right.Value);
+    }
 
     private static string Quality(
         double coveragePercent,
