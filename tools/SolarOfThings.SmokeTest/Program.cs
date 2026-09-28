@@ -30,7 +30,7 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 10)
+        SqliteDatabase.CurrentSchemaVersion != 11)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
@@ -748,6 +748,68 @@ try
         }
     }
 
+    var tariffRepository =
+        new TariffPublicationRepository(database);
+    const string tariffFixtureHtml = """
+        <html><body>
+        <a href="/content/tarifas/Enel-Septiembre-2026.pdf">
+        Enel Distribución Chile SA._Tarifas Suministro Eléctrico 8T_ VAD 5T Septiembre de 2026.pdf
+        </a>
+        <a href="/content/tarifas/Enel-Agosto-2026-Retroactivo.pdf">
+        Enel Distribución Chile SA._Tarifas Suministro Eléctrico 8T_ VAD 5T Agosto de 2026_Retroactivo.pdf
+        </a>
+        </body></html>
+        """;
+
+    var tariffDiscovered =
+        EnelTariffCaptureService.Discover2026SupplyTariffs(
+            tariffFixtureHtml,
+            new Uri("https://www.enel.cl/es/clientes/tarifas-y-regulacion/tarifas.html"));
+
+    if (tariffDiscovered.Count != 2 ||
+        !tariffDiscovered.Any(item =>
+            item.EffectiveFrom == new DateOnly(2026, 9, 1) &&
+            !item.IsRetroactive) ||
+        !tariffDiscovered.Any(item =>
+            item.EffectiveFrom == new DateOnly(2026, 8, 1) &&
+            item.IsRetroactive))
+    {
+        throw new InvalidOperationException(
+            "Phase 9 tariff catalog discovery smoke test failed.");
+    }
+
+    var tariffPublicationId =
+        tariffRepository.UpsertDiscovery(
+            tariffDiscovered[0]);
+    tariffRepository.MarkCaptured(
+        tariffPublicationId,
+        Path.Combine(paths.TariffDirectory, "smoke.pdf"),
+        "abc123",
+        1234,
+        2,
+        new[]
+        {
+            "Página 1 tarifa BT1 smoke",
+            "Página 2 tarifa BT1 smoke"
+        });
+
+    var storedTariff =
+        tariffRepository.GetAll()
+            .Single(item =>
+                item.PublicationId == tariffPublicationId);
+    var storedTariffPages =
+        tariffRepository.GetPageTexts(
+            tariffPublicationId);
+
+    if (storedTariff.CaptureStatus != "CAPTURED" ||
+        storedTariff.PageCount != 2 ||
+        storedTariff.ContentSha256 != "abc123" ||
+        storedTariffPages.Count != 2)
+    {
+        throw new InvalidOperationException(
+            "Phase 9 tariff source persistence smoke test failed.");
+    }
+
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
     apiDiagnostics.Record(new ApiDiagnosticEntry(
         DateTimeOffset.UtcNow,
@@ -852,7 +914,8 @@ try
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
         "commissioning metadata/profile, protected secret storage, Phase 5 time-range/aggregation math, " +
         "Phase 7 report presets/family event-pattern analysis/source attribution/Excel/PDF export, " +
-        "and Phase 8 utility meter/bill reconciliation are operational.");
+        "Phase 8 utility meter/bill reconciliation and " +
+        "Phase 9 official tariff source capture foundation are operational.");
 }
 finally
 {
