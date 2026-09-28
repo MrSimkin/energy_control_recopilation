@@ -408,11 +408,15 @@ public sealed class TariffBillRateVerificationService
             return "TRANSMISSION_DEDICATED";
         if (normalized.Contains("CARGO POR ENERGIA", StringComparison.Ordinal))
             return "ENERGY_CHARGE";
-        if (normalized.Contains("ELECTRICIDAD CONSUMIDA", StringComparison.Ordinal) ||
-            normalized.Contains("TOTAL TARIFA BASE BT1", StringComparison.Ordinal))
+        if (normalized.Contains("POTENCIA BASE", StringComparison.Ordinal) &&
+            normalized.Contains("DISTRIBUCION", StringComparison.Ordinal))
         {
-            return "TOTAL_BT1_BASE_RAW";
+            return "POWER_BASE_DISTRIBUTION";
         }
+        if (normalized.Contains("ELECTRICIDAD CONSUMIDA", StringComparison.Ordinal))
+            return "ELECTRICITY_CONSUMED";
+        if (normalized.Contains("TOTAL TARIFA BASE BT1", StringComparison.Ordinal))
+            return "TOTAL_BT1_BASE_RAW";
 
         return null;
     }
@@ -429,6 +433,8 @@ public sealed class TariffBillRateVerificationService
         "ELECTRICITY_TRANSPORT",
         "ENERGY_CHARGE",
         "POWER_PURCHASE",
+        "POWER_BASE_DISTRIBUTION",
+        "ELECTRICITY_CONSUMED",
         "TOTAL_BT1_BASE_RAW"
     ];
 
