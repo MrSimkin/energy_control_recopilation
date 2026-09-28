@@ -20,6 +20,10 @@ public sealed class CneTariffEvidenceCaptureService
         "https://www.cne.cl/tarificacion/electrica/valor-agregado-de-distribucion/" +
         "opciones-tarifarias-a-usuarios-finales/";
 
+    private static readonly Regex TagRegex = new(
+        "<[^>]+>",
+        RegexOptions.Compiled);
+
     private static readonly Regex PdfHrefRegex = new(
         @"href\s*=\s*[""'](?<href>[^""']+?\.pdf(?:\?[^""']*)?)[""']",
         RegexOptions.IgnoreCase |
@@ -102,7 +106,7 @@ public sealed class CneTariffEvidenceCaptureService
         var html = await pageResponse.Content.ReadAsStringAsync(
             cancellationToken);
 
-        var candidates = DiscoverYearPdfUrls(
+        var candidates = DiscoverYearPdfCandidates(
             html,
             new Uri(OfficialVadIndexPageUrl),
             year);
@@ -121,7 +125,8 @@ public sealed class CneTariffEvidenceCaptureService
         for (var index = 0; index < candidates.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var url = candidates[index];
+            var candidate = candidates[index];
+            var url = candidate.Url;
 
             progress?.Report(
                 $"CNE {year}: revisando documento {index + 1}/{candidates.Count}...");
@@ -156,7 +161,9 @@ public sealed class CneTariffEvidenceCaptureService
                     "\n",
                     pageTexts);
 
-                if (!IsVadIndexResolution(fullText))
+                if (!IsVadIndexResolution(
+                        fullText,
+                        candidate.ListingText))
                 {
                     progress?.Report(
                         $"CNE: omitido (no clasificado como índice VAD): " +
@@ -177,9 +184,12 @@ public sealed class CneTariffEvidenceCaptureService
                     continue;
                 }
 
-                var isCorrection = IsCorrection(fullText);
+                var isCorrection =
+                    IsCorrection(fullText) ||
+                    IsCorrection(candidate.ListingText);
                 var title = BuildTitle(
                     fullText,
+                    candidate.ListingText,
                     effectiveFrom,
                     isCorrection,
                     url);
@@ -255,7 +265,7 @@ public sealed class CneTariffEvidenceCaptureService
             cancellationToken);
         var html = await response.Content.ReadAsStringAsync(
             cancellationToken);
-        var candidates = DiscoverYearPdfUrls(
+        var candidates = DiscoverYearPdfCandidates(
             html,
             new Uri(OfficialVadIndexPageUrl),
             year);
@@ -264,16 +274,32 @@ public sealed class CneTariffEvidenceCaptureService
             (int)response.StatusCode,
             html.Length,
             candidates.Count,
-            candidates.Take(5).ToArray());
+            candidates
+                .Select(item => item.Url)
+                .Take(5)
+                .ToArray());
     }
 
     public static IReadOnlyList<string> DiscoverYearPdfUrls(
         string html,
         Uri pageUri,
-        int year)
+        int year) =>
+        DiscoverYearPdfCandidates(
+            html,
+            pageUri,
+            year)
+        .Select(item => item.Url)
+        .ToArray();
+
+    private static IReadOnlyList<CnePdfCandidate>
+        DiscoverYearPdfCandidates(
+            string html,
+            Uri pageUri,
+            int year)
     {
-        var result = new HashSet<string>(
-            StringComparer.OrdinalIgnoreCase);
+        var result =
+            new Dictionary<string, CnePdfCandidate>(
+                StringComparer.OrdinalIgnoreCase);
         var yearPath = $"/{year}/";
         var priorDecemberPath =
             $"/{year - 1}/12/";
@@ -315,19 +341,65 @@ public sealed class CneTariffEvidenceCaptureService
                 continue;
             }
 
-            result.Add(uri.ToString());
+            result[uri.ToString()] =
+                new CnePdfCandidate(
+                    uri.ToString(),
+                    ExtractListingContext(
+                        html,
+                        match.Index));
         }
 
-        return result
-            .OrderBy(value => value, StringComparer.Ordinal)
+        return result.Values
+            .OrderBy(
+                item => item.Url,
+                StringComparer.Ordinal)
             .ToArray();
     }
 
+    private static string ExtractListingContext(
+        string html,
+        int linkIndex)
+    {
+        var start = Math.Max(
+            0,
+            linkIndex - 1800);
+        var fragment = html.Substring(
+            start,
+            linkIndex - start);
+        var text = WebUtility.HtmlDecode(
+            TagRegex.Replace(
+                fragment,
+                " "));
+        text = Regex.Replace(
+                text,
+                @"\s+",
+                " ")
+            .Trim();
+
+        var normalized = NormalizeForMatch(text);
+        var lastResolution =
+            normalized.LastIndexOf(
+                "RESOLUCION EXENTA",
+                StringComparison.Ordinal);
+
+        if (lastResolution < 0)
+            return text;
+
+        // Use the normalized current-entry tail. Its purpose is semantic
+        // classification/provenance, not reproduction of source typography.
+        return normalized[lastResolution..];
+    }
+
     private static bool IsVadIndexResolution(
-        string text)
+        string text,
+        string listingText)
     {
         var normalized = NormalizeForMatch(text);
-        var isCorrection = IsCorrectionNormalized(normalized);
+        var listingNormalized =
+            NormalizeForMatch(listingText);
+        var isCorrection =
+            IsCorrectionNormalized(normalized) ||
+            IsCorrectionNormalized(listingNormalized);
 
         if (isCorrection)
         {
@@ -345,7 +417,20 @@ public sealed class CneTariffEvidenceCaptureService
                 normalized.Contains("INDICES", StringComparison.Ordinal) &&
                 normalized.Contains("FORMULAS TARIFARIAS", StringComparison.Ordinal);
 
-            return hasReplacementIndexTable || hasVadFormulaLanguage;
+            var listingConfirmsVadCorrection =
+                listingNormalized.Contains(
+                    "RECTIFICA",
+                    StringComparison.Ordinal) &&
+                listingNormalized.Contains(
+                    "INDICES",
+                    StringComparison.Ordinal) &&
+                listingNormalized.Contains(
+                    "FORMULAS TARIFARIAS",
+                    StringComparison.Ordinal);
+
+            return hasReplacementIndexTable ||
+                   hasVadFormulaLanguage ||
+                   listingConfirmsVadCorrection;
         }
 
         var hasVadIndexPhrase =
@@ -449,17 +534,22 @@ public sealed class CneTariffEvidenceCaptureService
 
     private static string BuildTitle(
         string text,
+        string listingText,
         DateOnly? effectiveFrom,
         bool isCorrection,
         string sourceUrl)
     {
+        var listingNumberMatch =
+            ResolutionNumberRegex.Match(listingText);
         var currentNumberMatch =
             CurrentResolutionNumberRegex.Match(text);
         var fallbackNumberMatch =
             ResolutionNumberRegex.Match(text);
-        var numberMatch = currentNumberMatch.Success
-            ? currentNumberMatch
-            : fallbackNumberMatch;
+        var numberMatch = listingNumberMatch.Success
+            ? listingNumberMatch
+            : currentNumberMatch.Success
+                ? currentNumberMatch
+                : fallbackNumberMatch;
 
         var resolution = numberMatch.Success
             ? $"Resolución Exenta CNE N° {numberMatch.Groups["number"].Value}"
@@ -577,6 +667,9 @@ public sealed class CneTariffEvidenceCaptureService
             "es-CL,es;q=0.9");
         return client;
     }
+    private sealed record CnePdfCandidate(
+        string Url,
+        string ListingText);
 }
 
 public sealed record CneTariffEvidenceCaptureResult(
