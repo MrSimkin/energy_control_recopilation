@@ -887,6 +887,32 @@ try
             throw new InvalidOperationException(
                 "Live CNE tariff-evidence source did not expose any candidate PDFs.");
         }
+
+        var liveCneRepository =
+            new TariffPublicationRepository(database);
+        var liveCneCapture =
+            new CneTariffEvidenceCaptureService(
+                liveCneRepository,
+                paths);
+
+        var liveCneResult =
+            await liveCneCapture.CaptureVadIndexEvidenceAsync(
+                2026);
+
+        Console.WriteLine(
+            $"Live CNE capture: {liveCneResult.CapturedVadIndexDocuments} " +
+            $"VAD document(s); {liveCneResult.Corrections} correction(s); " +
+            $"{liveCneResult.Failed} failure(s).");
+
+        if (liveCneResult.CapturedVadIndexDocuments < 1 ||
+            !liveCneRepository.GetAll().Any(item =>
+                item.Provider == "CNE_CHILE" &&
+                item.Category == "VAD_INDEX" &&
+                item.CaptureStatus == "CAPTURED"))
+        {
+            throw new InvalidOperationException(
+                "Live CNE tariff-evidence documents were not captured.");
+        }
     }
 
     var tariffRepository =
