@@ -14,7 +14,10 @@ public sealed record TariffPublication(
     int? PageCount,
     string CaptureStatus,
     DateTimeOffset? CapturedUtc,
-    DateTimeOffset UpdatedUtc);
+    DateTimeOffset UpdatedUtc,
+    string NormalizationStatus,
+    string? NormalizationParserVersion,
+    DateTimeOffset? NormalizedUtc);
 
 public sealed record TariffPublicationDiscovery(
     string Provider,
@@ -30,4 +33,45 @@ public sealed record TariffCaptureResult(
     int Failed,
     IReadOnlyList<string> Messages,
     int RetroactiveDetected,
-    int MultiVersionPeriods);
+    int MultiVersionPeriods,
+    int NormalizedCandidates,
+    int NormalizationFailures);
+
+public sealed record ParsedTariffRateCandidate(
+    int PageNumber,
+    string TariffPlan,
+    string ComponentKey,
+    string PrintedDescription,
+    string? Unit,
+    string? NetworkType,
+    string? EtrBand,
+    int CandidateIndex,
+    double? NetRateClp,
+    double? PublishedIvaColumnClp,
+    string SourceText,
+    string ParserVersion,
+    string ValidationState);
+
+public sealed record TariffRateCandidate(
+    long RateCandidateId,
+    long PublicationId,
+    int PageNumber,
+    string TariffPlan,
+    string ComponentKey,
+    string PrintedDescription,
+    string? Unit,
+    string? NetworkType,
+    string? EtrBand,
+    int CandidateIndex,
+    double? NetRateClp,
+    double? PublishedIvaColumnClp,
+    string SourceText,
+    string ParserVersion,
+    string ValidationState,
+    DateTimeOffset CreatedUtc);
+
+public sealed record TariffNormalizationResult(
+    long PublicationId,
+    int CandidateCount,
+    int PagesWithCandidates,
+    string ParserVersion);
