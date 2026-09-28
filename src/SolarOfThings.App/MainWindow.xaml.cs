@@ -88,6 +88,12 @@ public partial class MainWindow : Window
         DatabasePathText.Text = _paths.DatabasePath;
         InitializeProductExperience();
 
+        TariffYearSelector.ItemsSource = Enumerable
+            .Range(2020, Math.Max(1, DateTime.Now.Year - 2019))
+            .Reverse()
+            .ToArray();
+        TariffYearSelector.SelectedItem = DateTime.Now.Year;
+
         _suppressLanguageSelection = true;
         LanguageSelector.SelectedValue = _localization.CurrentLanguage;
         _suppressLanguageSelection = false;
@@ -1915,12 +1921,17 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
+        var year = TariffYearSelector.SelectedItem is int selectedYear
+            ? selectedYear
+            : DateTime.Now.Year;
+
         TariffCaptureButton.IsEnabled = false;
+        TariffYearSelector.IsEnabled = false;
         SetGlobalOperation(
             true,
             _localization.CurrentLanguage == "es"
-                ? "Actualizando tarifas oficiales..."
-                : "Updating official tariffs...");
+                ? $"Actualizando tarifas oficiales {year}..."
+                : $"Updating official tariffs for {year}...");
         try
         {
             var progress = new Progress<string>(
@@ -1929,14 +1940,16 @@ public partial class MainWindow : Window
 
             var result = await _services
                 .GetRequiredService<EnelTariffCaptureService>()
-                .Capture2026SupplyTariffsAsync(progress);
+                .CaptureSupplyTariffsAsync(year, progress);
 
             TariffCaptureStatusText.Text = string.Format(
                 _localization.GetString(
                     "GridUtility.TariffCaptureResult"),
                 result.Captured,
                 result.Discovered,
-                result.Failed);
+                result.Failed,
+                result.RetroactiveDetected,
+                result.MultiVersionPeriods);
 
             RefreshTariffPublications();
         }
