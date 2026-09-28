@@ -389,3 +389,30 @@ This boundary is intentional. Source capture must be validated before the parser
 
 Build 349 validated code commit:
 `74a69282fa912c148ca8dedbed6495018bfd0560`.
+
+
+## 18. Service-location applicability clue — Ñuñoa / Villa Olímpica — 2026-09-28
+
+User supplied location context for later tariff applicability:
+- commune: **Ñuñoa**;
+- sector: **Villa Olímpica**;
+- dwelling context: apartment building.
+
+Official September 2026 Enel tariff evidence explicitly includes **Ñuñoa** among the municipality/territorial columns.
+
+What this location can support:
+- use **Ñuñoa** as the commune/territorial candidate when mapping the user's service to a 2026 Enel publication.
+
+What it does **not** support by itself:
+- RED / connection-network type (`BT_AA`, `BT_SA`, `BT_AS`, `BT_SS`);
+- ETR band;
+- individual vs common-building meter topology;
+- whether any common-service charge is reconstructable from the regulated tariff.
+
+The official publication defines RED from the actual aerial/subterranean high-/low-voltage supply topology, not from dwelling type. ETR is determined from prior-year average monthly consumption.
+
+Therefore:
+- apartment/building/Villa Olímpica must not be used to guess RED;
+- RED should come from bill/service evidence, distributor evidence or an independently defensible network classification;
+- ETR should be derived from the applicable official rule plus historical consumption evidence;
+- if RED/ETR remain unresolved, rate matching may be used as evidence but must remain explicitly applicability-ambiguous.
