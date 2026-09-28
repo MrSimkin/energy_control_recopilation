@@ -2099,3 +2099,60 @@ Target QA for Build 350:
 
 The separate Enel bill-audit / statistical uncertainty / historical tariff acquisition redesign remains the next substantive Grid & Utility tranche.
 
+
+
+## Build 350 target-PC QA feedback — 2026-09-28 — recorded before fixes
+
+User priority for this checkpoint:
+- preserve the observed results immediately in the repository;
+- do not implement fixes yet;
+- review/correct the issues only after the observations are safely recorded.
+
+Results against the Build 350 target QA list:
+
+1. Build identity / footer: **PASS**.
+   - Version/build/revision presentation accepted.
+
+2. Startup / window behavior: **PARTIAL / ISSUE RECORDED**.
+   - Startup indicator appears.
+   - During startup it appears blocked/frozen and does not visibly advance through progress.
+   - After startup the main application opens minimized.
+   - The initial window width is otherwise sufficient; horizontal width/clipping is not currently a concern.
+
+3. About / What's New: **PASS**.
+
+4. Help / manual / PDF path: **FUNCTIONALLY PASS, CONTENT DEFERRED**.
+   - Help flow works.
+   - Current manual/help content is incomplete.
+   - User explicitly wants comprehensive Help/manual content completion deferred until the end of the overall project, rather than expanded now.
+
+5. Export activity indicator: **NOT TESTED**.
+   - Cannot be validated on the current target-PC state because usable data is unavailable.
+   - Do not infer PASS or FAIL.
+
+6. Guided import discoverability: **BLOCKED / UX ISSUE RECORDED**.
+   - User cannot locate the import button/entry point.
+   - Treat this as a discoverability/navigation finding.
+   - Do not implement a fix yet.
+
+7. Import execution / restart / restored data: **NOT TESTED**.
+   - Cannot currently validate the import flow end-to-end.
+   - User expectation recorded: after importing, the application should refresh/restart/reinitialize itself appropriately so imported data becomes the active state without requiring an unclear manual recovery sequence.
+   - Do not implement or redesign this behavior yet.
+
+Build 350 QA status after this feedback:
+- not closed;
+- PASS: 1, 3;
+- partial/issue: 2;
+- functional path accepted but content intentionally deferred: 4;
+- not testable now: 5, 7;
+- blocked by discoverability: 6.
+
+Deferred work explicitly recorded:
+- fix startup progress/frozen appearance and unintended minimized launch;
+- review import entry-point discoverability;
+- validate and, if needed, refine post-import application refresh/restart behavior;
+- complete Help/manual content comprehensively only near final product completion;
+- re-run export/import QA when target-PC data/environment is available.
+
+No code fix is authorized by this QA note itself.
