@@ -256,7 +256,7 @@ public sealed class UtilityBillAuditReportService
         Table table,
         string label,
         UtilityMeterReading reading,
-        DateTime local,
+        DateTimeOffset local,
         bool spanish)
     {
         var r = table.AddRow();
@@ -276,7 +276,7 @@ public sealed class UtilityBillAuditReportService
 
     private static string ReadingBoundary(
         UtilityMeterReading reading,
-        DateTime local,
+        DateTimeOffset local,
         bool spanish) =>
         reading.TimePrecision == UtilityTimePrecision.DateOnly
             ? $"{local:dd-MM-yyyy} · {(spanish ? "límite de fecha Enel" : "Enel date boundary")}"
