@@ -30,6 +30,12 @@ public sealed class CneTariffEvidenceCaptureService
         RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
 
+    private static readonly Regex CurrentResolutionNumberRegex = new(
+        @"RESOLUCI[ÓO]N\s+EXENTA\s+(?:N[°ºo.]?\s*)?(?<number>\d+)\s*/\s*20\d{2}",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
     private static readonly Regex EffectivePeriodRegex = new(
         @"periodo\s+comprendido\s+entre\s+el\s+1\s+de\s+" +
         @"(?<month>enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)" +
@@ -352,8 +358,14 @@ public sealed class CneTariffEvidenceCaptureService
         bool isCorrection,
         string sourceUrl)
     {
-        var numberMatch =
+        var currentNumberMatch =
+            CurrentResolutionNumberRegex.Match(text);
+        var fallbackNumberMatch =
             ResolutionNumberRegex.Match(text);
+        var numberMatch = currentNumberMatch.Success
+            ? currentNumberMatch
+            : fallbackNumberMatch;
+
         var resolution = numberMatch.Success
             ? $"Resolución Exenta CNE N° {numberMatch.Groups["number"].Value}"
             : Path.GetFileName(
