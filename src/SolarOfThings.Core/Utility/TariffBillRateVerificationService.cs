@@ -111,7 +111,8 @@ public sealed class TariffBillRateVerificationService
                     componentKey,
                     "MISSING_COMPONENT_SOURCE",
                     $"Publication {publicationId} contains no normalized {componentKey} candidate.",
-                    publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray());
+                    publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray(),
+                    publications: selection.Publications);
             }
 
             var matches = candidates
@@ -127,7 +128,8 @@ public sealed class TariffBillRateVerificationService
                     componentKey,
                     "RATE_NOT_FOUND",
                     $"The printed unit rate {line.UnitRateClp.Value.ToString("N3", CultureInfo.InvariantCulture)} was not found for {componentKey} in publication {publicationId}.",
-                    publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray());
+                    publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray(),
+                    publications: selection.Publications);
             }
 
             perPublicationMatches.Add(
@@ -162,7 +164,7 @@ public sealed class TariffBillRateVerificationService
 
         var detail = BuildMatchDetail(
             allMatches,
-            selection.Publications.Select(item => item.PublicationId).ToArray().Count,
+            selection.Publications.Count,
             reconstructed,
             line.AmountClp,
             amountDifference);
@@ -277,6 +279,16 @@ public sealed class TariffBillRateVerificationService
                     $"Tariff publication precedence is unresolved for effective period {group.Key:yyyy-MM-dd}.");
             }
 
+            resolutions.TryGetValue(
+                selectedPublication.PublicationId,
+                out var selectedResolution);
+            var selectedEvidence = new BillTariffPublicationEvidence(
+                selectedPublication.PublicationId,
+                selectedPublication.EffectiveFrom,
+                selectedPublication.IsRetroactive,
+                selectedPublication.Title,
+                selectedResolution?.Status ?? "VERSION_UNRESOLVED");
+
             if (!string.Equals(
                     selectedPublication.NormalizationStatus,
                     "CANDIDATES_EXTRACTED",
@@ -284,19 +296,11 @@ public sealed class TariffBillRateVerificationService
             {
                 return new TariffPeriodSelection(
                     "TARIFF_NOT_NORMALIZED",
-                    [selectedPublication.PublicationId],
+                    [selectedEvidence],
                     $"Publication {selectedPublication.PublicationId} is not normalized into rate candidates.");
             }
 
-            resolutions.TryGetValue(
-                selectedPublication.PublicationId,
-                out var selectedResolution);
-            selected.Add(new BillTariffPublicationEvidence(
-                selectedPublication.PublicationId,
-                selectedPublication.EffectiveFrom,
-                selectedPublication.IsRetroactive,
-                selectedPublication.Title,
-                selectedResolution?.Status ?? "VERSION_UNRESOLVED"));
+            selected.Add(selectedEvidence);
         }
 
         return new TariffPeriodSelection(
