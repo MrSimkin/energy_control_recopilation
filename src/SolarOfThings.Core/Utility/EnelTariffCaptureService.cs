@@ -136,7 +136,7 @@ public sealed class EnelTariffCaptureService
                 match.Groups["text"].Value,
                 " ");
             var title = WebUtility.HtmlDecode(rawText);
-            title = Regex.Replace(title, "\s+", " ").Trim();
+            title = Regex.Replace(title, @"\s+", " ").Trim();
 
             if (!title.Contains(
                     "Tarifas Suministro Eléctrico",
