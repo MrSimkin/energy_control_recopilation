@@ -17,6 +17,12 @@ public sealed class EnelTariffPdfImportService
         RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
 
+    private static readonly Regex BrowserDuplicateSuffixRegex = new(
+        @"\s+\(\d+\)(?=\.pdf$)",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
     private readonly TariffPublicationRepository _repository;
     private readonly EnelTariffNormalizationService _normalization;
     private readonly AppPaths _paths;
@@ -57,7 +63,8 @@ public sealed class EnelTariffPdfImportService
                         "The selected PDF no longer exists.",
                         sourcePath);
 
-                var title = Path.GetFileName(sourcePath);
+                var title = CanonicalOfficialTitle(
+                    Path.GetFileName(sourcePath));
                 if (!title.Contains(
                         "Tarifas Suministro Eléctrico",
                         StringComparison.OrdinalIgnoreCase))
@@ -178,6 +185,12 @@ public sealed class EnelTariffPdfImportService
             normalizedCandidates,
             messages);
     }
+
+    private static string CanonicalOfficialTitle(
+        string fileName) =>
+        BrowserDuplicateSuffixRegex.Replace(
+            fileName,
+            string.Empty);
 
     private static void ValidatePdf(
         byte[] bytes)
