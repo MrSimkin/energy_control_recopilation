@@ -210,8 +210,10 @@ public sealed class TariffBillRateVerificationService
                 "The bill interval is invalid after local-date conversion.");
         }
 
-        var publications = _publicationRepository
-            .GetAll()
+        var allPublications = _publicationRepository
+            .GetAll();
+
+        var publications = allPublications
             .Where(item =>
                 string.Equals(
                     item.Provider,
@@ -239,6 +241,42 @@ public sealed class TariffBillRateVerificationService
             .GroupBy(item => item.EffectiveFrom!.Value)
             .OrderBy(group => group.Key)
             .ToArray();
+
+        var cneBoundaries = allPublications
+            .Where(item =>
+                string.Equals(
+                    item.Provider,
+                    "CNE_CHILE",
+                    StringComparison.Ordinal) &&
+                string.Equals(
+                    item.Category,
+                    "VAD_INDEX",
+                    StringComparison.Ordinal) &&
+                string.Equals(
+                    item.CaptureStatus,
+                    "CAPTURED",
+                    StringComparison.Ordinal) &&
+                item.EffectiveFrom.HasValue &&
+                item.EffectiveFrom.Value > startDate &&
+                item.EffectiveFrom.Value < endBoundaryDate)
+            .Select(item => item.EffectiveFrom!.Value)
+            .Distinct()
+            .OrderBy(value => value)
+            .ToArray();
+
+        foreach (var expectedBoundary in cneBoundaries)
+        {
+            if (!groups.Any(group =>
+                    group.Key == expectedBoundary))
+            {
+                return new TariffPeriodSelection(
+                    "MISSING_TARIFF_SOURCE",
+                    [],
+                    $"CNE evidence establishes a tariff-index boundary at " +
+                    $"{expectedBoundary:yyyy-MM-dd}, but no final Enel supply " +
+                    $"tariff table for that effective period is available locally.");
+            }
+        }
 
         var baseline = groups
             .Where(group => group.Key <= startDate)
