@@ -746,6 +746,26 @@ try
             throw new InvalidOperationException(
                 "Phase 8 reconciliation PDF smoke test failed.");
         }
+
+        var billAuditReport =
+            new UtilityBillAuditReportService(
+                utilityRepository,
+                utilityReconciliation);
+        var billAuditPdfPath =
+            Path.Combine(root, "smoke-enel-bill-audit.pdf");
+        billAuditReport.ExportPdf(
+            billAuditPdfPath,
+            familySmokeDeviceId,
+            billId,
+            "America/Santiago",
+            "es");
+
+        if (!File.Exists(billAuditPdfPath) ||
+            new FileInfo(billAuditPdfPath).Length < 500)
+        {
+            throw new InvalidOperationException(
+                "Bill-first Enel audit PDF smoke test failed.");
+        }
     }
 
     var tariffRepository =
