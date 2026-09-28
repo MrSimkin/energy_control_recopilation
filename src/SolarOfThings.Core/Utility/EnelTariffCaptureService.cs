@@ -46,6 +46,34 @@ public sealed class EnelTariffCaptureService
         _paths = paths;
     }
 
+    public static async Task<TariffCatalogProbeResult>
+        ProbeOfficialCatalogAsync(
+            int year,
+            CancellationToken cancellationToken = default)
+    {
+        if (year < 2000 || year > DateTime.Now.Year + 1)
+            throw new ArgumentOutOfRangeException(nameof(year));
+
+        using var client = CreateClient();
+        var catalog = await FetchCatalogAsync(
+            client,
+            cancellationToken);
+        var discovered = DiscoverSupplyTariffs(
+            catalog.Html,
+            new Uri(OfficialArchiveUrl),
+            year);
+
+        return new TariffCatalogProbeResult(
+            year,
+            (int)catalog.StatusCode,
+            catalog.Html.Length,
+            catalog.PdfHrefCount,
+            discovered.Count,
+            discovered
+                .Select(item => item.Title)
+                .ToArray());
+    }
+
     public async Task<TariffCaptureResult> CaptureSupplyTariffsAsync(
         int year,
         IProgress<string>? progress = null,
@@ -556,3 +584,11 @@ public sealed class EnelTariffCaptureService
         string Html,
         int PdfHrefCount);
 }
+
+public sealed record TariffCatalogProbeResult(
+    int Year,
+    int HttpStatusCode,
+    int HtmlLength,
+    int PdfHrefCount,
+    int DiscoveredPublications,
+    IReadOnlyList<string> Titles);
