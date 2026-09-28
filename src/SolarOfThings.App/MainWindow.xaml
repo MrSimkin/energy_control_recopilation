@@ -11,7 +11,8 @@
         WindowStartupLocation="CenterScreen"
         Background="#F4F6F9"
         FontFamily="Segoe UI"
-        TextOptions.TextFormattingMode="Display">
+        TextOptions.TextFormattingMode="Display"
+        SizeChanged="MainWindow_SizeChanged">
     <Window.Resources>
         <Style x:Key="SidebarButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="#C2C7D0"/>
@@ -194,7 +195,7 @@
                                    Margin="0,4,0,14"
                                    TextWrapping="Wrap"/>
 
-                        <Grid Margin="0,0,0,18">
+                        <Grid x:Name="DashboardSummaryCards" Margin="0,0,0,18">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -581,7 +582,7 @@
                         <TabItem Header="{DynamicResource Analysis.Tab.Summary}"
                                  Style="{StaticResource PageTabItemStyle}">
                             <StackPanel Margin="0,16,0,0">
-                                <Grid Margin="0,0,0,18">
+                                <Grid x:Name="AnalysisTimeSummaryCards" Margin="0,0,0,18">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="*"/>
@@ -668,7 +669,7 @@
                                                                    Margin="0,0,0,12"
                                                                    ToolTip="{DynamicResource Tooltip.AnalysisEnergy}"/>
 
-                                <Grid Margin="0,0,0,18">
+                                <Grid x:Name="AnalysisEnergySummaryCards" Margin="0,0,0,18">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="*"/>
@@ -1034,7 +1035,7 @@
                         <TabItem Header="{DynamicResource Battery.Tab.Summary}"
                                  Style="{StaticResource PageTabItemStyle}">
                             <StackPanel Margin="0,16,0,0">
-                                <Grid Margin="0,0,0,18">
+                                <Grid x:Name="BatterySummaryCards" Margin="0,0,0,18">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="*"/>
@@ -1292,7 +1293,7 @@
                         <TabItem Header="{DynamicResource GridUtility.Tab.Overview}"
                                  Style="{StaticResource PageTabItemStyle}">
                             <StackPanel Margin="0,16,0,0">
-                                <Grid Margin="0,0,0,18">
+                                <Grid x:Name="UtilitySummaryCards" Margin="0,0,0,18">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="*"/>
@@ -1840,7 +1841,7 @@
                         <TabItem Header="{DynamicResource Data.Tab.Coverage}"
                                  Style="{StaticResource PageTabItemStyle}">
                             <StackPanel Margin="0,16,0,0">
-                                <Grid Margin="0,0,0,18">
+                                <Grid x:Name="DataCoverageSummaryCards" Margin="0,0,0,18">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="*"/>
