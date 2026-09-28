@@ -28,7 +28,7 @@ public partial class App : Application
 {
     private IHost? _host;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -36,19 +36,23 @@ public partial class App : Application
         var startupWindow = CreateStartupWindow(out var startupStatus);
         startupWindow.Show();
         RenderStartupStatus(startupStatus, "Abriendo Solar Energy Monitor...");
+        await Dispatcher.Yield(DispatcherPriority.Background);
 
         if (e.Args.Any(arg =>
                 string.Equals(arg, "--apply-import", StringComparison.OrdinalIgnoreCase)))
         {
-            Thread.Sleep(1600);
+            RenderStartupStatus(startupStatus, "Preparando datos importados...");
+            await Task.Delay(900);
         }
 
         var appPaths = new AppPaths();
-        var importResult = DataImportService.ApplyPendingImport(
-            appPaths,
-            message => RenderStartupStatus(startupStatus, message));
+        var importResult = await Task.Run(() =>
+            DataImportService.ApplyPendingImport(
+                appPaths,
+                message => RenderStartupStatus(startupStatus, message)));
 
         RenderStartupStatus(startupStatus, "Inicializando base de datos...");
+        await Dispatcher.Yield(DispatcherPriority.Background);
 
         var builder = Host.CreateApplicationBuilder();
 
@@ -103,7 +107,7 @@ public partial class App : Application
         _host = builder.Build();
 
         var database = _host.Services.GetRequiredService<SqliteDatabase>();
-        database.Initialize();
+        await Task.Run(database.Initialize);
 
         if (importResult.Applied)
         {
@@ -119,6 +123,7 @@ public partial class App : Application
         }
 
         RenderStartupStatus(startupStatus, "Preparando interfaz...");
+        await Dispatcher.Yield(DispatcherPriority.Background);
 
         var localization = _host.Services.GetRequiredService<LocalizationService>();
         localization.Initialize();
@@ -141,8 +146,14 @@ public partial class App : Application
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
+
+        startupWindow.Hide();
+        mainWindow.WindowState = WindowState.Normal;
         mainWindow.Show();
+        mainWindow.Activate();
+        mainWindow.Focus();
         startupWindow.Close();
+
         ShutdownMode = ShutdownMode.OnMainWindowClose;
     }
 
@@ -204,9 +215,17 @@ public partial class App : Application
         TextBlock statusText,
         string message)
     {
-        statusText.Text = message;
+        if (statusText.Dispatcher.CheckAccess())
+        {
+            statusText.Text = message;
+            statusText.Dispatcher.Invoke(
+                () => { },
+                DispatcherPriority.Render);
+            return;
+        }
+
         statusText.Dispatcher.Invoke(
-            () => { },
+            () => statusText.Text = message,
             DispatcherPriority.Render);
     }
 
