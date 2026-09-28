@@ -140,6 +140,17 @@ public sealed class UtilityReconciliationReportService
             $"{result.CoveragePercent:N1}%",
             QualityLabel(result.Quality, spanish));
 
+        if (result.Sensitivity is not null)
+        {
+            AddCallout(
+                section,
+                L("SENSIBILIDAD DE DATOS", "DATA SENSITIVITY"),
+                SensitivityText(
+                    result.Sensitivity,
+                    spanish),
+                Colors.AliceBlue);
+        }
+
         var interpretation = BuildInterpretation(
             result,
             spanish);
@@ -587,6 +598,42 @@ public sealed class UtilityReconciliationReportService
             _ =>
                 spanish ? "Otro" : "Other"
         };
+
+    private static string SensitivityText(
+        UtilitySensitivityRange sensitivity,
+        bool spanish)
+    {
+        var range = sensitivity.UpperKwh.HasValue
+            ? $"{sensitivity.LowerKwh:N3}–{sensitivity.UpperKwh.Value:N3} kWh"
+            : $"≥ {sensitivity.LowerKwh:N3} kWh; " +
+              (spanish
+                  ? "límite superior no cuantificable"
+                  : "upper limit cannot be quantified");
+
+        var method = sensitivity.Basis switch
+        {
+            "GAPS_OBSERVED_MAX_PLUS_ENEL_BOUNDARY" =>
+                spanish
+                    ? "Incluye una prueba de sensibilidad para horas sin telemetría usando como escenario la máxima importación observada, y la alternativa de límite Enel desplazada un minuto."
+                    : "Includes a sensitivity test for uncovered telemetry hours using observed maximum import as the scenario, plus the one-minute Enel boundary alternative.",
+            "GAPS_OBSERVED_MAX" =>
+                spanish
+                    ? "Incluye una prueba de sensibilidad para horas sin telemetría usando como escenario la máxima importación observada."
+                    : "Includes a sensitivity test for uncovered telemetry hours using observed maximum import as the scenario.",
+            "ENEL_ONE_MINUTE_BOUNDARY" =>
+                spanish
+                    ? "Incluye la alternativa de límite Enel desplazada un minuto (inicio de X versus cierre de X−1)."
+                    : "Includes the one-minute Enel boundary alternative (start of X versus end of X−1).",
+            _ =>
+                spanish
+                    ? "No se detectó sensibilidad adicional por gaps o límite temporal en este intervalo."
+                    : "No additional gap or boundary sensitivity was identified for this interval."
+        };
+
+        return spanish
+            ? $"{range}. {method} No es un intervalo de confianza y no cuantifica calibración ni error metrológico del inversor."
+            : $"{range}. {method} This is not a confidence interval and does not quantify inverter calibration or metrological error.";
+    }
 
     private static string TimeBasisLabel(
         string timeBasis,
