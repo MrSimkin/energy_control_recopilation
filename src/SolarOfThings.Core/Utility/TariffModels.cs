@@ -75,3 +75,11 @@ public sealed record TariffNormalizationResult(
     int CandidateCount,
     int PagesWithCandidates,
     string ParserVersion);
+
+
+public sealed record TariffPublicationVersionResolution(
+    long PublicationId,
+    DateOnly? EffectiveFrom,
+    string Status,
+    long? PreferredPublicationId,
+    string Detail);
