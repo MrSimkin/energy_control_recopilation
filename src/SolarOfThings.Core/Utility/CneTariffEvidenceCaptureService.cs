@@ -38,6 +38,12 @@ public sealed class CneTariffEvidenceCaptureService
         RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
 
+    private static readonly Regex EffectiveTableMonthRegex = new(
+        @"(?<![A-Za-z])(?<month>ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)-(?<year>\d{2})(?!\d)",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
     private readonly TariffPublicationRepository _repository;
     private readonly AppPaths _paths;
 
@@ -289,9 +295,12 @@ public sealed class CneTariffEvidenceCaptureService
         text.Contains(
             "5T",
             StringComparison.OrdinalIgnoreCase) &&
-        text.Contains(
-            "periodo comprendido",
-            StringComparison.OrdinalIgnoreCase);
+        (text.Contains(
+             "periodo comprendido",
+             StringComparison.OrdinalIgnoreCase) ||
+         text.Contains(
+             "Rectifica Resolución",
+             StringComparison.OrdinalIgnoreCase));
 
     private static bool IsCorrection(
         string text) =>
@@ -306,18 +315,34 @@ public sealed class CneTariffEvidenceCaptureService
         string text)
     {
         var match = EffectivePeriodRegex.Match(text);
-        if (!match.Success ||
-            !int.TryParse(
+        if (match.Success &&
+            int.TryParse(
                 match.Groups["year"].Value,
-                out var year))
+                out var fullYear))
+        {
+            var month = MonthNumber(
+                match.Groups["month"].Value);
+            if (month.HasValue)
+                return new DateOnly(fullYear, month.Value, 1);
+        }
+
+        // Rectification resolutions can replace the original table without
+        // repeating the prose "periodo comprendido..." sentence. In those
+        // cases the effective month remains explicit in the replacement table
+        // (for example "ago-26").
+        var shortMatch = EffectiveTableMonthRegex.Match(text);
+        if (!shortMatch.Success ||
+            !int.TryParse(
+                shortMatch.Groups["year"].Value,
+                out var shortYear))
         {
             return null;
         }
 
-        var month = MonthNumber(
-            match.Groups["month"].Value);
-        return month.HasValue
-            ? new DateOnly(year, month.Value, 1)
+        var shortMonth = ShortMonthNumber(
+            shortMatch.Groups["month"].Value);
+        return shortMonth.HasValue
+            ? new DateOnly(2000 + shortYear, shortMonth.Value, 1)
             : null;
     }
 
@@ -343,6 +368,25 @@ public sealed class CneTariffEvidenceCaptureService
 
         return resolution + period + correction;
     }
+
+    private static int? ShortMonthNumber(
+        string month) =>
+        month.ToLowerInvariant() switch
+        {
+            "ene" => 1,
+            "feb" => 2,
+            "mar" => 3,
+            "abr" => 4,
+            "may" => 5,
+            "jun" => 6,
+            "jul" => 7,
+            "ago" => 8,
+            "sep" => 9,
+            "oct" => 10,
+            "nov" => 11,
+            "dic" => 12,
+            _ => null
+        };
 
     private static int? MonthNumber(
         string month) =>
