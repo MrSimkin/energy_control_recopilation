@@ -1193,6 +1193,66 @@ try
             "Phase 9 bill-line official-rate verification smoke test failed.");
     }
 
+
+    var cneFebruaryId = tariffRepository.UpsertDiscovery(
+        new TariffPublicationDiscovery(
+            "CNE_CHILE",
+            "VAD_INDEX",
+            "Resolución Exenta CNE smoke · índices VAD 2026-02",
+            "https://example.invalid/cne-vad-2026-02.pdf",
+            new DateOnly(2026, 2, 1),
+            false));
+
+    tariffRepository.MarkCaptured(
+        cneFebruaryId,
+        Path.Combine(paths.TariffDirectory, "cne-vad-smoke.pdf"),
+        "cne123",
+        500,
+        1,
+        new[] { "CNE VAD boundary smoke evidence" });
+
+    var boundaryBillId = utilityRepository.AddBill(
+        new DateTimeOffset(
+            2026, 1, 31, 0, 0, 0,
+            TimeSpan.FromHours(-3)).ToUniversalTime(),
+        new DateTimeOffset(
+            2026, 2, 2, 0, 0, 0,
+            TimeSpan.FromHours(-3)).ToUniversalTime(),
+        10,
+        1000,
+        "CNE-BOUNDARY-SMOKE",
+        "Must require the next Enel tariff table",
+        tariffPlan: "BT1-SMOKE",
+        periodPrecision: UtilityTimePrecision.DateOnly);
+
+    var boundaryLineId = utilityRepository.AddBillLine(
+        boundaryBillId,
+        "SERVICIO_ELECTRICO",
+        "Cargo fijo mensual",
+        596.252,
+        categoryKey: "FIXED_MONTHLY",
+        quantity: 1,
+        unit: "mes",
+        unitRateClp: 596.252,
+        taxTreatment: "AFECTO",
+        sortOrder: 10);
+
+    var boundaryVerification =
+        rateVerification.VerifyBill(
+            boundaryBillId,
+            "America/Santiago")
+        .Single(item =>
+            item.BillLineId == boundaryLineId);
+
+    if (boundaryVerification.Status != "MISSING_TARIFF_SOURCE" ||
+        !boundaryVerification.Detail.Contains(
+            "2026-02-01",
+            StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException(
+            "Phase 9 CNE tariff-boundary guard smoke test failed.");
+    }
+
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
     apiDiagnostics.Record(new ApiDiagnosticEntry(
         DateTimeOffset.UtcNow,
