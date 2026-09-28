@@ -2342,3 +2342,34 @@ Required behavior:
 A tariff PDF being newer by publication date is not by itself sufficient: applicability must be resolved from effective dates, retroactive language/version relationships and the official source evidence.
 
 This rule applies both when first acquiring a year and when re-running an update for a year already stored locally.
+
+
+### Transversal visual-feedback + pre-build review rules — 2026-09-28
+
+User requirements now apply across the application:
+
+1. **Every materially non-instant process must provide visible on-screen feedback while work is occurring.**
+   - This applies transversally to exports, imports, data updates/backfills, tariff acquisition, diagnostics generation, report generation, long calculations, migrations/reloads where visible, and any other operation that can make the UI appear idle/frozen.
+   - The Reports export behavior is the reference interaction: the user must be able to tell that work is actively in progress.
+   - Prefer one consistent global busy/progress language plus local contextual progress when useful.
+   - Avoid silent work and avoid making Windows look hung.
+   - Where determinate progress is available, show it; otherwise show an indeterminate activity indicator with a clear action label.
+   - Completion/failure should also provide visible feedback rather than silently returning to idle.
+
+2. **Graphical attractiveness / visual quality requires an explicit review pass.**
+   - Evaluate the application not only for correctness but for perceived polish, hierarchy, readability, spacing, density, consistency, visual balance, empty states, interaction affordance and modern Windows usability.
+   - The current app should move from a functional engineering/dashboard prototype toward a coherent, attractive desktop product without sacrificing data density or auditability.
+   - Findings/recommendations must be documented and then applied incrementally during the UX redesign.
+
+3. **Pre-build / pre-fix observation review is mandatory.**
+   - Before every new build, fix, redesign tranche or similar code change, review the prior relevant target-PC observations and canonical product rules in the repository.
+   - Do not implement a local fix in isolation if it reintroduces or contradicts an earlier requirement.
+   - Relevant observations include at minimum the latest Build QA notes, phase implementation notes, UX redesign proposal, tariff/audit rules, and any still-open target-PC defects that intersect the files/features being changed.
+   - This review is a development gate, not a user task.
+
+4. **User-facing QA cadence remains bundled.**
+   - Multiple internal code/CI builds and fixes are encouraged.
+   - Do not hand each internal iteration to the user.
+   - The next target-PC handoff should bundle a coherent UX/functional tranche and a concise meaningful QA checklist.
+
+These rules are effective immediately for the work leading to the next target-PC QA.
