@@ -163,6 +163,9 @@ public sealed class TariffPublicationRepository
                     page_count = $pageCount,
                     capture_status = 'CAPTURED',
                     captured_utc = $capturedUtc,
+                    normalization_status = 'NOT_NORMALIZED',
+                    normalization_parser_version = NULL,
+                    normalized_utc = NULL,
                     updated_utc = $updatedUtc
                 WHERE publication_id = $publicationId;
                 """;
