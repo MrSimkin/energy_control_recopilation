@@ -134,6 +134,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        SetGlobalOperation(
+            true,
+            _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+                ? "Preparando datos y conexión..."
+                : "Preparing data and connection...");
+
         if (GetAutoConnectEnabled() && _session.HasSession)
         {
             await RefreshCurrentStateAsync(profile, showError: false);
@@ -147,6 +153,7 @@ public partial class MainWindow : Window
             RefreshDashboardMetrics();
             RefreshBatteryView();
             RefreshDataCoverageView();
+            SetGlobalOperation(false, string.Empty);
             return;
         }
 
@@ -189,6 +196,7 @@ public partial class MainWindow : Window
         RefreshDataCoverageView();
         RefreshAnalysisView();
         RefreshReportsView();
+        SetGlobalOperation(false, string.Empty);
     }
 
     private void RefreshDashboardMetrics()
