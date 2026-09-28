@@ -1957,10 +1957,25 @@
                                                                                   MinHeight="30"/>
                                                                     </StackPanel>
                                                                     <Button x:Name="TariffCaptureButton"
+                                                                            Style="{StaticResource PrimaryActionButtonStyle}"
                                                                             Content="{DynamicResource GridUtility.TariffCapture}"
                                                                             Padding="12,6"
                                                                             VerticalAlignment="Bottom"
                                                                             Click="TariffCaptureButton_Click"/>
+                                                                    <Button x:Name="TariffOpenEnelButton"
+                                                                            Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                            Content="{DynamicResource GridUtility.TariffOpenEnel}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            VerticalAlignment="Bottom"
+                                                                            Click="TariffOpenEnelButton_Click"/>
+                                                                    <Button x:Name="TariffImportEnelButton"
+                                                                            Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                            Content="{DynamicResource GridUtility.TariffImportEnel}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            VerticalAlignment="Bottom"
+                                                                            Click="TariffImportEnelButton_Click"/>
                                                                 </StackPanel>
                                                                 <TextBlock x:Name="TariffCaptureStatusText"
                                                                            FontSize="11"
@@ -1973,6 +1988,7 @@
                                                                           IsReadOnly="True"
                                                                           CanUserAddRows="False">
                                                                     <DataGrid.Columns>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffAuthority}" Binding="{Binding Authority}" Width="115"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TariffEffective}" Binding="{Binding Effective}" Width="105"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TariffRetroactive}" Binding="{Binding Retroactive}" Width="90"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TariffStatus}" Binding="{Binding Status}" Width="110"/>
