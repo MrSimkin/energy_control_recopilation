@@ -71,7 +71,8 @@ public sealed class EnelTariffCaptureService
             discovered.Count,
             discovered
                 .Select(item => item.Title)
-                .ToArray());
+                .ToArray(),
+            catalog.Html);
     }
 
     public async Task<TariffCaptureResult> CaptureSupplyTariffsAsync(
@@ -591,4 +592,5 @@ public sealed record TariffCatalogProbeResult(
     int HtmlLength,
     int PdfHrefCount,
     int DiscoveredPublications,
-    IReadOnlyList<string> Titles);
+    IReadOnlyList<string> Titles,
+    string RawHtml);
