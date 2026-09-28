@@ -584,6 +584,62 @@ public sealed class SqliteDatabase
         transaction.Commit();
     }
 
+    private static void ApplyMigration12(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            ALTER TABLE tariff_publication
+                ADD COLUMN normalization_status TEXT NOT NULL DEFAULT 'NOT_NORMALIZED';
+            ALTER TABLE tariff_publication
+                ADD COLUMN normalization_parser_version TEXT NULL;
+            ALTER TABLE tariff_publication
+                ADD COLUMN normalized_utc TEXT NULL;
+
+            CREATE TABLE tariff_rate_candidate (
+                rate_candidate_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                publication_id INTEGER NOT NULL,
+                page_number INTEGER NOT NULL,
+                tariff_plan TEXT NOT NULL,
+                component_key TEXT NOT NULL,
+                printed_description TEXT NOT NULL,
+                unit TEXT NULL,
+                network_type TEXT NULL,
+                etr_band TEXT NULL,
+                candidate_index INTEGER NOT NULL,
+                net_rate_clp REAL NULL,
+                published_iva_column_clp REAL NULL,
+                source_text TEXT NOT NULL,
+                parser_version TEXT NOT NULL,
+                validation_state TEXT NOT NULL,
+                created_utc TEXT NOT NULL,
+                FOREIGN KEY(publication_id)
+                    REFERENCES tariff_publication(publication_id)
+                    ON DELETE CASCADE
+            );
+
+            CREATE INDEX ix_tariff_rate_candidate_publication
+                ON tariff_rate_candidate(publication_id, page_number, component_key);
+
+            CREATE INDEX ix_tariff_rate_candidate_lookup
+                ON tariff_rate_candidate(
+                    tariff_plan,
+                    component_key,
+                    network_type,
+                    etr_band,
+                    publication_id
+                );
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            12,
+            "Phase 9 normalized tariff candidate evidence without service applicability claims.");
+
+        transaction.Commit();
+    }
+
     private static void RecordMigration(
         SqliteConnection connection,
         SqliteTransaction transaction,
