@@ -184,6 +184,13 @@
     <sys:String x:Key="GridUtility.Tab.Audit">Auditoría de boleta</sys:String>
     <sys:String x:Key="GridUtility.Tab.Tariffs">Tarifas oficiales</sys:String>
     <sys:String x:Key="GridUtility.AuditHeading">Auditoría de boleta Enel</sys:String>
+    <sys:String x:Key="GridUtility.AuditIntro">Selecciona una boleta. La auditoría parte desde sus lecturas oficiales vinculadas, contrasta energía con Solar of Things y conserva los cargos reales. La reconstrucción tarifaria sólo mostrará valores esperados cuando exista evidencia oficial verificada.</sys:String>
+    <sys:String x:Key="GridUtility.AuditBill">Boleta a auditar</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAudit">Exportar auditoría PDF</sys:String>
+    <sys:String x:Key="GridUtility.AuditEvidencePending">Selecciona una boleta para revisar/exportar su evidencia. La tarifa aplicable se verificará por separado.</sys:String>
+    <sys:String x:Key="GridUtility.AuditSelectBill">Selecciona una boleta antes de exportar.</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAuditTitle">Exportar auditoría de boleta Enel</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAuditSaved">Auditoría guardada: {0}</sys:String>
     <sys:String x:Key="GridUtility.AuditRedesignNote">Esta vista se está reconstruyendo para partir desde una boleta, vincular automáticamente sus lecturas oficiales, comparar el intervalo con Solar of Things, aplicar las tarifas verificables y reconstruir sólo los cargos sustentados por evidencia oficial.</sys:String>
     <sys:String x:Key="Data.Tab.Coverage">Cobertura y estado</sys:String>
     <sys:String x:Key="Data.Tab.Import">Importar datos</sys:String>
