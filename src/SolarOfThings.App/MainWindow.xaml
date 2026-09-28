@@ -1546,7 +1546,9 @@
                                                                 <WrapPanel>
                                                                     <StackPanel Margin="0,0,10,10">
                                                                         <TextBlock Text="{DynamicResource GridUtility.BillStart}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <controls:QuickDatePicker x:Name="UtilityBillStartDatePicker" Width="150"/>
+                                                                        <controls:QuickDatePicker x:Name="UtilityBillStartDatePicker"
+                                                                  Width="150"
+                                                                  SelectedDateChanged="UtilityBillDatePicker_SelectedDateChanged"/>
                                                                     </StackPanel>
                                                                     <StackPanel Margin="0,0,10,10">
                                                                         <TextBlock Text="{DynamicResource GridUtility.Time}" FontSize="12" Foreground="#6C757D"/>
@@ -1554,7 +1556,9 @@
                                                                     </StackPanel>
                                                                     <StackPanel Margin="0,0,10,10">
                                                                         <TextBlock Text="{DynamicResource GridUtility.BillEnd}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <controls:QuickDatePicker x:Name="UtilityBillEndDatePicker" Width="150"/>
+                                                                        <controls:QuickDatePicker x:Name="UtilityBillEndDatePicker"
+                                                                  Width="150"
+                                                                  SelectedDateChanged="UtilityBillDatePicker_SelectedDateChanged"/>
                                                                     </StackPanel>
                                                                     <StackPanel Margin="0,0,10,10">
                                                                         <TextBlock Text="{DynamicResource GridUtility.Time}" FontSize="12" Foreground="#6C757D"/>
