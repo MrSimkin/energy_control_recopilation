@@ -1700,6 +1700,21 @@ public partial class MainWindow : Window
         var previousCompareTo = UtilityCompareToSelector.SelectedValue;
         UtilityCompareFromSelector.ItemsSource = readingChoices;
         UtilityCompareToSelector.ItemsSource = readingChoices;
+        var previousBillFrom = UtilityBillFromReadingSelector.SelectedValue;
+        var previousBillTo = UtilityBillToReadingSelector.SelectedValue;
+        UtilityBillFromReadingSelector.ItemsSource = readingChoices;
+        UtilityBillToReadingSelector.ItemsSource = readingChoices;
+        if (previousBillFrom is long previousBillFromId &&
+            readingChoices.Any(item => item.ReadingId == previousBillFromId))
+        {
+            UtilityBillFromReadingSelector.SelectedValue = previousBillFromId;
+        }
+        if (previousBillTo is long previousBillToId &&
+            readingChoices.Any(item => item.ReadingId == previousBillToId))
+        {
+            UtilityBillToReadingSelector.SelectedValue = previousBillToId;
+        }
+
 
         if (previousCompareFrom is long previousFrom &&
             readingChoices.Any(item => item.ReadingId == previousFrom))
@@ -1789,11 +1804,15 @@ public partial class MainWindow : Window
                     bill.BillId,
                     out var comparison);
 
+                var effectiveFrom = comparison?.FromUtc ?? bill.PeriodStartUtc;
+                var effectiveTo = comparison?.ToUtc ?? bill.PeriodEndUtc;
+                var totalDue = bill.TotalDueClp ?? bill.AmountClp;
+
                 return new UtilityBillViewRow(
                     bill.BillId,
                     FormatUtilityInterval(
-                        bill.PeriodStartUtc,
-                        bill.PeriodEndUtc,
+                        effectiveFrom,
+                        effectiveTo,
                         timeZone),
                     bill.BilledConsumptionKwh.HasValue
                         ? $"{bill.BilledConsumptionKwh.Value:N3}"
@@ -1807,8 +1826,8 @@ public partial class MainWindow : Window
                     comparison is null
                         ? "—"
                         : $"{comparison.CoveragePercent:N1}%",
-                    bill.AmountClp.HasValue
-                        ? $"$ {bill.AmountClp.Value:N0}"
+                    totalDue.HasValue
+                        ? $"$ {totalDue.Value:N0}"
                         : "—",
                     bill.InvoiceReference ?? string.Empty,
                     comparison is null
@@ -1816,6 +1835,8 @@ public partial class MainWindow : Window
                         : UtilityQualityLabel(comparison.Quality));
             })
             .ToArray();
+
+        RefreshSelectedBillLines();
     }
 
     private void UtilityReadingSourceSelector_SelectionChanged(
@@ -2055,34 +2076,89 @@ public partial class MainWindow : Window
             return;
         }
 
+        var repository =
+            _services.GetRequiredService<UtilityMeterRepository>();
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
             : profile.StationTimeZone;
 
-        if (!TryParseUtilityLocalInstant(
-                UtilityBillStartDatePicker,
-                UtilityBillStartTimeTextBox,
-                timeZone,
-                out var startUtc) ||
-            !TryParseUtilityLocalInstant(
-                UtilityBillEndDatePicker,
-                UtilityBillEndTimeTextBox,
-                timeZone,
-                out var endUtc) ||
-            endUtc <= startUtc)
+        UtilityMeterReading? fromReading = null;
+        UtilityMeterReading? toReading = null;
+        DateTimeOffset startUtc;
+        DateTimeOffset endUtc;
+        var periodPrecision = UtilityTimePrecision.Exact;
+
+        if (UtilityBillFromReadingSelector.SelectedValue is long fromId &&
+            UtilityBillToReadingSelector.SelectedValue is long toId)
         {
-            UtilityBillStatusText.Text =
-                _localization.GetString(
-                    "GridUtility.InvalidDateTime");
-            return;
+            fromReading = repository.GetReading(fromId);
+            toReading = repository.GetReading(toId);
+            if (fromReading is null ||
+                toReading is null ||
+                toReading.ReadingAtUtc <= fromReading.ReadingAtUtc)
+            {
+                UtilityBillStatusText.Text =
+                    _localization.GetString(
+                        "GridUtility.CompareInvalid");
+                return;
+            }
+
+            startUtc = fromReading.ReadingAtUtc;
+            endUtc = toReading.ReadingAtUtc;
+            if (fromReading.TimePrecision != UtilityTimePrecision.Exact ||
+                toReading.TimePrecision != UtilityTimePrecision.Exact)
+            {
+                periodPrecision = UtilityTimePrecision.DateOnly;
+            }
+        }
+        else
+        {
+            if (!TryParseUtilityLocalInstant(
+                    UtilityBillStartDatePicker,
+                    UtilityBillStartTimeTextBox,
+                    timeZone,
+                    out startUtc) ||
+                !TryParseUtilityLocalInstant(
+                    UtilityBillEndDatePicker,
+                    UtilityBillEndTimeTextBox,
+                    timeZone,
+                    out endUtc) ||
+                endUtc <= startUtc)
+            {
+                UtilityBillStatusText.Text =
+                    _localization.GetString(
+                        "GridUtility.InvalidDateTime");
+                return;
+            }
         }
 
         if (!TryParseOptionalNonNegative(
                 UtilityBillKwhTextBox.Text,
-                out var billedKwh) ||
-            !TryParseOptionalNonNegative(
-                UtilityBillAmountTextBox.Text,
-                out var amountClp))
+                out var billedKwh))
+        {
+            UtilityBillStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.InvalidNumber");
+            return;
+        }
+
+        if (!billedKwh.HasValue &&
+            fromReading is not null &&
+            toReading is not null)
+        {
+            var derived = toReading.ReadingKwh - fromReading.ReadingKwh;
+            if (derived >= 0)
+            {
+                billedKwh = derived;
+            }
+        }
+
+        if (!TryParseOptionalNonNegative(UtilityBillTaxableTextBox.Text, out var taxable) ||
+            !TryParseOptionalNonNegative(UtilityBillIvaTextBox.Text, out var iva) ||
+            !TryParseOptionalNonNegative(UtilityBillExemptTextBox.Text, out var exempt) ||
+            !TryParseOptionalNonNegative(UtilityBillGrossTextBox.Text, out var gross) ||
+            !TryParseOptionalFinite(UtilityBillOtherChargesTextBox.Text, out var otherCharges) ||
+            !TryParseOptionalNonNegative(UtilityBillTotalDueTextBox.Text, out var totalDue))
         {
             UtilityBillStatusText.Text =
                 _localization.GetString(
@@ -2092,18 +2168,34 @@ public partial class MainWindow : Window
 
         try
         {
-            _services
-                .GetRequiredService<UtilityMeterRepository>()
-                .AddBill(
-                    startUtc,
-                    endUtc,
-                    billedKwh,
-                    amountClp,
-                    UtilityBillReferenceTextBox.Text,
-                    UtilityBillNotesTextBox.Text);
+            repository.AddBill(
+                startUtc,
+                endUtc,
+                billedKwh,
+                totalDue,
+                UtilityBillReferenceTextBox.Text,
+                UtilityBillNotesTextBox.Text,
+                fromReading?.ReadingId,
+                toReading?.ReadingId,
+                fromReading?.ReadingKwh,
+                toReading?.ReadingKwh,
+                UtilityBillTariffPlanTextBox.Text,
+                taxable,
+                iva,
+                exempt,
+                gross,
+                otherCharges,
+                totalDue,
+                periodPrecision);
 
             UtilityBillKwhTextBox.Clear();
-            UtilityBillAmountTextBox.Clear();
+            UtilityBillTaxableTextBox.Clear();
+            UtilityBillIvaTextBox.Clear();
+            UtilityBillExemptTextBox.Clear();
+            UtilityBillGrossTextBox.Clear();
+            UtilityBillOtherChargesTextBox.Clear();
+            UtilityBillTotalDueTextBox.Clear();
+            UtilityBillTariffPlanTextBox.Clear();
             UtilityBillReferenceTextBox.Clear();
             UtilityBillNotesTextBox.Clear();
             UtilityBillStatusText.Text =
@@ -2148,6 +2240,150 @@ public partial class MainWindow : Window
                 "GridUtility.BillDeleted");
         RefreshGridUtilityView();
     }
+
+    private void UtilityBillsGrid_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (IsInitialized)
+        {
+            RefreshSelectedBillLines();
+        }
+    }
+
+    private void RefreshSelectedBillLines()
+    {
+        if (UtilityBillLinesGrid is null)
+        {
+            return;
+        }
+
+        if (UtilityBillsGrid.SelectedItem is not UtilityBillViewRow bill)
+        {
+            UtilityBillLinesGrid.ItemsSource = null;
+            return;
+        }
+
+        var lines = _services
+            .GetRequiredService<UtilityMeterRepository>()
+            .GetBillLines(bill.BillId);
+
+        UtilityBillLinesGrid.ItemsSource = lines
+            .Select(item => new UtilityBillLineViewRow(
+                item.BillLineId,
+                BillSectionLabel(item.SectionKey),
+                item.Description,
+                item.Quantity.HasValue ? $"{item.Quantity.Value:N3}" : "—",
+                item.Unit ?? string.Empty,
+                item.UnitRateClp.HasValue ? $"$ {item.UnitRateClp.Value:N3}" : "—",
+                $"$ {item.AmountClp:+0;-0;0}",
+                item.TaxTreatment ?? string.Empty))
+            .ToArray();
+    }
+
+    private void UtilityAddBillLine_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (UtilityBillsGrid.SelectedItem is not UtilityBillViewRow bill)
+        {
+            UtilityBillLineStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.SelectBillFirst");
+            return;
+        }
+
+        var section =
+            UtilityBillLineSectionSelector.SelectedValue?.ToString()
+            ?? "OTRO";
+        var description =
+            UtilityBillLineDescriptionTextBox.Text?.Trim()
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(description) ||
+            !TryParseRequiredFinite(
+                UtilityBillLineAmountTextBox.Text,
+                out var amount) ||
+            !TryParseOptionalFinite(
+                UtilityBillLineQuantityTextBox.Text,
+                out var quantity) ||
+            !TryParseOptionalFinite(
+                UtilityBillLineRateTextBox.Text,
+                out var unitRate))
+        {
+            UtilityBillLineStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.InvalidNumber");
+            return;
+        }
+
+        try
+        {
+            _services
+                .GetRequiredService<UtilityMeterRepository>()
+                .AddBillLine(
+                    bill.BillId,
+                    section,
+                    description,
+                    amount,
+                    quantity: quantity,
+                    unit: UtilityBillLineUnitTextBox.Text,
+                    unitRateClp: unitRate,
+                    taxTreatment: UtilityBillLineTaxTextBox.Text);
+
+            UtilityBillLineDescriptionTextBox.Clear();
+            UtilityBillLineAmountTextBox.Clear();
+            UtilityBillLineQuantityTextBox.Clear();
+            UtilityBillLineUnitTextBox.Clear();
+            UtilityBillLineRateTextBox.Clear();
+            UtilityBillLineTaxTextBox.Clear();
+            UtilityBillLineStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.BillLineSaved");
+            RefreshSelectedBillLines();
+        }
+        catch (Exception ex)
+        {
+            UtilityBillLineStatusText.Text = ex.Message;
+        }
+    }
+
+    private void UtilityDeleteBillLine_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (UtilityBillLinesGrid.SelectedItem
+            is not UtilityBillLineViewRow line)
+        {
+            return;
+        }
+
+        _services
+            .GetRequiredService<UtilityMeterRepository>()
+            .DeleteBillLine(line.BillLineId);
+
+        UtilityBillLineStatusText.Text =
+            _localization.GetString(
+                "GridUtility.BillLineDeleted");
+        RefreshSelectedBillLines();
+    }
+
+    private string BillSectionLabel(string key) =>
+        key switch
+        {
+            "SERVICIO_ELECTRICO" =>
+                _localization.GetString(
+                    "GridUtility.BillSection.Service"),
+            "OTROS_CARGOS" =>
+                _localization.GetString(
+                    "GridUtility.BillSection.OtherCharges"),
+            "ACUMULADO" =>
+                _localization.GetString(
+                    "GridUtility.BillSection.Accumulated"),
+            _ =>
+                _localization.GetString(
+                    "GridUtility.BillSection.Other")
+        };
 
     private static bool TryParseUtilityLocalInstant(
         QuickDatePicker datePicker,
@@ -2204,6 +2440,36 @@ public partial class MainWindow : Window
         return TryParseNumber(text, out value) &&
                double.IsFinite(value) &&
                value >= 0;
+    }
+
+    private static bool TryParseRequiredFinite(
+        string? text,
+        out double value)
+    {
+        value = 0;
+        return !string.IsNullOrWhiteSpace(text) &&
+               TryParseNumber(text, out value) &&
+               double.IsFinite(value);
+    }
+
+    private static bool TryParseOptionalFinite(
+        string? text,
+        out double? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (!TryParseNumber(text, out var parsed) ||
+            !double.IsFinite(parsed))
+        {
+            return false;
+        }
+
+        value = parsed;
+        return true;
     }
 
     private static bool TryParseOptionalNonNegative(
@@ -2356,9 +2622,19 @@ public partial class MainWindow : Window
         string InverterKwh,
         string DifferenceKwh,
         string Coverage,
-        string AmountClp,
+        string TotalDue,
         string Reference,
         string Quality);
+
+    private sealed record UtilityBillLineViewRow(
+        long BillLineId,
+        string Section,
+        string Description,
+        string Quantity,
+        string Unit,
+        string UnitRate,
+        string Amount,
+        string TaxTreatment);
 
     private void RefreshReportsView(bool initializeRange = false)
     {
