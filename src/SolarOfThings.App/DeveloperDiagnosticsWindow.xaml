@@ -34,6 +34,11 @@
                     <Button x:Name="ConfigReadButton" Content="{DynamicResource Diagnostics.ConfigRead}" Padding="12,7" Margin="0,0,8,8" Click="ConfigRead_Click"/>
                     <Button x:Name="ExportBundleButton" Content="{DynamicResource Diagnostics.ExportBundle}" Padding="12,7" Margin="0,0,8,8" Click="ExportBundle_Click"/>
                 </WrapPanel>
+                <ProgressBar x:Name="DiagnosticsBusyBar"
+                             Height="8"
+                             IsIndeterminate="True"
+                             Visibility="Collapsed"
+                             Margin="0,0,0,8"/>
                 <TextBlock x:Name="ActionStatusText" FontFamily="Segoe UI" Foreground="#495057" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
