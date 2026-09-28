@@ -2541,3 +2541,45 @@ QA impact:
 - items 7 and bill-audit PDF remain blocked;
 - do not ask the user to repeat unrelated Build 441 QA;
 - next target QA should cover only the repaired tariff acquisition -> audit -> bill-audit PDF chain unless the redesign materially changes another screen.
+
+## Live-source tariff acquisition finding — Enel Imperva / CNE accessible — 2026-09-28
+
+Research and live CI established the real source behavior:
+
+### Enel
+- the official Enel tariff webpage visibly exposes the 2026 regulated-supply publications in a normal browser;
+- direct .NET HttpClient access receives HTTP 200 but an **Imperva/Reese browser challenge page** instead of the tariff catalog;
+- observed live response:
+  - 6,183 HTML characters;
+  - 0 PDF hrefs;
+  - title/body: "Pardon Our Interruption";
+  - JavaScript challenge and cookie requirement;
+- direct PDF request without a browser-valid session also returned HTML instead of PDF;
+- therefore automated raw-HTTP scraping/downloading from Enel is not a reliable desktop-app path;
+- this must **not** be treated as a regex/parser defect and the application must not attempt to bypass Imperva.
+
+### CNE
+- official CNE tariff-regulation pages are accessible from .NET/CI;
+- live capture discovered 14 candidate PDFs and successfully downloaded/classified 11 VAD-index documents for 2026 with 0 transport/download failures;
+- CNE therefore becomes the **automatic programmatic regulatory-evidence source**;
+- Enel remains the final distributor tariff-table source and can be ingested through controlled browser/manual PDF import.
+
+### Product-source strategy
+1. "Actualizar evidencia oficial" by year:
+   - automatically capture CNE evidence and corrections;
+   - attempt Enel only opportunistically;
+   - if Imperva blocks Enel, say so explicitly rather than leaving an empty grid.
+2. Provide:
+   - "Abrir página oficial Enel";
+   - "Importar PDFs oficiales Enel…".
+3. Imported Enel PDFs must retain:
+   - original file;
+   - SHA-256;
+   - effective period;
+   - retroactive/version state;
+   - extracted text;
+   - normalized candidates.
+4. Do not automate or emulate the Imperva browser challenge.
+5. Bill audit may use CNE as regulatory provenance but final Enel-rate verification still requires Enel tariff-table evidence until a complete CNE-derived final-tariff engine is proven.
+
+This finding supersedes the assumption that the Enel archive itself can be fetched reliably with raw HttpClient from the desktop application.
