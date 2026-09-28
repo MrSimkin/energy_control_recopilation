@@ -2480,3 +2480,34 @@ Canonical manual QA checklist:
 - `TARGET_QA_BUILD_441_2026-09-28.md`.
 
 Do not request the previously accepted family-report or exhaustive-diagnostics QA again unless a new defect specifically requires it.
+
+## Build 441 target-PC partial QA — tariff gate failed — 2026-09-28
+
+User results:
+- item 6 official tariff acquisition: **FAIL** — target UI remains blank/no tariffs downloaded;
+- item 7 bill audit: **NOT TESTABLE**, blocked by missing tariff evidence;
+- item 8 exports: **PARTIAL** — reading-comparison PDF returned; bill-audit PDF unavailable because audit path is blocked.
+
+The returned reading-comparison PDF confirms the intended semantic separation:
+- physical reading comparison, explicitly not a bill audit;
+- 27-08-2026 Enel date boundary -> 27-09-2026 17:56 personal reading;
+- meter consumption 97.400 kWh;
+- Solar of Things total grid import 84.080 kWh;
+- raw difference -13.320 kWh / 13.68%;
+- coverage 99.3%;
+- explicit sensitivity range 84.080–98.032 kWh;
+- Enel date-boundary caveat preserved.
+
+New live defect:
+- fixture-based discovery/smoke is insufficient;
+- the real Enel archive integration still returns no usable publications on the target PC;
+- Phase 9 source acquisition remains open and is now the first blocking defect before further bill-audit QA.
+
+Applicability clue supplied by user:
+- service location Ñuñoa / Villa Olímpica, apartment building;
+- use only to research official service/territorial mapping;
+- never infer RED/ETR/tariff applicability from this clue without official evidence.
+
+QA cadence:
+- after fixing tariff acquisition, re-test only the blocked tariff/audit subset unless the fix materially affects another prior check.
+
