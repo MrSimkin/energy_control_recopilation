@@ -243,6 +243,9 @@
     <sys:String x:Key="GridUtility.DifferenceKwh">Diff. kWh</sys:String>
     <sys:String x:Key="GridUtility.DifferencePercent">Diff. %</sys:String>
     <sys:String x:Key="GridUtility.Coverage">Coverage</sys:String>
+    <sys:String x:Key="GridUtility.Sensitivity">Data sensitivity</sys:String>
+    <sys:String x:Key="GridUtility.SensitivityUpperUnknown">upper limit cannot be quantified from available evidence</sys:String>
+    <sys:String x:Key="GridUtility.SensitivityNotConfidence">not a confidence interval</sys:String>
     <sys:String x:Key="GridUtility.Quality">Quality</sys:String>
     <sys:String x:Key="GridUtility.BillsHeading">Utility bills (optional)</sys:String>
     <sys:String x:Key="GridUtility.BillsIntro">You can store billed consumption, exact period dates/times, amount, reference and notes. Comparison uses the same exact interval; a bill does not replace cumulative meter readings.</sys:String>
