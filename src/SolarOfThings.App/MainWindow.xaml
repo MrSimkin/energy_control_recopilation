@@ -1744,7 +1744,8 @@
                                             <ComboBox x:Name="UtilityAuditBillSelector"
                                                       Width="430"
                                                       DisplayMemberPath="Display"
-                                                      SelectedValuePath="BillId"/>
+                                                      SelectedValuePath="BillId"
+                                                      SelectionChanged="UtilityAuditBillSelector_SelectionChanged"/>
                                         </StackPanel>
                                         <Button x:Name="UtilityExportBillAuditButton"
                                                 Content="{DynamicResource GridUtility.ExportBillAudit}"
@@ -1758,7 +1759,37 @@
                                                Text="{DynamicResource GridUtility.AuditEvidencePending}"
                                                FontSize="12"
                                                Foreground="#495057"
-                                               TextWrapping="Wrap"/>
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,10"/>
+
+                                    <DataGrid x:Name="UtilityAuditVerificationGrid"
+                                              AutoGenerateColumns="False"
+                                              IsReadOnly="True"
+                                              CanUserAddRows="False"
+                                              HeadersVisibility="Column"
+                                              MinHeight="160"
+                                              MaxHeight="320">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Line}"
+                                                                Binding="{Binding Description}"
+                                                                Width="2*"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Rate}"
+                                                                Binding="{Binding PrintedRate}"
+                                                                Width="110"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Status}"
+                                                                Binding="{Binding Status}"
+                                                                Width="190"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Source}"
+                                                                Binding="{Binding Source}"
+                                                                Width="120"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Reconstructed}"
+                                                                Binding="{Binding Reconstructed}"
+                                                                Width="130"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Difference}"
+                                                                Binding="{Binding Difference}"
+                                                                Width="120"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
                                 </StackPanel>
                             </Border>
                         </TabItem>
