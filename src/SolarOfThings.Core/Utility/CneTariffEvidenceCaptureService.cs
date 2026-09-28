@@ -322,18 +322,35 @@ public sealed class CneTariffEvidenceCaptureService
     }
 
     private static bool IsVadIndexResolution(
-        string text) =>
-        VadIndexPhraseRegex.IsMatch(text) &&
-        text.Contains(
-            "Decreto",
-            StringComparison.OrdinalIgnoreCase) &&
-        text.Contains(
-            "5T",
-            StringComparison.OrdinalIgnoreCase) &&
-        (text.Contains(
-             "periodo comprendido",
-             StringComparison.OrdinalIgnoreCase) ||
-         CorrectionRegex.IsMatch(text));
+        string text)
+    {
+        var hasVadIndexPhrase =
+            VadIndexPhraseRegex.IsMatch(text);
+        if (!hasVadIndexPhrase)
+            return false;
+
+        var isCorrection =
+            CorrectionRegex.IsMatch(text);
+
+        // A rectification resolution is already authoritative evidence that
+        // it replaces/corrects a prior VAD-index resolution. Pdf extraction
+        // can reorder or fragment the decree citation, so do not require the
+        // 5T reference again when the correction relationship is explicit.
+        if (isCorrection)
+            return true;
+
+        return text.Contains(
+                   "Decreto",
+                   StringComparison.OrdinalIgnoreCase) &&
+               Regex.IsMatch(
+                   text,
+                   @"5\s*T",
+                   RegexOptions.IgnoreCase |
+                   RegexOptions.CultureInvariant) &&
+               text.Contains(
+                   "periodo comprendido",
+                   StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool IsCorrection(
         string text) =>
