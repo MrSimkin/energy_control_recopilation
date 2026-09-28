@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 12;
+    public const int CurrentSchemaVersion = 13;
 
     private readonly AppPaths _paths;
 
@@ -103,6 +103,12 @@ public sealed class SqliteDatabase
         if (current < 12)
         {
             ApplyMigration12(connection);
+            current = 12;
+        }
+
+        if (current < 13)
+        {
+            ApplyMigration13(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -636,6 +642,26 @@ public sealed class SqliteDatabase
             transaction,
             12,
             "Phase 9 normalized tariff candidate evidence without service applicability claims.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration13(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            DROP INDEX IF EXISTS ux_utility_meter_reading_time;
+
+            CREATE INDEX IF NOT EXISTS ix_utility_meter_reading_source_time
+                ON utility_meter_reading(source_kind, reading_at_utc DESC);
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            13,
+            "Allow distinct utility-reading evidence sources to share the same timestamp; identity remains reading_id/source based.");
 
         transaction.Commit();
     }
