@@ -282,7 +282,7 @@
     <sys:String x:Key="GridUtility.TariffYear">Year</sys:String>
     <sys:String x:Key="GridUtility.TariffCapture">Download / refresh year</sys:String>
     <sys:String x:Key="GridUtility.TariffNotCaptured">No official tariff publications have been captured yet.</sys:String>
-    <sys:String x:Key="GridUtility.TariffCaptureResult">Capture complete: {0}/{1} publications; {2} failures; {3} retroactive; {4} periods with multiple versions.</sys:String>
+    <sys:String x:Key="GridUtility.TariffCaptureResult">Capture complete: {0}/{1} publications; {2} failures; {3} retroactive; {4} periods with multiple versions; {5} candidates extracted; {6} normalization failures.</sys:String>
     <sys:String x:Key="GridUtility.TariffEffective">Effective</sys:String>
     <sys:String x:Key="GridUtility.TariffRetroactive">Retroactive</sys:String>
     <sys:String x:Key="GridUtility.TariffRetroactive.Yes">Yes</sys:String>
