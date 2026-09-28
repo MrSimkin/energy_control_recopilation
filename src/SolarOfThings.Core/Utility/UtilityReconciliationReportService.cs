@@ -51,7 +51,7 @@ public sealed class UtilityReconciliationReportService
             "Electricity consumption reconciliation report");
 
         var normal = document.Styles["Normal"];
-        normal.Font.Name = "Segoe UI";
+        normal.Font.Name = "Arial";
         normal.Font.Size = 9;
 
         var section = document.AddSection();
