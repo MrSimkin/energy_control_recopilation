@@ -50,15 +50,10 @@ public sealed class UtilityReconciliationReportService
             StringComparison.OrdinalIgnoreCase);
         string L(string es, string en) => spanish ? es : en;
 
-        var bill = _repository.GetBills()
-            .FirstOrDefault(item =>
-                item.FromReadingId == fromReadingId &&
-                item.ToReadingId == toReadingId);
-
         var document = new Document();
         document.Info.Title = L(
-            "Conciliación de consumo eléctrico - Medidor Enel vs Solar of Things",
-            "Electricity consumption reconciliation - Utility meter vs Solar of Things");
+            "Comparación de lecturas - Medidor vs Solar of Things",
+            "Reading comparison - Meter vs Solar of Things");
 
         var normal = document.Styles["Normal"];
         normal.Font.Name = "Arial";
@@ -74,8 +69,8 @@ public sealed class UtilityReconciliationReportService
         AddSubtitle(
             section,
             L(
-                "Informe técnico de contraste. No reemplaza al medidor certificado de la compañía.",
-                "Technical comparison report. It does not replace the utility's certified meter."));
+                "Comparación física de dos lecturas seleccionadas. No es una auditoría de boleta.",
+                "Physical comparison of two selected readings. This is not a bill audit."));
 
         var localFrom = SolarApiTime.ConvertToLocalTime(
             result.FromUtc,
@@ -185,8 +180,8 @@ public sealed class UtilityReconciliationReportService
             {
                 warningText.Add(
                     L(
-                        "Al menos una lectura de Enel sólo trae fecha. La app usa 00:00 como supuesto visible; esa hora no fue informada por Enel.",
-                        "At least one utility reading provides only a date. The app uses 00:00 as an explicit assumption; that time was not supplied by the utility."));
+                        "Al menos una lectura de Enel sólo trae fecha. Se interpreta como límite de período; el inicio de la fecha X equivale operacionalmente al cierre de X−1. Enel no informó una hora exacta.",
+                        "At least one utility reading provides only a date. It is interpreted as a period boundary; the start of date X is operationally equivalent to the end of X−1. The utility did not supply an exact time."));
             }
 
             AddCallout(
@@ -226,40 +221,6 @@ public sealed class UtilityReconciliationReportService
             L(
                 "Solar of Things − Medidor Enel. Negativo = Solar of Things registró menos energía que el medidor; positivo = registró más.",
                 "Solar of Things − utility meter. Negative = Solar of Things recorded less energy than the meter; positive = it recorded more."));
-
-        if (bill is not null)
-        {
-            var billSummary = section.AddParagraph(
-                L("Boleta vinculada al mismo par de lecturas", "Bill linked to the same reading pair"));
-            billSummary.Format.Font.Size = 12;
-            billSummary.Format.Font.Bold = true;
-            billSummary.Format.SpaceBefore = Unit.FromPoint(10);
-            billSummary.Format.SpaceAfter = Unit.FromPoint(3);
-
-            var billText = section.AddParagraph();
-            billText.AddFormattedText(
-                L("Consumo facturado: ", "Billed consumption: "),
-                TextFormat.Bold);
-            billText.AddText(
-                bill.BilledConsumptionKwh.HasValue
-                    ? $"{bill.BilledConsumptionKwh.Value:N3} kWh"
-                    : "—");
-            billText.AddText(" · ");
-            billText.AddFormattedText(
-                L("Total a pagar: ", "Total due: "),
-                TextFormat.Bold);
-            billText.AddText(Money(bill.TotalDueClp ?? bill.AmountClp));
-        }
-        else
-        {
-            AddCallout(
-                section,
-                L("BOLETA", "BILL"),
-                L(
-                    "No hay una boleta guardada vinculada exactamente a este par de lecturas. El informe puede conciliar energía igualmente, pero no mostrará cargos monetarios.",
-                    "No saved bill is linked exactly to this reading pair. Energy can still be reconciled, but monetary charges will not be shown."),
-                Colors.WhiteSmoke);
-        }
 
         var page2 = section.AddParagraph(
             L(
@@ -311,14 +272,6 @@ public sealed class UtilityReconciliationReportService
             L("Evaluación", "Assessment"),
             QualityLabel(result.Quality, spanish));
 
-        if (bill is not null)
-        {
-            AddBillEvidence(
-                section,
-                bill,
-                spanish);
-        }
-
         var methodHeading = section.AddParagraph(
             L("Metodología y límites", "Methodology and limits"));
         methodHeading.Format.Font.Size = 12;
@@ -338,8 +291,8 @@ public sealed class UtilityReconciliationReportService
                 "Los períodos faltantes de telemetría no se rellenan ni extrapolan; se informa la cobertura observada.",
                 "Missing telemetry intervals are not filled or extrapolated; observed coverage is reported."),
             L(
-                "Cuando Enel informa sólo una fecha de lectura, la hora usada es un supuesto de cálculo visible, no un dato oficial.",
-                "When the utility supplies only a reading date, the time used is a visible calculation assumption, not official evidence."),
+                "Cuando Enel informa sólo una fecha, la app la trata como límite de período. No presenta una hora exacta como evidencia oficial.",
+                "When the utility supplies only a date, the app treats it as a period boundary. It does not present an exact clock time as official evidence."),
             L(
                 "Una discrepancia no demuestra por sí sola un error de facturación: antes deben revisarse cobertura, límites horarios, tarifa aplicada y la boleta vinculada.",
                 "A discrepancy alone does not prove a billing error: coverage, time boundaries, tariff application and the linked bill must be reviewed first."),
@@ -604,8 +557,8 @@ public sealed class UtilityReconciliationReportService
         row.Cells[2].AddParagraph(
             reading.TimePrecision == UtilityTimePrecision.DateOnly
                 ? (spanish
-                    ? "00:00 asumida; hora oficial no informada"
-                    : "00:00 assumed; official time not supplied")
+                    ? "Límite de fecha Enel; hora exacta no informada"
+                    : "Enel date boundary; exact time not supplied")
                 : $"{local:HH:mm:ss}");
         row.Cells[3].AddParagraph($"{reading.ReadingKwh:N3}");
         row.Cells[4].AddParagraph(
@@ -644,8 +597,8 @@ public sealed class UtilityReconciliationReportService
                 spanish ? "Hora exacta en ambas lecturas" : "Exact time for both readings",
             "DATE_ONLY_ASSUMED" =>
                 spanish
-                    ? "Fecha solamente; 00:00 asumida en al menos un extremo"
-                    : "Date only; 00:00 assumed at one or both boundaries",
+                    ? "Límite de fecha Enel en al menos un extremo"
+                    : "Enel date boundary at one or both endpoints",
             _ => timeBasis
         };
 
