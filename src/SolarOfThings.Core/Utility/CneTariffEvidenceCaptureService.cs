@@ -377,17 +377,31 @@ public sealed class CneTariffEvidenceCaptureService
             .Trim();
 
         var normalized = NormalizeForMatch(text);
-        var lastResolution =
+
+        // The current entry begins after the previous entry's Download link.
+        // This keeps e.g. "Resolución 380 ... Rectifica Resolución 368 ..."
+        // intact instead of accidentally trimming at the referenced 368.
+        var lastDownload =
             normalized.LastIndexOf(
+                "DESCARGAR",
+                StringComparison.Ordinal);
+        if (lastDownload >= 0)
+        {
+            var currentEntry = normalized[
+                (lastDownload + "DESCARGAR".Length)..]
+                .Trim();
+            if (!string.IsNullOrWhiteSpace(currentEntry))
+                return currentEntry;
+        }
+
+        var firstResolution =
+            normalized.IndexOf(
                 "RESOLUCION EXENTA",
                 StringComparison.Ordinal);
 
-        if (lastResolution < 0)
-            return text;
-
-        // Use the normalized current-entry tail. Its purpose is semantic
-        // classification/provenance, not reproduction of source typography.
-        return normalized[lastResolution..];
+        return firstResolution >= 0
+            ? normalized[firstResolution..]
+            : normalized;
     }
 
     private static bool IsVadIndexResolution(
