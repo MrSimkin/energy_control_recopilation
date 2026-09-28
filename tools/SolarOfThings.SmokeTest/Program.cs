@@ -829,6 +829,31 @@ try
             $"{liveCatalog.PdfHrefCount} PDF href(s); " +
             $"{liveCatalog.DiscoveredPublications} supply publication(s) for {liveCatalog.Year}.");
 
+        const string livePdfProbeUrl =
+            "https://www.enel.cl/content/dam/enel-cl/es/personas/informacion-de-utilidad/" +
+            "tarifas-y-reglamentos/tarifas/tarifas-reguladas/2026/" +
+            "Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%208T_" +
+            "%20VAD%205T%20Septiembre%20de%202026.pdf";
+
+        try
+        {
+            var livePdf =
+                await EnelTariffCaptureService
+                    .ProbeOfficialPdfAsync(
+                        livePdfProbeUrl);
+
+            Console.WriteLine(
+                $"Live Enel direct PDF probe: " +
+                $"{livePdf.ContentLength:N0} bytes; " +
+                $"SHA-256 {livePdf.Sha256}.");
+        }
+        catch (Exception directPdfEx)
+        {
+            Console.WriteLine(
+                $"Live Enel direct PDF probe FAILED: " +
+                $"{directPdfEx.GetType().Name}: {directPdfEx.Message}");
+        }
+
         if (liveCatalog.HttpStatusCode != 200 ||
             liveCatalog.DiscoveredPublications < 1)
         {
