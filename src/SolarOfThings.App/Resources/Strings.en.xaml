@@ -524,6 +524,7 @@
     <sys:String x:Key="Diagnostics.OpenLogs">Open Logs folder</sys:String>
     <sys:String x:Key="Diagnostics.OpenWindow">Open technical diagnostics</sys:String>
     <sys:String x:Key="Common.Close">Close</sys:String>
+    <sys:String x:Key="Common.Working">Working...</sys:String>
 
     <sys:String x:Key="Diagnostics.InvestigationNotice">These controls perform development reads and validations only. They do not change inverter settings. “Direct config read” may ask the device to report its current configuration but does not write values.</sys:String>
     <sys:String x:Key="Diagnostics.InvestigationHeading">Reproducible clean-build investigation</sys:String>
