@@ -282,7 +282,7 @@
     <sys:String x:Key="GridUtility.TariffYear">Año</sys:String>
     <sys:String x:Key="GridUtility.TariffCapture">Descargar / actualizar año</sys:String>
     <sys:String x:Key="GridUtility.TariffNotCaptured">Aún no se han capturado publicaciones tarifarias oficiales.</sys:String>
-    <sys:String x:Key="GridUtility.TariffCaptureResult">Captura terminada: {0}/{1} publicaciones; {2} fallos; {3} retroactivas; {4} períodos con múltiples versiones.</sys:String>
+    <sys:String x:Key="GridUtility.TariffCaptureResult">Captura terminada: {0}/{1} publicaciones; {2} fallos; {3} retroactivas; {4} períodos con múltiples versiones; {5} candidatos extraídos; {6} fallos de normalización.</sys:String>
     <sys:String x:Key="GridUtility.TariffEffective">Vigencia</sys:String>
     <sys:String x:Key="GridUtility.TariffRetroactive">Retroactiva</sys:String>
     <sys:String x:Key="GridUtility.TariffRetroactive.Yes">Sí</sys:String>
