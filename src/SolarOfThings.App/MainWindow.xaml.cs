@@ -1518,6 +1518,22 @@ public partial class MainWindow : Window
             showError: false);
     }
 
+    private static void PageScrollViewer_PreviewMouseWheel(
+        object sender,
+        MouseWheelEventArgs e)
+    {
+        if (sender is not ScrollViewer viewer)
+        {
+            return;
+        }
+
+        viewer.ScrollToVerticalOffset(
+            Math.Max(
+                0,
+                viewer.VerticalOffset - e.Delta));
+        e.Handled = true;
+    }
+
     private void ShowPage(string pageKey)
     {
         var buttons = new[]

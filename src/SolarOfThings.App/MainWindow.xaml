@@ -135,7 +135,7 @@
             </Border>
 
             <Grid Grid.Row="1">
-                <ScrollViewer x:Name="DashboardContent" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer x:Name="DashboardContent" VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource Dashboard.Overview}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40"/>
                         <TextBlock x:Name="DashboardFreshnessText"
@@ -438,7 +438,7 @@
 
                 <ScrollViewer x:Name="AnalysisContent"
                               Visibility="Collapsed"
-                              VerticalScrollBarVisibility="Auto">
+                              VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource Analysis.Heading}"
                                    FontSize="21"
@@ -950,7 +950,7 @@
 
                 <ScrollViewer x:Name="BatteryContent"
                               Visibility="Collapsed"
-                              VerticalScrollBarVisibility="Auto">
+                              VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource Battery.Heading}"
                                    FontSize="21"
@@ -1199,7 +1199,7 @@
 
                 <ScrollViewer x:Name="GridUtilityContent"
                               Visibility="Collapsed"
-                              VerticalScrollBarVisibility="Auto">
+                              VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource GridUtility.Heading}"
                                    FontSize="21"
@@ -1630,7 +1630,7 @@
 
                 <ScrollViewer x:Name="DataContent"
                               Visibility="Collapsed"
-                              VerticalScrollBarVisibility="Auto">
+                              VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource Data.CoverageHeading}"
                                    FontSize="21"
@@ -1749,7 +1749,7 @@
 
                 <ScrollViewer x:Name="ReportsContent"
                               Visibility="Collapsed"
-                              VerticalScrollBarVisibility="Auto">
+                              VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource Reports.Heading}"
                                    FontSize="21"
@@ -1955,7 +1955,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
                         <TextBlock Text="{DynamicResource Settings.Heading}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40"/>
                         <TextBlock Text="{DynamicResource Settings.Intro}" FontSize="13" Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
