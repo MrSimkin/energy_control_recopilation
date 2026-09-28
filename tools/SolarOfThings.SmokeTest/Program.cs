@@ -866,6 +866,29 @@ try
         }
     }
 
+    if (string.Equals(
+            Environment.GetEnvironmentVariable(
+                "SOLAR_CNE_LIVE_CATALOG"),
+            "1",
+            StringComparison.Ordinal))
+    {
+        var cneProbe =
+            await CneTariffEvidenceCaptureService
+                .ProbeOfficialSourceAsync(2026);
+
+        Console.WriteLine(
+            $"Live CNE tariff-evidence probe: HTTP {cneProbe.HttpStatusCode}; " +
+            $"{cneProbe.HtmlLength:N0} chars; " +
+            $"{cneProbe.CandidatePdfLinks} candidate PDF link(s).");
+
+        if (cneProbe.HttpStatusCode != 200 ||
+            cneProbe.CandidatePdfLinks < 1)
+        {
+            throw new InvalidOperationException(
+                "Live CNE tariff-evidence source did not expose any candidate PDFs.");
+        }
+    }
+
     var tariffRepository =
         new TariffPublicationRepository(database);
     const string tariffFixtureHtml = """
