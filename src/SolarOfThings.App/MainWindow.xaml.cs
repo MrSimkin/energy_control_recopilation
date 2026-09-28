@@ -1916,6 +1916,11 @@ public partial class MainWindow : Window
         RoutedEventArgs e)
     {
         TariffCaptureButton.IsEnabled = false;
+        SetGlobalOperation(
+            true,
+            _localization.CurrentLanguage == "es"
+                ? "Actualizando tarifas oficiales..."
+                : "Updating official tariffs...");
         try
         {
             var progress = new Progress<string>(
@@ -3592,6 +3597,11 @@ public partial class MainWindow : Window
         button.Content = _localization.CurrentLanguage == "es"
             ? "Actualizando..."
             : "Updating...";
+        SetGlobalOperation(
+            true,
+            _localization.CurrentLanguage == "es"
+                ? "Actualizando datos..."
+                : "Updating data...");
 
         HistorySyncProgressLabel.Visibility = Visibility.Visible;
         HistorySyncProgressBar.Visibility = Visibility.Visible;
@@ -3790,6 +3800,7 @@ public partial class MainWindow : Window
 
             _syncCancellation.Dispose();
             _syncCancellation = null;
+            SetGlobalOperation(false, string.Empty);
             RefreshCaptureStartOptions();
             RefreshConnectionStatus();
             RefreshDataCoverageView();
@@ -3825,8 +3836,20 @@ public partial class MainWindow : Window
         if (sender is Button button)
         {
             button.IsEnabled = false;
-            try { await RefreshCurrentStateAsync(profile, showError: true); }
-            finally { button.IsEnabled = true; }
+            SetGlobalOperation(
+                true,
+                _localization.CurrentLanguage == "es"
+                    ? "Actualizando estado actual..."
+                    : "Refreshing current state...");
+            try
+            {
+                await RefreshCurrentStateAsync(profile, showError: true);
+            }
+            finally
+            {
+                button.IsEnabled = true;
+                SetGlobalOperation(false, string.Empty);
+            }
         }
     }
 
