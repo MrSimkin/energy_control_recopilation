@@ -1960,3 +1960,35 @@ Next target gate:
 - export and return one reconciliation PDF for visual/semantic QA.
 
 Phase 9 official-tariff acquisition and Phase 10 bill reconstruction remain queued immediately after Phase 8 acceptance.
+
+
+## Build 349 — current checkpoint — GREEN — 2026-09-27
+
+Artifact:
+- Build 349;
+- code `74a69282fa912c148ca8dedbed6495018bfd0560`;
+- run `36363960224`;
+- artifact `10946815978`;
+- SHA-256 `cbdd9cb34bba48afc9056e799d30e59bdd1dcaad59c283ecd64542afe783e10d`.
+
+Changes since Build 342:
+- mouse wheel scrolls outer application pages, including when pointer is over nested DataGrids;
+- reconciliation PDF is redesigned for external readability and evidence traceability;
+- tariff-source evidence capture begins Phase 9:
+  - schema v11;
+  - official Enel archive discovery;
+  - official 2026 tariff PDFs cached locally;
+  - hashes/metadata/effective month/retroactivity/page text persisted;
+  - capture status visible in Grid & Utility.
+
+Next target QA:
+1. reuse current real `Data\`;
+2. confirm wheel scrolling over tables;
+3. export reconciliation for the **official-to-official bill pair**, not an unrelated personal-reading endpoint;
+4. review the new two-page PDF;
+5. run `Capturar / actualizar fuentes oficiales 2026`;
+6. report publication count/failures and confirm retroactive July/August entries appear.
+
+Next development tranche after QA:
+- normalize official tariff components and resolve service applicability/version/supersession;
+- only then compute tariff-aware expected bill components.

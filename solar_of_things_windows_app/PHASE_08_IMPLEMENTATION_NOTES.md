@@ -205,3 +205,51 @@ After Phase 8 meter/bill evidence capture is accepted:
 - Phase 10 remains tariff-aware bill reconstruction and actual-bill reconciliation.
 
 The expanded Phase 8 bill-line evidence is intentionally designed as the actual-bill side of the later Phase 10 audit.
+
+
+## Build 349 — scroll, reconciliation PDF clarity, official tariff source capture — GREEN — 2026-09-27
+
+Target feedback from Build 342:
+- outer-page mouse-wheel scrolling was expected even when the pointer is over nested grids;
+- the one-page reconciliation PDF was not sufficiently clear for external presentation;
+- previous tariff research existed but no official tariff source had yet been captured in-app.
+
+Build 349 response:
+- outer page ScrollViewers now explicitly consume mouse-wheel input and scroll the containing page;
+- reconciliation PDF redesigned as a two-layer document:
+  - Page 1 executive result, plain-language interpretation, coverage/time-assumption caveats and comparison definitions;
+  - Page 2 evidence, reading traceability, linked bill detail and methodology;
+- internal quality token `ASSUMED_TIME` is no longer shown raw in the PDF;
+- if no bill is linked to the exact selected reading pair, the PDF says so explicitly.
+
+Important evidence rule:
+- a linked bill is included only when the exported pair exactly matches its saved from/to reading IDs;
+- therefore an export 29/07 → 27/09 does not include a bill linked 29/07 → 27/08.
+
+Phase 9 foundation is now started ahead of full Phase 8 closure because tariff-source visibility is required by current bill QA:
+- schema v11;
+- official Enel 2026 supply-tariff archive discovery;
+- official PDF download into portable `Data/Tariffs/Enel/2026`;
+- SHA-256/content length/page count;
+- effective month and retroactive flag;
+- per-page born-digital PDF text extraction using PdfPig;
+- persistent `tariff_publication` and `tariff_publication_page_text`;
+- visible `Tarifas oficiales Enel` panel in Grid & Utility.
+
+Deliberate boundary:
+- **captured official source != normalized/applicable tariff**;
+- the next Phase 9 tranche must determine/normalize applicable values by plan, commune/network classification, ETR/protection classification and publication version/supersession;
+- no rate is labeled as “applied to this bill” before that evidence exists.
+
+Validation:
+- code commit: `74a69282fa912c148ca8dedbed6495018bfd0560`;
+- Windows Build 349 / run `36363960224`;
+- restore PASS;
+- build PASS;
+- schema-v11 smoke PASS;
+- Phase 8 reconciliation/PDF smoke PASS;
+- deterministic tariff catalog discovery + retroactive flag smoke PASS;
+- tariff source persistence/page-text smoke PASS;
+- publish/upload PASS;
+- artifact ID: `10946815978`;
+- SHA-256: `cbdd9cb34bba48afc9056e799d30e59bdd1dcaad59c283ecd64542afe783e10d`.

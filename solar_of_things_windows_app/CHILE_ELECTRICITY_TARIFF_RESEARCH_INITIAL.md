@@ -345,3 +345,34 @@ Phase 9 and Phase 10 remain unchanged in sequencing:
 2. reconstruct expected charges using the schedules effective inside each billing interval;
 3. compare expected components against preserved actual bill components;
 4. explain differences rather than assuming meter or provider error.
+
+
+## 17. Phase 9 source-capture checkpoint — Build 349 — 2026-09-27
+
+The first executable Phase 9 tranche now implements the evidence-acquisition layer described in this research note.
+
+Implemented:
+- official Enel tariff-archive URL as source authority;
+- deterministic discovery of 2026 `Tarifas Suministro Eléctrico` publications;
+- effective-month extraction from official publication title;
+- retroactive-publication flag;
+- original official PDF cache;
+- source URL;
+- SHA-256;
+- byte length;
+- page count;
+- born-digital page-text extraction;
+- immutable publication rows keyed by official source URL;
+- visible capture status in the app.
+
+Not yet implemented:
+- normalized tariff schedules/components;
+- supersession resolution when multiple publications share an effective month;
+- service identification (commune/network type/ETR/protection/plan);
+- authoritative selection of the publication/rate applicable to one bill;
+- bill reconstruction.
+
+This boundary is intentional. Source capture must be validated before the parser can make a tariff authoritative.
+
+Build 349 validated code commit:
+`74a69282fa912c148ca8dedbed6495018bfd0560`.
