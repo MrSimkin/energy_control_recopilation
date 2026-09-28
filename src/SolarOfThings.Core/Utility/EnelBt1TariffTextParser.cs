@@ -14,11 +14,11 @@ public sealed class EnelBt1TariffTextParser
     public const string ParserVersion = "enel-bt1-text-v1";
 
     private static readonly Regex NumberRegex = new(
-        @"(?<![A-Za-z0-9])(?<value>d+(?:[.,]d+)?)(?![A-Za-z0-9])",
+        @"(?<![A-Za-z0-9])(?<value>\\d+(?:[.,]\\d+)?)(?![A-Za-z0-9])",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex RedEtrRegex = new(
-        @"^(?<network>BT_(?:AA|SA|AS|SS))s+(?<etr>T[1-6])s+(?<values>.+)$",
+        @"^(?<network>BT_(?:AA|SA|AS|SS))\\s+(?<etr>T[1-6])\\s+(?<values>.+)$",
         RegexOptions.Compiled |
         RegexOptions.IgnoreCase |
         RegexOptions.CultureInvariant);
@@ -228,7 +228,7 @@ public sealed class EnelBt1TariffTextParser
 
         var redRows = Regex.Matches(
             text,
-            @"BT_(?:AA|SA|AS|SS)s+T[1-6]",
+            @"BT_(?:AA|SA|AS|SS)\\s+T[1-6]",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         return redRows.Count >= 4;
@@ -347,21 +347,17 @@ public sealed class EnelBt1TariffTextParser
     }
 
     private static IReadOnlyList<string> SplitLines(string text) =>
-        text.Replace("
-", "
-", StringComparison.Ordinal)
-            .Replace('', '
-')
+        text.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
             .Split(
-                '
-',
+                '\n',
                 StringSplitOptions.RemoveEmptyEntries |
                 StringSplitOptions.TrimEntries);
 
     private static string CollapseWhitespace(string value) =>
         Regex.Replace(
             value,
-            @"s+",
+            @"\\s+",
             " ",
             RegexOptions.CultureInvariant)
         .Trim();
