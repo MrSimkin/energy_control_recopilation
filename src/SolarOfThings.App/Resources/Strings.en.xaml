@@ -244,6 +244,8 @@
     <sys:String x:Key="GridUtility.BillToReading">Current reading</sys:String>
     <sys:String x:Key="GridUtility.BillManualFallback">If both readings are selected, they define the interval and manual dates are ignored. Use manual dates only when the bill cannot be linked to saved readings.</sys:String>
     <sys:String x:Key="GridUtility.TariffPlan">Tariff</sys:String>
+    <sys:String x:Key="GridUtility.OfficialBoundary">Enel date boundary</sys:String>
+    <sys:String x:Key="GridUtility.BillReadingsSuggested">Enel readings were suggested automatically from the bill dates. You can correct them if needed.</sys:String>
     <sys:String x:Key="GridUtility.BillSummaryHeading">Bill totals</sys:String>
     <sys:String x:Key="GridUtility.TaxableAmount">Taxable amount</sys:String>
     <sys:String x:Key="GridUtility.IvaAmount">VAT</sys:String>
