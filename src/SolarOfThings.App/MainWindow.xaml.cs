@@ -1829,6 +1829,26 @@ public partial class MainWindow : Window
         RefreshUtilityReadingSourceUi();
 
         var bills = repository.GetBills();
+
+        var previousAuditBill = UtilityAuditBillSelector.SelectedValue;
+        var auditBillChoices = bills
+            .OrderByDescending(item => item.PeriodEndUtc)
+            .Select(item => new UtilityBillChoice(
+                item.BillId,
+                $"{FormatUtilityInterval(item.PeriodStartUtc, item.PeriodEndUtc, timeZone)} · " +
+                $"{(string.IsNullOrWhiteSpace(item.InvoiceReference) ? "sin referencia" : item.InvoiceReference)}"))
+            .ToArray();
+        UtilityAuditBillSelector.ItemsSource = auditBillChoices;
+        if (previousAuditBill is long previousAuditBillId &&
+            auditBillChoices.Any(item => item.BillId == previousAuditBillId))
+        {
+            UtilityAuditBillSelector.SelectedValue = previousAuditBillId;
+        }
+        else if (auditBillChoices.Length > 0)
+        {
+            UtilityAuditBillSelector.SelectedValue = auditBillChoices[0].BillId;
+        }
+
         var billReconciliations = reconciliation
             .GetBillReconciliations(profile.DeviceId)
             .ToDictionary(item => item.BillId);
@@ -2370,6 +2390,82 @@ public partial class MainWindow : Window
         UtilityBillStatusText.Text =
             _localization.GetString(
                 "GridUtility.BillReadingsSuggested");
+    }
+
+    private async void UtilityExportBillAudit_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null ||
+            UtilityAuditBillSelector.SelectedValue is not long billId)
+        {
+            UtilityAuditStatusText.Text =
+                _localization.GetString("GridUtility.AuditSelectBill");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = _localization.GetString("GridUtility.ExportBillAuditTitle"),
+            Filter = "PDF (*.pdf)|*.pdf",
+            DefaultExt = "pdf",
+            AddExtension = true,
+            FileName = $"Auditoria-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es",
+            StringComparison.OrdinalIgnoreCase);
+
+        UtilityExportBillAuditButton.IsEnabled = false;
+        UtilityAuditStatusText.Text = spanish
+            ? "Generando auditoría de boleta..."
+            : "Generating bill audit...";
+        SetGlobalOperation(
+            true,
+            spanish
+                ? "Exportando auditoría de boleta..."
+                : "Exporting bill audit...");
+
+        try
+        {
+            var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                ? "America/Santiago"
+                : profile.StationTimeZone;
+
+            var service =
+                _services.GetRequiredService<UtilityBillAuditReportService>();
+
+            await Task.Run(() =>
+                service.ExportPdf(
+                    dialog.FileName,
+                    profile.DeviceId,
+                    billId,
+                    timeZone,
+                    _localization.CurrentLanguage));
+
+            UtilityAuditStatusText.Text = string.Format(
+                _localization.GetString("GridUtility.ExportBillAuditSaved"),
+                dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            UtilityAuditStatusText.Text = ex.Message;
+            MessageBox.Show(
+                ex.Message,
+                _localization.GetString("GridUtility.AuditHeading"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            UtilityExportBillAuditButton.IsEnabled = true;
+            SetGlobalOperation(false, string.Empty);
+        }
     }
 
     private void UtilityAddBill_Click(
@@ -2930,6 +3026,10 @@ public partial class MainWindow : Window
         string Coverage,
         string TimeBasis,
         string Quality);
+
+    private sealed record UtilityBillChoice(
+        long BillId,
+        string Display);
 
     private sealed record UtilityBillViewRow(
         long BillId,
