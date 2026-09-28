@@ -906,8 +906,10 @@ try
         BT_SA T1 23,116 27,508 23,116 27,508
         BT_AS T1 23,301 27,728 23,301 27,728
         BT_SS T1 27,205 32,374 27,205 32,374
-        TOTAL TARIFA BASE BT1
         BT_AA T1 176,2788 209,772 176,2788 209,772
+        TOTAL TARIFA BASE BT1
+        Electricidad consumida (6) se obtiene sumando (3), (4) y (5)
+        Cargo por potencia base (5) en su componente de distribución
         """;
 
     tariffRepository.MarkCaptured(
@@ -952,13 +954,13 @@ try
     var publicServiceCandidate = storedCandidates.FirstOrDefault(item =>
         item.ComponentKey == "PUBLIC_SERVICE" &&
         item.CandidateIndex == 0);
-    var rawRedCandidate = storedCandidates.FirstOrDefault(item =>
-        item.ComponentKey == "RED_ETR_RATE_BLOCK_1" &&
+    var powerBaseCandidate = storedCandidates.FirstOrDefault(item =>
+        item.ComponentKey == "POWER_BASE_DISTRIBUTION" &&
         item.NetworkType == "BT_AA" &&
         item.EtrBand == "T1" &&
         item.CandidateIndex == 0);
-    var totalBt1Candidate = storedCandidates.FirstOrDefault(item =>
-        item.ComponentKey == "TOTAL_BT1_BASE_RAW" &&
+    var electricityConsumedCandidate = storedCandidates.FirstOrDefault(item =>
+        item.ComponentKey == "ELECTRICITY_CONSUMED" &&
         item.NetworkType == "BT_AA" &&
         item.EtrBand == "T1" &&
         item.CandidateIndex == 0);
@@ -977,10 +979,16 @@ try
         publicServiceCandidate is null ||
         Math.Abs((publicServiceCandidate.NetRateClp ?? -1) - 0.855) > 0.0001 ||
         Math.Abs(publicServiceCandidate.PublishedIvaColumnClp ?? -1) > 0.0001 ||
-        rawRedCandidate is null ||
-        totalBt1Candidate is null ||
+        powerBaseCandidate is null ||
+        Math.Abs((powerBaseCandidate.NetRateClp ?? -1) - 19.212) > 0.0001 ||
+        powerBaseCandidate.ValidationState != "CLASSIFIED_BY_SUM_RULE_UNAPPLIED" ||
+        electricityConsumedCandidate is null ||
+        Math.Abs((electricityConsumedCandidate.NetRateClp ?? -1) - 176.2788) > 0.0001 ||
+        electricityConsumedCandidate.ValidationState != "CLASSIFIED_BY_SUM_RULE_UNAPPLIED" ||
         storedCandidates.Any(item =>
-            item.ValidationState != "EXTRACTED_UNAPPLIED"))
+            item.ValidationState is not
+                ("EXTRACTED_UNAPPLIED" or
+                 "CLASSIFIED_BY_SUM_RULE_UNAPPLIED")))
     {
         throw new InvalidOperationException(
             "Phase 9 tariff candidate normalization smoke test failed.");
@@ -1020,6 +1028,19 @@ try
         taxTreatment: "AFECTO",
         sortOrder: 30);
 
+
+    var electricityAuditLineId = utilityRepository.AddBillLine(
+        billId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad consumida",
+        1762.788,
+        categoryKey: "ELECTRICITY_CONSUMED",
+        quantity: 10,
+        unit: "kWh",
+        unitRateClp: 176.2788,
+        taxTreatment: "AFECTO",
+        sortOrder: 31);
+
     var actualOnlyAuditLineId = utilityRepository.AddBillLine(
         billId,
         "OTROS_CARGOS",
@@ -1041,6 +1062,8 @@ try
 
     var verifiedFixed = verifiedLines.Single(item =>
         item.BillLineId == fixedAuditLineId);
+    var verifiedElectricity = verifiedLines.Single(item =>
+        item.BillLineId == electricityAuditLineId);
     var verifiedActualOnly = verifiedLines.Single(item =>
         item.BillLineId == actualOnlyAuditLineId);
 
@@ -1053,6 +1076,13 @@ try
             596.252) > 0.0001 ||
         verifiedFixed.PublicationIds.Count != 1 ||
         verifiedFixed.PublicationIds[0] != januaryPublicationId ||
+        !verifiedElectricity.Status.StartsWith(
+            "VERIFIED_RECONSTRUCTED_",
+            StringComparison.Ordinal) ||
+        verifiedElectricity.ReconstructedAmountClp is null ||
+        Math.Abs(
+            verifiedElectricity.ReconstructedAmountClp.Value -
+            1762.788) > 0.001 ||
         verifiedActualOnly.Status != "ACTUAL_ONLY_UNMAPPED")
     {
         throw new InvalidOperationException(
