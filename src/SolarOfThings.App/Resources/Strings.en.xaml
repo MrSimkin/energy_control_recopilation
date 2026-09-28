@@ -251,6 +251,23 @@
     <sys:String x:Key="GridUtility.DeleteBillLine">Delete line</sys:String>
     <sys:String x:Key="GridUtility.BillLineSaved">Line saved.</sys:String>
     <sys:String x:Key="GridUtility.BillLineDeleted">Line deleted.</sys:String>
+    <sys:String x:Key="GridUtility.TariffHeading">Official Enel tariffs</sys:String>
+    <sys:String x:Key="GridUtility.TariffIntro">Capture the official 2026 electricity-supply tariff publications from Enel. The app stores the original PDF, SHA-256 hash, effective date, retroactive flag and extracted text from every page.</sys:String>
+    <sys:String x:Key="GridUtility.TariffCapture">Capture / refresh official 2026 sources</sys:String>
+    <sys:String x:Key="GridUtility.TariffNotCaptured">No official tariff publications have been captured yet.</sys:String>
+    <sys:String x:Key="GridUtility.TariffCaptureResult">Capture complete: {0}/{1} publications; {2} failures.</sys:String>
+    <sys:String x:Key="GridUtility.TariffEffective">Effective</sys:String>
+    <sys:String x:Key="GridUtility.TariffRetroactive">Retroactive</sys:String>
+    <sys:String x:Key="GridUtility.TariffRetroactive.Yes">Yes</sys:String>
+    <sys:String x:Key="GridUtility.TariffRetroactive.No">No</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus">Capture</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus.Captured">Source captured</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus.Discovered">Discovered</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus.Failed">Error</sys:String>
+    <sys:String x:Key="GridUtility.TariffPages">Pages</sys:String>
+    <sys:String x:Key="GridUtility.TariffPublication">Official publication</sys:String>
+    <sys:String x:Key="GridUtility.TariffNormalizationNote">This section preserves the complete official source. The next stage normalizes the values applicable by commune, network type, ETR band and plan; a captured source does NOT yet mean “tariff applied to your bill”.</sys:String>
+
     <sys:String x:Key="GridUtility.SelectBillFirst">Select a saved bill first.</sys:String>
 
     <sys:String x:Key="GridUtility.BillStart">Period start</sys:String>

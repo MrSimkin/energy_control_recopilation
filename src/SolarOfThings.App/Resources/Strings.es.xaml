@@ -251,6 +251,23 @@
     <sys:String x:Key="GridUtility.DeleteBillLine">Eliminar línea</sys:String>
     <sys:String x:Key="GridUtility.BillLineSaved">Línea guardada.</sys:String>
     <sys:String x:Key="GridUtility.BillLineDeleted">Línea eliminada.</sys:String>
+    <sys:String x:Key="GridUtility.TariffHeading">Tarifas oficiales Enel</sys:String>
+    <sys:String x:Key="GridUtility.TariffIntro">Captura desde la página oficial de Enel las publicaciones de tarifas de suministro eléctrico 2026. Se guarda el PDF original, hash SHA-256, vigencia, condición retroactiva y texto extraído de cada página.</sys:String>
+    <sys:String x:Key="GridUtility.TariffCapture">Capturar / actualizar fuentes oficiales 2026</sys:String>
+    <sys:String x:Key="GridUtility.TariffNotCaptured">Aún no se han capturado publicaciones tarifarias oficiales.</sys:String>
+    <sys:String x:Key="GridUtility.TariffCaptureResult">Captura terminada: {0}/{1} publicaciones; {2} fallos.</sys:String>
+    <sys:String x:Key="GridUtility.TariffEffective">Vigencia</sys:String>
+    <sys:String x:Key="GridUtility.TariffRetroactive">Retroactiva</sys:String>
+    <sys:String x:Key="GridUtility.TariffRetroactive.Yes">Sí</sys:String>
+    <sys:String x:Key="GridUtility.TariffRetroactive.No">No</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus">Captura</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus.Captured">Fuente capturada</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus.Discovered">Descubierta</sys:String>
+    <sys:String x:Key="GridUtility.TariffStatus.Failed">Error</sys:String>
+    <sys:String x:Key="GridUtility.TariffPages">Páginas</sys:String>
+    <sys:String x:Key="GridUtility.TariffPublication">Publicación oficial</sys:String>
+    <sys:String x:Key="GridUtility.TariffNormalizationNote">Esta sección conserva la fuente oficial completa. La siguiente etapa normaliza los valores aplicables por comuna, tipo de red, ETR y plan; una fuente capturada todavía NO significa “tarifa aplicada a tu boleta”.</sys:String>
+
     <sys:String x:Key="GridUtility.SelectBillFirst">Selecciona primero una boleta guardada.</sys:String>
 
     <sys:String x:Key="GridUtility.BillStart">Inicio del período</sys:String>

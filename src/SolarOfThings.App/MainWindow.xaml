@@ -1625,6 +1625,48 @@
                                 </DataGrid>
                             </StackPanel>
                         </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,18,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource GridUtility.TariffHeading}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource GridUtility.TariffIntro}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,10"
+                                           TextWrapping="Wrap"/>
+                                <Button x:Name="TariffCaptureButton"
+                                        Content="{DynamicResource GridUtility.TariffCapture}"
+                                        Padding="12,6"
+                                        HorizontalAlignment="Left"
+                                        Click="TariffCaptureButton_Click"/>
+                                <TextBlock x:Name="TariffCaptureStatusText"
+                                           FontSize="11"
+                                           Foreground="#495057"
+                                           Margin="0,8,0,8"
+                                           TextWrapping="Wrap"/>
+                                <DataGrid x:Name="TariffPublicationsGrid"
+                                          Height="260"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffEffective}" Binding="{Binding Effective}" Width="105"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffRetroactive}" Binding="{Binding Retroactive}" Width="90"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffStatus}" Binding="{Binding Status}" Width="120"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffPages}" Binding="{Binding Pages}" Width="70"/>
+                                        <DataGridTextColumn Header="SHA-256" Binding="{Binding Sha}" Width="120"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffPublication}" Binding="{Binding Title}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock Text="{DynamicResource GridUtility.TariffNormalizationNote}"
+                                           FontSize="11"
+                                           Foreground="#6C757D"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 

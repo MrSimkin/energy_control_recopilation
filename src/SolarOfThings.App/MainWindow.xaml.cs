@@ -1853,6 +1853,120 @@ public partial class MainWindow : Window
             .ToArray();
 
         RefreshSelectedBillLines();
+        RefreshTariffPublications();
+    }
+
+    private void RefreshTariffPublications()
+    {
+        if (TariffPublicationsGrid is null)
+        {
+            return;
+        }
+
+        var publications = _services
+            .GetRequiredService<TariffPublicationRepository>()
+            .GetAll();
+
+        TariffPublicationsGrid.ItemsSource = publications
+            .Select(item => new TariffPublicationViewRow(
+                item.EffectiveFrom.HasValue
+                    ? item.EffectiveFrom.Value.ToString("dd-MM-yyyy")
+                    : "—",
+                item.IsRetroactive
+                    ? _localization.GetString(
+                        "GridUtility.TariffRetroactive.Yes")
+                    : _localization.GetString(
+                        "GridUtility.TariffRetroactive.No"),
+                TariffCaptureStatusLabel(item.CaptureStatus),
+                item.PageCount?.ToString() ?? "—",
+                string.IsNullOrWhiteSpace(item.ContentSha256)
+                    ? "—"
+                    : item.ContentSha256[..Math.Min(
+                        12,
+                        item.ContentSha256.Length)],
+                item.Title))
+            .ToArray();
+
+        if (publications.Count == 0 &&
+            string.IsNullOrWhiteSpace(
+                TariffCaptureStatusText.Text))
+        {
+            TariffCaptureStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.TariffNotCaptured");
+        }
+    }
+
+    private async void TariffCaptureButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        TariffCaptureButton.IsEnabled = false;
+        try
+        {
+            var progress = new Progress<string>(
+                message =>
+                    TariffCaptureStatusText.Text = message);
+
+            var result = await _services
+                .GetRequiredService<EnelTariffCaptureService>()
+                .Capture2026SupplyTariffsAsync(progress);
+
+            TariffCaptureStatusText.Text = string.Format(
+                _localization.GetString(
+                    "GridUtility.TariffCaptureResult"),
+                result.Captured,
+                result.Discovered,
+                result.Failed);
+
+            RefreshTariffPublications();
+        }
+        catch (Exception ex)
+        {
+            TariffCaptureStatusText.Text = ex.Message;
+            MessageBox.Show(
+                ex.Message,
+                _localization.GetString(
+                    "GridUtility.TariffHeading"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            TariffCaptureButton.IsEnabled = true;
+        }
+    }
+
+    private string TariffCaptureStatusLabel(
+        string status)
+    {
+        if (string.Equals(
+                status,
+                "CAPTURED",
+                StringComparison.Ordinal))
+        {
+            return _localization.GetString(
+                "GridUtility.TariffStatus.Captured");
+        }
+
+        if (string.Equals(
+                status,
+                "DISCOVERED",
+                StringComparison.Ordinal))
+        {
+            return _localization.GetString(
+                "GridUtility.TariffStatus.Discovered");
+        }
+
+        if (status.StartsWith(
+                "FAILED",
+                StringComparison.Ordinal))
+        {
+            return _localization.GetString(
+                "GridUtility.TariffStatus.Failed");
+        }
+
+        return status;
     }
 
     private void UtilityReadingSourceSelector_SelectionChanged(
@@ -2670,6 +2784,14 @@ public partial class MainWindow : Window
         UtilityLatestDifferenceValueText.Text = "— kWh";
         UtilityLatestCoverageValueText.Text = "— %";
     }
+
+    private sealed record TariffPublicationViewRow(
+        string Effective,
+        string Retroactive,
+        string Status,
+        string Pages,
+        string Sha,
+        string Title);
 
     private sealed record UtilityReadingChoice(
         long ReadingId,
