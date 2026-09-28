@@ -790,7 +790,12 @@ try
         var billAuditReport =
             new UtilityBillAuditReportService(
                 utilityRepository,
-                utilityReconciliation);
+                utilityReconciliation,
+                new TariffBillRateVerificationService(
+                    utilityRepository,
+                    new TariffPublicationRepository(database),
+                    new TariffRateCandidateRepository(database),
+                    new TariffPublicationVersionResolver()));
         var billAuditPdfPath =
             Path.Combine(root, "smoke-enel-bill-audit.pdf");
         billAuditReport.ExportPdf(
@@ -979,6 +984,79 @@ try
     {
         throw new InvalidOperationException(
             "Phase 9 tariff candidate normalization smoke test failed.");
+    }
+
+
+    var januaryPublicationId = tariffRepository.UpsertDiscovery(
+        new TariffPublicationDiscovery(
+            "ENEL_DISTRIBUCION_CHILE",
+            "SUPPLY_REGULATED",
+            "Smoke Tarifas Suministro Eléctrico Enero de 2026.pdf",
+            "https://example.invalid/enel-january-2026.pdf",
+            new DateOnly(2026, 1, 1),
+            false));
+
+    tariffRepository.MarkCaptured(
+        januaryPublicationId,
+        Path.Combine(paths.TariffDirectory, "smoke-january.pdf"),
+        "jan123",
+        1234,
+        1,
+        new[] { tariffPageFixture });
+
+    tariffNormalizer.NormalizePublication(
+        januaryPublicationId,
+        tariffRepository.GetPageTexts(januaryPublicationId));
+
+    var fixedAuditLineId = utilityRepository.AddBillLine(
+        billId,
+        "SERVICIO_ELECTRICO",
+        "Cargo fijo mensual",
+        596.252,
+        categoryKey: "FIXED_MONTHLY",
+        quantity: 1,
+        unit: "mes",
+        unitRateClp: 596.252,
+        taxTreatment: "AFECTO",
+        sortOrder: 30);
+
+    var actualOnlyAuditLineId = utilityRepository.AddBillLine(
+        billId,
+        "OTROS_CARGOS",
+        "Cargo común no tarifario",
+        250,
+        taxTreatment: "EXENTO",
+        sortOrder: 40);
+
+    var rateVerification =
+        new TariffBillRateVerificationService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver);
+
+    var verifiedLines = rateVerification.VerifyBill(
+        billId,
+        "America/Santiago");
+
+    var verifiedFixed = verifiedLines.Single(item =>
+        item.BillLineId == fixedAuditLineId);
+    var verifiedActualOnly = verifiedLines.Single(item =>
+        item.BillLineId == actualOnlyAuditLineId);
+
+    if (!verifiedFixed.Status.StartsWith(
+            "VERIFIED_RECONSTRUCTED_",
+            StringComparison.Ordinal) ||
+        verifiedFixed.ReconstructedAmountClp is null ||
+        Math.Abs(
+            verifiedFixed.ReconstructedAmountClp.Value -
+            596.252) > 0.0001 ||
+        verifiedFixed.PublicationIds.Count != 1 ||
+        verifiedFixed.PublicationIds[0] != januaryPublicationId ||
+        verifiedActualOnly.Status != "ACTUAL_ONLY_UNMAPPED")
+    {
+        throw new InvalidOperationException(
+            "Phase 9 bill-line official-rate verification smoke test failed.");
     }
 
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
