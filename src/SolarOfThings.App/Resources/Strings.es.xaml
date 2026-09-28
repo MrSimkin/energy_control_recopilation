@@ -288,6 +288,16 @@
     <sys:String x:Key="GridUtility.TariffRetroactive.Yes">Sí</sys:String>
     <sys:String x:Key="GridUtility.TariffRetroactive.No">No</sys:String>
     <sys:String x:Key="GridUtility.TariffStatus">Captura</sys:String>
+    <sys:String x:Key="GridUtility.TariffNormalizationStatus">Normalización</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersionStatus">Versión</sys:String>
+    <sys:String x:Key="GridUtility.TariffNormalization.Candidates">Candidatos extraídos</sys:String>
+    <sys:String x:Key="GridUtility.TariffNormalization.Pending">Pendiente</sys:String>
+    <sys:String x:Key="GridUtility.TariffNormalization.Failed">Falló</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.Single">Única</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.RetroactivePreferred">Retroactiva preferida</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.Superseded">Reemplazada</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.Ambiguous">Ambigua</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.NoDate">Sin vigencia</sys:String>
     <sys:String x:Key="GridUtility.TariffStatus.Captured">Fuente capturada</sys:String>
     <sys:String x:Key="GridUtility.TariffStatus.Discovered">Descubierta</sys:String>
     <sys:String x:Key="GridUtility.TariffStatus.Failed">Error</sys:String>
