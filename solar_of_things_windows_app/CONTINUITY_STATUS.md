@@ -2156,3 +2156,20 @@ Deferred work explicitly recorded:
 - re-run export/import QA when target-PC data/environment is available.
 
 No code fix is authorized by this QA note itself.
+
+
+### Build 350 QA follow-up — import entry point located
+
+The user has now located the guided import control under the Data page.
+
+Update to item 6:
+- no longer blocked;
+- the earlier finding remains useful as initial discoverability friction, but the control is confirmed present and reachable;
+- execution behavior is still pending validation.
+
+Planned remaining manual test order:
+1. item 6 — import discoverability/execution entry point;
+2. item 5 — export activity indicator, after data is available;
+3. item 7 — end-to-end import/restart/active-data validation.
+
+No fix authorized yet.
