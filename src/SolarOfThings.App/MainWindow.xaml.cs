@@ -1518,7 +1518,7 @@ public partial class MainWindow : Window
             showError: false);
     }
 
-    private static void PageScrollViewer_PreviewMouseWheel(
+    private void PageScrollViewer_PreviewMouseWheel(
         object sender,
         MouseWheelEventArgs e)
     {
