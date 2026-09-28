@@ -1805,7 +1805,9 @@
                                                                     <DataGrid.Columns>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TariffEffective}" Binding="{Binding Effective}" Width="105"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TariffRetroactive}" Binding="{Binding Retroactive}" Width="90"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffStatus}" Binding="{Binding Status}" Width="120"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffStatus}" Binding="{Binding Status}" Width="110"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffNormalizationStatus}" Binding="{Binding Normalization}" Width="130"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TariffVersionStatus}" Binding="{Binding Version}" Width="155"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TariffPages}" Binding="{Binding Pages}" Width="70"/>
                                                                         <DataGridTextColumn Header="SHA-256" Binding="{Binding Sha}" Width="120"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TariffPublication}" Binding="{Binding Title}" Width="*"/>
