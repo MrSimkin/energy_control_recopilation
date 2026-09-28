@@ -524,6 +524,7 @@
     <sys:String x:Key="Diagnostics.OpenLogs">Abrir carpeta Logs</sys:String>
     <sys:String x:Key="Diagnostics.OpenWindow">Abrir diagnóstico técnico</sys:String>
     <sys:String x:Key="Common.Close">Cerrar</sys:String>
+    <sys:String x:Key="Common.Working">Trabajando...</sys:String>
 
     <sys:String x:Key="Diagnostics.InvestigationNotice">Estos controles ejecutan sólo lecturas y validaciones de desarrollo. No cambian parámetros del inversor. “Lectura directa de configuración” puede solicitar al equipo que reporte su configuración actual, pero no escribe valores.</sys:String>
     <sys:String x:Key="Diagnostics.InvestigationHeading">Investigación reproducible para build limpia</sys:String>
