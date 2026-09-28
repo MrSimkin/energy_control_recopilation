@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using SolarOfThings.Core.Infrastructure;
@@ -324,37 +326,91 @@ public sealed class CneTariffEvidenceCaptureService
     private static bool IsVadIndexResolution(
         string text)
     {
+        var normalized = NormalizeForMatch(text);
+        var isCorrection = IsCorrectionNormalized(normalized);
+
+        if (isCorrection)
+        {
+            // Official correction resolutions may fragment the standard
+            // descriptive sentence under PDF text extraction. Require the
+            // correction relationship plus the replacement index-table
+            // evidence and an explicit effective month instead.
+            var hasReplacementIndexTable =
+                normalized.Contains("IPC", StringComparison.Ordinal) &&
+                normalized.Contains("CPI", StringComparison.Ordinal) &&
+                normalized.Contains("DOLAR OBSERVADO", StringComparison.Ordinal) &&
+                EffectiveTableMonthRegex.IsMatch(text);
+
+            var hasVadFormulaLanguage =
+                normalized.Contains("INDICES", StringComparison.Ordinal) &&
+                normalized.Contains("FORMULAS TARIFARIAS", StringComparison.Ordinal);
+
+            return hasReplacementIndexTable || hasVadFormulaLanguage;
+        }
+
         var hasVadIndexPhrase =
-            VadIndexPhraseRegex.IsMatch(text);
+            normalized.Contains(
+                "INDICES CONTENIDOS EN LAS FORMULAS TARIFARIAS",
+                StringComparison.Ordinal);
         if (!hasVadIndexPhrase)
             return false;
 
-        var isCorrection =
-            CorrectionRegex.IsMatch(text);
-
-        // A rectification resolution is already authoritative evidence that
-        // it replaces/corrects a prior VAD-index resolution. Pdf extraction
-        // can reorder or fragment the decree citation, so do not require the
-        // 5T reference again when the correction relationship is explicit.
-        if (isCorrection)
-            return true;
-
-        return text.Contains(
-                   "Decreto",
-                   StringComparison.OrdinalIgnoreCase) &&
+        return normalized.Contains(
+                   "DECRETO",
+                   StringComparison.Ordinal) &&
                Regex.IsMatch(
-                   text,
+                   normalized,
                    @"5\s*T",
-                   RegexOptions.IgnoreCase |
                    RegexOptions.CultureInvariant) &&
-               text.Contains(
-                   "periodo comprendido",
-                   StringComparison.OrdinalIgnoreCase);
+               normalized.Contains(
+                   "PERIODO COMPRENDIDO",
+                   StringComparison.Ordinal);
     }
 
     private static bool IsCorrection(
         string text) =>
-        CorrectionRegex.IsMatch(text);
+        IsCorrectionNormalized(
+            NormalizeForMatch(text));
+
+    private static bool IsCorrectionNormalized(
+        string normalized) =>
+        normalized.Contains(
+            "RECTIFICA",
+            StringComparison.Ordinal) &&
+        normalized.Contains(
+            "RESOLUCION",
+            StringComparison.Ordinal);
+
+    private static string NormalizeForMatch(
+        string value)
+    {
+        var decomposed = value.Normalize(
+            NormalizationForm.FormD);
+        var builder = new StringBuilder(
+            decomposed.Length);
+
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) ==
+                UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            builder.Append(
+                char.IsWhiteSpace(character)
+                    ? ' '
+                    : char.ToUpperInvariant(character));
+        }
+
+        return Regex.Replace(
+                builder
+                    .ToString()
+                    .Normalize(NormalizationForm.FormC),
+                @"\s+",
+                " ")
+            .Trim();
+    }
 
     private static DateOnly? ParseEffectiveDate(
         string text)
