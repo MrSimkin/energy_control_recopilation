@@ -835,34 +835,78 @@ try
             "Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%208T_" +
             "%20VAD%205T%20Septiembre%20de%202026.pdf";
 
-        try
-        {
-            var livePdf =
-                await EnelTariffCaptureService
-                    .ProbeOfficialPdfAsync(
-                        livePdfProbeUrl);
+        var livePdf =
+            await EnelTariffCaptureService
+                .ProbeOfficialPdfAsync(
+                    livePdfProbeUrl);
 
-            Console.WriteLine(
-                $"Live Enel direct PDF probe: " +
-                $"{livePdf.ContentLength:N0} bytes; " +
-                $"SHA-256 {livePdf.Sha256}.");
-        }
-        catch (Exception directPdfEx)
-        {
-            Console.WriteLine(
-                $"Live Enel direct PDF probe FAILED: " +
-                $"{directPdfEx.GetType().Name}: {directPdfEx.Message}");
-        }
+        Console.WriteLine(
+            $"Live Enel direct PDF probe: " +
+            $"{livePdf.ContentLength:N0} bytes; " +
+            $"SHA-256 {livePdf.Sha256}.");
 
         if (liveCatalog.HttpStatusCode != 200 ||
-            liveCatalog.DiscoveredPublications < 1)
+            liveCatalog.DiscoveredPublications < 10)
         {
             Console.WriteLine("----- BEGIN ENEL CATALOG RAW HTML -----");
             Console.WriteLine(liveCatalog.RawHtml);
             Console.WriteLine("----- END ENEL CATALOG RAW HTML -----");
 
             throw new InvalidOperationException(
-                "Live Enel catalog probe did not discover any official supply publications.");
+                "Live Enel catalog probe did not discover a plausible 2026 official supply-publication set.");
+        }
+
+        if (livePdf.ContentLength < 100_000)
+        {
+            throw new InvalidOperationException(
+                "Live Enel direct PDF probe returned an implausibly small document.");
+        }
+
+        var liveEnelRepository =
+            new TariffPublicationRepository(database);
+        var liveEnelCandidateRepository =
+            new TariffRateCandidateRepository(database);
+        var liveEnelParser =
+            new EnelBt1TariffTextParser();
+        var liveEnelNormalizer =
+            new EnelTariffNormalizationService(
+                liveEnelCandidateRepository,
+                liveEnelParser);
+        var liveEnelCapture =
+            new EnelTariffCaptureService(
+                liveEnelRepository,
+                liveEnelNormalizer,
+                paths);
+
+        var liveEnelProgress = new Progress<string>(
+            message =>
+                Console.WriteLine(
+                    $"Live Enel progress: {message}"));
+
+        var liveEnelResult =
+            await liveEnelCapture.CaptureSupplyTariffsAsync(
+                2026,
+                liveEnelProgress);
+
+        Console.WriteLine(
+            $"Live Enel full capture: " +
+            $"{liveEnelResult.Captured}/{liveEnelResult.Discovered} captured; " +
+            $"{liveEnelResult.Failed} download/capture failure(s); " +
+            $"{liveEnelResult.NormalizedCandidates} normalized candidate(s); " +
+            $"{liveEnelResult.NormalizationFailures} normalization failure(s); " +
+            $"{liveEnelResult.RetroactiveDetected} retroactive publication(s); " +
+            $"{liveEnelResult.MultiVersionPeriods} multi-version period(s).");
+
+        if (liveEnelResult.Discovered < 10 ||
+            liveEnelResult.Captured < 10 ||
+            liveEnelResult.Failed != 0 ||
+            liveEnelResult.NormalizedCandidates < 1)
+        {
+            foreach (var message in liveEnelResult.Messages)
+                Console.WriteLine($"Live Enel capture detail: {message}");
+
+            throw new InvalidOperationException(
+                "Live Enel full-year capture did not complete with a plausible official 2026 evidence set.");
         }
     }
 
