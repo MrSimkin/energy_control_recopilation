@@ -1966,6 +1966,8 @@ public partial class MainWindow : Window
         finally
         {
             TariffCaptureButton.IsEnabled = true;
+            TariffYearSelector.IsEnabled = true;
+            SetGlobalOperation(false, string.Empty);
         }
     }
 
@@ -2874,7 +2876,7 @@ public partial class MainWindow : Window
             timeZoneId);
 
         return reading.TimePrecision == UtilityTimePrecision.DateOnly
-            ? $"{local:dd-MM-yyyy} · 00:00 asumida"
+            ? $"{local:dd-MM-yyyy} · {_localization.GetString("GridUtility.OfficialBoundary")}"
             : $"{local:dd-MM-yyyy HH:mm:ss}";
     }
 
