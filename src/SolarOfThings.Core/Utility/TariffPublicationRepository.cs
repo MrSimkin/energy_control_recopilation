@@ -21,7 +21,9 @@ public sealed class TariffPublicationRepository
             SELECT publication_id, provider, category, title, source_url,
                    effective_from, is_retroactive, local_pdf_path,
                    content_sha256, content_length, page_count,
-                   capture_status, captured_utc, updated_utc
+                   capture_status, captured_utc, updated_utc,
+                   normalization_status, normalization_parser_version,
+                   normalized_utc
             FROM tariff_publication
             ORDER BY
                 CASE WHEN effective_from IS NULL THEN 1 ELSE 0 END,
@@ -62,6 +64,17 @@ public sealed class TariffPublicationRepository
                 DateTimeStyles.RoundtripKind,
                 out var updated);
 
+            DateTimeOffset? normalized = null;
+            if (!reader.IsDBNull(16) &&
+                DateTimeOffset.TryParse(
+                    reader.GetString(16),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var parsedNormalized))
+            {
+                normalized = parsedNormalized;
+            }
+
             result.Add(new TariffPublication(
                 reader.GetInt64(0),
                 reader.GetString(1),
@@ -76,7 +89,10 @@ public sealed class TariffPublicationRepository
                 reader.IsDBNull(10) ? null : reader.GetInt32(10),
                 reader.GetString(11),
                 captured,
-                updated));
+                updated,
+                reader.GetString(14),
+                reader.IsDBNull(15) ? null : reader.GetString(15),
+                normalized));
         }
 
         return result;
