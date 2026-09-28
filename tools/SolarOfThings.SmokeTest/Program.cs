@@ -752,27 +752,36 @@ try
         new TariffPublicationRepository(database);
     const string tariffFixtureHtml = """
         <html><body>
-        <a href="/content/tarifas/Enel-Septiembre-2026.pdf">
-        Enel Distribución Chile SA._Tarifas Suministro Eléctrico 8T_ VAD 5T Septiembre de 2026.pdf
+        <a href="/content/tarifas/Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%208T_%20VAD%205T%20Septiembre%20de%202026.pdf">
+        Descargar
         </a>
-        <a href="/content/tarifas/Enel-Agosto-2026-Retroactivo.pdf">
-        Enel Distribución Chile SA._Tarifas Suministro Eléctrico 8T_ VAD 5T Agosto de 2026_Retroactivo.pdf
+        <a href="/content/tarifas/Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%208T_%20VAD%205T%20Agosto%20de%202026_Retroactivo.pdf">
+        Descargar
+        </a>
+        <a href="/content/tarifas/Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%2024T_%20VAD%205T%20Agosto%20de%202026.pdf">
+        Descargar
+        </a>
+        <a href="/content/tarifas/Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%2014T_%20VAD%205T%20Diciembre%20de%202025.pdf">
+        Descargar
         </a>
         </body></html>
         """;
 
     var tariffDiscovered =
-        EnelTariffCaptureService.Discover2026SupplyTariffs(
+        EnelTariffCaptureService.DiscoverSupplyTariffs(
             tariffFixtureHtml,
-            new Uri("https://www.enel.cl/es/clientes/tarifas-y-regulacion/tarifas.html"));
+            new Uri("https://www.enel.cl/es/clientes/tarifas-y-regulacion/tarifas.html"),
+            2026);
 
-    if (tariffDiscovered.Count != 2 ||
+    if (tariffDiscovered.Count != 3 ||
         !tariffDiscovered.Any(item =>
             item.EffectiveFrom == new DateOnly(2026, 9, 1) &&
             !item.IsRetroactive) ||
         !tariffDiscovered.Any(item =>
             item.EffectiveFrom == new DateOnly(2026, 8, 1) &&
-            item.IsRetroactive))
+            item.IsRetroactive) ||
+        tariffDiscovered.Count(item =>
+            item.EffectiveFrom == new DateOnly(2026, 8, 1)) != 2)
     {
         throw new InvalidOperationException(
             "Phase 9 tariff catalog discovery smoke test failed.");
