@@ -28,4 +28,6 @@ public sealed record TariffCaptureResult(
     int Discovered,
     int Captured,
     int Failed,
-    IReadOnlyList<string> Messages);
+    IReadOnlyList<string> Messages,
+    int RetroactiveDetected,
+    int MultiVersionPeriods);
