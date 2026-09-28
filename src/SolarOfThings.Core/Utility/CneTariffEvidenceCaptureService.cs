@@ -156,6 +156,9 @@ public sealed class CneTariffEvidenceCaptureService
 
                 if (!IsVadIndexResolution(fullText))
                 {
+                    progress?.Report(
+                        $"CNE: omitido (no clasificado como índice VAD): " +
+                        $"{Path.GetFileName(new Uri(url).AbsolutePath)}");
                     File.Delete(tempPath);
                     continue;
                 }
@@ -164,6 +167,10 @@ public sealed class CneTariffEvidenceCaptureService
                 if (!effectiveFrom.HasValue ||
                     effectiveFrom.Value.Year != year)
                 {
+                    progress?.Report(
+                        $"CNE: omitido por vigencia " +
+                        $"{(effectiveFrom.HasValue ? effectiveFrom.Value.ToString("yyyy-MM") : "desconocida")}: " +
+                        $"{Path.GetFileName(new Uri(url).AbsolutePath)}");
                     File.Delete(tempPath);
                     continue;
                 }
