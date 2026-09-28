@@ -47,6 +47,12 @@ jobs:
       - name: SQLite smoke test
         run: dotnet run --project tools/SolarOfThings.SmokeTest/SolarOfThings.SmokeTest.csproj --configuration Release --no-build
 
+      - name: Live Enel catalog probe
+        if: ${{ contains(github.event.head_commit.message, '[enel-live]') }}
+        env:
+          SOLAR_ENEL_LIVE_CATALOG: "1"
+        run: dotnet run --project tools/SolarOfThings.SmokeTest/SolarOfThings.SmokeTest.csproj --configuration Release --no-build
+
       - name: Publish portable Windows x64 test build
         run: >
           dotnet publish src/SolarOfThings.App/SolarOfThings.App.csproj
