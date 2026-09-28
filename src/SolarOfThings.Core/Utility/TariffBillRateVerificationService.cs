@@ -81,14 +81,16 @@ public sealed class TariffBillRateVerificationService
                 componentKey,
                 selection.Status,
                 selection.Detail,
-                publicationIds: selection.PublicationIds);
+                publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray(),
+                publications: selection.Publications);
         }
 
         var perPublicationMatches =
             new List<(long PublicationId, IReadOnlyList<RateCandidateMatch> Matches)>();
 
-        foreach (var publicationId in selection.PublicationIds)
+        foreach (var publication in selection.Publications)
         {
+            var publicationId = publication.PublicationId;
             var candidates = _candidateRepository
                 .GetForPublication(publicationId)
                 .Where(candidate =>
@@ -109,7 +111,7 @@ public sealed class TariffBillRateVerificationService
                     componentKey,
                     "MISSING_COMPONENT_SOURCE",
                     $"Publication {publicationId} contains no normalized {componentKey} candidate.",
-                    publicationIds: selection.PublicationIds);
+                    publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray());
             }
 
             var matches = candidates
@@ -125,7 +127,7 @@ public sealed class TariffBillRateVerificationService
                     componentKey,
                     "RATE_NOT_FOUND",
                     $"The printed unit rate {line.UnitRateClp.Value.ToString("N3", CultureInfo.InvariantCulture)} was not found for {componentKey} in publication {publicationId}.",
-                    publicationIds: selection.PublicationIds);
+                    publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray());
             }
 
             perPublicationMatches.Add(
@@ -160,7 +162,7 @@ public sealed class TariffBillRateVerificationService
 
         var detail = BuildMatchDetail(
             allMatches,
-            selection.PublicationIds.Count,
+            selection.Publications.Select(item => item.PublicationId).ToArray().Count,
             reconstructed,
             line.AmountClp,
             amountDifference);
@@ -173,7 +175,8 @@ public sealed class TariffBillRateVerificationService
             line.Quantity,
             line.AmountClp,
             status,
-            selection.PublicationIds,
+            selection.Publications.Select(item => item.PublicationId).ToArray(),
+            selection.Publications,
             allMatches.Length,
             distinctCandidateIdentities,
             allMatches
@@ -257,7 +260,7 @@ public sealed class TariffBillRateVerificationService
                 group.Key > startDate &&
                 group.Key < endBoundaryDate));
 
-        var selected = new List<long>();
+        var selected = new List<BillTariffPublicationEvidence>();
 
         foreach (var group in requiredGroups)
         {
@@ -285,13 +288,22 @@ public sealed class TariffBillRateVerificationService
                     $"Publication {selectedPublication.PublicationId} is not normalized into rate candidates.");
             }
 
-            selected.Add(selectedPublication.PublicationId);
+            resolutions.TryGetValue(
+                selectedPublication.PublicationId,
+                out var selectedResolution);
+            selected.Add(new BillTariffPublicationEvidence(
+                selectedPublication.PublicationId,
+                selectedPublication.EffectiveFrom,
+                selectedPublication.IsRetroactive,
+                selectedPublication.Title,
+                selectedResolution?.Status ?? "VERSION_UNRESOLVED"));
         }
 
         return new TariffPeriodSelection(
             "RESOLVED",
             selected
-                .Distinct()
+                .GroupBy(item => item.PublicationId)
+                .Select(group => group.First())
                 .ToArray(),
             selected.Count > 1
                 ? "The bill interval crosses more than one resolved tariff-effective period; the printed rate must be present in every selected period to be verified."
@@ -473,7 +485,8 @@ public sealed class TariffBillRateVerificationService
         string? componentKey,
         string status,
         string detail,
-        IReadOnlyList<long>? publicationIds = null) =>
+        IReadOnlyList<long>? publicationIds = null,
+        IReadOnlyList<BillTariffPublicationEvidence>? publications = null) =>
         new(
             line.BillLineId,
             line.Description,
@@ -483,6 +496,7 @@ public sealed class TariffBillRateVerificationService
             line.AmountClp,
             status,
             publicationIds ?? [],
+            publications ?? [],
             0,
             0,
             [],
@@ -492,7 +506,7 @@ public sealed class TariffBillRateVerificationService
 
     private sealed record TariffPeriodSelection(
         string Status,
-        IReadOnlyList<long> PublicationIds,
+        IReadOnlyList<BillTariffPublicationEvidence> Publications,
         string Detail);
 
     private sealed record RateCandidateMatch(
@@ -514,9 +528,18 @@ public sealed record BillLineTariffVerification(
     double ActualAmountClp,
     string Status,
     IReadOnlyList<long> PublicationIds,
+    IReadOnlyList<BillTariffPublicationEvidence> Publications,
     int MatchCount,
     int DistinctCandidateCount,
     IReadOnlyList<string> MatchedColumns,
     double? ReconstructedAmountClp,
     double? AmountDifferenceClp,
     string Detail);
+
+
+public sealed record BillTariffPublicationEvidence(
+    long PublicationId,
+    DateOnly? EffectiveFrom,
+    bool IsRetroactive,
+    string Title,
+    string VersionStatus);
