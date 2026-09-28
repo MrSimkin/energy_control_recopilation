@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 11;
+    public const int CurrentSchemaVersion = 12;
 
     private readonly AppPaths _paths;
 
@@ -97,6 +97,12 @@ public sealed class SqliteDatabase
         if (current < 11)
         {
             ApplyMigration11(connection);
+            current = 11;
+        }
+
+        if (current < 12)
+        {
+            ApplyMigration12(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
