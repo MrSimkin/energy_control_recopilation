@@ -807,9 +807,46 @@ try
             "Phase 9 tariff catalog discovery smoke test failed.");
     }
 
-    var tariffPublicationId =
-        tariffRepository.UpsertDiscovery(
-            tariffDiscovered[0]);
+    var tariffPublicationIds = tariffDiscovered
+        .Select(tariffRepository.UpsertDiscovery)
+        .ToArray();
+
+    var versionResolver =
+        new TariffPublicationVersionResolver();
+    var versionResolutions =
+        versionResolver.Resolve(
+            tariffRepository.GetAll());
+
+    var augustPublicationIds = tariffDiscovered
+        .Select((item, index) => new
+        {
+            Item = item,
+            PublicationId = tariffPublicationIds[index]
+        })
+        .Where(item =>
+            item.Item.EffectiveFrom == new DateOnly(2026, 8, 1))
+        .ToArray();
+
+    var augustRetroactive = augustPublicationIds
+        .Single(item => item.Item.IsRetroactive);
+    var augustOriginal = augustPublicationIds
+        .Single(item => !item.Item.IsRetroactive);
+
+    if (!versionResolutions.Any(item =>
+            item.PublicationId == augustRetroactive.PublicationId &&
+            item.Status == "VERSION_PREFERRED_RETROACTIVE") ||
+        !versionResolutions.Any(item =>
+            item.PublicationId == augustOriginal.PublicationId &&
+            item.Status == "VERSION_SUPERSEDED_BY_RETROACTIVE") ||
+        !versionResolutions.Any(item =>
+            item.EffectiveFrom == new DateOnly(2026, 9, 1) &&
+            item.Status == "VERSION_SINGLE"))
+    {
+        throw new InvalidOperationException(
+            "Phase 9 retroactive tariff version resolution smoke test failed.");
+    }
+
+    var tariffPublicationId = tariffPublicationIds[0];
 
     var tariffPageFixture = """
         Cargo en Boleta/Factura RED ETR UNIDAD $ Neto $ IVA
