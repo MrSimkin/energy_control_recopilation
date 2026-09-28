@@ -255,3 +255,32 @@ Acquisition architecture consequence:
 6. never mark a tariff authoritative merely because a local file exists.
 
 No browser-challenge bypass is part of the product design.
+
+## Live-source acquisition architecture — 2026-09-28
+
+The official-source strategy is now split by accessibility and evidentiary role.
+
+### Automatic source: CNE
+Use programmatic year-based capture for:
+- monthly VAD/index resolutions;
+- rectifications/corrections;
+- effective-period regulatory evidence;
+- other machine-accessible CNE components added later.
+
+### Browser/import source: Enel
+The Enel website is protected by Imperva/Reese and returns a JavaScript/cookie challenge to raw HttpClient clients, even when HTTP status is 200.
+
+Therefore:
+- do not try to defeat or emulate the challenge;
+- open the official Enel page in the user's normal browser;
+- import the downloaded official PDFs into the application;
+- validate PDF identity/content before accepting;
+- preserve immutable hash/source evidence and normalize locally.
+
+### Audit semantics
+CNE evidence and Enel final tariff tables are complementary:
+- CNE explains/regulates the tariff formulas and corrections;
+- Enel tariff tables expose distributor-specific final published values by commune/RED/ETR;
+- neither source should be silently substituted for the other.
+
+The UI must make source authority visible so a technical audit can explain which parts came from CNE regulation and which from the Enel published tariff table.
