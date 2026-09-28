@@ -119,6 +119,7 @@ public partial class CommissioningWindow : Window
         _selectedStation = station;
         CommissionButton.IsEnabled = false;
         DeviceComboBox.ItemsSource = null;
+        SetBusy(true);
 
         try
         {
@@ -142,6 +143,10 @@ public partial class CommissioningWindow : Window
         {
             AddProgress("DeviceDiscovery", "FAIL", ex.Message);
             ResultTextBox.Text = ex.ToString();
+        }
+        finally
+        {
+            SetBusy(false);
         }
     }
 
@@ -361,6 +366,10 @@ public partial class CommissioningWindow : Window
                                      _selectedStation is not null &&
                                      DeviceComboBox.SelectedItem is not null;
         ServerLogoutButton.IsEnabled = !busy && _session.CanServerLogout;
+        CommissioningBusyBar.Visibility =
+            busy ? Visibility.Visible : Visibility.Collapsed;
+        CommissioningBusyText.Visibility =
+            busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateSessionActionState()
