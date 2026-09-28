@@ -59,30 +59,43 @@ Therefore tariff data must be versioned by:
 
 ## 4. Residential Equity Mechanism (ETR)
 
-For BT1, current official material uses a residential-equity classification based on the prior calendar year's average monthly energy consumption.
+For BT1, official Enel publications use a residential-equity classification based on the prior calendar year's average monthly energy consumption.
 
-Current published bands include:
-- T0: average ≤ 200 kWh/month;
-- T1: >200 and ≤210;
-- T2: >210 and ≤220;
-- T3: >220 and ≤230;
-- T4: >230 and ≤240;
-- T5: >240.
+### Verified 2026 Enel evidence
 
-CNE material for the mechanism describes progressive contribution percentages across these consumption bands.
+Cross-check of Enel's January 2026 24T publication, August 2026 retroactive 8T publication and September 2026 8T publication confirms the same six ETR bands:
 
-This means even two residential customers in the same broad area can have different regulated values because their prior-year consumption classification differs.
+- T1: prior-year average ≤ 200 kWh/month;
+- T2: >200 and ≤210;
+- T3: >210 and ≤220;
+- T4: >220 and ≤230;
+- T5: >230 and ≤240;
+- T6: >240.
+
+This **supersedes the earlier research note that described these bands as T0–T5**. The former labels must not be used for 2026 tariff applicability.
+
+The official BT1 table also states that total tariff selection depends on both:
+- the customer's connection-network type (RED); and
+- the applicable ETR band.
+
+Because labels/rules can change between tariff vintages, the application must derive or preserve ETR definitions from the applicable official publication/rules rather than hard-code one label set globally.
+
+This means even two residential customers in the same broad area can have different regulated values because their prior-year consumption classification and network type can differ.
 
 ## 5. Protection/stabilization tranches
 
-Current distributor material also exposes a separate consumption-based protection classification (MPC), using moving-average consumption thresholds such as:
-- lower band up to 350 kWh;
-- middle band above 350 and up to 500 kWh;
-- upper band above 500 kWh.
+The verified 2026 Enel BT1 publications also expose Fondo de Estabilización de Tarifas (FET) consumption bands separately from ETR.
 
-The exact regulatory mechanism/rates can change with legislation and tariff periods.
+The January, August-retroactive and September 2026 publications show:
+- consumption ≤350 kWh: no FET surcharge;
+- >350 and ≤500 kWh: 0.923 CLP/kWh;
+- >500 and ≤1000 kWh: 2.076 CLP/kWh;
+- >1000 and ≤5000 kWh: 2.883 CLP/kWh;
+- >5000 kWh: 3.229 CLP/kWh.
 
-Therefore the app must store these classifications and rate schedules as data, not application constants.
+These are **publication-period evidence**, not timeless application constants. The exact mechanism/rates can change with legislation and tariff periods.
+
+Therefore the app must store these classifications and rate schedules as versioned evidence, not application constants.
 
 ## 6. Tariffs change over time — and can be retroactive
 
