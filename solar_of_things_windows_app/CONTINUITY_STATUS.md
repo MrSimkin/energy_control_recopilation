@@ -2373,3 +2373,58 @@ User requirements now apply across the application:
    - The next target-PC handoff should bundle a coherent UX/functional tranche and a concise meaningful QA checklist.
 
 These rules are effective immediately for the work leading to the next target-PC QA.
+
+
+## Internal development checkpoint — Build 386 GREEN — 2026-09-28
+
+This is an **internal development checkpoint, not a target-PC QA handoff**.
+
+Latest validated aggregate code through:
+- responsive summary-card layout commit `88aa6fd1d0b067e7ff8a8e4d286c3ca45bb1d505`;
+- Windows CI Build 386: SUCCESS.
+
+Implemented since Build 350 target feedback:
+- startup no longer intentionally blocks the UI thread during import/startup staging; main window is explicitly restored/activated;
+- transversal visible work feedback expanded to:
+  - startup data preparation;
+  - Update Data/history sync;
+  - manual current-state refresh;
+  - official tariff capture;
+  - report/help/reconciliation/bill-audit exports;
+  - guided data import;
+  - commissioning/discovery;
+  - developer diagnostics;
+- year-selectable Enel official tariff acquisition replaces fixed 2026 UI;
+- source discovery now falls back to official PDF filename/URL when anchor text is generic (for example “Descargar”);
+- tariff source smoke covers:
+  - selected-year filtering;
+  - realistic URL-encoded official filenames;
+  - retroactive publication detection;
+  - multiple publications affecting one effective month;
+- complex pages now use task tabs where materially useful:
+  - Analysis;
+  - Battery;
+  - Grid & Utility;
+  - Data;
+  - Reports;
+- card visual language refined (spacing/radius/border);
+- summary-card grids adapt from 4 columns to 2x2 / 1-column layouts as usable width narrows;
+- official Enel reading entry hides the editable time control and is displayed as a date boundary;
+- bill dates can automatically propose matching saved official Enel start/end readings, while remaining user-correctable;
+- reports are now separated semantically:
+  - arbitrary reading comparison PDF;
+  - dedicated bill-first Enel audit PDF;
+- bill-audit export starts from a selected stored bill and requires linked official readings;
+- audit PDF preserves actual bill lines and does not fabricate expected tariff charges while applicability remains unresolved.
+
+Still not ready for target-PC QA:
+- tariff source capture must be exercised against the real Enel site after the discovery fix;
+- normalized tariff candidates/applicability/supersession resolution are not yet implemented;
+- bill audit does not yet reconstruct verified tariff components line-by-line;
+- explicit uncertainty/sensitivity interval is still pending;
+- final visual polish remains pending after functional layout stabilizes.
+
+Canonical next design:
+- `TARIFF_NORMALIZATION_DESIGN_2026-09-28.md`.
+
+Do not hand Build 386 to the user merely because it is green. Continue internal iterations until the Enel/UX tranche is coherent enough for one bundled target-PC QA.
