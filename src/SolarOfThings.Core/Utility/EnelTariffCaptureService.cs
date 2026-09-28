@@ -21,13 +21,16 @@ public sealed class EnelTariffCaptureService
         RegexOptions.Compiled);
 
     private readonly TariffPublicationRepository _repository;
+    private readonly EnelTariffNormalizationService _normalization;
     private readonly AppPaths _paths;
 
     public EnelTariffCaptureService(
         TariffPublicationRepository repository,
+        EnelTariffNormalizationService normalization,
         AppPaths paths)
     {
         _repository = repository;
+        _normalization = normalization;
         _paths = paths;
     }
 
@@ -53,6 +56,8 @@ public sealed class EnelTariffCaptureService
         var messages = new List<string>();
         var captured = 0;
         var failed = 0;
+        var normalizedCandidates = 0;
+        var normalizationFailures = 0;
 
         foreach (var item in discovered)
         {
@@ -103,6 +108,26 @@ public sealed class EnelTariffCaptureService
                     pageTexts);
 
                 captured++;
+
+                try
+                {
+                    progress?.Report(
+                        $"Normalizando candidatos BT1: {item.Title}...");
+                    var normalization =
+                        _normalization.NormalizePublication(
+                            publicationId,
+                            pageTexts);
+                    normalizedCandidates += normalization.CandidateCount;
+                    progress?.Report(
+                        $"Candidatos extraídos: {normalization.CandidateCount} " +
+                        $"en {normalization.PagesWithCandidates} página(s).");
+                }
+                catch (Exception normalizationEx)
+                {
+                    normalizationFailures++;
+                    messages.Add(
+                        $"{item.Title} [normalización]: {normalizationEx.Message}");
+                }
             }
             catch (Exception ex)
             {
@@ -122,7 +147,8 @@ public sealed class EnelTariffCaptureService
 
         progress?.Report(
             $"Captura {year} terminada: {captured}/{discovered.Count} publicaciones · " +
-            $"{retroactive} retroactivas · {multiVersionPeriods} períodos con múltiples versiones.");
+            $"{retroactive} retroactivas · {multiVersionPeriods} períodos con múltiples versiones · " +
+            $"{normalizedCandidates} candidatos tarifarios · {normalizationFailures} fallos de normalización.");
 
         return new TariffCaptureResult(
             discovered.Count,
@@ -130,7 +156,9 @@ public sealed class EnelTariffCaptureService
             failed,
             messages,
             retroactive,
-            multiVersionPeriods);
+            multiVersionPeriods,
+            normalizedCandidates,
+            normalizationFailures);
     }
 
     public static IReadOnlyList<TariffPublicationDiscovery>
