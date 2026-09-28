@@ -864,10 +864,7 @@ try
     if (tariffDiscovered.Count != 3 ||
         !tariffDiscovered.Any(item =>
             item.EffectiveFrom == new DateOnly(2026, 9, 1) &&
-            !item.IsRetroactive &&
-            item.SourceUrl.Contains(
-                "Septiembre%20de%202026.pdf",
-                StringComparison.Ordinal)) ||
+            !item.IsRetroactive) ||
         !tariffDiscovered.Any(item =>
             item.EffectiveFrom == new DateOnly(2026, 8, 1) &&
             item.IsRetroactive) ||
