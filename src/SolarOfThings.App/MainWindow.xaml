@@ -1638,11 +1638,23 @@
                                            Foreground="#6C757D"
                                            Margin="0,4,0,10"
                                            TextWrapping="Wrap"/>
-                                <Button x:Name="TariffCaptureButton"
-                                        Content="{DynamicResource GridUtility.TariffCapture}"
-                                        Padding="12,6"
-                                        HorizontalAlignment="Left"
-                                        Click="TariffCaptureButton_Click"/>
+                                <StackPanel Orientation="Horizontal"
+                                            Margin="0,0,0,4">
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource GridUtility.TariffYear}"
+                                                   FontSize="12"
+                                                   Foreground="#6C757D"
+                                                   Margin="0,0,0,3"/>
+                                        <ComboBox x:Name="TariffYearSelector"
+                                                  Width="105"
+                                                  MinHeight="30"/>
+                                    </StackPanel>
+                                    <Button x:Name="TariffCaptureButton"
+                                            Content="{DynamicResource GridUtility.TariffCapture}"
+                                            Padding="12,6"
+                                            VerticalAlignment="Bottom"
+                                            Click="TariffCaptureButton_Click"/>
+                                </StackPanel>
                                 <TextBlock x:Name="TariffCaptureStatusText"
                                            FontSize="11"
                                            Foreground="#495057"
