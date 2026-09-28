@@ -2511,3 +2511,33 @@ Applicability clue supplied by user:
 QA cadence:
 - after fixing tariff acquisition, re-test only the blocked tariff/audit subset unless the fix materially affects another prior check.
 
+
+## Live Enel acquisition root cause — Imperva challenge — 2026-09-28
+
+Build 441 target failure was reproduced independently from a Windows CI runner using the same .NET acquisition path.
+
+Observed live-source evidence:
+- Enel archive request returns HTTP 200 but only a ~6.2 KB HTML interstitial;
+- returned page title/content is `Pardon Our Interruption`;
+- page contains Imperva/Reese browser-protection JavaScript and explicitly requires JavaScript/cookies;
+- no tariff PDF links are present in that response;
+- direct request to a known official Enel `content/dam/...pdf` URL returns the same HTML interstitial instead of a PDF;
+- therefore the failure is not specific to the user's laptop and is not a parser-only defect.
+
+Internal live validation:
+- normal fixture/smoke path remains GREEN after markup-independent discovery hardening;
+- live catalog probe reproduces 0 PDF links / 0 publications;
+- direct-PDF probe receives HTML rather than `%PDF-`.
+
+Product decision:
+- **do not attempt to bypass, emulate or defeat Enel's anti-bot challenge**;
+- direct unattended HTTP acquisition from the protected Enel web surface is not a reliable primary acquisition channel;
+- Phase 9 acquisition must pivot to an accessible official source (preferably CNE/open official data) and/or a controlled user-assisted official-document import fallback;
+- preserve Enel publication provenance/cross-checking where official documents can be obtained legitimately;
+- the UI must report a protection/source-access failure explicitly rather than leaving the tariff table blank.
+
+QA impact:
+- Build 441 item 6 remains FAIL;
+- items 7 and bill-audit PDF remain blocked;
+- do not ask the user to repeat unrelated Build 441 QA;
+- next target QA should cover only the repaired tariff acquisition -> audit -> bill-audit PDF chain unless the redesign materially changes another screen.
