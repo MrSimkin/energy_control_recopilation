@@ -46,6 +46,26 @@ public sealed class EnelTariffCaptureService
         _paths = paths;
     }
 
+    public static async Task<TariffPdfProbeResult>
+        ProbeOfficialPdfAsync(
+            string url,
+            CancellationToken cancellationToken = default)
+    {
+        using var client = CreateClient();
+        var bytes = await DownloadPdfAsync(
+            client,
+            url,
+            cancellationToken);
+        var sha = Convert.ToHexString(
+            SHA256.HashData(bytes))
+            .ToLowerInvariant();
+
+        return new TariffPdfProbeResult(
+            url,
+            bytes.LongLength,
+            sha);
+    }
+
     public static async Task<TariffCatalogProbeResult>
         ProbeOfficialCatalogAsync(
             int year,
@@ -594,3 +614,8 @@ public sealed record TariffCatalogProbeResult(
     int DiscoveredPublications,
     IReadOnlyList<string> Titles,
     string RawHtml);
+
+public sealed record TariffPdfProbeResult(
+    string Url,
+    long ContentLength,
+    string Sha256);
