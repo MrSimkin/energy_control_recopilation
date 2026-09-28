@@ -2190,3 +2190,66 @@ Remaining Build 350 manual validation:
 - item 7 — end-to-end import/restart/active-data validation.
 
 No code fix authorized by this update.
+
+
+### Build 350 QA completion + Grid/Utility UX requirements — 2026-09-28
+
+Final remaining Build 350 manual result:
+
+7. End-to-end import / restart / active-data validation: **PASS**.
+
+Build 350 QA status:
+- 1 PASS;
+- 2 PARTIAL / issue recorded (startup progress appears blocked/frozen; app opens minimized; width otherwise acceptable);
+- 3 PASS;
+- 4 functional PASS, Help/manual content intentionally deferred until near final product completion;
+- 5 PASS;
+- 6 PASS, with earlier discoverability friction retained as UX feedback;
+- 7 PASS.
+
+Build 350 is therefore functionally validated for the tested product-experience tranche, with the recorded startup/minimized-launch issue and deferred Help-content completion still open.
+
+#### New target-PC feedback — Enel / Grid & Utility must be redesigned before the next substantive build
+
+The following user requirements must be preserved before further Grid/Utility development:
+
+1. No meaningful Enel-specific QA has yet been completed.
+   - Do not treat the current Enel/tariff/report path as accepted.
+   - Previously planned report changes related to Enel/bill audit still require explicit design and validation.
+
+2. Readability/navigation is poor inside the current combined options.
+   - Where concepts are distinct, separate them into tabs or clearly separated task surfaces.
+   - Avoid presenting personal readings, Enel official readings, bills, tariff capture and reconciliation as one dense undifferentiated workflow.
+
+3. Responsive/layout behavior is not currently adequate in many parts of the UX.
+   - Analyze layout behavior, clipping, density, scrolling and control grouping before the next substantive build.
+   - Correct the UX where information becomes unreadable, overly compressed or visually confusing.
+
+4. Official tariff capture still does not work on the target PC.
+   - This remains an unresolved functional defect.
+   - Do not mark tariff acquisition as complete.
+
+5. Tariff capture must not be hard-coded to 2026.
+   - The user needs tariff acquisition driven by a selected period / bill history and capable of retrieving historical periods beyond the current year.
+   - At minimum, the UI must allow the user to request the relevant period(s) rather than presenting a fixed “2026” operation.
+
+6. Bill/period comparison is currently extremely confusing.
+   - The product goal is to let the user compare:
+     - arbitrary personal meter readings;
+     - official Enel readings;
+     - one or more Enel bills / billing periods;
+     - Solar of Things inverter-derived grid import over the comparable interval;
+     - the official tariffs applicable to those periods;
+     - expected/reconstructed bill components versus actual Enel bill components.
+   - The tariff and bill-structure evidence previously supplied by the user exists specifically to support this workflow.
+   - The next design must prioritize intuitive comparison and traceability rather than exposing raw internal entities as the primary UX.
+
+7. Enel boundary-time convention must be modeled explicitly:
+   - for Enel-style date-only boundaries, date X at 00:00 is operationally equivalent to date X-1 at 23:59 for interval-boundary interpretation;
+   - the implementation/reporting model must represent this convention consistently rather than making the user manually reason about an apparent one-day discrepancy.
+
+8. Before the next substantive Grid/Utility build, produce a UI/wireframe proposal and verify the intended workflow with the user.
+   - If material ambiguities remain, ask targeted product questions before implementation.
+   - Do not silently assume the current UI model is the intended final interaction design.
+
+No Grid/Utility fix/build is authorized by this note itself. This note records the target-PC product requirements that must drive the next design tranche.
