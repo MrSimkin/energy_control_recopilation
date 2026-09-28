@@ -10,17 +10,20 @@ public sealed class AppPaths
         DataDirectory = Path.Combine(RootDirectory, "Data");
         BackupDirectory = Path.Combine(RootDirectory, "Backups");
         LogDirectory = Path.Combine(RootDirectory, "Logs");
+        TariffDirectory = Path.Combine(DataDirectory, "Tariffs");
 
         Directory.CreateDirectory(RootDirectory);
         Directory.CreateDirectory(DataDirectory);
         Directory.CreateDirectory(BackupDirectory);
         Directory.CreateDirectory(LogDirectory);
+        Directory.CreateDirectory(TariffDirectory);
     }
 
     public string RootDirectory { get; }
     public string DataDirectory { get; }
     public string BackupDirectory { get; }
     public string LogDirectory { get; }
+    public string TariffDirectory { get; }
     public string DatabasePath => Path.Combine(DataDirectory, "energy.db");
 
     private static string ResolveDefaultRoot()

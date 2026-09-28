@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 10;
+    public const int CurrentSchemaVersion = 11;
 
     private readonly AppPaths _paths;
 
@@ -91,6 +91,12 @@ public sealed class SqliteDatabase
         if (current < 10)
         {
             ApplyMigration10(connection);
+            current = 10;
+        }
+
+        if (current < 11)
+        {
+            ApplyMigration11(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -523,6 +529,51 @@ public sealed class SqliteDatabase
             transaction,
             10,
             "Phase 8 reading provenance/time precision, arbitrary bill linkage and flexible bill line items.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration11(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            CREATE TABLE tariff_publication (
+                publication_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider TEXT NOT NULL,
+                category TEXT NOT NULL,
+                title TEXT NOT NULL,
+                source_url TEXT NOT NULL UNIQUE,
+                effective_from TEXT NULL,
+                is_retroactive INTEGER NOT NULL DEFAULT 0,
+                local_pdf_path TEXT NULL,
+                content_sha256 TEXT NULL,
+                content_length INTEGER NULL,
+                page_count INTEGER NULL,
+                capture_status TEXT NOT NULL,
+                captured_utc TEXT NULL,
+                updated_utc TEXT NOT NULL
+            );
+
+            CREATE INDEX ix_tariff_publication_effective
+                ON tariff_publication(provider, category, effective_from DESC);
+
+            CREATE TABLE tariff_publication_page_text (
+                publication_id INTEGER NOT NULL,
+                page_number INTEGER NOT NULL,
+                page_text TEXT NOT NULL,
+                PRIMARY KEY(publication_id, page_number),
+                FOREIGN KEY(publication_id)
+                    REFERENCES tariff_publication(publication_id)
+                    ON DELETE CASCADE
+            );
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            11,
+            "Phase 9 official tariff publication capture with source PDF hash and extracted page text.");
 
         transaction.Commit();
     }
