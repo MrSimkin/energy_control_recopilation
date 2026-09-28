@@ -191,6 +191,10 @@
     <sys:String x:Key="GridUtility.CompareFrom">Desde lectura</sys:String>
     <sys:String x:Key="GridUtility.CompareTo">Hasta lectura</sys:String>
     <sys:String x:Key="GridUtility.Compare">Comparar rango</sys:String>
+    <sys:String x:Key="GridUtility.ExportReconciliation">Exportar PDF para Enel</sys:String>
+    <sys:String x:Key="GridUtility.ExportReconciliationTitle">Guardar informe de conciliación</sys:String>
+    <sys:String x:Key="GridUtility.ExportReconciliationSaved">Informe guardado en: {0}</sys:String>
+
     <sys:String x:Key="GridUtility.ConsecutiveHeading">Comparaciones consecutivas guardadas</sys:String>
     <sys:String x:Key="GridUtility.TimeBasis">Base horaria</sys:String>
     <sys:String x:Key="GridUtility.TimeBasis.EXACT">Hora exacta</sys:String>

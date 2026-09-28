@@ -1955,6 +1955,68 @@ public partial class MainWindow : Window
             $"{UtilityQualityLabel(result.Quality)}";
     }
 
+    private void UtilityExportReconciliation_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null ||
+            UtilityCompareFromSelector.SelectedValue is not long fromId ||
+            UtilityCompareToSelector.SelectedValue is not long toId ||
+            fromId == toId)
+        {
+            UtilityComparisonStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.CompareInvalid");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = _localization.GetString(
+                "GridUtility.ExportReconciliationTitle"),
+            Filter = "PDF (*.pdf)|*.pdf",
+            DefaultExt = "pdf",
+            AddExtension = true,
+            FileName = $"Conciliacion-Enel-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                ? "America/Santiago"
+                : profile.StationTimeZone;
+
+            _services
+                .GetRequiredService<UtilityReconciliationReportService>()
+                .ExportPdf(
+                    dialog.FileName,
+                    profile.DeviceId,
+                    fromId,
+                    toId,
+                    timeZone,
+                    _localization.CurrentLanguage);
+
+            UtilityComparisonStatusText.Text = string.Format(
+                _localization.GetString(
+                    "GridUtility.ExportReconciliationSaved"),
+                dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            UtilityComparisonStatusText.Text = ex.Message;
+            MessageBox.Show(
+                ex.Message,
+                _localization.GetString(
+                    "Page.GridUtility.Title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     private void UtilityAddReading_Click(
         object sender,
         RoutedEventArgs e)

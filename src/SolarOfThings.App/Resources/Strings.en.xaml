@@ -191,6 +191,10 @@
     <sys:String x:Key="GridUtility.CompareFrom">From reading</sys:String>
     <sys:String x:Key="GridUtility.CompareTo">To reading</sys:String>
     <sys:String x:Key="GridUtility.Compare">Compare range</sys:String>
+    <sys:String x:Key="GridUtility.ExportReconciliation">Export PDF for utility</sys:String>
+    <sys:String x:Key="GridUtility.ExportReconciliationTitle">Save reconciliation report</sys:String>
+    <sys:String x:Key="GridUtility.ExportReconciliationSaved">Report saved to: {0}</sys:String>
+
     <sys:String x:Key="GridUtility.ConsecutiveHeading">Saved consecutive comparisons</sys:String>
     <sys:String x:Key="GridUtility.TimeBasis">Time basis</sys:String>
     <sys:String x:Key="GridUtility.TimeBasis.EXACT">Exact time</sys:String>

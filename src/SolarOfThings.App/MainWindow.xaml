@@ -1370,6 +1370,11 @@
                                             Padding="12,6"
                                             VerticalAlignment="Bottom"
                                             Click="UtilityCompareReadings_Click"/>
+                                    <Button Content="{DynamicResource GridUtility.ExportReconciliation}"
+                                            Padding="12,6"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Bottom"
+                                            Click="UtilityExportReconciliation_Click"/>
                                 </WrapPanel>
                                 <TextBlock x:Name="UtilityComparisonStatusText"
                                            FontSize="12"
