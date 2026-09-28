@@ -184,6 +184,13 @@
     <sys:String x:Key="GridUtility.Tab.Audit">Bill audit</sys:String>
     <sys:String x:Key="GridUtility.Tab.Tariffs">Official tariffs</sys:String>
     <sys:String x:Key="GridUtility.AuditHeading">Enel bill audit</sys:String>
+    <sys:String x:Key="GridUtility.AuditIntro">Select a bill. The audit starts from its linked official readings, compares energy with Solar of Things and preserves the actual charges. Tariff reconstruction only shows expected values once official evidence is verified.</sys:String>
+    <sys:String x:Key="GridUtility.AuditBill">Bill to audit</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAudit">Export audit PDF</sys:String>
+    <sys:String x:Key="GridUtility.AuditEvidencePending">Select a bill to review/export its evidence. The applicable tariff is verified separately.</sys:String>
+    <sys:String x:Key="GridUtility.AuditSelectBill">Select a bill before exporting.</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAuditTitle">Export Enel bill audit</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAuditSaved">Audit saved: {0}</sys:String>
     <sys:String x:Key="GridUtility.AuditRedesignNote">This view is being rebuilt to start from one bill, automatically link its official readings, compare the interval with Solar of Things, apply verifiable tariffs and reconstruct only charges supported by official evidence.</sys:String>
     <sys:String x:Key="Data.Tab.Coverage">Coverage &amp; status</sys:String>
     <sys:String x:Key="Data.Tab.Import">Import data</sys:String>
