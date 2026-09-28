@@ -2295,7 +2295,10 @@ public partial class MainWindow : Window
         UtilityLatestIntervalText.Text =
             $"{FormatUtilityInterval(result.FromUtc, result.ToUtc, timeZone)} · " +
             $"{UtilityTimeBasisLabel(result.TimeBasis)} · " +
-            $"{UtilityQualityLabel(result.Quality)}";
+            $"{UtilityQualityLabel(result.Quality)}" +
+            (result.Sensitivity is null
+                ? string.Empty
+                : $"{Environment.NewLine}{UtilitySensitivityLabel(result.Sensitivity)}");
     }
 
     private async void UtilityExportReconciliation_Click(
@@ -3109,6 +3112,25 @@ public partial class MainWindow : Window
                     "GridUtility.ReadingSource.Personal"),
             _ => sourceKind
         };
+
+    private string UtilitySensitivityLabel(
+        UtilitySensitivityRange sensitivity)
+    {
+        var prefix = _localization.GetString(
+            "GridUtility.Sensitivity");
+
+        if (!sensitivity.UpperKwh.HasValue)
+        {
+            return $"{prefix}: ≥ {sensitivity.LowerKwh:N2} kWh · " +
+                   _localization.GetString(
+                       "GridUtility.SensitivityUpperUnknown");
+        }
+
+        return $"{prefix}: {sensitivity.LowerKwh:N2}–" +
+               $"{sensitivity.UpperKwh.Value:N2} kWh · " +
+               _localization.GetString(
+                   "GridUtility.SensitivityNotConfidence");
+    }
 
     private string UtilityTimeBasisLabel(string timeBasis)
     {
