@@ -30,7 +30,7 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 11)
+        SqliteDatabase.CurrentSchemaVersion != 12)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
@@ -810,6 +810,24 @@ try
     var tariffPublicationId =
         tariffRepository.UpsertDiscovery(
             tariffDiscovered[0]);
+
+    var tariffPageFixture = """
+        Cargo en Boleta/Factura RED ETR UNIDAD $ Neto $ IVA
+        Cargo fijo mensual ($/mes) 596,252 709,540 596,252 709,540
+        Cargo por servicio público (No incorpora recargo FET según tramo de consumo)
+        ($/kWh) 0,855 0,000 0,855 0,000
+        Transporte de electricidad (2) ($/kWh) 13,415 15,964 13,415 15,964
+        Cargo por energía (3)
+        T1 -T6 Cargo por energía ($/kWh) 131,039 155,936 131,039 155,936
+        Cargo por compras de potencia ($/kWh) 26,029 30,974 26,029 30,974
+        BT_AA T1 19,212 22,862 19,212 22,862
+        BT_SA T1 23,116 27,508 23,116 27,508
+        BT_AS T1 23,301 27,728 23,301 27,728
+        BT_SS T1 27,205 32,374 27,205 32,374
+        TOTAL TARIFA BASE BT1
+        BT_AA T1 176,2788 209,772 176,2788 209,772
+        """;
+
     tariffRepository.MarkCaptured(
         tariffPublicationId,
         Path.Combine(paths.TariffDirectory, "smoke.pdf"),
@@ -818,9 +836,22 @@ try
         2,
         new[]
         {
-            "Página 1 tarifa BT1 smoke",
-            "Página 2 tarifa BT1 smoke"
+            tariffPageFixture,
+            "Página 2 sin evidencia BT1 relevante"
         });
+
+    var candidateRepository =
+        new TariffRateCandidateRepository(database);
+    var tariffParser =
+        new EnelBt1TariffTextParser();
+    var tariffNormalizer =
+        new EnelTariffNormalizationService(
+            candidateRepository,
+            tariffParser);
+    var normalizationResult =
+        tariffNormalizer.NormalizePublication(
+            tariffPublicationId,
+            tariffRepository.GetPageTexts(tariffPublicationId));
 
     var storedTariff =
         tariffRepository.GetAll()
@@ -829,14 +860,48 @@ try
     var storedTariffPages =
         tariffRepository.GetPageTexts(
             tariffPublicationId);
+    var storedCandidates =
+        candidateRepository.GetForPublication(
+            tariffPublicationId);
+
+    var fixedCandidate = storedCandidates.FirstOrDefault(item =>
+        item.ComponentKey == "FIXED_MONTHLY" &&
+        item.CandidateIndex == 0);
+    var publicServiceCandidate = storedCandidates.FirstOrDefault(item =>
+        item.ComponentKey == "PUBLIC_SERVICE" &&
+        item.CandidateIndex == 0);
+    var rawRedCandidate = storedCandidates.FirstOrDefault(item =>
+        item.ComponentKey == "RED_ETR_RATE_BLOCK_1" &&
+        item.NetworkType == "BT_AA" &&
+        item.EtrBand == "T1" &&
+        item.CandidateIndex == 0);
+    var totalBt1Candidate = storedCandidates.FirstOrDefault(item =>
+        item.ComponentKey == "TOTAL_BT1_BASE_RAW" &&
+        item.NetworkType == "BT_AA" &&
+        item.EtrBand == "T1" &&
+        item.CandidateIndex == 0);
 
     if (storedTariff.CaptureStatus != "CAPTURED" ||
         storedTariff.PageCount != 2 ||
         storedTariff.ContentSha256 != "abc123" ||
-        storedTariffPages.Count != 2)
+        storedTariffPages.Count != 2 ||
+        storedTariff.NormalizationStatus != "CANDIDATES_EXTRACTED" ||
+        storedTariff.NormalizationParserVersion !=
+            EnelBt1TariffTextParser.ParserVersion ||
+        normalizationResult.CandidateCount != storedCandidates.Count ||
+        fixedCandidate is null ||
+        Math.Abs((fixedCandidate.NetRateClp ?? -1) - 596.252) > 0.0001 ||
+        Math.Abs((fixedCandidate.PublishedIvaColumnClp ?? -1) - 709.540) > 0.0001 ||
+        publicServiceCandidate is null ||
+        Math.Abs((publicServiceCandidate.NetRateClp ?? -1) - 0.855) > 0.0001 ||
+        Math.Abs(publicServiceCandidate.PublishedIvaColumnClp ?? -1) > 0.0001 ||
+        rawRedCandidate is null ||
+        totalBt1Candidate is null ||
+        storedCandidates.Any(item =>
+            item.ValidationState != "EXTRACTED_UNAPPLIED"))
     {
         throw new InvalidOperationException(
-            "Phase 9 tariff source persistence smoke test failed.");
+            "Phase 9 tariff candidate normalization smoke test failed.");
     }
 
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
@@ -944,7 +1009,7 @@ try
         "commissioning metadata/profile, protected secret storage, Phase 5 time-range/aggregation math, " +
         "Phase 7 report presets/family event-pattern analysis/source attribution/Excel/PDF export, " +
         "Phase 8 utility meter/bill reconciliation and " +
-        "Phase 9 official tariff source capture foundation are operational.");
+        "Phase 9 official tariff source capture and unapplied candidate normalization are operational.");
 }
 finally
 {
