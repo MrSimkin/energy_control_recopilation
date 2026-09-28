@@ -3064,6 +3064,7 @@ public partial class MainWindow : Window
                 _localization.GetString(
                     "GridUtility.BillLineSaved");
             RefreshSelectedBillLines();
+            RefreshUtilityAuditPreview();
         }
         catch (Exception ex)
         {
@@ -3089,6 +3090,7 @@ public partial class MainWindow : Window
             _localization.GetString(
                 "GridUtility.BillLineDeleted");
         RefreshSelectedBillLines();
+        RefreshUtilityAuditPreview();
     }
 
     private string BillSectionLabel(string key) =>
