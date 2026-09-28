@@ -2428,3 +2428,55 @@ Canonical next design:
 - `TARIFF_NORMALIZATION_DESIGN_2026-09-28.md`.
 
 Do not hand Build 386 to the user merely because it is green. Continue internal iterations until the Enel/UX tranche is coherent enough for one bundled target-PC QA.
+
+
+## Target-PC QA candidate — Build 441 GREEN — 2026-09-28
+
+Build 441 is the next **bundled target-PC QA candidate**.
+
+Validated build:
+- code commit: `e4ae3b4700d3a6f4be2401f57aec92158998f6ac`;
+- workflow run: `36490027783`;
+- CI: GREEN;
+- restore/build/smoke/publish/artifact upload: PASS;
+- artifact: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11001317265`;
+- SHA-256: `3b957efe709f82b955c5dc9ef087ba4db0fd1b714c211584da85fd7743e7cba3`.
+
+This candidate supersedes the prior “continue internally; do not hand off yet” checkpoint.
+
+Included in the QA tranche:
+- responsive/foreground startup changes;
+- transversal visible busy/progress feedback;
+- task tabs across materially complex pages;
+- responsive summary-card layout;
+- semantic primary/secondary/destructive action styling;
+- consistent dense-table styling;
+- persistent active-sidebar accent;
+- date-only official Enel reading UX;
+- automatic bill-to-reading proposal;
+- year-based official Enel tariff acquisition;
+- source discovery compatible with generic Download/Descargar anchors;
+- immutable official PDF/hash/page-text evidence;
+- normalized BT1 tariff candidates;
+- retroactive/multi-version resolution states;
+- schema v13 allowing distinct personal/official reading evidence at the same timestamp;
+- data/boundary sensitivity range;
+- separate reading-comparison and bill-audit PDFs;
+- bill-first audit preview;
+- conservative printed-rate verification against official candidates;
+- human-readable official publication traceability;
+- parser v2 algebraic classification of `POWER_BASE_DISTRIBUTION` and `ELECTRICITY_CONSUMED` only when the official (6)=(3)+(4)+(5) identity is satisfied;
+- corrected 2026 ETR evidence: T1–T6.
+
+Known intentional limits entering QA:
+- customer commune/service column, RED and ETR are **not** silently inferred;
+- historical territorial column maps are not assumed identical across 2020–2026;
+- unsupported/account-specific bill lines remain actual-only evidence;
+- FET/tax treatment is not fabricated;
+- Help/manual completeness remains deferred until near project end.
+
+Canonical manual QA checklist:
+- `TARGET_QA_BUILD_441_2026-09-28.md`.
+
+Do not request the previously accepted family-report or exhaustive-diagnostics QA again unless a new defect specifically requires it.
