@@ -31,10 +31,13 @@ public sealed class EnelTariffCaptureService
         _paths = paths;
     }
 
-    public async Task<TariffCaptureResult> Capture2026SupplyTariffsAsync(
+    public async Task<TariffCaptureResult> CaptureSupplyTariffsAsync(
+        int year,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (year < 2000 || year > DateTime.Now.Year + 1)
+            throw new ArgumentOutOfRangeException(nameof(year));
         using var client = CreateClient();
 
         progress?.Report("Consultando catálogo oficial de Enel...");
@@ -42,9 +45,10 @@ public sealed class EnelTariffCaptureService
             OfficialArchiveUrl,
             cancellationToken);
 
-        var discovered = Discover2026SupplyTariffs(
+        var discovered = DiscoverSupplyTariffs(
             html,
-            new Uri(OfficialArchiveUrl));
+            new Uri(OfficialArchiveUrl),
+            year);
 
         var messages = new List<string>();
         var captured = 0;
@@ -66,7 +70,7 @@ public sealed class EnelTariffCaptureService
                 var providerDir = Path.Combine(
                     _paths.TariffDirectory,
                     "Enel",
-                    "2026");
+                    year.ToString());
                 Directory.CreateDirectory(providerDir);
 
                 var fileName = SafeFileName(item.Title);
@@ -110,20 +114,30 @@ public sealed class EnelTariffCaptureService
             }
         }
 
+        var retroactive = discovered.Count(item => item.IsRetroactive);
+        var multiVersionPeriods = discovered
+            .Where(item => item.EffectiveFrom.HasValue)
+            .GroupBy(item => item.EffectiveFrom)
+            .Count(group => group.Count() > 1);
+
         progress?.Report(
-            $"Captura terminada: {captured}/{discovered.Count} publicaciones.");
+            $"Captura {year} terminada: {captured}/{discovered.Count} publicaciones · " +
+            $"{retroactive} retroactivas · {multiVersionPeriods} períodos con múltiples versiones.");
 
         return new TariffCaptureResult(
             discovered.Count,
             captured,
             failed,
-            messages);
+            messages,
+            retroactive,
+            multiVersionPeriods);
     }
 
     public static IReadOnlyList<TariffPublicationDiscovery>
-        Discover2026SupplyTariffs(
+        DiscoverSupplyTariffs(
             string html,
-            Uri archiveUri)
+            Uri archiveUri,
+            int year)
     {
         var result = new Dictionary<string, TariffPublicationDiscovery>(
             StringComparer.OrdinalIgnoreCase);
@@ -132,19 +146,7 @@ public sealed class EnelTariffCaptureService
         {
             var rawHref = WebUtility.HtmlDecode(
                 match.Groups["href"].Value);
-            var rawText = TagRegex.Replace(
-                match.Groups["text"].Value,
-                " ");
-            var title = WebUtility.HtmlDecode(rawText);
-            title = Regex.Replace(title, @"\s+", " ").Trim();
-
-            if (!title.Contains(
-                    "Tarifas Suministro Eléctrico",
-                    StringComparison.OrdinalIgnoreCase) ||
-                !title.Contains(
-                    "2026",
-                    StringComparison.OrdinalIgnoreCase) ||
-                !rawHref.Contains(
+            if (!rawHref.Contains(
                     ".pdf",
                     StringComparison.OrdinalIgnoreCase))
             {
@@ -158,12 +160,37 @@ public sealed class EnelTariffCaptureService
                     ? absolute
                     : new Uri(archiveUri, rawHref);
 
+            var rawText = TagRegex.Replace(
+                match.Groups["text"].Value,
+                " ");
+            var anchorText = WebUtility.HtmlDecode(rawText);
+            anchorText = Regex.Replace(anchorText, @"\s+", " ").Trim();
+
+            var fileName = Uri.UnescapeDataString(
+                Path.GetFileName(uri.AbsolutePath));
+            var title = anchorText.Contains(
+                    "Tarifas Suministro Eléctrico",
+                    StringComparison.OrdinalIgnoreCase)
+                ? anchorText
+                : fileName;
+
+            if (!title.Contains(
+                    "Tarifas Suministro Eléctrico",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !Regex.IsMatch(
+                    title,
+                    $@"(?<!\d){year}(?!\d)",
+                    RegexOptions.CultureInvariant))
+            {
+                continue;
+            }
+
             var discovery = new TariffPublicationDiscovery(
                 "ENEL_DISTRIBUCION_CHILE",
                 "SUPPLY_REGULATED",
                 title,
                 uri.ToString(),
-                ParseEffectiveDate(title),
+                ParseEffectiveDate(title, year),
                 title.Contains(
                     "Retroactivo",
                     StringComparison.OrdinalIgnoreCase));
@@ -192,7 +219,8 @@ public sealed class EnelTariffCaptureService
     }
 
     private static DateOnly? ParseEffectiveDate(
-        string title)
+        string title,
+        int year)
     {
         var months = new Dictionary<string, int>(
             StringComparer.OrdinalIgnoreCase)
@@ -217,7 +245,7 @@ public sealed class EnelTariffCaptureService
                     pair.Key,
                     StringComparison.OrdinalIgnoreCase))
             {
-                return new DateOnly(2026, pair.Value, 1);
+                return new DateOnly(year, pair.Value, 1);
             }
         }
 
