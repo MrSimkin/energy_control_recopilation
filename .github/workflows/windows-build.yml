@@ -47,7 +47,7 @@ jobs:
       - name: SQLite smoke test
         run: dotnet run --project tools/SolarOfThings.SmokeTest/SolarOfThings.SmokeTest.csproj --configuration Release --no-build
 
-      # Opt-in live-source validation; marked commits exercise effective-year source access and correction chains.
+      # Opt-in live-source validation; marked commits trace effective-year source access and correction chains.
       - name: Live Enel catalog probe
         if: ${{ contains(github.event.head_commit.message, '[enel-live]') }}
         env:
