@@ -44,6 +44,12 @@ public sealed class CneTariffEvidenceCaptureService
         RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
 
+    private static readonly Regex VadIndexPhraseRegex = new(
+        @"[íi]ndices\s+contenidos\s+en\s+las\s+f[óo]rmulas\s+tarifarias",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
     private static readonly Regex CorrectionRegex = new(
         @"Rectifica\s+(?:,\s*)?Resoluci[óo]n",
         RegexOptions.IgnoreCase |
@@ -310,9 +316,7 @@ public sealed class CneTariffEvidenceCaptureService
 
     private static bool IsVadIndexResolution(
         string text) =>
-        text.Contains(
-            "índices contenidos en las fórmulas tarifarias",
-            StringComparison.OrdinalIgnoreCase) &&
+        VadIndexPhraseRegex.IsMatch(text) &&
         text.Contains(
             "Decreto",
             StringComparison.OrdinalIgnoreCase) &&
