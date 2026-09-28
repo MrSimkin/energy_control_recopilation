@@ -2302,3 +2302,23 @@ Two product questions remain intentionally open and must be asked in plain langu
 - how the tariff-download date range should be chosen by default.
 
 No code implementation is authorized by this note alone.
+
+
+### Grid/Utility product decisions closed — 2026-09-28
+
+Two previously open product questions are now resolved:
+
+1. **Automatic bill-to-reading matching: YES.**
+   - When an Enel bill is added/selected, the application should automatically search the saved official Enel readings that best match the bill period.
+   - The UI should propose the matching start/end readings.
+   - The user may confirm or correct the proposed linkage when needed.
+   - The default workflow should not require manually hunting for both readings every time.
+
+2. **Official tariff acquisition UX: year-based.**
+   - The user prefers selecting a calendar year.
+   - The application should then discover/download/update **all official tariff material it can obtain for that year**.
+   - The action must not be hard-coded to 2026.
+   - Re-running the same year should update/complete the local evidence set, including newly discovered, corrected, retroactive or superseding official publications where applicable.
+   - The UI should expose per-year acquisition status and failures clearly.
+
+These decisions supersede the earlier proposal in which the default tariff range was derived from saved bills. Bill-driven tariff applicability remains required for audit/reconstruction, but acquisition itself should be initiated by explicit year selection.
