@@ -1728,11 +1728,36 @@
                                                FontSize="18"
                                                FontWeight="SemiBold"
                                                Foreground="#343A40"/>
-                                    <TextBlock Text="{DynamicResource GridUtility.AuditRedesignNote}"
+                                    <TextBlock Text="{DynamicResource GridUtility.AuditIntro}"
                                                FontSize="13"
                                                Foreground="#6C757D"
                                                TextWrapping="Wrap"
-                                               Margin="0,6,0,0"/>
+                                               Margin="0,6,0,14"/>
+
+                                    <WrapPanel Margin="0,0,0,10">
+                                        <StackPanel Margin="0,0,12,10">
+                                            <TextBlock Text="{DynamicResource GridUtility.AuditBill}"
+                                                       FontSize="12"
+                                                       Foreground="#6C757D"
+                                                       Margin="0,0,0,3"/>
+                                            <ComboBox x:Name="UtilityAuditBillSelector"
+                                                      Width="430"
+                                                      DisplayMemberPath="Display"
+                                                      SelectedValuePath="BillId"/>
+                                        </StackPanel>
+                                        <Button x:Name="UtilityExportBillAuditButton"
+                                                Content="{DynamicResource GridUtility.ExportBillAudit}"
+                                                Padding="14,7"
+                                                VerticalAlignment="Bottom"
+                                                Margin="0,0,0,10"
+                                                Click="UtilityExportBillAudit_Click"/>
+                                    </WrapPanel>
+
+                                    <TextBlock x:Name="UtilityAuditStatusText"
+                                               Text="{DynamicResource GridUtility.AuditEvidencePending}"
+                                               FontSize="12"
+                                               Foreground="#495057"
+                                               TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
                         </TabItem>
