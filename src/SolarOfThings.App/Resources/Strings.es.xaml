@@ -244,6 +244,8 @@
     <sys:String x:Key="GridUtility.BillToReading">Lectura actual</sys:String>
     <sys:String x:Key="GridUtility.BillManualFallback">Si eliges ambas lecturas, ellas definen el intervalo y las fechas manuales se ignoran. Usa las fechas manuales sólo cuando la boleta no pueda vincularse a lecturas guardadas.</sys:String>
     <sys:String x:Key="GridUtility.TariffPlan">Tarifa</sys:String>
+    <sys:String x:Key="GridUtility.OfficialBoundary">límite de fecha Enel</sys:String>
+    <sys:String x:Key="GridUtility.BillReadingsSuggested">Lecturas Enel sugeridas automáticamente según las fechas de la boleta. Puedes corregirlas si no corresponden.</sys:String>
     <sys:String x:Key="GridUtility.BillSummaryHeading">Acumulados de la boleta</sys:String>
     <sys:String x:Key="GridUtility.TaxableAmount">Monto afecto</sys:String>
     <sys:String x:Key="GridUtility.IvaAmount">IVA</sys:String>
