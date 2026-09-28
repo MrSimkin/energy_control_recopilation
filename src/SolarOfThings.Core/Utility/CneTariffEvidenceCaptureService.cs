@@ -155,6 +155,13 @@ public sealed class CneTariffEvidenceCaptureService
                 }
 
                 var effectiveFrom = ParseEffectiveDate(fullText);
+                if (!effectiveFrom.HasValue ||
+                    effectiveFrom.Value.Year != year)
+                {
+                    File.Delete(tempPath);
+                    continue;
+                }
+
                 var isCorrection = IsCorrection(fullText);
                 var title = BuildTitle(
                     fullText,
@@ -253,6 +260,8 @@ public sealed class CneTariffEvidenceCaptureService
         var result = new HashSet<string>(
             StringComparer.OrdinalIgnoreCase);
         var yearPath = $"/{year}/";
+        var priorDecemberPath =
+            $"/{year - 1}/12/";
 
         foreach (Match match in PdfHrefRegex.Matches(html))
         {
@@ -281,9 +290,12 @@ public sealed class CneTariffEvidenceCaptureService
                     uri.Host,
                     "www.cne.cl",
                     StringComparison.OrdinalIgnoreCase) ||
-                !uri.AbsolutePath.Contains(
-                    yearPath,
-                    StringComparison.OrdinalIgnoreCase))
+                (!uri.AbsolutePath.Contains(
+                     yearPath,
+                     StringComparison.OrdinalIgnoreCase) &&
+                 !uri.AbsolutePath.Contains(
+                     priorDecemberPath,
+                     StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
