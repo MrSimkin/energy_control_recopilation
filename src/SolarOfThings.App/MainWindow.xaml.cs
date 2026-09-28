@@ -1972,6 +1972,7 @@ public partial class MainWindow : Window
             .ToArray();
 
         RefreshSelectedBillLines();
+        RefreshUtilityAuditPreview();
         RefreshTariffPublications();
     }
 
@@ -2550,6 +2551,142 @@ public partial class MainWindow : Window
             _localization.GetString(
                 "GridUtility.BillReadingsSuggested");
     }
+
+    private void UtilityAuditBillSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (IsInitialized)
+        {
+            RefreshUtilityAuditPreview();
+        }
+    }
+
+    private void RefreshUtilityAuditPreview()
+    {
+        if (UtilityAuditVerificationGrid is null ||
+            UtilityAuditStatusText is null)
+        {
+            return;
+        }
+
+        if (UtilityAuditBillSelector.SelectedValue is not long billId)
+        {
+            UtilityAuditVerificationGrid.ItemsSource = null;
+            UtilityAuditStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.AuditEvidencePending");
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+        {
+            UtilityAuditVerificationGrid.ItemsSource = null;
+            UtilityAuditStatusText.Text =
+                _localization.GetString("GridUtility.NoProfile");
+            return;
+        }
+
+        try
+        {
+            var timeZone = string.IsNullOrWhiteSpace(
+                    profile.StationTimeZone)
+                ? "America/Santiago"
+                : profile.StationTimeZone;
+
+            var verifications = _services
+                .GetRequiredService<TariffBillRateVerificationService>()
+                .VerifyBill(
+                    billId,
+                    timeZone);
+
+            UtilityAuditVerificationGrid.ItemsSource =
+                verifications
+                    .Select(item =>
+                        new UtilityAuditVerificationViewRow(
+                            item.Description,
+                            item.PrintedUnitRateClp.HasValue
+                                ? $"$ {item.PrintedUnitRateClp.Value:N3}"
+                                : "—",
+                            AuditVerificationStatusLabel(item.Status),
+                            item.PublicationIds.Count == 0
+                                ? "—"
+                                : string.Join(
+                                    ", ",
+                                    item.PublicationIds.Select(
+                                        id => $"#{id}")),
+                            item.ReconstructedAmountClp.HasValue
+                                ? $"$ {item.ReconstructedAmountClp.Value:N0}"
+                                : "—",
+                            item.AmountDifferenceClp.HasValue
+                                ? $"$ {item.AmountDifferenceClp.Value:+0;-0;0}"
+                                : "—"))
+                    .ToArray();
+
+            var verified = verifications.Count(item =>
+                item.Status.StartsWith(
+                    "VERIFIED_",
+                    StringComparison.Ordinal) ||
+                item.Status.StartsWith(
+                    "RATE_VERIFIED_",
+                    StringComparison.Ordinal));
+
+            UtilityAuditStatusText.Text = string.Format(
+                _localization.GetString(
+                    "GridUtility.AuditPreviewSummary"),
+                verified,
+                verifications.Count - verified);
+        }
+        catch (Exception ex)
+        {
+            UtilityAuditVerificationGrid.ItemsSource = null;
+            UtilityAuditStatusText.Text = ex.Message;
+        }
+    }
+
+    private string AuditVerificationStatusLabel(
+        string status) =>
+        status switch
+        {
+            "VERIFIED_RECONSTRUCTED_SOURCE_UNIQUE" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.Reconstructed"),
+            "VERIFIED_RECONSTRUCTED_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ReconstructedAmbiguous"),
+            "RATE_VERIFIED_SOURCE_UNIQUE" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.RateVerified"),
+            "RATE_VERIFIED_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.RateVerifiedAmbiguous"),
+            "ACTUAL_ONLY_UNMAPPED" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ActualOnly"),
+            "ACTUAL_ONLY_NO_UNIT_RATE" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.NoRate"),
+            "MISSING_TARIFF_SOURCE" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.MissingSource"),
+            "TARIFF_VERSION_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.AmbiguousVersion"),
+            "TARIFF_NOT_NORMALIZED" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.NotNormalized"),
+            "MISSING_COMPONENT_SOURCE" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ComponentMissing"),
+            "RATE_NOT_FOUND" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.RateNotFound"),
+            "TARIFF_INTERVAL_INVALID" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.InvalidInterval"),
+            _ => status
+        };
 
     private async void UtilityExportBillAudit_Click(
         object sender,
@@ -3206,6 +3343,14 @@ public partial class MainWindow : Window
         string Coverage,
         string TimeBasis,
         string Quality);
+
+    private sealed record UtilityAuditVerificationViewRow(
+        string Description,
+        string PrintedRate,
+        string Status,
+        string Source,
+        string Reconstructed,
+        string Difference);
 
     private sealed record UtilityBillChoice(
         long BillId,
