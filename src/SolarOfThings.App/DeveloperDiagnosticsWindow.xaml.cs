@@ -129,6 +129,8 @@ public partial class DeveloperDiagnosticsWindow : Window
         ConfigCacheButton.IsEnabled = !busy;
         ConfigReadButton.IsEnabled = !busy;
         ExportBundleButton.IsEnabled = !busy;
+        DiagnosticsBusyBar.Visibility =
+            busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OpenLogs_Click(object sender, RoutedEventArgs e)
