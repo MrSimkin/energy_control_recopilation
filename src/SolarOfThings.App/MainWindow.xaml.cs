@@ -123,7 +123,78 @@ public partial class MainWindow : Window
         RefreshAnalysisView(initializeRange: true);
         RefreshReportsView(initializeRange: true);
         ShowPage("Dashboard");
+        ApplyResponsiveCardLayouts();
         Loaded += MainWindow_Loaded;
+    }
+
+    private void MainWindow_SizeChanged(
+        object sender,
+        SizeChangedEventArgs e)
+    {
+        if (IsInitialized)
+            ApplyResponsiveCardLayouts();
+    }
+
+    private void ApplyResponsiveCardLayouts()
+    {
+        var usableWidth = Math.Max(0, ActualWidth - 285);
+        var columns = usableWidth switch
+        {
+            < 620 => 1,
+            < 1040 => 2,
+            _ => 4
+        };
+
+        ApplyResponsiveCardGrid(DashboardSummaryCards, columns);
+        ApplyResponsiveCardGrid(BatterySummaryCards, columns);
+        ApplyResponsiveCardGrid(UtilitySummaryCards, columns);
+        ApplyResponsiveCardGrid(AnalysisTimeSummaryCards, columns);
+        ApplyResponsiveCardGrid(AnalysisEnergySummaryCards, columns);
+        ApplyResponsiveCardGrid(DataCoverageSummaryCards, columns);
+    }
+
+    private static void ApplyResponsiveCardGrid(
+        Grid grid,
+        int columnCount)
+    {
+        if (grid is null || grid.Children.Count == 0)
+            return;
+
+        columnCount = Math.Clamp(
+            columnCount,
+            1,
+            Math.Min(4, grid.Children.Count));
+
+        var rowCount =
+            (int)Math.Ceiling(grid.Children.Count / (double)columnCount);
+
+        grid.ColumnDefinitions.Clear();
+        grid.RowDefinitions.Clear();
+
+        for (var i = 0; i < columnCount; i++)
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+
+        for (var i = 0; i < rowCount; i++)
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        for (var i = 0; i < grid.Children.Count; i++)
+        {
+            var child = grid.Children[i];
+            var row = i / columnCount;
+            var column = i % columnCount;
+
+            Grid.SetRow(child, row);
+            Grid.SetColumn(child, column);
+
+            if (child is FrameworkElement element)
+            {
+                var right =
+                    column == columnCount - 1 ? 0 : 14;
+                var bottom =
+                    row == rowCount - 1 ? 0 : 14;
+                element.Margin = new Thickness(0, 0, right, bottom);
+            }
+        }
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
