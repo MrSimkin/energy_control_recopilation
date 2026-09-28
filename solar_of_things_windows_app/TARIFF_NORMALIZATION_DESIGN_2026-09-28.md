@@ -235,3 +235,23 @@ Historical caution:
 - 2020–2026 archive titles/layouts include different decree/vintage and T1/T2/T3 document variants;
 - do not assume a 2026 territorial column map applies unchanged to every historical year;
 - commune/service-column resolution requires separate version-aware validation.
+
+## Live-source acquisition constraint — Imperva — 2026-09-28
+
+The normalized-tariff design must no longer assume that the Enel public archive can be scraped by unattended `HttpClient`.
+
+Target-PC failure and independent Windows CI reproduction show that:
+- the archive and known direct PDF paths are protected by an Imperva/Reese browser challenge;
+- HTTP 200 can contain an anti-bot HTML interstitial rather than catalog/PDF content;
+- content signature validation is therefore mandatory;
+- a zero-result capture must not be interpreted as “there are no tariffs”.
+
+Acquisition architecture consequence:
+1. prefer official structured/downloadable sources that are accessible without defeating anti-bot controls;
+2. use CNE/regulatory data as the first candidate authority for machine acquisition and tariff-rule reconstruction;
+3. retain Enel publication metadata/document provenance for cross-checking where legally/technically accessible;
+4. provide a controlled manual-import path for an official PDF if an authoritative document is available to the user but protected from unattended retrieval;
+5. every imported/captured document must retain source URL/authority, hash, effective period, version/retroactivity and parser status;
+6. never mark a tariff authoritative merely because a local file exists.
+
+No browser-challenge bypass is part of the product design.
