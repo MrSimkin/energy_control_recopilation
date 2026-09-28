@@ -506,4 +506,26 @@
     <sys:String x:Key="Diagnostics.ConfigCache">Leer cache de configuración</sys:String>
     <sys:String x:Key="Diagnostics.ConfigRead">Lectura directa de configuración</sys:String>
     <sys:String x:Key="Diagnostics.ExportBundle">Exportar paquete de investigación</sys:String>
+
+    <!-- Product experience / help / import -->
+    <sys:String x:Key="Nav.Help">Ayuda</sys:String>
+    <sys:String x:Key="Nav.About">Acerca de</sys:String>
+    <sys:String x:Key="Page.Help.Title">Ayuda</sys:String>
+    <sys:String x:Key="Page.Help.Subtitle">Manual integrado de uso, conceptos y límites</sys:String>
+    <sys:String x:Key="Page.About.Title">Acerca de</sys:String>
+    <sys:String x:Key="Page.About.Subtitle">Versión, build y novedades de Solar Energy Monitor</sys:String>
+    <sys:String x:Key="Help.Heading">Ayuda y manual</sys:String>
+    <sys:String x:Key="Help.Intro">Consulta cómo funciona cada sección, qué significan los cálculos y cuáles son sus límites. Puedes exportar la sección visible o el manual completo a PDF.</sys:String>
+    <sys:String x:Key="Help.SelectSection">Sección del manual</sys:String>
+    <sys:String x:Key="Help.ExportSection">Exportar esta sección a PDF</sys:String>
+    <sys:String x:Key="Help.ExportAll">Exportar manual completo a PDF</sys:String>
+    <sys:String x:Key="About.Heading">Acerca de Solar Energy Monitor</sys:String>
+    <sys:String x:Key="About.Intro">Identifica exactamente la versión y build que estás ejecutando y revisa los cambios incorporados.</sys:String>
+    <sys:String x:Key="About.VersionLabel">Versión instalada</sys:String>
+    <sys:String x:Key="About.WhatsNew">Qué hay de nuevo</sys:String>
+    <sys:String x:Key="About.VersionHint">El mismo identificador aparece siempre en la barra inferior para facilitar QA y soporte.</sys:String>
+    <sys:String x:Key="Data.ImportHeading">Importar datos de otra instalación</sys:String>
+    <sys:String x:Key="Data.ImportIntro">Selecciona una instalación anterior o su carpeta Data. La aplicación prepara la copia con avance visible, respalda automáticamente el Data actual y se reinicia para aplicar la importación antes de abrir SQLite. Si la sesión protegida importada puede descifrarse con tu usuario de Windows, se habilita la reconexión automática.</sys:String>
+    <sys:String x:Key="Data.ImportButton">Importar datos de otra instalación</sys:String>
+
 </ResourceDictionary>

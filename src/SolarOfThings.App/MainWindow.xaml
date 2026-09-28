@@ -4,9 +4,9 @@
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
         xmlns:controls="clr-namespace:SolarOfThings.App.Controls"
         Title="{DynamicResource Window.Title}"
-        Width="1280"
-        Height="800"
-        MinWidth="1024"
+        Width="1440"
+        Height="820"
+        MinWidth="1120"
         MinHeight="640"
         WindowStartupLocation="CenterScreen"
         Background="#F4F6F9"
@@ -85,7 +85,9 @@
                     <Button x:Name="ReportsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Reports" Click="Navigation_Click" Content="{DynamicResource Nav.Reports}"/>
                     <Button x:Name="DataNav" Style="{StaticResource SidebarButtonStyle}" Tag="Data" Click="Navigation_Click" Content="{DynamicResource Nav.Data}"/>
                     <Button x:Name="DiagnosticsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Diagnostics" Click="Navigation_Click" Content="{DynamicResource Nav.Diagnostics}"/>
+                    <Button x:Name="HelpNav" Style="{StaticResource SidebarButtonStyle}" Tag="Help" Click="Navigation_Click" Content="{DynamicResource Nav.Help}"/>
                     <Button x:Name="SettingsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Settings" Click="Navigation_Click" Content="{DynamicResource Nav.Settings}"/>
+                    <Button x:Name="AboutNav" Style="{StaticResource SidebarButtonStyle}" Tag="About" Click="Navigation_Click" Content="{DynamicResource Nav.About}"/>
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -1684,6 +1686,36 @@
                                    Margin="0,5,0,16"
                                    TextWrapping="Wrap"/>
 
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Data.ImportHeading}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Data.ImportIntro}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,10"
+                                           TextWrapping="Wrap"/>
+                                <Button x:Name="DataImportButton"
+                                        Content="{DynamicResource Data.ImportButton}"
+                                        Padding="12,6"
+                                        HorizontalAlignment="Left"
+                                        Click="DataImportButton_Click"/>
+                                <ProgressBar x:Name="DataImportProgressBar"
+                                             Height="16"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="0"
+                                             Margin="0,10,0,0"
+                                             Visibility="Collapsed"/>
+                                <TextBlock x:Name="DataImportStatusText"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,7,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
                         <Grid Margin="0,0,0,18">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -2017,6 +2049,95 @@
                     </StackPanel>
                 </ScrollViewer>
 
+                <ScrollViewer x:Name="HelpContent"
+                              Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Help.Heading}"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Help.Intro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,5,0,16"
+                                   TextWrapping="Wrap"/>
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Help.SelectSection}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"/>
+                                <ComboBox x:Name="HelpSectionSelector"
+                                          Width="420"
+                                          HorizontalAlignment="Left"
+                                          Margin="0,5,0,12"
+                                          DisplayMemberPath="Title"
+                                          SelectedValuePath="Id"
+                                          SelectionChanged="HelpSectionSelector_SelectionChanged"/>
+                                <TextBlock x:Name="HelpSectionBodyText"
+                                           FontSize="13"
+                                           Foreground="#343A40"
+                                           TextWrapping="Wrap"
+                                           LineHeight="20"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                    <Button Content="{DynamicResource Help.ExportSection}"
+                                            Padding="12,6"
+                                            Click="HelpExportSection_Click"/>
+                                    <Button Content="{DynamicResource Help.ExportAll}"
+                                            Padding="12,6"
+                                            Margin="8,0,0,0"
+                                            Click="HelpExportAll_Click"/>
+                                </StackPanel>
+                                <TextBlock x:Name="HelpExportStatusText"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="AboutContent"
+                              Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource About.Heading}"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource About.Intro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,5,0,16"
+                                   TextWrapping="Wrap"/>
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource About.VersionLabel}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"/>
+                                <TextBlock x:Name="AboutVersionText"
+                                           Text="—"
+                                           FontSize="20"
+                                           FontWeight="SemiBold"
+                                           Foreground="#343A40"
+                                           Margin="0,4,0,14"/>
+                                <Button Content="{DynamicResource About.WhatsNew}"
+                                        Padding="12,6"
+                                        HorizontalAlignment="Left"
+                                        Click="AboutWhatsNew_Click"/>
+                                <TextBlock Text="{DynamicResource About.VersionHint}"
+                                           FontSize="11"
+                                           Foreground="#6C757D"
+                                           Margin="0,10,0,0"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <Grid x:Name="PlaceholderContent" Visibility="Collapsed" Margin="20">
                     <Border Style="{StaticResource CardStyle}" Margin="0">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="640">
@@ -2047,19 +2168,43 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{DynamicResource Status.Database}" Foreground="#6C757D" FontSize="10" Margin="0,0,4,0"/>
                         <TextBlock x:Name="DatabasePathText"
                                    Foreground="#6C757D"
                                    FontSize="10"
+                                   MaxWidth="520"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
-                    <TextBlock Grid.Column="1"
-                               VerticalAlignment="Center"
-                               Foreground="#6C757D"
-                               FontSize="10"
-                               Text="{DynamicResource Status.SpecFrozen}"/>
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="12,0">
+                        <ProgressBar x:Name="GlobalOperationProgressBar"
+                                     Width="70"
+                                     Height="8"
+                                     IsIndeterminate="True"
+                                     Visibility="Collapsed"
+                                     Margin="0,0,7,0"/>
+                        <TextBlock x:Name="GlobalOperationStatusText"
+                                   VerticalAlignment="Center"
+                                   Foreground="#495057"
+                                   FontSize="10"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock x:Name="VersionBuildText"
+                                   Foreground="#495057"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,12,0"/>
+                        <TextBlock Foreground="#6C757D"
+                                   FontSize="10"
+                                   Text="{DynamicResource Status.SpecFrozen}"/>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>

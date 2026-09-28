@@ -9,6 +9,13 @@
     <Prefer32Bit>false</Prefer32Bit>
     <AssemblyName>SolarEnergyMonitor</AssemblyName>
     <RootNamespace>SolarOfThings.App</RootNamespace>
+    <VersionPrefix>0.10.0</VersionPrefix>
+    <AssemblyVersion>0.10.0.0</AssemblyVersion>
+    <FileVersion>0.10.0.0</FileVersion>
+    <AppBuildNumber Condition="'$(AppBuildNumber)' == ''">local</AppBuildNumber>
+    <AppSourceRevision Condition="'$(AppSourceRevision)' == ''">dev</AppSourceRevision>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <InformationalVersion>$(VersionPrefix)+build.$(AppBuildNumber).$(AppSourceRevision)</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SolarOfThings.Core\SolarOfThings.Core.csproj" />

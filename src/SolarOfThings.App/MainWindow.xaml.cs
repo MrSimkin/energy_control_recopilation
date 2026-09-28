@@ -86,6 +86,7 @@ public partial class MainWindow : Window
             y: false);
 
         DatabasePathText.Text = _paths.DatabasePath;
+        InitializeProductExperience();
 
         _suppressLanguageSelection = true;
         LanguageSelector.SelectedValue = _localization.CurrentLanguage;
@@ -1545,7 +1546,9 @@ public partial class MainWindow : Window
             ReportsNav,
             DataNav,
             DiagnosticsNav,
-            SettingsNav
+            HelpNav,
+            SettingsNav,
+            AboutNav
         };
 
         foreach (var button in buttons)
@@ -1572,7 +1575,9 @@ public partial class MainWindow : Window
         var isGridUtility = string.Equals(pageKey, "GridUtility", StringComparison.Ordinal);
         var isReports = string.Equals(pageKey, "Reports", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
+        var isHelp = string.Equals(pageKey, "Help", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
+        var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
 
         _dashboardVisible = isDashboard;
         if (isDashboard)
@@ -1592,7 +1597,9 @@ public partial class MainWindow : Window
         GridUtilityContent.Visibility = isGridUtility ? Visibility.Visible : Visibility.Collapsed;
         ReportsContent.Visibility = isReports ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
+        HelpContent.Visibility = isHelp ? Visibility.Visible : Visibility.Collapsed;
         SettingsContent.Visibility = isSettings ? Visibility.Visible : Visibility.Collapsed;
+        AboutContent.Visibility = isAbout ? Visibility.Visible : Visibility.Collapsed;
         PlaceholderContent.Visibility =
             !isDashboard &&
             !isAnalysis &&
@@ -1600,7 +1607,9 @@ public partial class MainWindow : Window
             !isGridUtility &&
             !isReports &&
             !isData &&
-            !isSettings
+            !isHelp &&
+            !isSettings &&
+            !isAbout
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -1623,6 +1632,10 @@ public partial class MainWindow : Window
         else if (isData)
         {
             RefreshDataCoverageView();
+        }
+        else if (isHelp || isAbout)
+        {
+            RefreshProductExperienceLocalization();
         }
         else if (!isDashboard)
         {
@@ -1654,6 +1667,7 @@ public partial class MainWindow : Window
         RefreshDataCoverageView();
         RefreshAnalysisView();
         RefreshReportsView();
+        RefreshProductExperienceLocalization();
     }
 
 
@@ -2085,7 +2099,7 @@ public partial class MainWindow : Window
             $"{UtilityQualityLabel(result.Quality)}";
     }
 
-    private void UtilityExportReconciliation_Click(
+    private async void UtilityExportReconciliation_Click(
         object sender,
         RoutedEventArgs e)
     {
@@ -2114,21 +2128,32 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) != true)
             return;
 
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es",
+            StringComparison.OrdinalIgnoreCase);
+        UtilityComparisonStatusText.Text = spanish
+            ? "Generando PDF de conciliación..."
+            : "Generating reconciliation PDF...";
+        SetGlobalOperation(
+            true,
+            spanish ? "Exportando conciliación..." : "Exporting reconciliation...");
+
         try
         {
             var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
                 ? "America/Santiago"
                 : profile.StationTimeZone;
+            var reportService =
+                _services.GetRequiredService<UtilityReconciliationReportService>();
 
-            _services
-                .GetRequiredService<UtilityReconciliationReportService>()
-                .ExportPdf(
+            await Task.Run(() =>
+                reportService.ExportPdf(
                     dialog.FileName,
                     profile.DeviceId,
                     fromId,
                     toId,
                     timeZone,
-                    _localization.CurrentLanguage);
+                    _localization.CurrentLanguage));
 
             UtilityComparisonStatusText.Text = string.Format(
                 _localization.GetString(
@@ -2144,6 +2169,10 @@ public partial class MainWindow : Window
                     "Page.GridUtility.Title"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+        }
+        finally
+        {
+            SetGlobalOperation(false, string.Empty);
         }
     }
 
@@ -3453,6 +3482,11 @@ public partial class MainWindow : Window
         ReportExportProgressLabel.Text =
             _localization.GetString("Reports.ExportPreparing");
         ReportStatusText.Text = string.Empty;
+        SetGlobalOperation(
+            true,
+            _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+                ? "Exportando informe..."
+                : "Exporting report...");
 
         try
         {
@@ -3500,6 +3534,7 @@ public partial class MainWindow : Window
         {
             ReportExportExcelButton.IsEnabled = true;
             ReportExportPdfButton.IsEnabled = true;
+            SetGlobalOperation(false, string.Empty);
         }
     }
 

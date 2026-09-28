@@ -506,4 +506,26 @@
     <sys:String x:Key="Diagnostics.ConfigCache">Read config cache</sys:String>
     <sys:String x:Key="Diagnostics.ConfigRead">Direct config read</sys:String>
     <sys:String x:Key="Diagnostics.ExportBundle">Export investigation bundle</sys:String>
+
+    <!-- Product experience / help / import -->
+    <sys:String x:Key="Nav.Help">Help</sys:String>
+    <sys:String x:Key="Nav.About">About</sys:String>
+    <sys:String x:Key="Page.Help.Title">Help</sys:String>
+    <sys:String x:Key="Page.Help.Subtitle">Integrated user guide, concepts and limitations</sys:String>
+    <sys:String x:Key="Page.About.Title">About</sys:String>
+    <sys:String x:Key="Page.About.Subtitle">Version, build and Solar Energy Monitor changes</sys:String>
+    <sys:String x:Key="Help.Heading">Help and manual</sys:String>
+    <sys:String x:Key="Help.Intro">Learn how each section works, what calculations mean and what their limitations are. You can export the visible section or the complete manual to PDF.</sys:String>
+    <sys:String x:Key="Help.SelectSection">Manual section</sys:String>
+    <sys:String x:Key="Help.ExportSection">Export this section to PDF</sys:String>
+    <sys:String x:Key="Help.ExportAll">Export full manual to PDF</sys:String>
+    <sys:String x:Key="About.Heading">About Solar Energy Monitor</sys:String>
+    <sys:String x:Key="About.Intro">Identify the exact version and build you are running and review incorporated changes.</sys:String>
+    <sys:String x:Key="About.VersionLabel">Installed version</sys:String>
+    <sys:String x:Key="About.WhatsNew">What's new</sys:String>
+    <sys:String x:Key="About.VersionHint">The same identifier is always visible in the footer to simplify QA and support.</sys:String>
+    <sys:String x:Key="Data.ImportHeading">Import data from another installation</sys:String>
+    <sys:String x:Key="Data.ImportIntro">Select a previous installation or its Data folder. The app stages the copy with visible progress, automatically backs up current Data and restarts to apply the import before SQLite opens. If the imported protected session can be decrypted by your Windows user, automatic reconnection is enabled.</sys:String>
+    <sys:String x:Key="Data.ImportButton">Import data from another installation</sys:String>
+
 </ResourceDictionary>

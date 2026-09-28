@@ -253,3 +253,62 @@ Validation:
 - publish/upload PASS;
 - artifact ID: `10946815978`;
 - SHA-256: `cbdd9cb34bba48afc9056e799d30e59bdd1dcaad59c283ecd64542afe783e10d`.
+
+## Build 349 target QA correction — 2026-09-28
+
+The current Phase 8 generic reading-pair export is NOT the final Enel audit workflow.
+
+Target QA generated a report from:
+- official Enel reading: 2026-08-27, date-only boundary;
+- personal reading: 2026-09-27 17:56;
+- meter delta: 97.400 kWh;
+- Solar of Things total grid import: 84.080 kWh;
+- signed difference: -13.320 kWh (-13.68%);
+- Solar of Things coverage: 99.3%;
+- no bill linked to that exact reading pair.
+
+This proves the generic selector can produce an analytically valid personal comparison that is nevertheless the wrong artifact for bill audit.
+
+Required Phase 8/9/10 separation:
+- Personal reconciliation: arbitrary reading pair, exploratory/private analysis.
+- Enel bill audit: selected bill -> linked official readings / exact audit interval -> Solar of Things comparison -> tariff reconstruction -> actual-vs-expected bill components -> uncertainty/statistical interpretation -> external PDF.
+
+The bill-audit path must not require the user to manually select the correct reading pair when the bill already owns that relationship.
+
+### Confidence / uncertainty requirement
+
+CoveragePercent is not a confidence interval and must not be presented as metrological confidence.
+
+Before a kWh difference can be described as materially inconsistent, the audit must account for the evidence that can affect the comparison, including:
+- missing telemetry / coverage;
+- uncertainty from date-only Enel reading boundaries;
+- timestamp alignment/cadence;
+- justified measurement/sensor uncertainty where evidence exists;
+- integration sensitivity around gaps and boundaries.
+
+The audit needs an explicit uncertainty/sensitivity interval and a documented comparison test or decision rule. If available evidence cannot support a formal probabilistic confidence interval, the UI/report must say so and use a transparent sensitivity bound instead of inventing precision.
+
+### Tariff acquisition correction
+
+Build 349 returned 0 discovered / 0 captured publications on the target PC.
+
+The current code is also explicitly year-locked:
+- Capture2026SupplyTariffsAsync;
+- Discover2026SupplyTariffs;
+- title filter requires 2026;
+- effective-date parser constructs dates with year 2026;
+- local cache path includes Enel/2026;
+- UI button says Capturar / actualizar fuentes oficiales 2026.
+
+This must be replaced by historical, bill-driven official tariff acquisition. The system should request the years/versions needed by stored bills and permit explicit broader historical capture. Do not assume only the current year matters.
+
+### Enel-facing report requirement
+
+The Enel-facing PDF is a contraloría/audit artifact, not merely a household dashboard export. It must:
+- identify the exact bill, official readings, assumptions and sources;
+- reconstruct applicable tariff components with source/version traceability;
+- compare actual bill lines to expected values;
+- show energy comparison with uncertainty/sensitivity and statistical interpretation;
+- distinguish certified Enel meter evidence from independent inverter telemetry;
+- explain findings in language suitable for a technically informed dispute or inquiry without claiming provider error beyond the evidence.
+

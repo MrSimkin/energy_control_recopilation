@@ -1,6 +1,9 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SolarOfThings.App.Localization;
@@ -12,6 +15,7 @@ using SolarOfThings.Core.Installation;
 using SolarOfThings.Core.Normalization;
 using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.History;
+using SolarOfThings.Core.Help;
 using SolarOfThings.Core.Security;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.Statistics;
@@ -28,9 +32,27 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var startupWindow = CreateStartupWindow(out var startupStatus);
+        startupWindow.Show();
+        RenderStartupStatus(startupStatus, "Abriendo Solar Energy Monitor...");
+
+        if (e.Args.Any(arg =>
+                string.Equals(arg, "--apply-import", StringComparison.OrdinalIgnoreCase)))
+        {
+            Thread.Sleep(1600);
+        }
+
+        var appPaths = new AppPaths();
+        var importResult = DataImportService.ApplyPendingImport(
+            appPaths,
+            message => RenderStartupStatus(startupStatus, message));
+
+        RenderStartupStatus(startupStatus, "Inicializando base de datos...");
+
         var builder = Host.CreateApplicationBuilder();
 
-        builder.Services.AddSingleton(_ => new AppPaths());
+        builder.Services.AddSingleton(appPaths);
         builder.Services.AddSingleton<SqliteDatabase>();
         builder.Services.AddSingleton<AppSettingsRepository>();
         builder.Services.AddSingleton<BatteryConfigurationService>();
@@ -71,6 +93,8 @@ public partial class App : Application
         builder.Services.AddSingleton<UtilityReconciliationReportService>();
         builder.Services.AddSingleton<TariffPublicationRepository>();
         builder.Services.AddSingleton<EnelTariffCaptureService>();
+        builder.Services.AddSingleton<DataImportService>();
+        builder.Services.AddSingleton<HelpManualExportService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
@@ -80,6 +104,21 @@ public partial class App : Application
 
         var database = _host.Services.GetRequiredService<SqliteDatabase>();
         database.Initialize();
+
+        if (importResult.Applied)
+        {
+            var importedSession =
+                _host.Services.GetRequiredService<SolarOfThingsSessionManager>();
+            if (importedSession.HasSession ||
+                importedSession.HasRememberedCredentials)
+            {
+                _host.Services
+                    .GetRequiredService<AppSettingsRepository>()
+                    .Set("session.auto-connect-on-startup", bool.TrueString);
+            }
+        }
+
+        RenderStartupStatus(startupStatus, "Preparando interfaz...");
 
         var localization = _host.Services.GetRequiredService<LocalizationService>();
         localization.Initialize();
@@ -101,7 +140,74 @@ public partial class App : Application
             }));
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+        MainWindow = mainWindow;
         mainWindow.Show();
+        startupWindow.Close();
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
+    }
+
+    private static Window CreateStartupWindow(out TextBlock statusText)
+    {
+        statusText = new TextBlock
+        {
+            Text = "Abriendo...",
+            FontSize = 13,
+            Foreground = Brushes.Gainsboro,
+            Margin = new Thickness(0, 10, 0, 8),
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        var progress = new ProgressBar
+        {
+            Height = 5,
+            IsIndeterminate = true,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(22)
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Solar Energy Monitor",
+            FontSize = 22,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = ProductInfo.Display,
+            FontSize = 11,
+            Foreground = Brushes.Gainsboro,
+            Margin = new Thickness(0, 3, 0, 10)
+        });
+        panel.Children.Add(statusText);
+        panel.Children.Add(progress);
+
+        return new Window
+        {
+            Title = "Solar Energy Monitor",
+            Width = 460,
+            Height = 190,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            WindowStyle = WindowStyle.ToolWindow,
+            Background = new SolidColorBrush(Color.FromRgb(45, 52, 64)),
+            Content = panel,
+            ShowInTaskbar = true,
+            Topmost = false
+        };
+    }
+
+    private static void RenderStartupStatus(
+        TextBlock statusText,
+        string message)
+    {
+        statusText.Text = message;
+        statusText.Dispatcher.Invoke(
+            () => { },
+            DispatcherPriority.Render);
     }
 
     protected override void OnExit(ExitEventArgs e)

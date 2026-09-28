@@ -1992,3 +1992,54 @@ Next target QA:
 Next development tranche after QA:
 - normalize official tariff components and resolve service applicability/version/supersession;
 - only then compute tariff-aware expected bill components.
+
+## Build 349 target feedback — 2026-09-28 — must not be lost
+
+The Build 349 target-PC QA exposed a product-boundary issue in Grid & Utility. The current generic reading-pair reconciliation is useful for personal investigation, but it is not sufficient for an Enel-facing bill audit.
+
+Observed exported evidence:
+- one generated reconciliation used an official Enel reading at 2026-08-27 as the start and a personal reading at 2026-09-27 17:56 as the end;
+- because the pair did not exactly match a stored bill, the PDF correctly stated that no bill was linked, but the UI made it too easy to produce the wrong audit artifact;
+- the same report showed 97.400 kWh from meter difference vs 84.080 kWh from Solar of Things, a -13.320 kWh / 13.68% difference, with 99.3% telemetry coverage and at least one assumed boundary time;
+- this numerical difference must NOT be treated as proof of an Enel billing error.
+
+Required redesign for the Enel-facing audit:
+1. keep personal/free reconciliation as its own tool;
+2. add a separate bill-specific audit/export that begins from one selected bill and automatically uses only its linked official readings / billing interval;
+3. audit energy, tariff components and monetary charges together;
+4. add explicit uncertainty accounting beyond telemetry coverage:
+   - time-boundary uncertainty;
+   - measurement/sensor uncertainty when defensible evidence exists;
+   - confidence interval or sensitivity range for the Solar of Things interval total;
+   - an appropriate statistical/sensitivity comparison before classifying a discrepancy as materially inconsistent;
+5. explain in plain language whether the observed difference is compatible with known uncertainty rather than equating “different totals” with provider error;
+6. investigate and model how an Enel bill is actually constructed, preserving every bill component and effective tariff version needed to reproduce it;
+7. make the resulting PDF suitable as a traceable technical document for discussion with Enel, while clearly distinguishing certified meter evidence from independent inverter telemetry.
+
+Tariff acquisition defect / scope correction:
+- Build 349 target capture returned 0/0 publications;
+- the current implementation is hard-coded to 2026 in discovery, effective-date parsing, storage path and UI;
+- official tariff acquisition must be investigated and generalized to historical years required by stored bills, not only the current calendar year;
+- capture alone is still not “tariff applied to this bill”; normalization, service applicability, version/supersession and effective interval remain required.
+
+These requirements are the next Grid/Utility functional tranche and are not to be silently collapsed into the generic personal reconciliation.
+
+## Product-experience tranche queued for the next build — 2026-09-28
+
+Approved for the next code build:
+- permanent version + CI build + source revision identifier in the footer and About page;
+- wider default main window;
+- visible busy state for every export path;
+- startup “opening” indicator;
+- new About navigation page with a What's New dialog and patch notes;
+- new Help navigation page with an integrated manual and PDF export for one section or the complete manual;
+- guided “Import data from another installation” flow:
+  - accepts the prior installation root or Data directory;
+  - stages the copy with visible progress;
+  - restarts before SQLite opens;
+  - moves the current Data to a timestamped backup before applying the import;
+  - preserves imported Secrets;
+  - when imported DPAPI-protected session material is decryptable by the current Windows user, automatic reconnection is enabled.
+
+The Enel audit/statistics/tariff redesign above remains a separate substantive tranche after this product-experience build.
+

@@ -37,7 +37,12 @@ jobs:
         run: dotnet restore SolarOfThings.sln
 
       - name: Build
-        run: dotnet build SolarOfThings.sln --configuration Release --no-restore
+        run: >
+          dotnet build SolarOfThings.sln
+          --configuration Release
+          --no-restore
+          -p:AppBuildNumber=${{ github.run_number }}
+          -p:AppSourceRevision=${{ github.sha }}
 
       - name: SQLite smoke test
         run: dotnet run --project tools/SolarOfThings.SmokeTest/SolarOfThings.SmokeTest.csproj --configuration Release --no-build
@@ -49,6 +54,8 @@ jobs:
           --runtime win-x64
           --self-contained true
           -p:Platform=x64
+          -p:AppBuildNumber=${{ github.run_number }}
+          -p:AppSourceRevision=${{ github.sha }}
           --output artifacts/SolarEnergyMonitor-win-x64
 
       - name: Mark test build as portable
