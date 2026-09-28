@@ -25,7 +25,10 @@ namespace SolarOfThings.App;
 public partial class MainWindow : Window
 {
     private const double DashboardLivePollSeconds = 150.0;
-    private static readonly Brush ActiveNavigationBackground = new SolidColorBrush(Color.FromRgb(0x00, 0x7B, 0xFF));
+    private static readonly Brush ActiveNavigationBackground =
+        new SolidColorBrush(Color.FromRgb(0x45, 0x51, 0x5B));
+    private static readonly Brush ActiveNavigationAccent =
+        new SolidColorBrush(Color.FromRgb(0x2F, 0x9B, 0xF4));
 
     private readonly AppPaths _paths;
     private readonly LocalizationService _localization;
@@ -1640,6 +1643,8 @@ public partial class MainWindow : Window
         {
             button.ClearValue(BackgroundProperty);
             button.ClearValue(ForegroundProperty);
+            button.ClearValue(BorderBrushProperty);
+            button.ClearValue(BorderThicknessProperty);
         }
 
         var selectedButton = buttons.FirstOrDefault(
@@ -1649,6 +1654,8 @@ public partial class MainWindow : Window
         {
             selectedButton.Background = ActiveNavigationBackground;
             selectedButton.Foreground = Brushes.White;
+            selectedButton.BorderBrush = ActiveNavigationAccent;
+            selectedButton.BorderThickness = new Thickness(4, 0, 0, 0);
         }
 
         PageTitle.SetResourceReference(TextBlock.TextProperty, $"Page.{pageKey}.Title");
