@@ -39,6 +39,103 @@
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
+        <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#0B6ECA"/>
+            <Setter Property="BorderBrush" Value="#0B6ECA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="13,7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ActionBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActionBorder"
+                                        Property="Background"
+                                        Value="#075BAA"/>
+                                <Setter TargetName="ActionBorder"
+                                        Property="BorderBrush"
+                                        Value="#075BAA"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActionBorder"
+                                        Property="Opacity"
+                                        Value="0.86"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActionBorder"
+                                        Property="Opacity"
+                                        Value="0.48"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="#343A40"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#C9D0D7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ActionBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActionBorder"
+                                        Property="Background"
+                                        Value="#F2F5F8"/>
+                                <Setter TargetName="ActionBorder"
+                                        Property="BorderBrush"
+                                        Value="#AEB8C2"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActionBorder"
+                                        Property="Opacity"
+                                        Value="0.86"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActionBorder"
+                                        Property="Opacity"
+                                        Value="0.48"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DestructiveActionButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource SecondaryActionButtonStyle}">
+            <Setter Property="Foreground" Value="#A71D2A"/>
+            <Setter Property="BorderBrush" Value="#E2B8BD"/>
+            <Setter Property="Background" Value="#FFF9FA"/>
+        </Style>
+
         <Style x:Key="PageTabControlStyle" TargetType="TabControl">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -169,7 +266,7 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <Button Grid.Column="2"
+                    <Button Style="{StaticResource PrimaryActionButtonStyle}" Grid.Column="2"
                             Padding="18,8"
                             Margin="12,0,0,0"
                             VerticalAlignment="Center"
@@ -327,7 +424,7 @@
                                                        FontWeight="SemiBold"
                                                        Foreground="#343A40"
                                                        VerticalAlignment="Center"/>
-                                            <Button Grid.Column="1"
+                                            <Button Style="{StaticResource SecondaryActionButtonStyle}" Grid.Column="1"
                                                     Content="{DynamicResource Dashboard.OpenHistory}"
                                                     Tag="Analysis"
                                                     Padding="10,5"
@@ -414,7 +511,7 @@
                                                     Padding="10,5"
                                                     HorizontalAlignment="Left"
                                                     Click="ConnectSolar_Click"/>
-                                            <Button Content="{DynamicResource Dashboard.RefreshCurrent}"
+                                            <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource Dashboard.RefreshCurrent}"
                                                     ToolTip="{DynamicResource Tooltip.DashboardRefreshCurrent}"
                                                     Padding="10,5"
                                                     Margin="8,0,0,0"
@@ -562,7 +659,7 @@
                                                                                       Width="150"
                                                                                       SelectedDateChanged="AnalysisDatePicker_SelectedDateChanged"/>
 
-                                                            <Button Grid.Column="4"
+                                                            <Button Style="{StaticResource PrimaryActionButtonStyle}" Grid.Column="4"
                                                                     Content="{DynamicResource Analysis.Apply}"
                                                                     Padding="14,6"
                                                                     Margin="18,0,0,0"
@@ -850,7 +947,7 @@
                                                                               VerticalAlignment="Center"
                                                                               Checked="AnalysisChartMetricSelection_Changed"
                                                                               Unchecked="AnalysisChartMetricSelection_Changed"/>
-                                                                    <Button Content="{DynamicResource Analysis.ChartReset}"
+                                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource Analysis.ChartReset}"
                                                                             ToolTip="{DynamicResource Tooltip.AnalysisChartReset}"
                                                                             Padding="12,5"
                                                                             Click="AnalysisResetCharts_Click"/>
@@ -1452,11 +1549,11 @@
                                                                                   DisplayMemberPath="Display"
                                                                                   SelectedValuePath="ReadingId"/>
                                                                     </StackPanel>
-                                                                    <Button Content="{DynamicResource GridUtility.Compare}"
+                                                                    <Button Style="{StaticResource PrimaryActionButtonStyle}" Content="{DynamicResource GridUtility.Compare}"
                                                                             Padding="12,6"
                                                                             VerticalAlignment="Bottom"
                                                                             Click="UtilityCompareReadings_Click"/>
-                                                                    <Button Content="{DynamicResource GridUtility.ExportReconciliation}"
+                                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.ExportReconciliation}"
                                                                             Padding="12,6"
                                                                             Margin="8,0,0,0"
                                                                             VerticalAlignment="Bottom"
@@ -1687,10 +1784,10 @@
                                                                     </StackPanel>
                                                                 </WrapPanel>
                                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                                    <Button Content="{DynamicResource GridUtility.AddBillLine}"
+                                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.AddBillLine}"
                                                                             Padding="12,6"
                                                                             Click="UtilityAddBillLine_Click"/>
-                                                                    <Button Content="{DynamicResource GridUtility.DeleteBillLine}"
+                                                                    <Button Style="{StaticResource DestructiveActionButtonStyle}" Content="{DynamicResource GridUtility.DeleteBillLine}"
                                                                             Padding="12,6"
                                                                             Margin="8,0,0,0"
                                                                             Click="UtilityDeleteBillLine_Click"/>
@@ -2136,7 +2233,7 @@
                                                                             <ComboBoxItem Tag="Year" Content="{DynamicResource Analysis.Aggregation.Year}"/>
                                                                         </ComboBox>
                                                                     </StackPanel>
-                                                                    <Button Content="{DynamicResource Reports.UpdateSelection}"
+                                                                    <Button Style="{StaticResource PrimaryActionButtonStyle}" Content="{DynamicResource Reports.UpdateSelection}"
                                                                             Padding="12,6"
                                                                             Margin="0,17,0,10"
                                                                             Click="ReportRefreshSelection_Click"/>
@@ -2210,7 +2307,7 @@
                                                                              MinHeight="28"
                                                                              VerticalContentAlignment="Center"
                                                                              Margin="0,0,8,8"/>
-                                                                    <Button Content="{DynamicResource Reports.SavePreset}"
+                                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource Reports.SavePreset}"
                                                                             Padding="12,6"
                                                                             Margin="0,0,14,8"
                                                                             Click="ReportSavePreset_Click"/>
@@ -2246,7 +2343,7 @@
                                 <TextBlock Text="{DynamicResource Settings.AutoConnectHint}" FontSize="12" Foreground="#6C757D" Margin="22,4,0,14" TextWrapping="Wrap"/>
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="{DynamicResource Commissioning.ConnectButton}" Padding="12,6" Click="SettingsConnect_Click"/>
-                                    <Button Content="{DynamicResource Settings.ForgetCredentials}" Padding="12,6" Margin="8,0,0,0" Click="SettingsForgetSession_Click"/>
+                                    <Button Style="{StaticResource DestructiveActionButtonStyle}" Content="{DynamicResource Settings.ForgetCredentials}" Padding="12,6" Margin="8,0,0,0" Click="SettingsForgetSession_Click"/>
                                 </StackPanel>
                                 <TextBlock Text="{DynamicResource Settings.PasswordPrivacy}" FontSize="11" Foreground="#6C757D" Margin="0,12,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
@@ -2286,10 +2383,10 @@
                                            TextWrapping="Wrap"
                                            LineHeight="20"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                                    <Button Content="{DynamicResource Help.ExportSection}"
+                                    <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource Help.ExportSection}"
                                             Padding="12,6"
                                             Click="HelpExportSection_Click"/>
-                                    <Button Content="{DynamicResource Help.ExportAll}"
+                                    <Button Style="{StaticResource PrimaryActionButtonStyle}" Content="{DynamicResource Help.ExportAll}"
                                             Padding="12,6"
                                             Margin="8,0,0,0"
                                             Click="HelpExportAll_Click"/>
@@ -2329,7 +2426,7 @@
                                            FontWeight="SemiBold"
                                            Foreground="#343A40"
                                            Margin="0,4,0,14"/>
-                                <Button Content="{DynamicResource About.WhatsNew}"
+                                <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource About.WhatsNew}"
                                         Padding="12,6"
                                         HorizontalAlignment="Left"
                                         Click="AboutWhatsNew_Click"/>
