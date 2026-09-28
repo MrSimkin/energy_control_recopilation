@@ -2043,3 +2043,59 @@ Approved for the next code build:
 
 The Enel audit/statistics/tariff redesign above remains a separate substantive tranche after this product-experience build.
 
+## Build 350 — product experience / portability checkpoint — GREEN — 2026-09-28
+
+Code commit:
+- 45f1811a549d0d8c5c15823c4d67f255eeadcdc3
+
+Windows Build:
+- run 350 / ID 36454383190
+- conclusion: SUCCESS
+- restore: PASS
+- build: PASS
+- SQLite smoke: PASS
+- self-contained win-x64 publish: PASS
+- artifact upload: PASS
+
+Portable artifact:
+- SolarEnergyMonitor-win-x64-dev
+- artifact ID: 10984702443
+- SHA-256: 8c23ee335ed6824214b67f4ff02efbd23bd6418e86932d63b9a260e5e21bd631
+- expires: 2026-12-27
+
+Implemented:
+- product version 0.10.0 with CI build number and short source revision in assembly informational version;
+- footer and About page display the exact running version/build/revision;
+- default main window widened to 1440x820;
+- startup splash with visible opening/import/database/UI stages;
+- global busy indicator in the footer;
+- generic utility reconciliation PDF export now runs asynchronously with visible export state;
+- report Excel/PDF export also mirrors its in-page progress into the global busy indicator;
+- new About page with What's New patch notes;
+- new Help page with integrated bilingual manual;
+- Help can export the selected section or the complete manual to a readable PDF;
+- new guided import from another installation:
+  - select prior installation root or Data folder;
+  - stage all Data files with byte/file progress;
+  - restart before SQLite opens;
+  - move current Data to a timestamped backup;
+  - apply imported Data atomically by directory move;
+  - preserve imported Secrets;
+  - if the imported DPAPI session is decryptable, enable automatic reconnect.
+
+Target QA for Build 350:
+1. confirm footer shows v0.10.0 · Build 350 · 45f1811a;
+2. confirm the wider initial window removes the common horizontal clipping;
+3. confirm the startup opening indicator appears before the main window;
+4. open About -> What's New and review the patch notes;
+5. open Help, switch sections, export one section to PDF and export the full manual to PDF;
+6. verify report export and generic reconciliation export both show visible activity while running;
+7. test Import data from another installation using a safe copy/previous portable folder:
+   - observe progress;
+   - allow restart;
+   - confirm the old current Data was backed up under Backups;
+   - confirm the imported database opens;
+   - confirm remembered Solar of Things login reconnects automatically when the imported DPAPI secrets are valid for the current Windows user.
+
+The separate Enel bill-audit / statistical uncertainty / historical tariff acquisition redesign remains the next substantive Grid & Utility tranche.
+
