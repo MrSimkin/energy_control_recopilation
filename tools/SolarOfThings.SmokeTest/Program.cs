@@ -829,6 +829,16 @@ try
             $"{liveCatalog.PdfHrefCount} PDF href(s); " +
             $"{liveCatalog.DiscoveredPublications} supply publication(s) for {liveCatalog.Year}.");
 
+        if (liveCatalog.DiscoveredPublications < 1)
+        {
+            Console.WriteLine("----- BEGIN ENEL CATALOG RAW HTML -----");
+            Console.WriteLine(liveCatalog.RawHtml);
+            Console.WriteLine("----- END ENEL CATALOG RAW HTML -----");
+
+            throw new InvalidOperationException(
+                "Live Enel catalog probe returned no official supply publications; raw HTML dumped above.");
+        }
+
         const string livePdfProbeUrl =
             "https://www.enel.cl/content/dam/enel-cl/es/personas/informacion-de-utilidad/" +
             "tarifas-y-reglamentos/tarifas/tarifas-reguladas/2026/" +
