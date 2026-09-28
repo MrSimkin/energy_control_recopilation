@@ -636,7 +636,14 @@ try
         arbitrary.ToReadingId != secondReadingId ||
         arbitrary.TimeBasis != "EXACT" ||
         arbitrary.AbsoluteDifferenceKwh is null ||
-        arbitrary.AbsoluteDifferenceKwh.Value > 0.000001)
+        arbitrary.AbsoluteDifferenceKwh.Value > 0.000001 ||
+        arbitrary.Sensitivity is null ||
+        arbitrary.Sensitivity.IsFormalConfidenceInterval ||
+        arbitrary.Sensitivity.LowerKwh >
+            arbitrary.InverterGridImportKwh + 0.000001 ||
+        (arbitrary.Sensitivity.UpperKwh.HasValue &&
+         arbitrary.Sensitivity.UpperKwh.Value + 0.000001 <
+            arbitrary.InverterGridImportKwh))
     {
         throw new InvalidOperationException(
             "Phase 8 arbitrary-reading reconciliation smoke test failed.");
@@ -722,6 +729,39 @@ try
     {
         throw new InvalidOperationException(
             "Phase 8 official/date-only reading metadata smoke test failed.");
+    }
+
+    var officialStartId = utilityRepository.AddReading(
+        utilityFromUtc,
+        14000,
+        "Enel boundary start smoke",
+        "Date-only start boundary",
+        UtilityReadingSourceKind.UtilityOfficial,
+        UtilityTimePrecision.DateOnly,
+        UtilityTimeAssumption.StartOfDayAssumed);
+    var officialEndId = utilityRepository.AddReading(
+        utilityToUtc,
+        14000 + expectedGridImport,
+        "Enel boundary end smoke",
+        "Date-only end boundary",
+        UtilityReadingSourceKind.UtilityOfficial,
+        UtilityTimePrecision.DateOnly,
+        UtilityTimeAssumption.StartOfDayAssumed);
+    var officialBoundaryComparison =
+        utilityReconciliation.ReconcileReadings(
+            familySmokeDeviceId,
+            officialStartId,
+            officialEndId);
+
+    if (officialBoundaryComparison.TimeBasis != "DATE_ONLY_ASSUMED" ||
+        officialBoundaryComparison.Sensitivity is null ||
+        officialBoundaryComparison.Sensitivity.IsFormalConfidenceInterval ||
+        !officialBoundaryComparison.Sensitivity.Basis.Contains(
+            "ENEL",
+            StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException(
+            "Phase 8 Enel boundary sensitivity smoke test failed.");
     }
 
     if (OperatingSystem.IsWindows())
