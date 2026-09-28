@@ -2253,3 +2253,52 @@ The following user requirements must be preserved before further Grid/Utility de
    - Do not silently assume the current UI model is the intended final interaction design.
 
 No Grid/Utility fix/build is authorized by this note itself. This note records the target-PC product requirements that must drive the next design tranche.
+
+
+### Grid/Utility redesign clarification — 2026-09-28
+
+Additional user requirements before the next substantive implementation tranche:
+
+1. **Tabbed task separation is a general UX rule, not only a Grid/Utility exception.**
+   - Relevant application windows/pages with multiple distinct user tasks should use tabs or equivalent clearly separated task surfaces.
+   - Avoid long vertically stacked pages that combine unrelated workflows.
+   - Apply this rule wherever it materially improves readability and navigation.
+
+2. The user wants **two distinct comparison/report workflows**:
+   - **Reading vs inverter**:
+     - choose utility/personal meter readings;
+     - compare meter-derived consumption against Solar of Things inverter-derived total grid import over the same interval;
+     - generate its own report.
+   - **Enel bill vs inverter / reconstructed bill**:
+     - start from one actual Enel bill;
+     - compare the bill interval and energy evidence against Solar of Things;
+     - reconstruct verifiable tariff-based components;
+     - generate a separate bill-audit report.
+
+3. For official Enel readings, the user prefers **no editable time field**.
+   - Store/display them as date-only interval boundaries.
+   - Apply the canonical boundary convention internally: date X at 00:00 is equivalent to the end of X-1 for interval interpretation.
+   - Do not imply that Enel supplied an exact clock time.
+
+4. Monetary audit must be **line/component aware**, but only where evidence supports reconstruction.
+   - Components such as electricity supply/energy charge and transport/network charges should be reconstructed when official tariff evidence/rules permit.
+   - Items that are not derivable from the tariff/rules (for example certain common-service or external charges) must remain actual-bill evidence and must not be fabricated.
+   - Total-only comparison is insufficient.
+
+5. Real Enel bills already reviewed are considered broadly sufficient as representative examples for the product design.
+   - VAT is 19% of the taxable base; determining which reconstructed components belong to that taxable base is a research/rules problem and must not be guessed.
+   - Prior tariff/bill-structure research should be used to define this correctly.
+
+6. **QA cadence rule**:
+   - implementation may go through multiple internal build/CI iterations;
+   - do not ask the user to perform many small/manual mini-QA cycles;
+   - only hand off a build for target-PC QA when a coherent tranche is ready and the checks can be bundled into one meaningful validation pass;
+   - intermediate builds may be used for development/CI without user involvement.
+
+7. The UX proposal must be updated so tab/task separation is applied consistently across all materially complex pages, not only Red eléctrica / Grid & Utility.
+
+Two product questions remain intentionally open and must be asked in plain language before implementation:
+- how the app should automatically connect a bill with the correct saved Enel readings;
+- how the tariff-download date range should be chosen by default.
+
+No code implementation is authorized by this note alone.
