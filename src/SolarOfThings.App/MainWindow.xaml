@@ -1044,6 +1044,364 @@
                         </Grid>
 
                         <Border Style="{StaticResource CardStyle}" Margin="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,24,0">
+                                    <TextBlock Text="{DynamicResource Battery.Activity}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="BatteryActivityText"
+                                               Text="{DynamicResource Battery.Unknown}"
+                                               FontSize="20"
+                                               FontWeight="SemiBold"
+                                               Foreground="#343A40"
+                                               TextWrapping="Wrap"
+                                               Margin="0,5,0,16"/>
+
+                                    <TextBlock Text="{DynamicResource Battery.ConfiguredCapacity}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="BatteryConfiguredCapacityText"
+                                               Text="11,776 kWh"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               Margin="0,4,0,16"/>
+
+                                    <TextBlock Text="{DynamicResource Battery.LastReading}"
+                                               FontSize="13"
+                                               Foreground="#6C757D"/>
+                                    <TextBlock x:Name="BatteryLastReadingText"
+                                               Text="—"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{DynamicResource Battery.OrdinaryReserveNote}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#343A40"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,12"/>
+                                    <TextBlock Text="{DynamicResource Battery.EmergencyReserveNote}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#856404"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,12"/>
+                                    <Border Background="#F8D7DA"
+                                            BorderBrush="#F5C6CB"
+                                            BorderThickness="1"
+                                            CornerRadius="3"
+                                            Padding="12">
+                                        <TextBlock Text="{DynamicResource Battery.ProtectedFloor}"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#721C24"
+                                                   TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Expander Header="{DynamicResource Battery.TechnicalHeading}"
+                                  IsExpanded="False"
+                                  Margin="0,18,0,0"
+                                  FontSize="15"
+                                  FontWeight="SemiBold">
+                            <Border Style="{StaticResource CardStyle}"
+                                    Margin="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Battery.TechnicalIntro}"
+                                               FontSize="13"
+                                               FontWeight="Normal"
+                                               Foreground="#6C757D"
+                                               Margin="0,0,0,12"
+                                               TextWrapping="Wrap"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0"
+                                                    Margin="0,0,18,0"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryVoltage}">
+                                            <TextBlock Text="{DynamicResource Battery.Voltage}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryVoltageTechnicalText"
+                                                       Text="— V"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1"
+                                                    Margin="0,0,18,0"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryChargeCurrent}">
+                                            <TextBlock Text="{DynamicResource Battery.ChargeCurrent}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryChargeCurrentTechnicalText"
+                                                       Text="— A"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2"
+                                                    Margin="0,0,18,0"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryDischargeCurrent}">
+                                            <TextBlock Text="{DynamicResource Battery.DischargeCurrent}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryDischargeCurrentTechnicalText"
+                                                       Text="— A"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="3"
+                                                    ToolTip="{DynamicResource Tooltip.BatteryPowerTechnical}">
+                                            <TextBlock Text="{DynamicResource Battery.Power}"
+                                                       FontSize="13"
+                                                       FontWeight="Normal"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="BatteryPowerTechnicalText"
+                                                       Text="— kW"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="GridUtilityContent"
+                              Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource GridUtility.Heading}"
+                                   FontSize="21"
+                                   FontWeight="SemiBold"
+                                   Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource GridUtility.Intro}"
+                                   FontSize="13"
+                                   Foreground="#6C757D"
+                                   Margin="0,5,0,4"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="UtilityTimeZoneText"
+                                   FontSize="12"
+                                   Foreground="#6C757D"
+                                   Margin="0,0,0,16"
+                                   TextWrapping="Wrap"/>
+
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource GridUtility.LatestMeterUse}" FontSize="12" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="UtilityLatestMeterValueText" Text="— kWh" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource GridUtility.LatestInverterUse}" FontSize="12" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="UtilityLatestInverterValueText" Text="— kWh" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource GridUtility.LatestDifference}" FontSize="12" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="UtilityLatestDifferenceValueText" Text="— kWh" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource GridUtility.LatestCoverage}" FontSize="12" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="UtilityLatestCoverageValueText" Text="— %" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <TextBlock x:Name="UtilityLatestIntervalText"
+                                   FontSize="12"
+                                   Foreground="#495057"
+                                   Margin="0,0,0,18"
+                                   TextWrapping="Wrap"/>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource GridUtility.ReadingsHeading}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource GridUtility.ReadingsIntro}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,10"
+                                           TextWrapping="Wrap"/>
+
+                                <WrapPanel>
+                                    <StackPanel Margin="0,0,10,10">
+                                        <TextBlock Text="{DynamicResource GridUtility.ReadingSource}" FontSize="12" Foreground="#6C757D"/>
+                                        <ComboBox x:Name="UtilityReadingSourceSelector"
+                                                  Width="210"
+                                                  SelectedValuePath="Tag"
+                                                  SelectionChanged="UtilityReadingSourceSelector_SelectionChanged">
+                                            <ComboBoxItem Tag="UTILITY_OFFICIAL" Content="{DynamicResource GridUtility.ReadingSource.Enel}"/>
+                                            <ComboBoxItem Tag="PERSONAL" Content="{DynamicResource GridUtility.ReadingSource.Personal}"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,10">
+                                        <TextBlock Text="{DynamicResource GridUtility.Date}" FontSize="12" Foreground="#6C757D"/>
+                                        <controls:QuickDatePicker x:Name="UtilityReadingDatePicker" Width="150"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,10">
+                                        <TextBlock Text="{DynamicResource GridUtility.Time}" FontSize="12" Foreground="#6C757D"/>
+                                        <TextBox x:Name="UtilityReadingTimeTextBox" Width="80" MinHeight="28" VerticalContentAlignment="Center" Text="00:00"/>
+                                        <TextBlock x:Name="UtilityReadingTimeHintText"
+                                                   FontSize="10"
+                                                   Foreground="#6C757D"
+                                                   Width="190"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,10">
+                                        <TextBlock Text="{DynamicResource GridUtility.CumulativeReading}" FontSize="12" Foreground="#6C757D"/>
+                                        <TextBox x:Name="UtilityReadingKwhTextBox" Width="135" MinHeight="28" VerticalContentAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,10">
+                                        <TextBlock Text="{DynamicResource GridUtility.Reference}" FontSize="12" Foreground="#6C757D"/>
+                                        <TextBox x:Name="UtilityReadingReferenceTextBox" Width="180" MinHeight="28" VerticalContentAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,10">
+                                        <TextBlock Text="{DynamicResource GridUtility.Notes}" FontSize="12" Foreground="#6C757D"/>
+                                        <TextBox x:Name="UtilityReadingNotesTextBox" Width="280" MinHeight="28" VerticalContentAlignment="Center"/>
+                                    </StackPanel>
+                                </WrapPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Button x:Name="UtilityAddReadingButton"
+                                            Content="{DynamicResource GridUtility.AddReading}"
+                                            Padding="12,6"
+                                            Click="UtilityAddReading_Click"/>
+                                    <Button x:Name="UtilityDeleteReadingButton"
+                                            Content="{DynamicResource GridUtility.DeleteReading}"
+                                            Padding="12,6"
+                                            Margin="8,0,0,0"
+                                            Click="UtilityDeleteReading_Click"/>
+                                </StackPanel>
+                                <TextBlock x:Name="UtilityReadingStatusText"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,0,0,8"
+                                           TextWrapping="Wrap"/>
+
+                                <DataGrid x:Name="UtilityReadingsGrid"
+                                          Height="220"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          SelectionMode="Single"
+                                          CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.ReadingSource}" Binding="{Binding Source}" Width="150"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.DateTime}" Binding="{Binding LocalTimestamp}" Width="225"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.CumulativeKwh}" Binding="{Binding ReadingKwh}" Width="125"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Reference}" Binding="{Binding Reference}" Width="180"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Notes}" Binding="{Binding Notes}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource GridUtility.ReconciliationHeading}"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource GridUtility.ReconciliationIntro}"
+                                           FontSize="12"
+                                           Foreground="#6C757D"
+                                           Margin="0,4,0,10"
+                                           TextWrapping="Wrap"/>
+
+                                <WrapPanel Margin="0,0,0,10">
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource GridUtility.CompareFrom}" FontSize="12" Foreground="#6C757D"/>
+                                        <ComboBox x:Name="UtilityCompareFromSelector"
+                                                  Width="310"
+                                                  DisplayMemberPath="Display"
+                                                  SelectedValuePath="ReadingId"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource GridUtility.CompareTo}" FontSize="12" Foreground="#6C757D"/>
+                                        <ComboBox x:Name="UtilityCompareToSelector"
+                                                  Width="310"
+                                                  DisplayMemberPath="Display"
+                                                  SelectedValuePath="ReadingId"/>
+                                    </StackPanel>
+                                    <Button Content="{DynamicResource GridUtility.Compare}"
+                                            Padding="12,6"
+                                            VerticalAlignment="Bottom"
+                                            Click="UtilityCompareReadings_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="UtilityComparisonStatusText"
+                                           FontSize="12"
+                                           Foreground="#495057"
+                                           Margin="0,0,0,10"
+                                           TextWrapping="Wrap"/>
+
+                                <TextBlock Text="{DynamicResource GridUtility.ConsecutiveHeading}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,5"/>
+
+                                <DataGrid x:Name="UtilityReconciliationGrid"
+                                          Height="260"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Interval}" Binding="{Binding Interval}" Width="255"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.MeterKwh}" Binding="{Binding MeterKwh}" Width="110"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.InverterKwh}" Binding="{Binding InverterKwh}" Width="120"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.DifferenceKwh}" Binding="{Binding DifferenceKwh}" Width="110"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.DifferencePercent}" Binding="{Binding DifferencePercent}" Width="95"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Coverage}" Binding="{Binding Coverage}" Width="95"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TimeBasis}" Binding="{Binding TimeBasis}" Width="135"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Quality}" Binding="{Binding Quality}" Width="120"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource GridUtility.BillsHeading}"
                                            FontSize="17"
