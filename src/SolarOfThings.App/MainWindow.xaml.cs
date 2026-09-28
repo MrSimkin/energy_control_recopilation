@@ -2048,7 +2048,9 @@ public partial class MainWindow : Window
                 result.Discovered,
                 result.Failed,
                 result.RetroactiveDetected,
-                result.MultiVersionPeriods);
+                result.MultiVersionPeriods,
+                result.NormalizedCandidates,
+                result.NormalizationFailures);
 
             RefreshTariffPublications();
         }
