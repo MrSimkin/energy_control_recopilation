@@ -142,6 +142,17 @@ public sealed class UtilityBillAuditReportService
         if (energy.DifferencePercent.HasValue)
             differenceText.AddText($" ({energy.DifferencePercent.Value:N2}%)");
 
+        if (energy.Sensitivity is not null)
+        {
+            AddCallout(
+                section,
+                L("SENSIBILIDAD DE DATOS", "DATA SENSITIVITY"),
+                SensitivityText(
+                    energy.Sensitivity,
+                    spanish),
+                Colors.AliceBlue);
+        }
+
         AddCallout(
             section,
             L("INTERPRETACIÓN", "INTERPRETATION"),
@@ -281,6 +292,42 @@ public sealed class UtilityBillAuditReportService
         reading.TimePrecision == UtilityTimePrecision.DateOnly
             ? $"{local:dd-MM-yyyy} · {(spanish ? "límite de fecha Enel" : "Enel date boundary")}"
             : $"{local:dd-MM-yyyy HH:mm:ss}";
+
+    private static string SensitivityText(
+        UtilitySensitivityRange sensitivity,
+        bool spanish)
+    {
+        var range = sensitivity.UpperKwh.HasValue
+            ? $"{sensitivity.LowerKwh:N3}–{sensitivity.UpperKwh.Value:N3} kWh"
+            : $"≥ {sensitivity.LowerKwh:N3} kWh; " +
+              (spanish
+                  ? "límite superior no cuantificable"
+                  : "upper limit cannot be quantified");
+
+        var method = sensitivity.Basis switch
+        {
+            "GAPS_OBSERVED_MAX_PLUS_ENEL_BOUNDARY" =>
+                spanish
+                    ? "Se prueba el efecto de horas sin telemetría usando como escenario la máxima importación observada y, además, el límite Enel alternativo de un minuto."
+                    : "The effect of uncovered telemetry hours is tested using observed maximum import as the scenario, plus the one-minute Enel boundary alternative.",
+            "GAPS_OBSERVED_MAX" =>
+                spanish
+                    ? "Se prueba el efecto de horas sin telemetría usando como escenario la máxima importación observada."
+                    : "The effect of uncovered telemetry hours is tested using observed maximum import as the scenario.",
+            "ENEL_ONE_MINUTE_BOUNDARY" =>
+                spanish
+                    ? "Se prueba el límite Enel alternativo de un minuto (inicio de X versus cierre de X−1)."
+                    : "The one-minute Enel boundary alternative is tested (start of X versus end of X−1).",
+            _ =>
+                spanish
+                    ? "El intervalo observado no agrega sensibilidad por gaps o límite temporal."
+                    : "The observed interval adds no gap or boundary sensitivity."
+        };
+
+        return spanish
+            ? $"{range}. {method} No es un intervalo de confianza; la incertidumbre de sensor/calibración no se cuantifica sin evidencia metrológica."
+            : $"{range}. {method} This is not a confidence interval; sensor/calibration uncertainty is not quantified without metrological evidence.";
+    }
 
     private static void AddHeading(Section section, string text, double size)
     {
