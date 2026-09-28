@@ -817,9 +817,8 @@ try
         new TariffPublicationRepository(database);
     const string tariffFixtureHtml = """
         <html><body>
-        <a href="/content/tarifas/Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%208T_%20VAD%205T%20Septiembre%20de%202026.pdf">
-        Descargar
-        </a>
+        <link rel="preload"
+              href="/content/tarifas/Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%208T_%20VAD%205T%20Septiembre%20de%202026.pdf">
         <a href="/content/tarifas/Enel%20Distribuci%C3%B3n%20Chile%20SA._Tarifas%20Suministro%20El%C3%A9ctrico%208T_%20VAD%205T%20Agosto%20de%202026_Retroactivo.pdf">
         Descargar
         </a>
@@ -841,7 +840,10 @@ try
     if (tariffDiscovered.Count != 3 ||
         !tariffDiscovered.Any(item =>
             item.EffectiveFrom == new DateOnly(2026, 9, 1) &&
-            !item.IsRetroactive) ||
+            !item.IsRetroactive &&
+            item.SourceUrl.Contains(
+                "Septiembre%20de%202026.pdf",
+                StringComparison.Ordinal)) ||
         !tariffDiscovered.Any(item =>
             item.EffectiveFrom == new DateOnly(2026, 8, 1) &&
             item.IsRetroactive) ||
