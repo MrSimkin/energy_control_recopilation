@@ -143,3 +143,14 @@ Do not repeat:
 - Help/manual review.
 
 This pass exists only to close the tariff -> audit -> audit-PDF chain that Build 441 could not test.
+
+## Target-PC result — Build 486 — 2026-09-28
+
+### QA 6 — Official tariff evidence update: **FAIL AGAIN**
+- User reports: “sigue sin pasar nada”.
+- Target behavior remains effectively inert from the user's point of view: no useful visible result / tariff population is produced.
+- This means the Build 486 handoff does **not** close the Build 441 tariff-source blocker despite live CNE CI success.
+- Treat this as a target-PC application integration / UX execution defect, not as a CNE source-availability defect.
+- QA 7 and QA 8B remain blocked.
+- Do not ask the user to repeat unrelated QA.
+
