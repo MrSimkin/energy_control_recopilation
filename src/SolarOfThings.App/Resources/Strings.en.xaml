@@ -183,6 +183,21 @@
     <sys:String x:Key="GridUtility.NoReconciliation">Add at least two cumulative meter readings to obtain the first reconciliation.</sys:String>
     <sys:String x:Key="GridUtility.ReadingsHeading">Cumulative utility-meter readings</sys:String>
     <sys:String x:Key="GridUtility.ReadingsIntro">Enter the cumulative kWh number physically shown on the utility meter and the exact time it was read. The app calculates consumption from the difference between consecutive readings.</sys:String>
+    <sys:String x:Key="GridUtility.ReadingSource">Reading source</sys:String>
+    <sys:String x:Key="GridUtility.ReadingSource.Enel">Utility reading (date only)</sys:String>
+    <sys:String x:Key="GridUtility.ReadingSource.Personal">Personal reading (exact time)</sys:String>
+    <sys:String x:Key="GridUtility.OfficialTimeHint">The utility does not provide a time: the official date is preserved and 00:00 is used as an explicit calculation assumption.</sys:String>
+    <sys:String x:Key="GridUtility.PersonalTimeHint">Enter the actual time when you looked at the meter.</sys:String>
+    <sys:String x:Key="GridUtility.CompareFrom">From reading</sys:String>
+    <sys:String x:Key="GridUtility.CompareTo">To reading</sys:String>
+    <sys:String x:Key="GridUtility.Compare">Compare range</sys:String>
+    <sys:String x:Key="GridUtility.ConsecutiveHeading">Saved consecutive comparisons</sys:String>
+    <sys:String x:Key="GridUtility.TimeBasis">Time basis</sys:String>
+    <sys:String x:Key="GridUtility.TimeBasis.EXACT">Exact time</sys:String>
+    <sys:String x:Key="GridUtility.TimeBasis.DATE_ONLY_ASSUMED">Date only · 00:00 assumed</sys:String>
+    <sys:String x:Key="GridUtility.CompareInvalid">Choose a start reading and a later end reading.</sys:String>
+    <sys:String x:Key="GridUtility.CompareResult">Selected range: {0}</sys:String>
+
     <sys:String x:Key="GridUtility.Date">Date</sys:String>
     <sys:String x:Key="GridUtility.Time">Time (HH:mm)</sys:String>
     <sys:String x:Key="GridUtility.CumulativeReading">Cumulative reading (kWh)</sys:String>
@@ -223,6 +238,7 @@
     <sys:String x:Key="GridUtility.Quality.LOW_COVERAGE">Low coverage</sys:String>
     <sys:String x:Key="GridUtility.Quality.METER_RESET_OR_REPLACEMENT">Review meter</sys:String>
     <sys:String x:Key="GridUtility.Quality.INVALID_INTERVAL">Invalid interval</sys:String>
+    <sys:String x:Key="GridUtility.Quality.ASSUMED_TIME">Assumed time</sys:String>
     <sys:String x:Key="Page.Reports.Title">Reports</sys:String>
     <sys:String x:Key="Page.Reports.Subtitle">Saved reports, Excel and PDF</sys:String>
     <sys:String x:Key="Page.Reports.Placeholder">Reusable reports and exports.</sys:String>

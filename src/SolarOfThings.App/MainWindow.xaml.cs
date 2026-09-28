@@ -1689,11 +1689,44 @@ public partial class MainWindow : Window
             _services.GetRequiredService<UtilityReconciliationService>();
 
         var readings = repository.GetReadings();
+        var readingChoices = readings
+            .OrderBy(item => item.ReadingAtUtc)
+            .Select(item => new UtilityReadingChoice(
+                item.ReadingId,
+                $"{FormatUtilityInstant(item.ReadingAtUtc, timeZone)} · {item.ReadingKwh:N3} kWh · {UtilityReadingSourceLabel(item.SourceKind)}"))
+            .ToArray();
+
+        var previousCompareFrom = UtilityCompareFromSelector.SelectedValue;
+        var previousCompareTo = UtilityCompareToSelector.SelectedValue;
+        UtilityCompareFromSelector.ItemsSource = readingChoices;
+        UtilityCompareToSelector.ItemsSource = readingChoices;
+
+        if (previousCompareFrom is long previousFrom &&
+            readingChoices.Any(item => item.ReadingId == previousFrom))
+        {
+            UtilityCompareFromSelector.SelectedValue = previousFrom;
+        }
+        else if (readingChoices.Length >= 2)
+        {
+            UtilityCompareFromSelector.SelectedValue = readingChoices[^2].ReadingId;
+        }
+
+        if (previousCompareTo is long previousTo &&
+            readingChoices.Any(item => item.ReadingId == previousTo))
+        {
+            UtilityCompareToSelector.SelectedValue = previousTo;
+        }
+        else if (readingChoices.Length >= 1)
+        {
+            UtilityCompareToSelector.SelectedValue = readingChoices[^1].ReadingId;
+        }
+
         UtilityReadingsGrid.ItemsSource = readings
             .OrderByDescending(item => item.ReadingAtUtc)
             .Select(item => new UtilityReadingViewRow(
                 item.ReadingId,
-                FormatUtilityInstant(item.ReadingAtUtc, timeZone),
+                UtilityReadingSourceLabel(item.SourceKind),
+                FormatUtilityReadingTimestamp(item, timeZone),
                 $"{item.ReadingKwh:N3}",
                 item.Reference ?? string.Empty,
                 item.Notes ?? string.Empty))
@@ -1720,6 +1753,7 @@ public partial class MainWindow : Window
                     ? $"{item.DifferencePercent.Value:N2}%"
                     : "—",
                 $"{item.CoveragePercent:N1}%",
+                UtilityTimeBasisLabel(item.TimeBasis),
                 UtilityQualityLabel(item.Quality)))
             .ToArray();
 
@@ -1733,28 +1767,15 @@ public partial class MainWindow : Window
         }
         else
         {
-            UtilityLatestMeterValueText.Text =
-                latest.MeterConsumptionKwh.HasValue
-                    ? $"{latest.MeterConsumptionKwh.Value:N2} kWh"
-                    : "—";
-            UtilityLatestInverterValueText.Text =
-                $"{latest.InverterGridImportKwh:N2} kWh";
-            UtilityLatestDifferenceValueText.Text =
-                latest.SignedDifferenceKwh.HasValue
-                    ? FormatSigned(
-                        latest.SignedDifferenceKwh.Value,
-                        "kWh")
-                    : "—";
-            UtilityLatestCoverageValueText.Text =
-                $"{latest.CoveragePercent:N1}%";
-            UtilityLatestIntervalText.Text = string.Format(
-                _localization.GetString(
-                    "GridUtility.LatestInterval"),
-                FormatUtilityInterval(
-                    latest.FromUtc,
-                    latest.ToUtc,
-                    timeZone));
+            DisplayUtilityReconciliation(latest, timeZone);
         }
+
+        if (UtilityReadingSourceSelector.SelectedValue is null)
+        {
+            UtilityReadingSourceSelector.SelectedValue =
+                UtilityReadingSourceKind.Personal;
+        }
+        RefreshUtilityReadingSourceUi();
 
         var bills = repository.GetBills();
         var billReconciliations = reconciliation
@@ -1797,6 +1818,122 @@ public partial class MainWindow : Window
             .ToArray();
     }
 
+    private void UtilityReadingSourceSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (IsInitialized)
+        {
+            RefreshUtilityReadingSourceUi();
+        }
+    }
+
+    private void RefreshUtilityReadingSourceUi()
+    {
+        if (UtilityReadingSourceSelector is null ||
+            UtilityReadingTimeTextBox is null ||
+            UtilityReadingTimeHintText is null)
+        {
+            return;
+        }
+
+        var official = string.Equals(
+            UtilityReadingSourceSelector.SelectedValue?.ToString(),
+            UtilityReadingSourceKind.UtilityOfficial,
+            StringComparison.Ordinal);
+
+        UtilityReadingTimeTextBox.IsEnabled = !official;
+        if (official)
+        {
+            UtilityReadingTimeTextBox.Text = "00:00";
+            UtilityReadingTimeHintText.Text =
+                _localization.GetString(
+                    "GridUtility.OfficialTimeHint");
+        }
+        else
+        {
+            UtilityReadingTimeHintText.Text =
+                _localization.GetString(
+                    "GridUtility.PersonalTimeHint");
+        }
+    }
+
+    private void UtilityCompareReadings_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null ||
+            UtilityCompareFromSelector.SelectedValue is not long fromId ||
+            UtilityCompareToSelector.SelectedValue is not long toId ||
+            fromId == toId)
+        {
+            UtilityComparisonStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.CompareInvalid");
+            return;
+        }
+
+        try
+        {
+            var result = _services
+                .GetRequiredService<UtilityReconciliationService>()
+                .ReconcileReadings(
+                    profile.DeviceId,
+                    fromId,
+                    toId);
+
+            if (result.ToUtc <= result.FromUtc)
+            {
+                UtilityComparisonStatusText.Text =
+                    _localization.GetString(
+                        "GridUtility.CompareInvalid");
+                return;
+            }
+
+            var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                ? "America/Santiago"
+                : profile.StationTimeZone;
+
+            DisplayUtilityReconciliation(result, timeZone);
+            UtilityComparisonStatusText.Text = string.Format(
+                _localization.GetString(
+                    "GridUtility.CompareResult"),
+                FormatUtilityInterval(
+                    result.FromUtc,
+                    result.ToUtc,
+                    timeZone));
+        }
+        catch (Exception ex)
+        {
+            UtilityComparisonStatusText.Text = ex.Message;
+        }
+    }
+
+    private void DisplayUtilityReconciliation(
+        UtilityMeterReconciliation result,
+        string timeZone)
+    {
+        UtilityLatestMeterValueText.Text =
+            result.MeterConsumptionKwh.HasValue
+                ? $"{result.MeterConsumptionKwh.Value:N2} kWh"
+                : "—";
+        UtilityLatestInverterValueText.Text =
+            $"{result.InverterGridImportKwh:N2} kWh";
+        UtilityLatestDifferenceValueText.Text =
+            result.SignedDifferenceKwh.HasValue
+                ? FormatSigned(
+                    result.SignedDifferenceKwh.Value,
+                    "kWh")
+                : "—";
+        UtilityLatestCoverageValueText.Text =
+            $"{result.CoveragePercent:N1}%";
+        UtilityLatestIntervalText.Text =
+            $"{FormatUtilityInterval(result.FromUtc, result.ToUtc, timeZone)} · " +
+            $"{UtilityTimeBasisLabel(result.TimeBasis)} · " +
+            $"{UtilityQualityLabel(result.Quality)}";
+    }
+
     private void UtilityAddReading_Click(
         object sender,
         RoutedEventArgs e)
@@ -1812,6 +1949,14 @@ public partial class MainWindow : Window
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
             : profile.StationTimeZone;
+
+        var sourceKind =
+            UtilityReadingSourceSelector.SelectedValue?.ToString()
+            ?? UtilityReadingSourceKind.Personal;
+        var isOfficial = string.Equals(
+            sourceKind,
+            UtilityReadingSourceKind.UtilityOfficial,
+            StringComparison.Ordinal);
 
         if (!TryParseUtilityLocalInstant(
                 UtilityReadingDatePicker,
@@ -1843,7 +1988,14 @@ public partial class MainWindow : Window
                     readingAtUtc,
                     readingKwh,
                     UtilityReadingReferenceTextBox.Text,
-                    UtilityReadingNotesTextBox.Text);
+                    UtilityReadingNotesTextBox.Text,
+                    sourceKind,
+                    isOfficial
+                        ? UtilityTimePrecision.DateOnly
+                        : UtilityTimePrecision.Exact,
+                    isOfficial
+                        ? UtilityTimeAssumption.StartOfDayAssumed
+                        : UtilityTimeAssumption.Exact);
 
             UtilityReadingKwhTextBox.Clear();
             UtilityReadingReferenceTextBox.Clear();
@@ -2120,6 +2272,40 @@ public partial class MainWindow : Window
         string unit) =>
         $"{value:+0.00;-0.00;0.00} {unit}";
 
+    private string UtilityReadingSourceLabel(string sourceKind) =>
+        sourceKind switch
+        {
+            UtilityReadingSourceKind.UtilityOfficial =>
+                _localization.GetString(
+                    "GridUtility.ReadingSource.Enel"),
+            UtilityReadingSourceKind.Personal =>
+                _localization.GetString(
+                    "GridUtility.ReadingSource.Personal"),
+            _ => sourceKind
+        };
+
+    private string UtilityTimeBasisLabel(string timeBasis)
+    {
+        var key = $"GridUtility.TimeBasis.{timeBasis}";
+        var value = _localization.GetString(key);
+        return string.Equals(value, key, StringComparison.Ordinal)
+            ? timeBasis
+            : value;
+    }
+
+    private string FormatUtilityReadingTimestamp(
+        UtilityMeterReading reading,
+        string timeZoneId)
+    {
+        var local = SolarApiTime.ConvertToLocalTime(
+            reading.ReadingAtUtc,
+            timeZoneId);
+
+        return reading.TimePrecision == UtilityTimePrecision.DateOnly
+            ? $"{local:dd-MM-yyyy} · 00:00 asumida"
+            : $"{local:dd-MM-yyyy HH:mm:ss}";
+    }
+
     private string UtilityQualityLabel(string quality)
     {
         var key = $"GridUtility.Quality.{quality}";
@@ -2141,8 +2327,13 @@ public partial class MainWindow : Window
         UtilityLatestCoverageValueText.Text = "— %";
     }
 
+    private sealed record UtilityReadingChoice(
+        long ReadingId,
+        string Display);
+
     private sealed record UtilityReadingViewRow(
         long ReadingId,
+        string Source,
         string LocalTimestamp,
         string ReadingKwh,
         string Reference,
@@ -2155,6 +2346,7 @@ public partial class MainWindow : Window
         string DifferenceKwh,
         string DifferencePercent,
         string Coverage,
+        string TimeBasis,
         string Quality);
 
     private sealed record UtilityBillViewRow(

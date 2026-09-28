@@ -183,6 +183,21 @@
     <sys:String x:Key="GridUtility.NoReconciliation">Agrega al menos dos lecturas acumuladas del medidor para obtener la primera conciliación.</sys:String>
     <sys:String x:Key="GridUtility.ReadingsHeading">Lecturas acumuladas del medidor</sys:String>
     <sys:String x:Key="GridUtility.ReadingsIntro">Ingresa el número acumulado de kWh que muestra físicamente el medidor de Enel y la hora exacta en que fue leído. La app calcula el consumo como diferencia entre lecturas consecutivas.</sys:String>
+    <sys:String x:Key="GridUtility.ReadingSource">Origen de lectura</sys:String>
+    <sys:String x:Key="GridUtility.ReadingSource.Enel">Lectura Enel (sólo fecha)</sys:String>
+    <sys:String x:Key="GridUtility.ReadingSource.Personal">Lectura personal (hora exacta)</sys:String>
+    <sys:String x:Key="GridUtility.OfficialTimeHint">Enel no informa hora: se conserva como fecha oficial y para calcular se usa 00:00 como supuesto visible.</sys:String>
+    <sys:String x:Key="GridUtility.PersonalTimeHint">Ingresa la hora real en que miraste el medidor.</sys:String>
+    <sys:String x:Key="GridUtility.CompareFrom">Desde lectura</sys:String>
+    <sys:String x:Key="GridUtility.CompareTo">Hasta lectura</sys:String>
+    <sys:String x:Key="GridUtility.Compare">Comparar rango</sys:String>
+    <sys:String x:Key="GridUtility.ConsecutiveHeading">Comparaciones consecutivas guardadas</sys:String>
+    <sys:String x:Key="GridUtility.TimeBasis">Base horaria</sys:String>
+    <sys:String x:Key="GridUtility.TimeBasis.EXACT">Hora exacta</sys:String>
+    <sys:String x:Key="GridUtility.TimeBasis.DATE_ONLY_ASSUMED">Fecha solamente · 00:00 asumida</sys:String>
+    <sys:String x:Key="GridUtility.CompareInvalid">Elige una lectura inicial y otra final posterior.</sys:String>
+    <sys:String x:Key="GridUtility.CompareResult">Rango elegido: {0}</sys:String>
+
     <sys:String x:Key="GridUtility.Date">Fecha</sys:String>
     <sys:String x:Key="GridUtility.Time">Hora (HH:mm)</sys:String>
     <sys:String x:Key="GridUtility.CumulativeReading">Lectura acumulada (kWh)</sys:String>
@@ -223,6 +238,7 @@
     <sys:String x:Key="GridUtility.Quality.LOW_COVERAGE">Cobertura baja</sys:String>
     <sys:String x:Key="GridUtility.Quality.METER_RESET_OR_REPLACEMENT">Revisar medidor</sys:String>
     <sys:String x:Key="GridUtility.Quality.INVALID_INTERVAL">Intervalo inválido</sys:String>
+    <sys:String x:Key="GridUtility.Quality.ASSUMED_TIME">Hora asumida</sys:String>
     <sys:String x:Key="Page.Reports.Title">Informes</sys:String>
     <sys:String x:Key="Page.Reports.Subtitle">Informes guardados, Excel y PDF</sys:String>
     <sys:String x:Key="Page.Reports.Placeholder">Informes reutilizables y exportaciones.</sys:String>

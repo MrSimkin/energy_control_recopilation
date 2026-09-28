@@ -1269,12 +1269,28 @@
 
                                 <WrapPanel>
                                     <StackPanel Margin="0,0,10,10">
+                                        <TextBlock Text="{DynamicResource GridUtility.ReadingSource}" FontSize="12" Foreground="#6C757D"/>
+                                        <ComboBox x:Name="UtilityReadingSourceSelector"
+                                                  Width="210"
+                                                  SelectedValuePath="Tag"
+                                                  SelectionChanged="UtilityReadingSourceSelector_SelectionChanged">
+                                            <ComboBoxItem Tag="UTILITY_OFFICIAL" Content="{DynamicResource GridUtility.ReadingSource.Enel}"/>
+                                            <ComboBoxItem Tag="PERSONAL" Content="{DynamicResource GridUtility.ReadingSource.Personal}"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,10">
                                         <TextBlock Text="{DynamicResource GridUtility.Date}" FontSize="12" Foreground="#6C757D"/>
                                         <controls:QuickDatePicker x:Name="UtilityReadingDatePicker" Width="150"/>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,10,10">
                                         <TextBlock Text="{DynamicResource GridUtility.Time}" FontSize="12" Foreground="#6C757D"/>
                                         <TextBox x:Name="UtilityReadingTimeTextBox" Width="80" MinHeight="28" VerticalContentAlignment="Center" Text="00:00"/>
+                                        <TextBlock x:Name="UtilityReadingTimeHintText"
+                                                   FontSize="10"
+                                                   Foreground="#6C757D"
+                                                   Width="190"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0"/>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,10,10">
                                         <TextBlock Text="{DynamicResource GridUtility.CumulativeReading}" FontSize="12" Foreground="#6C757D"/>
@@ -1314,7 +1330,8 @@
                                           SelectionMode="Single"
                                           CanUserAddRows="False">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="{DynamicResource GridUtility.DateTime}" Binding="{Binding LocalTimestamp}" Width="175"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.ReadingSource}" Binding="{Binding Source}" Width="150"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.DateTime}" Binding="{Binding LocalTimestamp}" Width="225"/>
                                         <DataGridTextColumn Header="{DynamicResource GridUtility.CumulativeKwh}" Binding="{Binding ReadingKwh}" Width="125"/>
                                         <DataGridTextColumn Header="{DynamicResource GridUtility.Reference}" Binding="{Binding Reference}" Width="180"/>
                                         <DataGridTextColumn Header="{DynamicResource GridUtility.Notes}" Binding="{Binding Notes}" Width="*"/>
@@ -1334,6 +1351,37 @@
                                            Margin="0,4,0,10"
                                            TextWrapping="Wrap"/>
 
+                                <WrapPanel Margin="0,0,0,10">
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource GridUtility.CompareFrom}" FontSize="12" Foreground="#6C757D"/>
+                                        <ComboBox x:Name="UtilityCompareFromSelector"
+                                                  Width="310"
+                                                  DisplayMemberPath="Display"
+                                                  SelectedValuePath="ReadingId"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource GridUtility.CompareTo}" FontSize="12" Foreground="#6C757D"/>
+                                        <ComboBox x:Name="UtilityCompareToSelector"
+                                                  Width="310"
+                                                  DisplayMemberPath="Display"
+                                                  SelectedValuePath="ReadingId"/>
+                                    </StackPanel>
+                                    <Button Content="{DynamicResource GridUtility.Compare}"
+                                            Padding="12,6"
+                                            VerticalAlignment="Bottom"
+                                            Click="UtilityCompareReadings_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="UtilityComparisonStatusText"
+                                           FontSize="12"
+                                           Foreground="#495057"
+                                           Margin="0,0,0,10"
+                                           TextWrapping="Wrap"/>
+
+                                <TextBlock Text="{DynamicResource GridUtility.ConsecutiveHeading}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,5"/>
+
                                 <DataGrid x:Name="UtilityReconciliationGrid"
                                           Height="260"
                                           AutoGenerateColumns="False"
@@ -1346,6 +1394,7 @@
                                         <DataGridTextColumn Header="{DynamicResource GridUtility.DifferenceKwh}" Binding="{Binding DifferenceKwh}" Width="110"/>
                                         <DataGridTextColumn Header="{DynamicResource GridUtility.DifferencePercent}" Binding="{Binding DifferencePercent}" Width="95"/>
                                         <DataGridTextColumn Header="{DynamicResource GridUtility.Coverage}" Binding="{Binding Coverage}" Width="95"/>
+                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TimeBasis}" Binding="{Binding TimeBasis}" Width="135"/>
                                         <DataGridTextColumn Header="{DynamicResource GridUtility.Quality}" Binding="{Binding Quality}" Width="120"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
