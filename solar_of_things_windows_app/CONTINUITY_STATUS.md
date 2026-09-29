@@ -2794,3 +2794,49 @@ Implementation in the following code commit:
 
 Official explanatory source used for the format check:
 - https://www.enel.cl/es/clientes/informacion-util/entendiendo-mi-boleta.html
+
+## Build 490 — bill-line evidence semantics / audit guidance — GREEN — 2026-09-28
+
+Identity:
+- code commit: `ee5eb1bbfaea31db7eec4f80c838ff04c39f2f85`;
+- workflow run: `36507194871`;
+- Windows Build: **490**;
+- CI build: PASS;
+- deterministic SQLite smoke: PASS, including recognized tariff line with actual amount but no printed unit rate;
+- portable publish/upload: PASS;
+- artifact: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11007447748`;
+- downloaded handoff ZIP: `SolarEnergyMonitor-Build-490-win-x64.zip`;
+- ZIP SHA-256: `7961cd04e7866674ea4627518586c81eb2ac023d3286c28ccc66a95cdd3490d0`.
+
+Behavioral correction:
+- existing bill lines are **not** to be re-entered merely because Quantity/Unit price are blank;
+- description + actual amount remain sufficient minimum captured evidence;
+- quantity/unit/unit price/tax treatment are optional and must be entered only when explicitly present on the bill;
+- recognized tariff lines now report missing Enel source/version/component evidence before discussing a non-printed rate;
+- when authoritative Enel tariff candidates are available but the bill itself has no stored unit rate:
+  - single tariff period -> `OFFICIAL_RATE_DERIVATION_PENDING`;
+  - multiple effective tariff periods -> `OFFICIAL_RATE_DERIVATION_MULTI_PERIOD`;
+- the July/August target bill must not be reconstructed by multiplying all 266 kWh by one arbitrary rate; it crosses tariff-effective periods and requires a supported split/allocation rule;
+- UI and bill-audit PDF explicitly tell the user not to invent unprinted values.
+
+Target-PC QA for Build 490 is intentionally narrow:
+1. reuse the existing Build 486 `Data` folder so the real bill/readings/evidence remain intact;
+2. confirm footer `Build 490 · ee5eb1bb`;
+3. in **Boletas Enel**, select the July/August bill and confirm the existing three lines remain; do **not** add/re-enter quantity or rate just because the fields are blank;
+4. in **Auditoría de boleta**:
+   - without relevant imported Enel final tariff tables, recognized tariff lines should say **Falta fuente tarifaria**;
+   - after importing the relevant July/August Enel PDFs and successful normalization, recognized non-printed-rate lines should advance to official-source derivation states, with the multi-period bill explicitly requiring a tariff-period split;
+   - Subsidio remains actual-only unless an authoritative reconstruction rule is available;
+5. export one bill-audit PDF after the source state is meaningful.
+
+Do NOT repeat:
+- startup;
+- broad visual/responsive QA;
+- data import;
+- reading-comparison PDF;
+- CNE 2026 automatic evidence QA;
+- family reports;
+- Help/manual.
+
+Build 490 does not yet implement the formal multi-period charge-allocation rule. It makes the evidence state truthful and removes the incorrect expectation that the user must supply a unit rate that the bill may not print.
