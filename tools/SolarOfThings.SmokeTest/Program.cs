@@ -476,11 +476,18 @@ try
     var sourceAttribution = new SourceAttributionService(
         database,
         new BatteryConfigurationService(settings));
+    var reportStatistics =
+        new EnergyRangeStatisticsService(database);
+    var reportGridStatistical =
+        new UtilityGridImportStatisticalCompletionService(
+            database,
+            reportStatistics);
     var reportExporter = new EnergyReportExportService(
-        new EnergyRangeStatisticsService(database),
+        reportStatistics,
         reportAggregation,
         familyAnalysis,
-        sourceAttribution);
+        sourceAttribution,
+        reportGridStatistical);
 
     var reportData = reportExporter.Build(new EnergyReportRequest(
         "Smoke family energy report",
@@ -502,7 +509,9 @@ try
         reportData.Family.TypicalReserveTime != new TimeOnly(4, 0) ||
         reportData.Family.HighestHouseConsumptionWindow is null ||
         reportData.Family.HighestSolarGenerationWindow is null ||
-        reportData.Family.HighestGridUseWindow is null)
+        reportData.Family.HighestGridUseWindow is null ||
+        !reportData.GridImportStatistical.HasPredictiveInterval ||
+        reportData.GridImportStatistical.MedianKwh is null)
     {
         throw new InvalidOperationException(
             "Family event/pattern analysis smoke test failed.");

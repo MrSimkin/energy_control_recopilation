@@ -6,6 +6,7 @@ using MigraDoc.Rendering;
 using PdfSharp.Fonts;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Statistics;
+using SolarOfThings.Core.Utility;
 
 namespace SolarOfThings.Core.Reporting;
 
@@ -15,18 +16,21 @@ public sealed class EnergyReportExportService
     private readonly EnergyAggregationTableService _aggregation;
     private readonly FamilyReportAnalysisService _familyAnalysis;
     private readonly SourceAttributionService _sourceAttribution;
+    private readonly UtilityGridImportStatisticalCompletionService _gridImportStatistical;
     private static int _pdfFontsInitialized;
 
     public EnergyReportExportService(
         EnergyRangeStatisticsService statistics,
         EnergyAggregationTableService aggregation,
         FamilyReportAnalysisService familyAnalysis,
-        SourceAttributionService sourceAttribution)
+        SourceAttributionService sourceAttribution,
+        UtilityGridImportStatisticalCompletionService gridImportStatistical)
     {
         _statistics = statistics;
         _aggregation = aggregation;
         _familyAnalysis = familyAnalysis;
         _sourceAttribution = sourceAttribution;
+        _gridImportStatistical = gridImportStatistical;
     }
 
     public EnergyReportData Build(EnergyReportRequest request)
@@ -60,6 +64,13 @@ public sealed class EnergyReportExportService
                     request.TimeZoneId,
                     AggregationPeriod.Day);
 
+        var gridImportStatistical =
+            _gridImportStatistical.Analyze(
+                request.DeviceId,
+                request.StartUtc,
+                request.EndUtc,
+                request.TimeZoneId);
+
         return new EnergyReportData(
             request,
             summary,
@@ -67,6 +78,7 @@ public sealed class EnergyReportExportService
             family,
             attribution,
             dailyAttribution,
+            gridImportStatistical,
             DateTimeOffset.UtcNow);
     }
 
@@ -285,6 +297,11 @@ public sealed class EnergyReportExportService
                 L(report, "Sin atribuir {0:N2} kWh", "Unattributed {0:N2} kWh"),
                 report.Attribution.UnattributedHouseKwh));
 
+        AddGridImportPredictiveCardsPdf(
+            section,
+            report,
+            compact: true);
+
         var unavailable = section.AddParagraph(
             L(
                 report,
@@ -464,11 +481,16 @@ public sealed class EnergyReportExportService
             string.Format(
                 L(
                     report,
-                    "Toda la energía que entró desde Enel al sistema (cobertura {0:N1}%). Puede incluir Enel → Casa, carga/mantenimiento de batería y pérdidas/consumos internos. Por eso NO tiene que ser igual a Enel → Casa.",
-                    "All energy entering the system from the utility (coverage {0:N1}%). It can include Utility → Home, battery charging/maintenance, and internal losses/consumption. Therefore it does NOT have to equal Utility → Home."),
+                    "OBSERVADO directamente · cobertura temporal {0:N1}%. Los huecos no se consideran cero; abajo se muestra el rango estadístico P5/P50/P95.",
+                    "DIRECTLY observed · temporal coverage {0:N1}%. Gaps are not treated as zero; the P5/P50/P95 statistical range is shown below."),
                 report.Summary.GridImportPower.CoveragePercent),
             Colors.Honeydew,
             15);
+
+        AddGridImportPredictiveCardsPdf(
+            section,
+            report,
+            compact: false);
 
         var completeNights = Math.Max(
             0,
@@ -2766,6 +2788,88 @@ public sealed class EnergyReportExportService
                 "El PDF muestra las primeras 80 filas de detalle de {0}. Excel contiene todas las filas.",
                 "The PDF shows the first 80 detail rows of {0}. Excel contains every row."),
             report.Table.Rows.Count));
+    }
+
+    private static void AddGridImportPredictiveCardsPdf(
+        Section section,
+        EnergyReportData report,
+        bool compact)
+    {
+        var statistical = report.GridImportStatistical;
+
+        var heading = section.AddParagraph(
+            L(
+                report,
+                "Rango estadístico de importación de red",
+                "Statistical grid-import range"));
+        heading.Format.Font.Size = compact ? 10.5 : 11.5;
+        heading.Format.Font.Bold = true;
+        heading.Format.SpaceBefore = Unit.FromPoint(compact ? 5 : 7);
+        heading.Format.SpaceAfter = Unit.FromPoint(4);
+
+        if (!statistical.HasPredictiveInterval)
+        {
+            var unavailable = section.AddParagraph(
+                L(
+                    report,
+                    "No hay datos suficientes para construir P5/P50/P95 de forma independiente.",
+                    "There is not enough data to build P5/P50/P95 independently."));
+            unavailable.Format.Font.Size = 8;
+            unavailable.Format.Font.Color = Colors.DimGray;
+            return;
+        }
+
+        var cards = section.AddTable();
+        cards.Borders.Width = 0;
+        cards.AddColumn(Unit.FromCentimeter(5.43));
+        cards.AddColumn(Unit.FromCentimeter(5.43));
+        cards.AddColumn(Unit.FromCentimeter(5.43));
+        var row = cards.AddRow();
+
+        AddPdfFamilyCard(
+            row.Cells[0],
+            L(report, "P5 · MARGEN INFERIOR", "P5 · LOWER MARGIN"),
+            $"{statistical.LowerKwh!.Value:N2} kWh",
+            L(
+                report,
+                "5% de las imputaciones quedan por debajo.",
+                "5% of imputations fall below this value."),
+            Colors.AliceBlue,
+            compact ? 12 : 14);
+
+        AddPdfFamilyCard(
+            row.Cells[1],
+            L(report, "P50 · ESTIMACIÓN CENTRAL", "P50 · CENTRAL ESTIMATE"),
+            $"{statistical.MedianKwh!.Value:N2} kWh",
+            L(
+                report,
+                "Mediana: mitad de las imputaciones queda a cada lado.",
+                "Median: half of imputations fall on each side."),
+            Colors.Honeydew,
+            compact ? 12 : 14);
+
+        AddPdfFamilyCard(
+            row.Cells[2],
+            L(report, "P95 · MARGEN SUPERIOR", "P95 · UPPER MARGIN"),
+            $"{statistical.UpperKwh!.Value:N2} kWh",
+            L(
+                report,
+                "95% de las imputaciones quedan por debajo.",
+                "95% of imputations fall below this value."),
+            Colors.AliceBlue,
+            compact ? 12 : 14);
+
+        var note = section.AddParagraph(
+            string.Format(
+                L(
+                    report,
+                    "P5/P50/P95 completan estadísticamente {0:N2} h sin cobertura usando telemetría comparable. No son lecturas Enel ni intervalos de calibración del medidor.",
+                    "P5/P50/P95 statistically complete {0:N2} h without coverage using comparable telemetry. They are not utility readings or meter-calibration intervals."),
+                statistical.MissingHours));
+        note.Format.Font.Size = 7.8;
+        note.Format.Font.Italic = true;
+        note.Format.Font.Color = Colors.DimGray;
+        note.Format.SpaceAfter = Unit.FromPoint(4);
     }
 
     private static string EnergyValue(

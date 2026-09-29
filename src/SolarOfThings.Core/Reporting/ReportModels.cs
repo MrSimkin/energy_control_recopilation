@@ -1,4 +1,5 @@
 using SolarOfThings.Core.Statistics;
+using SolarOfThings.Core.Utility;
 
 namespace SolarOfThings.Core.Reporting;
 
@@ -37,4 +38,5 @@ public sealed record EnergyReportData(
     FamilyReportAnalysis Family,
     SourceAttributionReport Attribution,
     SourceAttributionReport DailyAttribution,
+    UtilityGridImportStatisticalCompletion GridImportStatistical,
     DateTimeOffset GeneratedUtc);

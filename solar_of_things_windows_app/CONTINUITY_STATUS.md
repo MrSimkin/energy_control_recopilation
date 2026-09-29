@@ -3154,3 +3154,26 @@ Audit layout target:
 - keep concise comparison deltas versus Enel under the Solar cards;
 - actual/reconstructed charges may remain tabular where tabular comparison is genuinely clearer;
 - tariff evidence must show only concise fields: effective period/version, RED/ETR, official rate, composition and human-readable reconciliation status.
+
+## Card-based audit and Informes percentile presentation implementation — 2026-09-28
+
+Implementation after review of the user's Build 492 audit PDF and existing Informes PDF:
+- audit headline energy comparison changed from a dense table to cards;
+- Enel and directly observed Solar values are separate primary cards;
+- P5/P50/P95 are a dedicated 3-card row;
+- P50 uses the central/highlight treatment;
+- every Solar card carries its delta vs Enel plus a short evidence explanation;
+- financial scenarios use the same card grammar for Enel, observed, P5, P50 and P95;
+- statistical quality metrics use card groups plus a plain-language percentile explanation;
+- tariff evidence no longer emits raw parser source text or internal status tokens in the presentation layer;
+- tariff evidence uses concise cards for effective period, RED/ETR, supported modeled rate and reconciled components;
+- actual bill section labels are human-readable and signed CLP formatting is cleaned up.
+
+Informes PDF extension:
+- `EnergyReportData` now carries the same independent grid-import statistical completion used by the bill audit;
+- the existing “Importación total desde Enel” card remains the directly observed value;
+- immediately below it, P5/P50/P95 cards communicate lower / central / upper statistical completion;
+- P50 is explicitly the central estimate;
+- each card explains its percentile meaning;
+- a note states the number of uncovered hours completed statistically and clarifies that these are not Enel meter readings or metrological confidence intervals;
+- the distinction between grid temporal coverage and source-attribution coverage remains intact.
