@@ -2882,3 +2882,46 @@ For the target July/August bill:
 - **Electricidad consumida** may use 266 kWh as its calculation basis;
 - **Transporte de electricidad** may also use 266 kWh only because its normalized official component is confirmed as `$/kWh`;
 - this does not yet authorize applying one rate across the entire July/August interval.
+
+## Build 491 — semantic bill-line labels + billed-kWh calculation basis — GREEN — 2026-09-28
+
+Identity:
+- code commit: `2039e7e1b70f5c56c08b0932ade744fcdd1c9d0b`;
+- workflow run: `36508322865`;
+- Windows Build: **491**;
+- CI build: PASS;
+- deterministic SQLite smoke: PASS;
+- billed-kWh derivation smoke: PASS;
+- portable publish/upload: PASS;
+- artifact: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11007774143`;
+- handoff ZIP: `SolarEnergyMonitor-Build-491-win-x64.zip`;
+- ZIP SHA-256: `36e5692534e2983825fd054db2353f9bebac227cdad17e996e8f6a3f04ea0a19`.
+
+Build 490 is superseded for the next target-PC QA.
+
+New behavior:
+- bill-line entry has explicit **Tipo de cargo** choices:
+  - Electricidad consumida;
+  - Transporte de electricidad;
+  - Otro / texto libre;
+- recognized choices persist normalized category keys instead of relying on exact free-text matching;
+- the line amount remains actual bill evidence;
+- bill-level billed kWh is not re-entered on recognized lines;
+- audit adds **Base de cálculo** with provenance:
+  - e.g. `266.000 kWh · consumo boleta` when derived from the bill header;
+- derivation from billed kWh is allowed only for recognized Electricidad consumida / Transporte de electricidad when normalized official candidates are consistently `$/kWh`;
+- actual-line evidence remains separate: a blank printed line quantity remains blank in the actual-evidence section;
+- tariff rate still comes from official tariff evidence, not from amount/kWh reverse-engineering;
+- multi-period July/August reconstruction remains pending until the allocation rule is supported.
+
+Target-PC QA for Build 491:
+1. reuse the existing Data folder;
+2. confirm footer `Build 491 · 2039e7e1`;
+3. do **not** re-enter the existing July/August bill;
+4. open Auditoría de boleta and select it;
+5. confirm recognized Electricidad consumida / Transporte lines show the billed kWh as **Base de cálculo** when tariff-source prerequisites allow line evaluation;
+6. in Boletas Enel, verify the new **Tipo de cargo** selector exists for future line entry; no need to save a duplicate line merely to test the selector;
+7. continue with Enel tariff-PDF import only if the audit still reports missing final tariff source.
+
+Do not test Build 490 separately.
