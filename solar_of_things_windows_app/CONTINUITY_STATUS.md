@@ -3292,3 +3292,113 @@ Target-PC QA:
    - P5/P50/P95 explanations in Audit and Informes.
 
 No need to repeat any data, tariff or calculation validation already passed on Build 493.
+
+## CIERRE DE JORNADA / PUNTO CANÓNICO DE REANUDACIÓN — 2026-09-29
+
+Estado al cerrar:
+- `main` antes de este cierre documental: `4bed74361bc01c1c43434bb8516934506e0e4348`;
+- última build de código: **Build 494**;
+- commit de código de Build 494: `a0eea98e513f1ce822073c0c02a4f2a104ffc9a3`;
+- workflow: `36517130642`;
+- artifact ID: `11011373590`;
+- Build / smoke / report export / publish / upload: **GREEN**;
+- no hay cambios funcionales pendientes de compilar después de Build 494;
+- este cierre es **documental solamente** y NO requiere una Build 495.
+
+### Estado funcional consolidado
+
+Boleta / auditoría Enel:
+- la boleta objetivo 29-07-2026 -> 27-08-2026 conserva 266.000 kWh facturados a nivel de boleta;
+- las líneas `Electricidad consumida` y `Transporte de electricidad` pueden reutilizar ese kWh facturado como base derivada cuando el componente oficial está respaldado en $/kWh;
+- el usuario no debe reingresar kWh por línea ni inventar tasas;
+- futuras líneas pueden marcarse semánticamente como:
+  - Electricidad consumida;
+  - Transporte de electricidad;
+  - Otro / texto libre;
+- la auditoría conserva separación entre evidencia impresa, derivación oficial, escenario estadístico y valor no resuelto.
+
+Modelo estadístico:
+- el antiguo bound basado en máxima potencia observada NO es el rango probable;
+- el rango principal es independiente de Enel y usa `grid_import_power_w`:
+  - observado;
+  - P5 = margen inferior;
+  - P50 = mediana / estimación central;
+  - P95 = margen superior;
+- P5–P95 se comunica como el 90% central de las completaciones simuladas;
+- Enel se usa sólo después como referencia externa de contraste;
+- cobertura temporal de red y cobertura de atribución son métricas distintas y permanecen separadas.
+
+Modelo tarifario / financiero:
+- la tarifa se selecciona/reconcilia contra líneas reales de la boleta y fuentes oficiales antes de aplicar escenarios Solar of Things;
+- los escenarios monetarios se muestran para:
+  - Enel facturado;
+  - Solar observado;
+  - Solar P5;
+  - Solar P50;
+  - Solar P95;
+- los montos son subtotales de componentes tarifarios respaldados, no una falsa boleta total cuando existen subsidios/FET/cargos no reconstruidos;
+- RED/ETR debe presentarse como **inferido** cuando no está impreso y la conciliación no lo demuestra de forma única.
+
+### QA real ya realizado en Build 493
+
+Se revisaron los PDFs reales del usuario:
+- `Auditoria-Boleta-Enel-20260929-0011.pdf`;
+- `Resumen simple de energía_20260420_20260927.pdf`.
+
+Conclusiones aceptadas:
+- la gramática visual por cards es el baseline vigente;
+- la primera página de Auditoría es presentable y jerárquica;
+- Informes muestra correctamente observado + P5/P50/P95;
+- Informes mantiene separadas cobertura temporal de red y cobertura de atribución;
+- la evidencia tarifaria dejó de mostrar dumps crudos del parser;
+- los valores/cálculos de Build 493 se consideraron correctos para este tranche;
+- las observaciones restantes eran de presentación, no de cálculo.
+
+### Build 494 — única validación pendiente
+
+Build 494 contiene sólo refinamientos de presentación sobre Build 493:
+- P5–P95 explicado como 90% central;
+- P50 explicado como mediana / estimación central;
+- tabla de componentes reconstruidos de Auditoría simplificada;
+- caveat de conciliación movido a callout;
+- RED/ETR rotulado como inferido;
+- residual cercano a cero mostrado como `$ 0`, no `- $ 0`.
+
+Mañana NO repetir:
+- importación de datos;
+- importación de tarifas;
+- ingreso de boleta;
+- ingreso de líneas;
+- lecturas Enel;
+- startup QA;
+- responsive QA amplio;
+- validación estadística ya aprobada en Build 493;
+- validación tarifaria/cálculos ya aprobados en Build 493.
+
+Mañana hacer únicamente:
+1. reutilizar la misma carpeta `Data`;
+2. abrir Build 494 y confirmar footer `Build 494 · a0eea98e`;
+3. exportar:
+   - la misma Auditoría de boleta Enel;
+   - el mismo Resumen simple de energía;
+4. revisar visualmente:
+   - página 2 de Auditoría;
+   - texto RED/ETR inferido;
+   - residual `$ 0`;
+   - explicación P5/P50/P95 en ambos PDFs.
+
+Si esos cuatro puntos son correctos:
+- cerrar el tranche de Auditoría/Informes como **QA visual PASS**;
+- no generar otra build sólo por cierre documental;
+- continuar al siguiente objetivo funcional desde Build 494.
+
+### Regla de reanudación
+
+Al comenzar la próxima sesión:
+- leer primero esta sección de cierre;
+- verificar que `main` sólo haya avanzado por este commit documental de cierre;
+- NO reconstruir ni reanalizar la historia de Builds 486–493;
+- tratar Build 494 como baseline vigente;
+- pedir/usar únicamente los dos PDFs de Build 494 si el usuario ya los generó;
+- si no existen aún, solicitar sólo esa validación visual mínima;
+- cualquier nueva observación del usuario debe registrarse antes de abrir un nuevo tranche de código.
