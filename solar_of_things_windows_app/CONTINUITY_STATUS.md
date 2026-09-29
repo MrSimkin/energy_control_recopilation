@@ -2840,3 +2840,21 @@ Do NOT repeat:
 - Help/manual.
 
 Build 490 does not yet implement the formal multi-period charge-allocation rule. It makes the evidence state truthful and removes the incorrect expectation that the user must supply a unit rate that the bill may not print.
+
+## Target-PC observation before Build 490 QA — billed kWh is already bill-level evidence — 2026-09-28
+
+User clarification before testing Build 490:
+- the bill already contains its primary billed-consumption value in kWh;
+- for the target July/August bill this is the existing bill-level billed consumption, not a value that should be re-entered per line;
+- the user identified the two tariff-relevant bill lines conceptually as:
+  - “cobro de electricidad” / **Electricidad consumida**;
+  - “coste de transporte” / **Transporte de electricidad**.
+
+Design question raised by this observation:
+- do **not** ask the user to re-enter the bill merely to repeat the same billed kWh on both lines;
+- investigate whether recognized per-kWh components can derive their quantity basis from `utility_bill.billed_consumption_kwh` when the line itself has no printed quantity;
+- preserve the distinction between:
+  - bill-level kWh actually printed/stored as evidence;
+  - a line-level quantity explicitly printed on the bill;
+  - a quantity basis derived by the application because an official tariff component is denominated in $/kWh;
+- multi-period tariff splitting remains a separate requirement: using bill-level kWh as the quantity basis does not justify applying one tariff rate across the whole bill interval.
