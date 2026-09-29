@@ -2973,3 +2973,34 @@ Required redesign direction:
 - Page/level 4: data quality/sensitivity/observability;
 - Page/level 5: sources, version/retroactivity, inferred applicability and reading traceability;
 - long raw filenames belong in evidence/annex, not headline tables.
+
+## Statistical correction — Build 491 sensitivity bound is not a probable variance range — 2026-09-28
+
+User challenged the current `204.260–505.168 kWh` “sensitivity” range as physically/statistically misleading for the bill-audit use case.
+
+Correction:
+- current `UtilityReconciliationService.BuildSensitivity` is **not probabilistic**;
+- it fills every uncovered hour at the maximum observed grid-import power and therefore produces an engineering stress upper bound, not a likely missing-energy estimate;
+- for the target bill the PDF reports 90.3% temporal coverage of `grid_import_power_w`, while a separately remembered ~99.3% figure may belong to another coverage concept/report and must not be conflated without evidence;
+- source-attribution coverage of observed consumption and time coverage of the grid-import metric are different quantities.
+
+New audit requirement:
+- remove the max-power stress bound from the headline “probable variance” presentation;
+- preserve it only, if useful, as a clearly labelled worst-case diagnostic bound in a technical annex;
+- build an **independent statistical missing-energy model** from Solar of Things telemetry, without conditioning on the Enel billed/meter value;
+- model missing intervals using comparable observed intervals (at minimum local time-of-day and gap structure; stronger contextual matching where supportable);
+- use empirical resampling / multiple imputation to obtain:
+  - observed energy;
+  - expected/median completed energy;
+  - spread/standard deviation where meaningful;
+  - empirical percentile interval(s), e.g. P5–P95, clearly labelled as simulation/predictive intervals rather than metrological confidence;
+- compare Enel's 266 kWh **after** the independent Solar distribution is constructed, so the audit can state whether the utility-meter value falls inside/outside the telemetry-implied range;
+- do not hard-cap the Solar distribution at 266 kWh, because that would make the comparison circular;
+- financial scenarios must use the observed Solar value and statistically completed Solar distribution/range, not the previous max-power stress bound.
+
+Presentation consequence:
+- distinguish four evidence classes:
+  1. Enel measured/billed value;
+  2. Solar of Things directly observed/integrated value;
+  3. Solar of Things statistical completion for missing telemetry;
+  4. worst-case engineering stress bound (technical appendix only, if retained).
