@@ -2832,8 +2832,8 @@ public sealed class EnergyReportExportService
             $"{statistical.LowerKwh!.Value:N2} kWh",
             L(
                 report,
-                "5% de las imputaciones quedan por debajo.",
-                "5% of imputations fall below this value."),
+                "Margen inferior del rango central del 90%.",
+                "Lower edge of the central 90% range."),
             Colors.AliceBlue,
             compact ? 12 : 14);
 
@@ -2843,8 +2843,8 @@ public sealed class EnergyReportExportService
             $"{statistical.MedianKwh!.Value:N2} kWh",
             L(
                 report,
-                "Mediana: mitad de las imputaciones queda a cada lado.",
-                "Median: half of imputations fall on each side."),
+                "Mediana y estimación central.",
+                "Median and central estimate."),
             Colors.Honeydew,
             compact ? 12 : 14);
 
@@ -2854,8 +2854,8 @@ public sealed class EnergyReportExportService
             $"{statistical.UpperKwh!.Value:N2} kWh",
             L(
                 report,
-                "95% de las imputaciones quedan por debajo.",
-                "95% of imputations fall below this value."),
+                "Margen superior del rango central del 90%.",
+                "Upper edge of the central 90% range."),
             Colors.AliceBlue,
             compact ? 12 : 14);
 
@@ -2863,8 +2863,8 @@ public sealed class EnergyReportExportService
             string.Format(
                 L(
                     report,
-                    "P5/P50/P95 completan estadísticamente {0:N2} h sin cobertura usando telemetría comparable. No son lecturas Enel ni intervalos de calibración del medidor.",
-                    "P5/P50/P95 statistically complete {0:N2} h without coverage using comparable telemetry. They are not utility readings or meter-calibration intervals."),
+                    "P5–P95 contiene el 90% central de las simulaciones y P50 es la estimación central. El modelo completa estadísticamente {0:N2} h sin cobertura usando telemetría comparable. No son lecturas Enel ni intervalos de calibración del medidor.",
+                    "P5–P95 contains the central 90% of simulations and P50 is the central estimate. The model statistically completes {0:N2} h without coverage using comparable telemetry. They are not utility readings or meter-calibration intervals."),
                 statistical.MissingHours));
         note.Format.Font.Size = 7.8;
         note.Format.Font.Italic = true;

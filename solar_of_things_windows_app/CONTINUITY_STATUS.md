@@ -3235,3 +3235,24 @@ Do not repeat:
 - broad responsive QA;
 - manual bill entry;
 - unrelated report pages unless visual pagination is obviously broken.
+
+## Build 493 target-PDF QA refinements — 2026-09-29
+
+Reviewed actual target outputs:
+- `Auditoria-Boleta-Enel-20260929-0011.pdf`;
+- `Resumen simple de energía_20260420_20260927.pdf`.
+
+QA conclusion:
+- card-based presentation is materially clearer and accepted as the visual baseline;
+- Audit page 1 is now presentation-grade for the main Enel vs Solar and financial comparison;
+- Informes correctly shows observed grid import plus P5/P50/P95 as first-class cards;
+- remaining issues are minor presentation semantics, not calculation defects.
+
+Refinement tranche:
+- explain P5–P95 as the **central 90% of simulated completions**;
+- P50 explicitly remains the median / central estimate;
+- simplify Audit page 2 reconstructed-components table by removing the narrow Evidence column;
+- move reconciliation caveat into a readable callout;
+- label RED/ETR as **inferred** rather than as if printed on the bill;
+- normalize near-zero signed currency to `$ 0` instead of visually misleading `- $ 0`;
+- no changes to the statistical model, P5/P50/P95 values, tariff rates or reconciliation logic.

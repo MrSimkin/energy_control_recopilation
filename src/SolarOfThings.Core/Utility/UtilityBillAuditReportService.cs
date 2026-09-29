@@ -281,8 +281,8 @@ public sealed class UtilityBillAuditReportService
                     statistical.LowerKwh.Value,
                     enel,
                     L(
-                        "5% de imputaciones quedan por debajo.",
-                        "5% of imputations fall below."))
+                        "Margen inferior del rango central del 90% de simulaciones.",
+                        "Lower edge of the central 90% simulation range."))
                 : L("Sin evidencia suficiente", "Insufficient evidence"),
             Colors.AliceBlue,
             13);
@@ -298,8 +298,8 @@ public sealed class UtilityBillAuditReportService
                     statistical.MedianKwh.Value,
                     enel,
                     L(
-                        "Mediana de las 2.000 imputaciones.",
-                        "Median of the 2,000 imputations."))
+                        "Mediana y estimación central de las 2.000 imputaciones.",
+                        "Median and central estimate of the 2,000 imputations."))
                 : L("Sin evidencia suficiente", "Insufficient evidence"),
             Colors.Honeydew,
             13);
@@ -315,8 +315,8 @@ public sealed class UtilityBillAuditReportService
                     statistical.UpperKwh.Value,
                     enel,
                     L(
-                        "95% de imputaciones quedan por debajo.",
-                        "95% of imputations fall below."))
+                        "Margen superior del rango central del 90% de simulaciones.",
+                        "Upper edge of the central 90% simulation range."))
                 : L("Sin evidencia suficiente", "Insufficient evidence"),
             Colors.AliceBlue,
             13);
@@ -474,7 +474,7 @@ public sealed class UtilityBillAuditReportService
             analysis.Scenarios.FirstOrDefault(item =>
                 item.Key == "SOLAR_LOWER"),
             enel,
-            L("Escenario estadístico P5.", "P5 statistical scenario."),
+            L("Margen inferior del rango central 90%.", "Lower edge of the central 90% range."),
             Colors.AliceBlue);
 
         AddAuditMoneyCard(
@@ -483,7 +483,7 @@ public sealed class UtilityBillAuditReportService
             analysis.Scenarios.FirstOrDefault(item =>
                 item.Key == "SOLAR_CENTRAL"),
             enel,
-            L("Escenario central P50.", "Central P50 scenario."),
+            L("Mediana y estimación central.", "Median and central estimate."),
             Colors.Honeydew);
 
         AddAuditMoneyCard(
@@ -492,7 +492,7 @@ public sealed class UtilityBillAuditReportService
             analysis.Scenarios.FirstOrDefault(item =>
                 item.Key == "SOLAR_UPPER"),
             enel,
-            L("Escenario estadístico P95.", "P95 statistical scenario."),
+            L("Margen superior del rango central 90%.", "Upper edge of the central 90% range."),
             Colors.AliceBlue);
 
         AddCallout(
@@ -557,21 +557,20 @@ public sealed class UtilityBillAuditReportService
 
         var table = section.AddTable();
         table.Borders.Width = 0.25;
-        table.AddColumn(Unit.FromCentimeter(4.2));
-        table.AddColumn(Unit.FromCentimeter(2.7));
-        table.AddColumn(Unit.FromCentimeter(2.8));
-        table.AddColumn(Unit.FromCentimeter(2.8));
-        table.AddColumn(Unit.FromCentimeter(2.2));
-        table.AddColumn(Unit.FromCentimeter(2.0));
+        table.AddColumn(Unit.FromCentimeter(5.0));
+        table.AddColumn(Unit.FromCentimeter(3.2));
+        table.AddColumn(Unit.FromCentimeter(3.0));
+        table.AddColumn(Unit.FromCentimeter(3.0));
+        table.AddColumn(Unit.FromCentimeter(2.5));
 
         var h = table.AddRow();
         h.Format.Font.Bold = true;
+        h.Shading.Color = Colors.AliceBlue;
         h.Cells[0].AddParagraph(L("Línea", "Line"));
         h.Cells[1].AddParagraph(L("Tasa oficial", "Official rate"));
         h.Cells[2].AddParagraph(L("Monto real", "Actual"));
         h.Cells[3].AddParagraph(L("Reconstruido", "Reconstructed"));
         h.Cells[4].AddParagraph(L("Diferencia", "Difference"));
-        h.Cells[5].AddParagraph(L("Evidencia", "Evidence"));
 
         foreach (var item in analysis.Components)
         {
@@ -585,12 +584,6 @@ public sealed class UtilityBillAuditReportService
                 Money(item.ReconstructedAmountClp));
             r.Cells[4].AddParagraph(
                 MoneySigned(item.DifferenceClp));
-            r.Cells[5].AddParagraph(
-                item.EvidenceStatus.Contains(
-                    "AMBIGUOUS",
-                    StringComparison.Ordinal)
-                    ? L("Tasa concilia; aplicabilidad no única", "Rate reconciles; applicability not unique")
-                    : L("Conciliado con fuente oficial", "Reconciled to official source"));
         }
 
         if (analysis.ReconstructedVsActualDifferenceClp.HasValue)
@@ -607,6 +600,25 @@ public sealed class UtilityBillAuditReportService
             p.Format.Font.Size = 8.5;
             p.Format.SpaceBefore = Unit.FromPoint(4);
         }
+
+        var ambiguous = analysis.Components.Any(item =>
+            item.EvidenceStatus.Contains(
+                "AMBIGUOUS",
+                StringComparison.Ordinal));
+
+        AddCallout(
+            section,
+            L("ESTADO DE LA CONCILIACIÓN", "RECONCILIATION STATUS"),
+            ambiguous
+                ? L(
+                    "Los montos reconstruidos concilian con las tasas oficiales. En Electricidad consumida la tasa queda demostrada por el monto de la boleta, pero la combinación RED/ETR no queda identificada de forma única sólo con esa coincidencia; se presenta como inferida, no como dato impreso.",
+                    "Reconstructed amounts reconcile with official rates. For Electricity consumed, the rate is demonstrated by the bill amount, but the RED/ETR combination is not uniquely identified by that match alone; it is presented as inferred, not printed evidence.")
+                : L(
+                    "Los componentes modelados concilian con las tasas oficiales dentro de la tolerancia de auditoría.",
+                    "Modeled components reconcile with official rates within audit tolerance."),
+            ambiguous
+                ? Colors.LemonChiffon
+                : Colors.Honeydew);
     }
 
     private static void AddStatisticalEvidence(
@@ -685,8 +697,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("CÓMO LEER LOS PERCENTILES", "HOW TO READ THE PERCENTILES"),
             L(
-                "P5 es el margen inferior: sólo 5% de las imputaciones simuladas quedó por debajo. P50 es la mediana y la estimación central. P95 es el margen superior: 95% quedó por debajo. Enel no participa en la construcción del rango; se compara después como referencia independiente.",
-                "P5 is the lower margin: only 5% of simulated imputations fell below it. P50 is the median and central estimate. P95 is the upper margin: 95% fell below it. The utility value does not participate in building the range; it is compared afterward as an independent reference."),
+                "P5 y P95 delimitan el 90% central de los resultados simulados. P5 es el margen inferior, P50 es la mediana y estimación central, y P95 es el margen superior. Enel no participa en la construcción de este rango; se compara después como referencia independiente.",
+                "P5 and P95 bound the central 90% of simulated results. P5 is the lower margin, P50 is the median and central estimate, and P95 is the upper margin. The utility value does not participate in building this range; it is compared afterward as an independent reference."),
             Colors.Honeydew);
 
         if (energy.Sensitivity is not null)
@@ -746,11 +758,11 @@ public sealed class UtilityBillAuditReportService
 
         AddAuditMetricCard(
             row.Cells[1],
-            "RED / ETR",
+            L("RED / ETR INFERIDO", "INFERRED NETWORK / ETR"),
             $"{analysis.NetworkType ?? "?"} / {analysis.EtrBand ?? "?"}",
             L(
-                "Aplicabilidad inferida por conciliación de la boleta.",
-                "Applicability inferred by bill reconciliation."),
+                "No está impreso en la boleta; se infiere de candidatos que reproducen los cargos.",
+                "Not printed on the bill; inferred from candidates that reproduce the charges."),
             Colors.AliceBlue,
             12);
 
@@ -1292,14 +1304,18 @@ public sealed class UtilityBillAuditReportService
     private static string Money(double? value) =>
         value.HasValue ? $"$ {value.Value:N0}" : "—";
 
-    private static string MoneySigned(double? value) =>
-        !value.HasValue
-            ? "—"
-            : value.Value > 0
-                ? $"+$ {value.Value:N0}"
-                : value.Value < 0
-                    ? $"- $ {Math.Abs(value.Value):N0}"
-                    : "$ 0";
+    private static string MoneySigned(double? value)
+    {
+        if (!value.HasValue)
+            return "—";
+
+        if (Math.Abs(value.Value) < 0.5)
+            return "$ 0";
+
+        return value.Value > 0
+            ? $"+$ {value.Value:N0}"
+            : $"- $ {Math.Abs(value.Value):N0}";
+    }
 
     private static void EnsurePdfFonts()
     {
