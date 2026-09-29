@@ -3256,3 +3256,39 @@ Refinement tranche:
 - label RED/ETR as **inferred** rather than as if printed on the bill;
 - normalize near-zero signed currency to `$ 0` instead of visually misleading `- $ 0`;
 - no changes to the statistical model, P5/P50/P95 values, tariff rates or reconciliation logic.
+
+## Build 494 — final percentile wording + audit reconciliation cleanup — GREEN — 2026-09-29
+
+Identity:
+- code commit: `a0eea98e513f1ce822073c0c02a4f2a104ffc9a3`;
+- workflow run: `36517130642`;
+- Windows Build: **494**;
+- CI build: PASS;
+- SQLite smoke: PASS;
+- bill/report export smoke: PASS;
+- portable publish/upload: PASS;
+- artifact ID: `11011373590`;
+- handoff ZIP: `SolarEnergyMonitor-Build-494-win-x64.zip`.
+
+Changes are presentation-only:
+- P5–P95 is described as the **central 90% of simulated completions**;
+- P50 is explicitly the median / central estimate;
+- Audit page 2 reconstructed-component table drops the narrow Evidence column;
+- reconciliation caveats move into a readable callout;
+- RED/ETR is labelled **inferred**, not printed evidence;
+- near-zero signed currency displays as `$ 0` instead of `- $ 0`;
+- no changes to statistical values, tariff rates, scenario costs or reconciliation logic.
+
+Target-PC QA:
+1. reuse Build 493 Data unchanged;
+2. confirm footer `Build 494 · a0eea98e`;
+3. export:
+   - the same Enel bill-audit PDF;
+   - the same Resumen simple de energía PDF;
+4. visual-only review:
+   - Audit page 2 table/readability;
+   - RED/ETR inferred wording;
+   - zero residual formatting;
+   - P5/P50/P95 explanations in Audit and Informes.
+
+No need to repeat any data, tariff or calculation validation already passed on Build 493.
