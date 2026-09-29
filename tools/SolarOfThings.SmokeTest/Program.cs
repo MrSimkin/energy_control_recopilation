@@ -1227,6 +1227,15 @@ try
         taxTreatment: "EXENTO",
         sortOrder: 40);
 
+    var noPrintedRateAuditLineId = utilityRepository.AddBillLine(
+        billId,
+        "SERVICIO_ELECTRICO",
+        "Transporte de electricidad",
+        134.15,
+        categoryKey: "ELECTRICITY_TRANSPORT",
+        taxTreatment: "AFECTO",
+        sortOrder: 41);
+
     var rateVerification =
         new TariffBillRateVerificationService(
             utilityRepository,
@@ -1244,6 +1253,8 @@ try
         item.BillLineId == electricityAuditLineId);
     var verifiedActualOnly = verifiedLines.Single(item =>
         item.BillLineId == actualOnlyAuditLineId);
+    var pendingOfficialDerivation = verifiedLines.Single(item =>
+        item.BillLineId == noPrintedRateAuditLineId);
 
     if (!verifiedFixed.Status.StartsWith(
             "VERIFIED_RECONSTRUCTED_",
@@ -1261,7 +1272,11 @@ try
         Math.Abs(
             verifiedElectricity.ReconstructedAmountClp.Value -
             1762.788) > 0.001 ||
-        verifiedActualOnly.Status != "ACTUAL_ONLY_UNMAPPED")
+        verifiedActualOnly.Status != "ACTUAL_ONLY_UNMAPPED" ||
+        pendingOfficialDerivation.Status != "OFFICIAL_RATE_DERIVATION_PENDING" ||
+        pendingOfficialDerivation.PrintedUnitRateClp is not null ||
+        pendingOfficialDerivation.PublicationIds.Count != 1 ||
+        pendingOfficialDerivation.PublicationIds[0] != januaryPublicationId)
     {
         throw new InvalidOperationException(
             "Phase 9 bill-line official-rate verification smoke test failed.");

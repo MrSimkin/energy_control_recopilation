@@ -2768,3 +2768,29 @@ UX requirement:
 - do not require the user to know internal category keys;
 - for lines such as Subsidio or other non-reconstructable adjustments, amount-only evidence is acceptable;
 - audit empty/incomplete states must distinguish "no lines" from "lines present but missing quantity/rate".
+
+## Bill-line evidence UX correction — 2026-09-28
+
+The Build 486 audit clarification established that the selected bill has three stored charge lines; the issue is incomplete calculation evidence, not zero bill lines.
+
+Additional official-format review:
+- Enel's public “Entendiendo mi boleta” example presents “Electricidad consumida” with billed kWh and a line amount, and “Transporte de electricidad” with a line amount, without presenting a unit-rate field in that charge-detail block;
+- final per-unit tariff values belong to the official tariff publications, not necessarily to the customer's bill detail.
+
+Design consequence:
+- the user must **not** be asked to invent quantity/unit-rate values that are not printed on the bill;
+- description + actual amount are sufficient minimum evidence for preserving a bill line;
+- quantity/unit/unit-rate/tax-treatment remain optional evidence only when explicitly present;
+- for recognized tariff lines, verification must report missing official source/version/component evidence before treating the absence of a printed unit rate as a blocker;
+- once official tariff candidates exist and no bill rate is printed, the UI/PDF must say that official derivation is pending rather than instructing manual entry;
+- if the bill crosses multiple effective tariff periods, expected-amount reconstruction remains pending until a supported split/allocation rule is implemented; do not multiply the whole billed consumption by one arbitrary rate.
+
+Implementation in the following code commit:
+- audit source checks precede the non-printed-rate state;
+- new explicit derivation-pending states distinguish single-period and multi-period evidence;
+- “Boletas Enel” explains which fields are optional and says not to invent a rate;
+- audit preview and PDF use the same semantics;
+- smoke coverage protects the non-printed-rate path.
+
+Official explanatory source used for the format check:
+- https://www.enel.cl/es/clientes/informacion-util/entendiendo-mi-boleta.html

@@ -46,12 +46,13 @@ public sealed class TariffBillRateVerificationService
             timeZoneId);
 
         return lines
-            .Select(line => VerifyLine(line, selection))
+            .Select(line => VerifyLine(line, bill, selection))
             .ToArray();
     }
 
     private BillLineTariffVerification VerifyLine(
         UtilityBillLine line,
+        UtilityBillRecord bill,
         TariffPeriodSelection selection)
     {
         var componentKey = MapComponentKey(line);
@@ -65,15 +66,6 @@ public sealed class TariffBillRateVerificationService
                 "No conservative tariff-component mapping exists for this bill line.");
         }
 
-        if (!line.UnitRateClp.HasValue)
-        {
-            return Result(
-                line,
-                componentKey,
-                "ACTUAL_ONLY_NO_UNIT_RATE",
-                "The stored bill line has no printed unit rate to verify.");
-        }
-
         if (selection.Status != "RESOLVED")
         {
             return Result(
@@ -85,8 +77,8 @@ public sealed class TariffBillRateVerificationService
                 publications: selection.Publications);
         }
 
-        var perPublicationMatches =
-            new List<(long PublicationId, IReadOnlyList<RateCandidateMatch> Matches)>();
+        var perPublicationCandidates =
+            new List<(long PublicationId, IReadOnlyList<TariffRateCandidate> Candidates)>();
 
         foreach (var publication in selection.Publications)
         {
@@ -115,7 +107,38 @@ public sealed class TariffBillRateVerificationService
                     publications: selection.Publications);
             }
 
-            var matches = candidates
+            perPublicationCandidates.Add(
+                (publicationId, candidates));
+        }
+
+        if (!line.UnitRateClp.HasValue)
+        {
+            var quantityContext = bill.BilledConsumptionKwh.HasValue
+                ? $" Bill-level billed consumption is {bill.BilledConsumptionKwh.Value:N3} kWh; it may be used only where the official component and billing rule confirm that basis."
+                : string.Empty;
+
+            var crossesTariffPeriods =
+                selection.Publications.Count > 1;
+
+            return Result(
+                line,
+                componentKey,
+                crossesTariffPeriods
+                    ? "OFFICIAL_RATE_DERIVATION_MULTI_PERIOD"
+                    : "OFFICIAL_RATE_DERIVATION_PENDING",
+                crossesTariffPeriods
+                    ? "The bill does not contain a stored printed unit rate; no manual rate entry is required. Official tariff candidates are available, but the billing interval crosses multiple effective tariff periods. Reconstruction must split the interval using a supported billing rule before an expected amount is asserted." + quantityContext
+                    : "The bill does not contain a stored printed unit rate; no manual rate entry is required. Official tariff candidates are available. The application must resolve customer applicability and the calculation basis before deriving an expected amount." + quantityContext,
+                publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray(),
+                publications: selection.Publications);
+        }
+
+        var perPublicationMatches =
+            new List<(long PublicationId, IReadOnlyList<RateCandidateMatch> Matches)>();
+
+        foreach (var candidateSet in perPublicationCandidates)
+        {
+            var matches = candidateSet.Candidates
                 .SelectMany(candidate => CandidateMatches(
                     candidate,
                     line.UnitRateClp.Value))
@@ -127,13 +150,13 @@ public sealed class TariffBillRateVerificationService
                     line,
                     componentKey,
                     "RATE_NOT_FOUND",
-                    $"The printed unit rate {line.UnitRateClp.Value.ToString("N3", CultureInfo.InvariantCulture)} was not found for {componentKey} in publication {publicationId}.",
+                    $"The printed unit rate {line.UnitRateClp.Value.ToString("N3", CultureInfo.InvariantCulture)} was not found for {componentKey} in publication {candidateSet.PublicationId}.",
                     publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray(),
                     publications: selection.Publications);
             }
 
             perPublicationMatches.Add(
-                (publicationId, matches));
+                (candidateSet.PublicationId, matches));
         }
 
         var allMatches = perPublicationMatches

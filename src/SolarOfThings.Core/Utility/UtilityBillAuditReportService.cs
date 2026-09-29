@@ -337,7 +337,11 @@ public sealed class UtilityBillAuditReportService
             "ACTUAL_ONLY_UNMAPPED" =>
                 spanish ? "Sólo evidencia real" : "Actual-only evidence",
             "ACTUAL_ONLY_NO_UNIT_RATE" =>
-                spanish ? "Sin tasa impresa" : "No printed rate",
+                spanish ? "Sin tasa en boleta" : "No rate on bill",
+            "OFFICIAL_RATE_DERIVATION_PENDING" =>
+                spanish ? "Fuente oficial disponible · cálculo pendiente" : "Official source available · calculation pending",
+            "OFFICIAL_RATE_DERIVATION_MULTI_PERIOD" =>
+                spanish ? "Fuente oficial disponible · dividir período tarifario" : "Official source available · split tariff period",
             "MISSING_TARIFF_SOURCE" =>
                 spanish ? "Falta fuente tarifaria" : "Missing tariff source",
             "TARIFF_VERSION_AMBIGUOUS" =>
@@ -381,6 +385,14 @@ public sealed class UtilityBillAuditReportService
             p.Format.Font.Color = Colors.DimGray;
             return;
         }
+
+        var evidenceNote = section.AddParagraph(
+            L(
+                "Un guion en Cantidad o Precio significa que ese dato no fue capturado desde la boleta. No debe completarse por suposición: la reconstrucción usa fuentes oficiales cuando existe una base de cálculo respaldada.",
+                "A dash in Quantity or Rate means that value was not captured from the bill. It must not be filled by assumption: reconstruction uses official sources only when a supported calculation basis exists."));
+        evidenceNote.Format.Font.Size = 8;
+        evidenceNote.Format.Font.Color = Colors.DimGray;
+        evidenceNote.Format.SpaceAfter = Unit.FromPoint(4);
 
         var table = section.AddTable();
         table.Borders.Width = 0.25;

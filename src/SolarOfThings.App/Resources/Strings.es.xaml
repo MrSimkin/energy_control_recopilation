@@ -184,7 +184,7 @@
     <sys:String x:Key="GridUtility.Tab.Audit">Auditoría de boleta</sys:String>
     <sys:String x:Key="GridUtility.Tab.Tariffs">Tarifas oficiales</sys:String>
     <sys:String x:Key="GridUtility.AuditHeading">Auditoría de boleta Enel</sys:String>
-    <sys:String x:Key="GridUtility.AuditIntro">Selecciona una boleta. La auditoría parte desde sus lecturas oficiales vinculadas, contrasta energía con Solar of Things y conserva los cargos reales. La reconstrucción tarifaria sólo mostrará valores esperados cuando exista evidencia oficial verificada.</sys:String>
+    <sys:String x:Key="GridUtility.AuditIntro">Selecciona una boleta. La auditoría parte desde sus lecturas oficiales vinculadas, contrasta energía con Solar of Things y conserva los cargos reales. Si la boleta no imprime cantidad o precio unitario, no debes inventarlos: la app usará las fuentes oficiales y mostrará explícitamente qué puede y qué no puede reconstruir.</sys:String>
     <sys:String x:Key="GridUtility.AuditBill">Boleta a auditar</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAudit">Exportar auditoría PDF</sys:String>
     <sys:String x:Key="GridUtility.AuditEvidencePending">Selecciona una boleta para revisar/exportar su evidencia. La tarifa aplicable se verificará por separado.</sys:String>
@@ -193,9 +193,9 @@
     <sys:String x:Key="GridUtility.AuditSelectBill">Selecciona una boleta antes de exportar.</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditTitle">Exportar auditoría de boleta Enel</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditSaved">Auditoría guardada: {0}</sys:String>
-    <sys:String x:Key="GridUtility.AuditPreviewSummary">{0} línea(s) con tasa oficial verificada; {1} línea(s) pendientes, ambiguas o sólo como evidencia real.</sys:String>
+    <sys:String x:Key="GridUtility.AuditPreviewSummary">{0} línea(s) verificadas; {1} línea(s) pendientes, ambiguas o sólo como evidencia real. Los campos no impresos en la boleta no deben completarse por suposición.</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Line">Línea</sys:String>
-    <sys:String x:Key="GridUtility.AuditColumn.Rate">Tasa impresa</sys:String>
+    <sys:String x:Key="GridUtility.AuditColumn.Rate">Tasa en boleta</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Status">Verificación</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Source">Fuente</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Reconstructed">Reconstruido</sys:String>
@@ -205,7 +205,9 @@
     <sys:String x:Key="GridUtility.AuditStatus.RateVerified">Tasa verificada</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.RateVerifiedAmbiguous">Tasa verificada · aplicabilidad ambigua</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.ActualOnly">Sólo evidencia real</sys:String>
-    <sys:String x:Key="GridUtility.AuditStatus.NoRate">Sin tasa impresa</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.NoRate">Sin tasa en boleta</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.DerivationPending">Fuente oficial disponible · cálculo pendiente</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.DerivationMultiPeriod">Fuente oficial disponible · dividir período tarifario</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.MissingSource">Falta fuente tarifaria</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.AmbiguousVersion">Versión tarifaria ambigua</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.NotNormalized">Fuente aún no normalizada</sys:String>
@@ -285,7 +287,7 @@
     <sys:String x:Key="GridUtility.OtherCharges">Otros cargos (+/−)</sys:String>
     <sys:String x:Key="GridUtility.TotalDue">Total a pagar</sys:String>
     <sys:String x:Key="GridUtility.BillLinesHeading">Detalle de cargos y créditos</sys:String>
-    <sys:String x:Key="GridUtility.BillLinesIntro">Selecciona una boleta guardada y agrega cada línea tal como aparece. Los montos pueden ser positivos o negativos; no se reinterpretan silenciosamente.</sys:String>
+    <sys:String x:Key="GridUtility.BillLinesIntro">Selecciona una boleta guardada y conserva cada línea tal como aparece. Descripción y monto son la evidencia mínima. Cantidad, unidad, precio unitario y tratamiento tributario son opcionales: complétalos sólo si aparecen explícitamente en la boleta. No inventes una tasa; la auditoría buscará la fuente oficial.</sys:String>
     <sys:String x:Key="GridUtility.BillSection">Sección</sys:String>
     <sys:String x:Key="GridUtility.BillSection.Service">Servicio eléctrico</sys:String>
     <sys:String x:Key="GridUtility.BillSection.OtherCharges">Otros cargos</sys:String>

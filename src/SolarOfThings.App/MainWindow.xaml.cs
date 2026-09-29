@@ -2890,6 +2890,12 @@ public partial class MainWindow : Window
             "ACTUAL_ONLY_NO_UNIT_RATE" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.NoRate"),
+            "OFFICIAL_RATE_DERIVATION_PENDING" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.DerivationPending"),
+            "OFFICIAL_RATE_DERIVATION_MULTI_PERIOD" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.DerivationMultiPeriod"),
             "MISSING_TARIFF_SOURCE" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.MissingSource"),
