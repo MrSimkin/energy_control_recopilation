@@ -3034,3 +3034,41 @@ Presentation rule:
 - these values belong in the executive comparison layer, not only in the quality annex;
 - the old max-observed-power stress bound must not occupy the lower/central/upper statistical slots;
 - the technical annex must explain the statistical method, sample/context basis, coverage and percentile semantics used to construct the lower/central/upper band.
+
+## Statistical lower/central/upper audit implementation — 2026-09-28
+
+Implementation tranche:
+- added `UtilityGridImportStatisticalCompletionService`;
+- the independent Solar of Things completion model does **not** use the Enel billed/meter value;
+- uncovered `grid_import_power_w` intervals are completed by deterministic empirical bootstrap:
+  - local hour;
+  - weekday/weekend class;
+  - controlled widening of donor pool when a strict cell is sparse;
+  - 2,000 simulations;
+- headline interval is P5 / P50 / P95;
+- observed integration remains a separate value and is never silently replaced;
+- previous maximum-observed-power missing-data bound is no longer used as a probable range.
+
+Tariff/financial layer:
+- added `UtilityBillTariffScenarioAnalysisService`;
+- tariff is selected from official normalized Enel candidates by reconciliation against the **actual bill line**, before Solar energy values are applied;
+- `Electricidad consumida` rate matching is bill-grounded;
+- `Transporte de electricidad` can reconcile either directly or, when supported by the bill arithmetic, as a composite with published public-service charge;
+- the same supported component subtotal is then applied to:
+  - Enel billed kWh;
+  - Solar observed kWh;
+  - Solar P5;
+  - Solar P50;
+  - Solar P95;
+- scenarios explicitly remain a supported tariff subtotal, not a fabricated full final bill where subsidies/FET/fixed or other adjustments are unresolved.
+
+PDF redesign:
+- executive energy comparison first;
+- explicit Enel vs Solar observed/P5/P50/P95 deltas;
+- direct statement whether Enel falls inside/outside the independent Solar predictive interval;
+- financial scenario table in CLP;
+- actual-vs-reconstructed component reconciliation;
+- quality/statistical-method section;
+- tariff evidence and full reading traceability in the technical evidence layer;
+- long source filenames no longer dominate the headline tariff table;
+- English internal detail is removed from the principal audit narrative.

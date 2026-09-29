@@ -15,16 +15,22 @@ public sealed class UtilityBillAuditReportService
     private readonly UtilityMeterRepository _repository;
     private readonly UtilityReconciliationService _reconciliation;
     private readonly TariffBillRateVerificationService _tariffVerification;
+    private readonly UtilityGridImportStatisticalCompletionService _statisticalCompletion;
+    private readonly UtilityBillTariffScenarioAnalysisService _tariffScenarioAnalysis;
     private static int _pdfFontsInitialized;
 
     public UtilityBillAuditReportService(
         UtilityMeterRepository repository,
         UtilityReconciliationService reconciliation,
-        TariffBillRateVerificationService tariffVerification)
+        TariffBillRateVerificationService tariffVerification,
+        UtilityGridImportStatisticalCompletionService statisticalCompletion,
+        UtilityBillTariffScenarioAnalysisService tariffScenarioAnalysis)
     {
         _repository = repository;
         _reconciliation = reconciliation;
         _tariffVerification = tariffVerification;
+        _statisticalCompletion = statisticalCompletion;
+        _tariffScenarioAnalysis = tariffScenarioAnalysis;
     }
 
     public void ExportPdf(
@@ -55,6 +61,15 @@ public sealed class UtilityBillAuditReportService
             deviceId,
             from,
             to);
+        var statistical = _statisticalCompletion.Analyze(
+            deviceId,
+            from.ReadingAtUtc,
+            to.ReadingAtUtc,
+            timeZoneId);
+        var tariffScenario = _tariffScenarioAnalysis.Analyze(
+            billId,
+            timeZoneId,
+            statistical);
 
         var spanish = languageCode.StartsWith(
             "es",
@@ -115,66 +130,60 @@ public sealed class UtilityBillAuditReportService
         convention.Format.Font.Color = Colors.DimGray;
         convention.Format.SpaceAfter = Unit.FromPoint(8);
 
-        var cards = section.AddTable();
-        cards.Borders.Width = 0;
-        for (var i = 0; i < 4; i++)
-            cards.AddColumn(Unit.FromCentimeter(4.05));
-        var row = cards.AddRow();
-        AddCard(row.Cells[0], L("BOLETA", "BILL"),
-            bill.BilledConsumptionKwh.HasValue ? $"{bill.BilledConsumptionKwh.Value:N3} kWh" : "—",
-            L("Consumo impreso", "Printed consumption"));
-        AddCard(row.Cells[1], L("MEDIDOR", "METER"),
-            energy.MeterConsumptionKwh.HasValue ? $"{energy.MeterConsumptionKwh.Value:N3} kWh" : "—",
-            L("Diferencia de lecturas", "Reading delta"));
-        AddCard(row.Cells[2], "SOLAR OF THINGS",
-            $"{energy.InverterGridImportKwh:N3} kWh",
-            L("Importación de red", "Grid import"));
-        AddCard(row.Cells[3], L("COBERTURA", "COVERAGE"),
-            $"{energy.CoveragePercent:N1}%",
-            L("No es confianza metrológica", "Not metrological confidence"));
-
-        var differenceText = section.AddParagraph();
-        differenceText.Format.SpaceBefore = Unit.FromPoint(8);
-        differenceText.AddFormattedText(
-            L("Contraste físico: ", "Physical comparison: "),
-            TextFormat.Bold);
-        differenceText.AddText(
-            energy.SignedDifferenceKwh.HasValue
-                ? $"{energy.SignedDifferenceKwh.Value:+0.000;-0.000;0.000} kWh"
-                : "—");
-        if (energy.DifferencePercent.HasValue)
-            differenceText.AddText($" ({energy.DifferencePercent.Value:N2}%)");
-
-        if (energy.Sensitivity is not null)
-        {
-            AddCallout(
-                section,
-                L("SENSIBILIDAD DE DATOS", "DATA SENSITIVITY"),
-                SensitivityText(
-                    energy.Sensitivity,
-                    spanish),
-                Colors.AliceBlue);
-        }
-
-        AddCallout(
+        AddHeading(
             section,
-            L("INTERPRETACIÓN", "INTERPRETATION"),
-            L(
-                "Una diferencia entre el medidor certificado y la telemetría del inversor no demuestra por sí sola un error de facturación. Deben considerarse cobertura, límites temporales, sensibilidad de integración, incertidumbre sustentable y la tarifa oficial aplicable.",
-                "A difference between the certified meter and inverter telemetry does not by itself prove a billing error. Coverage, time boundaries, integration sensitivity, defensible uncertainty and the applicable official tariff must be considered."),
-            Colors.LemonChiffon);
-
-        AddHeading(section, L("Cargos reales de la boleta", "Actual bill charges"), 13);
-        AddActualBillLines(section, bill, spanish);
-
-        AddHeading(section, L("Reconstrucción tarifaria", "Tariff reconstruction"), 13);
-        var tariffVerifications =
-            _tariffVerification.VerifyBill(
-                bill.BillId,
-                timeZoneId);
-        AddTariffVerification(
+            L("Resumen ejecutivo", "Executive summary"),
+            13);
+        AddExecutiveEnergyComparison(
             section,
-            tariffVerifications,
+            bill,
+            energy,
+            statistical,
+            spanish);
+        AddExecutiveInterpretation(
+            section,
+            bill,
+            statistical,
+            spanish);
+
+        AddHeading(
+            section,
+            L("Impacto económico según tarifa oficial", "Financial impact under official tariff"),
+            13);
+        AddFinancialScenarioComparison(
+            section,
+            tariffScenario,
+            spanish);
+
+        section.AddPageBreak();
+
+        AddHeading(
+            section,
+            L("Conciliación de cargos reales", "Actual-charge reconciliation"),
+            14);
+        AddActualBillLines(
+            section,
+            bill,
+            spanish);
+        AddTariffComponentReconciliation(
+            section,
+            tariffScenario,
+            spanish);
+
+        section.AddPageBreak();
+
+        AddHeading(
+            section,
+            L("Calidad, incertidumbre y evidencia", "Quality, uncertainty and evidence"),
+            14);
+        AddStatisticalEvidence(
+            section,
+            statistical,
+            energy,
+            spanish);
+        AddTariffEvidence(
+            section,
+            tariffScenario,
             spanish);
 
         AddHeading(section, L("Trazabilidad de lecturas", "Reading traceability"), 13);
@@ -204,6 +213,472 @@ public sealed class UtilityBillAuditReportService
         renderer.RenderDocument();
         renderer.PdfDocument.Save(path);
     }
+
+    private static void AddExecutiveEnergyComparison(
+        Section section,
+        UtilityBillRecord bill,
+        UtilityMeterReconciliation energy,
+        UtilityGridImportStatisticalCompletion statistical,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+        var enel = bill.BilledConsumptionKwh ??
+                   energy.MeterConsumptionKwh;
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.3;
+        table.AddColumn(Unit.FromCentimeter(4.0));
+        table.AddColumn(Unit.FromCentimeter(2.5));
+        table.AddColumn(Unit.FromCentimeter(2.6));
+        table.AddColumn(Unit.FromCentimeter(2.3));
+        table.AddColumn(Unit.FromCentimeter(5.0));
+
+        var h = table.AddRow();
+        h.Format.Font.Bold = true;
+        h.Shading.Color = Colors.AliceBlue;
+        h.Cells[0].AddParagraph(L("Referencia", "Reference"));
+        h.Cells[1].AddParagraph("kWh");
+        h.Cells[2].AddParagraph(L("Δ vs Enel", "Δ vs utility"));
+        h.Cells[3].AddParagraph(L("Δ %", "Δ %"));
+        h.Cells[4].AddParagraph(L("Evidencia", "Evidence"));
+
+        void AddRow(
+            string label,
+            double? value,
+            string evidence)
+        {
+            var r = table.AddRow();
+            r.Cells[0].AddParagraph(label);
+            r.Cells[1].AddParagraph(
+                value.HasValue ? $"{value.Value:N3}" : "—");
+
+            if (value.HasValue && enel.HasValue)
+            {
+                var diff = value.Value - enel.Value;
+                r.Cells[2].AddParagraph(
+                    $"{diff:+0.000;-0.000;0.000}");
+                r.Cells[3].AddParagraph(
+                    enel.Value > 0
+                        ? $"{diff / enel.Value * 100.0:+0.00;-0.00;0.00}%"
+                        : "—");
+            }
+            else
+            {
+                r.Cells[2].AddParagraph("—");
+                r.Cells[3].AddParagraph("—");
+            }
+
+            r.Cells[4].AddParagraph(evidence);
+        }
+
+        AddRow(
+            L("Enel / medidor", "Utility / meter"),
+            enel,
+            L("Medido/facturado por Enel", "Measured/billed by utility"));
+        AddRow(
+            L("Solar of Things observado", "Solar of Things observed"),
+            statistical.ObservedKwh,
+            L("Integración directa; sin rellenar huecos", "Direct integration; gaps unfilled"));
+        AddRow(
+            L("Solar margen inferior (P5)", "Solar lower margin (P5)"),
+            statistical.LowerKwh,
+            L("Imputación estadística empírica", "Empirical statistical completion"));
+        AddRow(
+            L("Solar estimación central (P50)", "Solar central estimate (P50)"),
+            statistical.MedianKwh,
+            L("Mediana de simulaciones", "Simulation median"));
+        AddRow(
+            L("Solar margen superior (P95)", "Solar upper margin (P95)"),
+            statistical.UpperKwh,
+            L("Imputación estadística empírica", "Empirical statistical completion"));
+    }
+
+    private static void AddExecutiveInterpretation(
+        Section section,
+        UtilityBillRecord bill,
+        UtilityGridImportStatisticalCompletion statistical,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+        var enel = bill.BilledConsumptionKwh;
+
+        if (!enel.HasValue ||
+            !statistical.HasPredictiveInterval)
+        {
+            AddCallout(
+                section,
+                L("LECTURA DEL RESULTADO", "RESULT INTERPRETATION"),
+                L(
+                    "La comparación observada está disponible, pero todavía no hay evidencia estadística suficiente para ubicar el valor Enel dentro de un intervalo predictivo.",
+                    "The observed comparison is available, but statistical evidence is not yet sufficient to place the utility value inside a predictive interval."),
+                Colors.LemonChiffon);
+            return;
+        }
+
+        var lower = statistical.LowerKwh!.Value;
+        var upper = statistical.UpperKwh!.Value;
+        var central = statistical.MedianKwh!.Value;
+        var inside =
+            enel.Value >= lower &&
+            enel.Value <= upper;
+
+        var distance = inside
+            ? Math.Abs(enel.Value - central)
+            : enel.Value < lower
+                ? lower - enel.Value
+                : enel.Value - upper;
+
+        AddCallout(
+            section,
+            L("LECTURA DEL RESULTADO", "RESULT INTERPRETATION"),
+            inside
+                ? string.Format(
+                    L(
+                        "Los {0:N3} kWh de Enel caen dentro del intervalo predictivo Solar of Things P5–P95 ({1:N3}–{2:N3} kWh). La estimación central es {3:N3} kWh y Enel está a {4:N3} kWh de esa mediana. Esto no prueba equivalencia metrológica: indica compatibilidad con el patrón estadístico de la telemetría disponible.",
+                        "The utility value of {0:N3} kWh falls inside the Solar of Things P5–P95 predictive interval ({1:N3}–{2:N3} kWh). The central estimate is {3:N3} kWh and the utility value is {4:N3} kWh from that median. This does not prove metrological equivalence; it indicates compatibility with the statistical pattern of available telemetry."),
+                    enel.Value,
+                    lower,
+                    upper,
+                    central,
+                    distance)
+                : string.Format(
+                    L(
+                        "Los {0:N3} kWh de Enel quedan fuera del intervalo predictivo Solar of Things P5–P95 ({1:N3}–{2:N3} kWh), a {3:N3} kWh del límite más cercano. Esto justifica revisión adicional de cobertura, límites temporales, medición y facturación.",
+                        "The utility value of {0:N3} kWh falls outside the Solar of Things P5–P95 predictive interval ({1:N3}–{2:N3} kWh), {3:N3} kWh from the nearest bound. This supports additional review of coverage, time boundaries, metering and billing."),
+                    enel.Value,
+                    lower,
+                    upper,
+                    distance),
+            inside
+                ? Colors.Honeydew
+                : Colors.LemonChiffon);
+    }
+
+    private static void AddFinancialScenarioComparison(
+        Section section,
+        UtilityBillTariffScenarioAnalysis analysis,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        if (!analysis.HasTariffModel ||
+            !analysis.SupportedVariableRateClpPerKwh.HasValue)
+        {
+            AddCallout(
+                section,
+                L("TARIFA NO RESUELTA", "TARIFF NOT RESOLVED"),
+                L(
+                    "Todavía no existe evidencia suficiente para construir un escenario monetario oficial sin inventar una tasa.",
+                    "There is not yet enough evidence to build an official monetary scenario without inventing a rate."),
+                Colors.LemonChiffon);
+            return;
+        }
+
+        var intro = section.AddParagraph(
+            string.Format(
+                L(
+                    "Subtotal tarifario modelado: {0:N3} CLP/kWh. Se aplica el mismo conjunto de componentes oficiales a cada escenario energético; los subsidios, créditos y otros ajustes no demostrados por regla tarifaria quedan fuera de esta comparación.",
+                    "Modeled tariff subtotal: {0:N3} CLP/kWh. The same official component set is applied to each energy scenario; subsidies, credits and other adjustments without a demonstrated tariff rule are excluded from this comparison."),
+                analysis.SupportedVariableRateClpPerKwh.Value));
+        intro.Format.Font.Size = 8.5;
+        intro.Format.Font.Color = Colors.DimGray;
+        intro.Format.SpaceAfter = Unit.FromPoint(5);
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.3;
+        table.AddColumn(Unit.FromCentimeter(4.4));
+        table.AddColumn(Unit.FromCentimeter(2.4));
+        table.AddColumn(Unit.FromCentimeter(3.0));
+        table.AddColumn(Unit.FromCentimeter(3.0));
+        table.AddColumn(Unit.FromCentimeter(3.9));
+
+        var h = table.AddRow();
+        h.Format.Font.Bold = true;
+        h.Shading.Color = Colors.AliceBlue;
+        h.Cells[0].AddParagraph(L("Escenario", "Scenario"));
+        h.Cells[1].AddParagraph("kWh");
+        h.Cells[2].AddParagraph(L("Subtotal tarifa", "Tariff subtotal"));
+        h.Cells[3].AddParagraph(L("Δ CLP vs Enel", "Δ CLP vs utility"));
+        h.Cells[4].AddParagraph(L("Tipo de evidencia", "Evidence type"));
+
+        var enelScenario = analysis.Scenarios
+            .FirstOrDefault(item =>
+                item.Key == "ENEL_BILLED");
+
+        foreach (var item in analysis.Scenarios)
+        {
+            var r = table.AddRow();
+            r.Cells[0].AddParagraph(
+                ScenarioLabel(
+                    item.Key,
+                    spanish));
+            r.Cells[1].AddParagraph(
+                $"{item.EnergyKwh:N3}");
+            r.Cells[2].AddParagraph(
+                Money(
+                    item.SupportedTariffSubtotalClp));
+            r.Cells[3].AddParagraph(
+                enelScenario is null
+                    ? "—"
+                    : MoneySigned(
+                        item.SupportedTariffSubtotalClp -
+                        enelScenario.SupportedTariffSubtotalClp));
+            r.Cells[4].AddParagraph(
+                ScenarioEvidenceLabel(
+                    item.Key,
+                    spanish));
+        }
+
+        AddCallout(
+            section,
+            L("ALCANCE DEL MONTO", "AMOUNT SCOPE"),
+            L(
+                "Estos montos son un subtotal comparable de los componentes tarifarios que la aplicación pudo conciliar con evidencia oficial. No representan automáticamente el total final de la boleta mientras existan subsidios, cargos fijos, FET u otros ajustes sin una regla reconstruida.",
+                "These amounts are a comparable subtotal for tariff components reconciled with official evidence. They do not automatically represent the final bill total while subsidies, fixed charges, FET or other adjustments remain without a reconstructed rule."),
+            Colors.WhiteSmoke);
+    }
+
+    private static void AddTariffComponentReconciliation(
+        Section section,
+        UtilityBillTariffScenarioAnalysis analysis,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        if (!analysis.HasTariffModel ||
+            analysis.Components.Count == 0)
+        {
+            return;
+        }
+
+        AddHeading(
+            section,
+            L("Componentes reconstruidos", "Reconstructed components"),
+            12);
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.AddColumn(Unit.FromCentimeter(4.2));
+        table.AddColumn(Unit.FromCentimeter(2.7));
+        table.AddColumn(Unit.FromCentimeter(2.8));
+        table.AddColumn(Unit.FromCentimeter(2.8));
+        table.AddColumn(Unit.FromCentimeter(2.2));
+        table.AddColumn(Unit.FromCentimeter(2.0));
+
+        var h = table.AddRow();
+        h.Format.Font.Bold = true;
+        h.Cells[0].AddParagraph(L("Línea", "Line"));
+        h.Cells[1].AddParagraph(L("Tasa oficial", "Official rate"));
+        h.Cells[2].AddParagraph(L("Monto real", "Actual"));
+        h.Cells[3].AddParagraph(L("Reconstruido", "Reconstructed"));
+        h.Cells[4].AddParagraph(L("Diferencia", "Difference"));
+        h.Cells[5].AddParagraph(L("Evidencia", "Evidence"));
+
+        foreach (var item in analysis.Components)
+        {
+            var r = table.AddRow();
+            r.Cells[0].AddParagraph(item.BillLineDescription);
+            r.Cells[1].AddParagraph(
+                $"$ {item.RateClpPerKwh:N3}/kWh");
+            r.Cells[2].AddParagraph(
+                Money(item.ActualLineAmountClp));
+            r.Cells[3].AddParagraph(
+                Money(item.ReconstructedAmountClp));
+            r.Cells[4].AddParagraph(
+                MoneySigned(item.DifferenceClp));
+            r.Cells[5].AddParagraph(
+                item.EvidenceStatus.Contains(
+                    "AMBIGUOUS",
+                    StringComparison.Ordinal)
+                    ? L("Tasa concilia; aplicabilidad no única", "Rate reconciles; applicability not unique")
+                    : L("Conciliado con fuente oficial", "Reconciled to official source"));
+        }
+
+        if (analysis.ReconstructedVsActualDifferenceClp.HasValue)
+        {
+            var p = section.AddParagraph(
+                string.Format(
+                    L(
+                        "Subtotal real de líneas modeladas: {0}. Subtotal reconstruido: {1}. Residual: {2}.",
+                        "Actual subtotal of modeled lines: {0}. Reconstructed subtotal: {1}. Residual: {2}."),
+                    Money(analysis.ActualSupportedLinesClp),
+                    Money(analysis.ReconstructedBilledSupportedClp),
+                    MoneySigned(
+                        analysis.ReconstructedVsActualDifferenceClp)));
+            p.Format.Font.Size = 8.5;
+            p.Format.SpaceBefore = Unit.FromPoint(4);
+        }
+    }
+
+    private static void AddStatisticalEvidence(
+        Section section,
+        UtilityGridImportStatisticalCompletion statistical,
+        UtilityMeterReconciliation energy,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.AddColumn(Unit.FromCentimeter(6.2));
+        table.AddColumn(Unit.FromCentimeter(3.2));
+        table.AddColumn(Unit.FromCentimeter(7.3));
+
+        AddEvidenceRow(
+            table,
+            L("Cobertura temporal red", "Grid time coverage"),
+            $"{statistical.CoveragePercent:N1}%",
+            L("Continuidad de grid_import_power_w en el intervalo.", "Continuity of grid_import_power_w over the interval."));
+        AddEvidenceRow(
+            table,
+            L("Horas sin cobertura", "Uncovered hours"),
+            $"{statistical.MissingHours:N2} h",
+            L("Huecos que requieren tratamiento estadístico; no se consideran cero.", "Gaps requiring statistical treatment; they are not treated as zero."));
+        AddEvidenceRow(
+            table,
+            L("Muestras donantes", "Donor samples"),
+            statistical.DonorSampleCount.ToString("N0"),
+            L("Observaciones Solar of Things disponibles para el modelo empírico.", "Solar of Things observations available to the empirical model."));
+        AddEvidenceRow(
+            table,
+            L("Simulaciones", "Simulations"),
+            statistical.SimulationCount.ToString("N0"),
+            L("Imputaciones de huecos usadas para construir P5/P50/P95.", "Gap imputations used to build P5/P50/P95."));
+        AddEvidenceRow(
+            table,
+            L("Desviación estándar simulada", "Simulated standard deviation"),
+            statistical.StandardDeviationKwh.HasValue
+                ? $"{statistical.StandardDeviationKwh.Value:N3} kWh"
+                : "—",
+            L("Dispersión de los totales completados; no es error metrológico del medidor.", "Spread of completed totals; it is not metrological meter error."));
+        AddEvidenceRow(
+            table,
+            L("Método", "Method"),
+            statistical.MethodVersion,
+            L(
+                "Bootstrap empírico por hora local y tipo de día; Enel no entra al modelo. P5/P95 son percentiles predictivos de imputación, no un certificado de confianza metrológica.",
+                "Empirical bootstrap by local hour and day type; the utility value is not used by the model. P5/P95 are predictive imputation percentiles, not a metrological confidence certificate."));
+
+        if (energy.Sensitivity is not null)
+        {
+            AddCallout(
+                section,
+                L("LÍMITE DE INGENIERÍA (NO PROBABILÍSTICO)", "ENGINEERING BOUND (NOT PROBABILISTIC)"),
+                L(
+                    "La versión anterior rellenaba todas las horas faltantes con la máxima potencia de importación observada. Ese cálculo se conserva sólo como diagnóstico extremo y no se usa como margen inferior/central/superior del informe.",
+                    "The previous version filled every missing hour with the maximum observed import power. That calculation is retained only as an extreme diagnostic and is not used as the report's lower/central/upper margin."),
+                Colors.WhiteSmoke);
+        }
+    }
+
+    private static void AddTariffEvidence(
+        Section section,
+        UtilityBillTariffScenarioAnalysis analysis,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        AddHeading(
+            section,
+            L("Evidencia tarifaria", "Tariff evidence"),
+            12);
+
+        if (!analysis.HasTariffModel)
+        {
+            section.AddParagraph(
+                L(
+                    "No se logró conciliar un modelo tarifario oficial para esta boleta.",
+                    "An official tariff model could not be reconciled for this bill."));
+            return;
+        }
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.AddColumn(Unit.FromCentimeter(4.4));
+        table.AddColumn(Unit.FromCentimeter(12.3));
+
+        AddDefinitionRow(
+            table,
+            L("Vigencia usada", "Effective period"),
+            analysis.EffectiveFrom.HasValue
+                ? $"{analysis.EffectiveFrom.Value:yyyy-MM}" +
+                  (analysis.IsRetroactive
+                      ? L(" · retroactiva", " · retroactive")
+                      : string.Empty)
+                : "—");
+        AddDefinitionRow(
+            table,
+            L("RED / ETR", "Network / ETR"),
+            $"{analysis.NetworkType ?? "?"} / {analysis.EtrBand ?? "?"}");
+        AddDefinitionRow(
+            table,
+            L("Columna candidata", "Candidate column"),
+            analysis.CandidateIndex.HasValue
+                ? $"{analysis.CandidateIndex.Value} · {analysis.Column}"
+                : "—");
+        AddDefinitionRow(
+            table,
+            L("Fuente oficial", "Official source"),
+            analysis.PublicationTitle ?? "—");
+
+        foreach (var component in analysis.Components)
+        {
+            var p = section.AddParagraph(
+                $"• {component.BillLineDescription}: " +
+                $"{component.OfficialDescription} · " +
+                $"$ {component.RateClpPerKwh:N3}/kWh · " +
+                $"{component.EvidenceStatus}");
+            p.Format.Font.Size = 8;
+            p.Format.Font.Color = Colors.DimGray;
+        }
+    }
+
+    private static void AddEvidenceRow(
+        Table table,
+        string label,
+        string value,
+        string meaning)
+    {
+        var r = table.AddRow();
+        r.Cells[0].AddParagraph(label);
+        r.Cells[0].Format.Font.Bold = true;
+        r.Cells[1].AddParagraph(value);
+        r.Cells[2].AddParagraph(meaning);
+    }
+
+    private static string ScenarioLabel(
+        string key,
+        bool spanish) =>
+        key switch
+        {
+            "ENEL_BILLED" =>
+                spanish ? "Enel facturado" : "Utility billed",
+            "SOLAR_OBSERVED" =>
+                spanish ? "Solar observado" : "Solar observed",
+            "SOLAR_LOWER" =>
+                spanish ? "Solar inferior P5" : "Solar lower P5",
+            "SOLAR_CENTRAL" =>
+                spanish ? "Solar central P50" : "Solar central P50",
+            "SOLAR_UPPER" =>
+                spanish ? "Solar superior P95" : "Solar upper P95",
+            _ => key
+        };
+
+    private static string ScenarioEvidenceLabel(
+        string key,
+        bool spanish) =>
+        key switch
+        {
+            "ENEL_BILLED" =>
+                spanish ? "Medido/facturado Enel" : "Utility measured/billed",
+            "SOLAR_OBSERVED" =>
+                spanish ? "Observado directamente" : "Directly observed",
+            "SOLAR_LOWER" or
+            "SOLAR_CENTRAL" or
+            "SOLAR_UPPER" =>
+                spanish ? "Completado estadísticamente" : "Statistically completed",
+            _ => key
+        };
 
     private static void AddTariffVerification(
         Section section,

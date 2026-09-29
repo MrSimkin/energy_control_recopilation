@@ -577,6 +577,10 @@ try
     var utilityReconciliation = new UtilityReconciliationService(
         utilityRepository,
         utilityStatistics);
+    var utilityStatisticalCompletion =
+        new UtilityGridImportStatisticalCompletionService(
+            database,
+            utilityStatistics);
 
     var utilityFromUtc = familyLocalStart.ToUniversalTime();
     var utilityToUtc = familyLocalEnd.ToUniversalTime();
@@ -587,6 +591,28 @@ try
             utilityFromUtc,
             utilityToUtc)
         .PositiveEnergyKwh;
+
+    var completeStatistical =
+        utilityStatisticalCompletion.Analyze(
+            familySmokeDeviceId,
+            utilityFromUtc,
+            utilityToUtc,
+            "America/Santiago");
+
+    if (!completeStatistical.HasPredictiveInterval ||
+        Math.Abs(
+            completeStatistical.LowerKwh!.Value -
+            expectedGridImport) > 0.01 ||
+        Math.Abs(
+            completeStatistical.MedianKwh!.Value -
+            expectedGridImport) > 0.01 ||
+        Math.Abs(
+            completeStatistical.UpperKwh!.Value -
+            expectedGridImport) > 0.01)
+    {
+        throw new InvalidOperationException(
+            "Statistical completion complete-coverage smoke test failed.");
+    }
 
     var firstReadingId = utilityRepository.AddReading(
         utilityFromUtc,
@@ -787,15 +813,27 @@ try
                 "Phase 8 reconciliation PDF smoke test failed.");
         }
 
+        var smokeTariffRepository =
+            new TariffPublicationRepository(database);
+        var smokeCandidateRepository =
+            new TariffRateCandidateRepository(database);
+        var smokeVersionResolver =
+            new TariffPublicationVersionResolver();
         var billAuditReport =
             new UtilityBillAuditReportService(
                 utilityRepository,
                 utilityReconciliation,
                 new TariffBillRateVerificationService(
                     utilityRepository,
-                    new TariffPublicationRepository(database),
-                    new TariffRateCandidateRepository(database),
-                    new TariffPublicationVersionResolver()));
+                    smokeTariffRepository,
+                    smokeCandidateRepository,
+                    smokeVersionResolver),
+                utilityStatisticalCompletion,
+                new UtilityBillTariffScenarioAnalysisService(
+                    utilityRepository,
+                    smokeTariffRepository,
+                    smokeCandidateRepository,
+                    smokeVersionResolver));
         var billAuditPdfPath =
             Path.Combine(root, "smoke-enel-bill-audit.pdf");
         billAuditReport.ExportPdf(
