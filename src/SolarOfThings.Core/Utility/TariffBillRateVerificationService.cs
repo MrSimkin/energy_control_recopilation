@@ -111,11 +111,30 @@ public sealed class TariffBillRateVerificationService
                 (publicationId, candidates));
         }
 
+        var calculationQuantity = line.Quantity;
+        var calculationUnit = line.Unit;
+        var calculationQuantitySource = line.Quantity.HasValue
+            ? "BILL_LINE"
+            : null;
+
+        if (!calculationQuantity.HasValue &&
+            bill.BilledConsumptionKwh.HasValue &&
+            CanUseBillConsumptionAsQuantity(
+                componentKey,
+                perPublicationCandidates))
+        {
+            calculationQuantity = bill.BilledConsumptionKwh.Value;
+            calculationUnit = "kWh";
+            calculationQuantitySource = "BILL_BILLED_KWH";
+        }
+
         if (!line.UnitRateClp.HasValue)
         {
-            var quantityContext = bill.BilledConsumptionKwh.HasValue
-                ? $" Bill-level billed consumption is {bill.BilledConsumptionKwh.Value:N3} kWh; it may be used only where the official component and billing rule confirm that basis."
-                : string.Empty;
+            var quantityContext = calculationQuantitySource == "BILL_BILLED_KWH"
+                ? $" Calculation quantity basis is the bill-level billed consumption: {calculationQuantity!.Value:N3} kWh; this value is reused by the application and must not be re-entered on the line."
+                : bill.BilledConsumptionKwh.HasValue
+                    ? $" Bill-level billed consumption is {bill.BilledConsumptionKwh.Value:N3} kWh, but it is not automatically reused for this component without an explicit supported mapping."
+                    : string.Empty;
 
             var crossesTariffPeriods =
                 selection.Publications.Count > 1;
@@ -128,9 +147,12 @@ public sealed class TariffBillRateVerificationService
                     : "OFFICIAL_RATE_DERIVATION_PENDING",
                 crossesTariffPeriods
                     ? "The bill does not contain a stored printed unit rate; no manual rate entry is required. Official tariff candidates are available, but the billing interval crosses multiple effective tariff periods. Reconstruction must split the interval using a supported billing rule before an expected amount is asserted." + quantityContext
-                    : "The bill does not contain a stored printed unit rate; no manual rate entry is required. Official tariff candidates are available. The application must resolve customer applicability and the calculation basis before deriving an expected amount." + quantityContext,
+                    : "The bill does not contain a stored printed unit rate; no manual rate entry is required. Official tariff candidates are available. The application must resolve customer applicability before deriving the official rate and expected amount." + quantityContext,
                 publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray(),
-                publications: selection.Publications);
+                publications: selection.Publications,
+                calculationQuantity: calculationQuantity,
+                calculationUnit: calculationUnit,
+                calculationQuantitySource: calculationQuantitySource);
         }
 
         var perPublicationMatches =
@@ -169,8 +191,8 @@ public sealed class TariffBillRateVerificationService
             .Distinct(StringComparer.Ordinal)
             .Count();
 
-        var reconstructed = line.Quantity.HasValue
-            ? line.Quantity.Value * line.UnitRateClp.Value
+        var reconstructed = calculationQuantity.HasValue
+            ? calculationQuantity.Value * line.UnitRateClp.Value
             : (double?)null;
 
         var amountDifference = reconstructed.HasValue
@@ -198,6 +220,9 @@ public sealed class TariffBillRateVerificationService
             componentKey,
             line.UnitRateClp,
             line.Quantity,
+            calculationQuantity,
+            calculationUnit,
+            calculationQuantitySource,
             line.AmountClp,
             status,
             selection.Publications.Select(item => item.PublicationId).ToArray(),
@@ -396,6 +421,28 @@ public sealed class TariffBillRateVerificationService
             resolution.Status == "VERSION_PREFERRED_RETROACTIVE");
     }
 
+    private static bool CanUseBillConsumptionAsQuantity(
+        string componentKey,
+        IReadOnlyList<(long PublicationId, IReadOnlyList<TariffRateCandidate> Candidates)> candidateSets)
+    {
+        if (componentKey is not
+            ("ELECTRICITY_CONSUMED" or "ELECTRICITY_TRANSPORT"))
+        {
+            return false;
+        }
+
+        var candidates = candidateSets
+            .SelectMany(item => item.Candidates)
+            .ToArray();
+
+        return candidates.Length > 0 &&
+               candidates.All(candidate =>
+                   string.Equals(
+                       candidate.Unit?.Replace(" ", string.Empty),
+                       "$/kWh",
+                       StringComparison.OrdinalIgnoreCase));
+    }
+
     private static IEnumerable<RateCandidateMatch> CandidateMatches(
         TariffRateCandidate candidate,
         double printedRate)
@@ -557,13 +604,20 @@ public sealed class TariffBillRateVerificationService
         string status,
         string detail,
         IReadOnlyList<long>? publicationIds = null,
-        IReadOnlyList<BillTariffPublicationEvidence>? publications = null) =>
+        IReadOnlyList<BillTariffPublicationEvidence>? publications = null,
+        double? calculationQuantity = null,
+        string? calculationUnit = null,
+        string? calculationQuantitySource = null) =>
         new(
             line.BillLineId,
             line.Description,
             componentKey,
             line.UnitRateClp,
             line.Quantity,
+            calculationQuantity ?? line.Quantity,
+            calculationUnit ?? line.Unit,
+            calculationQuantitySource ??
+                (line.Quantity.HasValue ? "BILL_LINE" : null),
             line.AmountClp,
             status,
             publicationIds ?? [],
@@ -596,6 +650,9 @@ public sealed record BillLineTariffVerification(
     string? ComponentKey,
     double? PrintedUnitRateClp,
     double? Quantity,
+    double? CalculationQuantity,
+    string? CalculationUnit,
+    string? CalculationQuantitySource,
     double ActualAmountClp,
     string Status,
     IReadOnlyList<long> PublicationIds,

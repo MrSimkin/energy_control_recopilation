@@ -2772,6 +2772,7 @@ public partial class MainWindow : Window
                             item.PrintedUnitRateClp.HasValue
                                 ? $"$ {item.PrintedUnitRateClp.Value:N3}"
                                 : "—",
+                            FormatAuditCalculationBasis(item),
                             AuditVerificationStatusLabel(item.Status),
                             item.Publications.Count == 0
                                 ? "—"
@@ -2806,6 +2807,34 @@ public partial class MainWindow : Window
             UtilityAuditVerificationGrid.ItemsSource = null;
             UtilityAuditStatusText.Text = ex.Message;
         }
+    }
+
+    private string FormatAuditCalculationBasis(
+        BillLineTariffVerification item)
+    {
+        if (!item.CalculationQuantity.HasValue)
+        {
+            return "—";
+        }
+
+        var unit = string.IsNullOrWhiteSpace(item.CalculationUnit)
+            ? string.Empty
+            : $" {item.CalculationUnit}";
+
+        var source = item.CalculationQuantitySource switch
+        {
+            "BILL_BILLED_KWH" =>
+                _localization.GetString(
+                    "GridUtility.AuditQuantitySource.Bill"),
+            "BILL_LINE" =>
+                _localization.GetString(
+                    "GridUtility.AuditQuantitySource.Line"),
+            _ =>
+                _localization.GetString(
+                    "GridUtility.AuditQuantitySource.Derived")
+        };
+
+        return $"{item.CalculationQuantity.Value:N3}{unit} · {source}";
     }
 
     private string FormatAuditBillChoice(
@@ -3210,6 +3239,40 @@ public partial class MainWindow : Window
             .ToArray();
     }
 
+    private void UtilityBillLineTypeSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!IsInitialized ||
+            UtilityBillLineDescriptionTextBox is null ||
+            UtilityBillLineSectionSelector is null)
+        {
+            return;
+        }
+
+        var categoryKey =
+            UtilityBillLineTypeSelector.SelectedValue?.ToString();
+
+        switch (categoryKey)
+        {
+            case "ELECTRICITY_CONSUMED":
+                UtilityBillLineSectionSelector.SelectedValue =
+                    "SERVICIO_ELECTRICO";
+                UtilityBillLineDescriptionTextBox.Text =
+                    _localization.GetString(
+                        "GridUtility.BillType.ElectricityConsumed");
+                break;
+
+            case "ELECTRICITY_TRANSPORT":
+                UtilityBillLineSectionSelector.SelectedValue =
+                    "SERVICIO_ELECTRICO";
+                UtilityBillLineDescriptionTextBox.Text =
+                    _localization.GetString(
+                        "GridUtility.BillType.ElectricityTransport");
+                break;
+        }
+    }
+
     private void UtilityAddBillLine_Click(
         object sender,
         RoutedEventArgs e)
@@ -3228,6 +3291,15 @@ public partial class MainWindow : Window
         var description =
             UtilityBillLineDescriptionTextBox.Text?.Trim()
             ?? string.Empty;
+        var selectedCategory =
+            UtilityBillLineTypeSelector.SelectedValue?.ToString();
+        var categoryKey =
+            string.Equals(
+                selectedCategory,
+                "CUSTOM",
+                StringComparison.Ordinal)
+                ? null
+                : selectedCategory;
 
         if (string.IsNullOrWhiteSpace(description) ||
             !TryParseRequiredFinite(
@@ -3255,11 +3327,13 @@ public partial class MainWindow : Window
                     section,
                     description,
                     amount,
+                    categoryKey: categoryKey,
                     quantity: quantity,
                     unit: UtilityBillLineUnitTextBox.Text,
                     unitRateClp: unitRate,
                     taxTreatment: UtilityBillLineTaxTextBox.Text);
 
+            UtilityBillLineTypeSelector.SelectedValue = "CUSTOM";
             UtilityBillLineDescriptionTextBox.Clear();
             UtilityBillLineAmountTextBox.Clear();
             UtilityBillLineQuantityTextBox.Clear();
@@ -3579,6 +3653,7 @@ public partial class MainWindow : Window
     private sealed record UtilityAuditVerificationViewRow(
         string Description,
         string PrintedRate,
+        string CalculationBasis,
         string Status,
         string Source,
         string Reconstructed,

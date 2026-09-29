@@ -2858,3 +2858,27 @@ Design question raised by this observation:
   - a line-level quantity explicitly printed on the bill;
   - a quantity basis derived by the application because an official tariff component is denominated in $/kWh;
 - multi-period tariff splitting remains a separate requirement: using bill-level kWh as the quantity basis does not justify applying one tariff rate across the whole bill interval.
+
+## Billed-kWh automatic line mapping implementation — 2026-09-28
+
+User clarification:
+- “Electricidad consumida” for the target bill is the already-stored **266 kWh billed consumption**;
+- the user does not know/need to calculate “Transporte de electricidad”; it should come from the tariff engine;
+- future bill entry should provide explicit semantic labels so tariff calculation does not depend on free-text recognition.
+
+Implementation:
+- `ELECTRICITY_CONSUMED` and `ELECTRICITY_TRANSPORT` are explicit bill-line choices in the UI;
+- selecting either stores the normalized `category_key` and supplies the human description;
+- the user still enters the actual line amount exactly as billed;
+- the user does **not** repeat bill-level kWh on those lines;
+- when the normalized official candidates for either component are consistently `$/kWh`, the audit derives its calculation quantity from `utility_bill.billed_consumption_kwh`;
+- provenance is explicit:
+  - `BILL_LINE` when quantity was actually stored on the line;
+  - `BILL_BILLED_KWH` when the app reuses billed kWh from the bill header;
+- actual-evidence displays continue to distinguish an unprinted line quantity from this derived calculation basis;
+- multi-period bills remain unreconstructed until a supported tariff-period allocation rule exists.
+
+For the target July/August bill:
+- **Electricidad consumida** may use 266 kWh as its calculation basis;
+- **Transporte de electricidad** may also use 266 kWh only because its normalized official component is confirmed as `$/kWh`;
+- this does not yet authorize applying one rate across the entire July/August interval.

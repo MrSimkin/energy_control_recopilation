@@ -196,6 +196,10 @@
     <sys:String x:Key="GridUtility.AuditPreviewSummary">{0} line(s) are verified; {1} line(s) remain pending, ambiguous or actual-only. Fields not printed on the bill must not be filled by assumption.</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Line">Line</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Rate">Rate on bill</sys:String>
+    <sys:String x:Key="GridUtility.AuditColumn.QuantityBasis">Calculation basis</sys:String>
+    <sys:String x:Key="GridUtility.AuditQuantitySource.Bill">bill consumption</sys:String>
+    <sys:String x:Key="GridUtility.AuditQuantitySource.Line">bill line</sys:String>
+    <sys:String x:Key="GridUtility.AuditQuantitySource.Derived">derived</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Status">Verification</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Source">Source</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Reconstructed">Reconstructed</sys:String>
@@ -287,7 +291,11 @@
     <sys:String x:Key="GridUtility.OtherCharges">Other charges (+/−)</sys:String>
     <sys:String x:Key="GridUtility.TotalDue">Total due</sys:String>
     <sys:String x:Key="GridUtility.BillLinesHeading">Charge and credit detail</sys:String>
-    <sys:String x:Key="GridUtility.BillLinesIntro">Select a saved bill and preserve each line as printed. Description and amount are the minimum evidence. Quantity, unit, unit price and tax treatment are optional: enter them only when explicitly printed on the bill. Do not invent a rate; the audit will use the official source.</sys:String>
+    <sys:String x:Key="GridUtility.BillLinesIntro">Select a saved bill and preserve each line as printed. For “Electricity consumed” and “Electricity transport”, use the specific charge type: the app automatically reuses the bill's billed kWh as the calculation basis when the official tariff confirms that basis. Do not repeat those kWh on the line. Description and amount are the minimum evidence; quantity, unit, unit price and tax treatment are entered only when printed.</sys:String>
+    <sys:String x:Key="GridUtility.BillType">Charge type</sys:String>
+    <sys:String x:Key="GridUtility.BillType.Custom">Other / free text</sys:String>
+    <sys:String x:Key="GridUtility.BillType.ElectricityConsumed">Electricity consumed</sys:String>
+    <sys:String x:Key="GridUtility.BillType.ElectricityTransport">Electricity transport</sys:String>
     <sys:String x:Key="GridUtility.BillSection">Section</sys:String>
     <sys:String x:Key="GridUtility.BillSection.Service">Electric service</sys:String>
     <sys:String x:Key="GridUtility.BillSection.OtherCharges">Other charges</sys:String>

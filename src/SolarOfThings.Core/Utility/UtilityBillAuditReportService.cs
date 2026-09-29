@@ -226,21 +226,23 @@ public sealed class UtilityBillAuditReportService
 
         var table = section.AddTable();
         table.Borders.Width = 0.25;
-        table.AddColumn(Unit.FromCentimeter(4.4));
-        table.AddColumn(Unit.FromCentimeter(2.0));
-        table.AddColumn(Unit.FromCentimeter(3.8));
-        table.AddColumn(Unit.FromCentimeter(2.0));
+        table.AddColumn(Unit.FromCentimeter(3.2));
+        table.AddColumn(Unit.FromCentimeter(1.8));
+        table.AddColumn(Unit.FromCentimeter(2.4));
+        table.AddColumn(Unit.FromCentimeter(2.7));
         table.AddColumn(Unit.FromCentimeter(2.2));
+        table.AddColumn(Unit.FromCentimeter(2.1));
         table.AddColumn(Unit.FromCentimeter(2.3));
 
         var header = table.AddRow();
         header.Format.Font.Bold = true;
         header.Cells[0].AddParagraph(L("Línea", "Line"));
-        header.Cells[1].AddParagraph(L("Tasa impresa", "Printed rate"));
-        header.Cells[2].AddParagraph(L("Verificación", "Verification"));
-        header.Cells[3].AddParagraph(L("Fuente", "Source"));
-        header.Cells[4].AddParagraph(L("Reconstruido", "Reconstructed"));
-        header.Cells[5].AddParagraph(L("Dif. monto", "Amount diff."));
+        header.Cells[1].AddParagraph(L("Tasa boleta", "Bill rate"));
+        header.Cells[2].AddParagraph(L("Base cálculo", "Calc. basis"));
+        header.Cells[3].AddParagraph(L("Verificación", "Verification"));
+        header.Cells[4].AddParagraph(L("Fuente", "Source"));
+        header.Cells[5].AddParagraph(L("Reconstruido", "Reconstructed"));
+        header.Cells[6].AddParagraph(L("Dif. monto", "Amount diff."));
 
         foreach (var item in verifications)
         {
@@ -251,10 +253,14 @@ public sealed class UtilityBillAuditReportService
                     ? $"$ {item.PrintedUnitRateClp.Value:N3}"
                     : "—");
             row.Cells[2].AddParagraph(
+                FormatCalculationBasis(
+                    item,
+                    spanish));
+            row.Cells[3].AddParagraph(
                 VerificationStatusLabel(
                     item.Status,
                     spanish));
-            row.Cells[3].AddParagraph(
+            row.Cells[4].AddParagraph(
                 item.Publications.Count == 0
                     ? "—"
                     : string.Join(
@@ -264,11 +270,11 @@ public sealed class UtilityBillAuditReportService
                                 FormatTariffPublicationEvidence(
                                     publication,
                                     spanish))));
-            row.Cells[4].AddParagraph(
+            row.Cells[5].AddParagraph(
                 item.ReconstructedAmountClp.HasValue
                     ? $"$ {item.ReconstructedAmountClp.Value:N0}"
                     : "—");
-            row.Cells[5].AddParagraph(
+            row.Cells[6].AddParagraph(
                 item.AmountDifferenceClp.HasValue
                     ? $"$ {item.AmountDifferenceClp.Value:+0;-0;0}"
                     : "—");
@@ -305,6 +311,30 @@ public sealed class UtilityBillAuditReportService
             detail.Format.Font.Color = Colors.DimGray;
             detail.Format.SpaceAfter = Unit.FromPoint(1);
         }
+    }
+
+    private static string FormatCalculationBasis(
+        BillLineTariffVerification item,
+        bool spanish)
+    {
+        if (!item.CalculationQuantity.HasValue)
+            return "—";
+
+        var unit = string.IsNullOrWhiteSpace(item.CalculationUnit)
+            ? string.Empty
+            : $" {item.CalculationUnit}";
+
+        var source = item.CalculationQuantitySource switch
+        {
+            "BILL_BILLED_KWH" =>
+                spanish ? "consumo boleta" : "bill consumption",
+            "BILL_LINE" =>
+                spanish ? "línea boleta" : "bill line",
+            _ =>
+                spanish ? "derivada" : "derived"
+        };
+
+        return $"{item.CalculationQuantity.Value:N3}{unit} · {source}";
     }
 
     private static string FormatTariffPublicationEvidence(
@@ -388,8 +418,8 @@ public sealed class UtilityBillAuditReportService
 
         var evidenceNote = section.AddParagraph(
             L(
-                "Un guion en Cantidad o Precio significa que ese dato no fue capturado desde la boleta. No debe completarse por suposición: la reconstrucción usa fuentes oficiales cuando existe una base de cálculo respaldada.",
-                "A dash in Quantity or Rate means that value was not captured from the bill. It must not be filled by assumption: reconstruction uses official sources only when a supported calculation basis exists."));
+                "Un guion en Cantidad o Precio significa que ese dato no fue capturado junto a la línea. No debe completarse por suposición. Para componentes reconocidos en $/kWh, la auditoría puede reutilizar el consumo facturado de la boleta como base de cálculo y lo identifica como dato derivado de la cabecera, no como evidencia impresa en la línea.",
+                "A dash in Quantity or Rate means that value was not captured beside the line. It must not be filled by assumption. For recognized $/kWh components, the audit may reuse the bill-level billed consumption as the calculation basis and identifies it as derived from the bill header, not as line-printed evidence."));
         evidenceNote.Format.Font.Size = 8;
         evidenceNote.Format.Font.Color = Colors.DimGray;
         evidenceNote.Format.SpaceAfter = Unit.FromPoint(4);

@@ -1790,6 +1790,18 @@
 
                                                                 <WrapPanel>
                                                                     <StackPanel Margin="0,0,10,10">
+                                                                        <TextBlock Text="{DynamicResource GridUtility.BillType}" FontSize="12" Foreground="#6C757D"/>
+                                                                        <ComboBox x:Name="UtilityBillLineTypeSelector"
+                                                                                  Width="190"
+                                                                                  SelectedValuePath="Tag"
+                                                                                  SelectedIndex="0"
+                                                                                  SelectionChanged="UtilityBillLineTypeSelector_SelectionChanged">
+                                                                            <ComboBoxItem Tag="CUSTOM" Content="{DynamicResource GridUtility.BillType.Custom}"/>
+                                                                            <ComboBoxItem Tag="ELECTRICITY_CONSUMED" Content="{DynamicResource GridUtility.BillType.ElectricityConsumed}"/>
+                                                                            <ComboBoxItem Tag="ELECTRICITY_TRANSPORT" Content="{DynamicResource GridUtility.BillType.ElectricityTransport}"/>
+                                                                        </ComboBox>
+                                                                    </StackPanel>
+                                                                    <StackPanel Margin="0,0,10,10">
                                                                         <TextBlock Text="{DynamicResource GridUtility.BillSection}" FontSize="12" Foreground="#6C757D"/>
                                                                         <ComboBox x:Name="UtilityBillLineSectionSelector"
                                                                                   Width="175"
@@ -1914,7 +1926,10 @@
                                                                 Width="2*"/>
                                             <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Rate}"
                                                                 Binding="{Binding PrintedRate}"
-                                                                Width="110"/>
+                                                                Width="105"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.QuantityBasis}"
+                                                                Binding="{Binding CalculationBasis}"
+                                                                Width="155"/>
                                             <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Status}"
                                                                 Binding="{Binding Status}"
                                                                 Width="190"/>

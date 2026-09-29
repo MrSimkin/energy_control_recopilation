@@ -196,6 +196,10 @@
     <sys:String x:Key="GridUtility.AuditPreviewSummary">{0} línea(s) verificadas; {1} línea(s) pendientes, ambiguas o sólo como evidencia real. Los campos no impresos en la boleta no deben completarse por suposición.</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Line">Línea</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Rate">Tasa en boleta</sys:String>
+    <sys:String x:Key="GridUtility.AuditColumn.QuantityBasis">Base de cálculo</sys:String>
+    <sys:String x:Key="GridUtility.AuditQuantitySource.Bill">consumo boleta</sys:String>
+    <sys:String x:Key="GridUtility.AuditQuantitySource.Line">línea boleta</sys:String>
+    <sys:String x:Key="GridUtility.AuditQuantitySource.Derived">derivada</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Status">Verificación</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Source">Fuente</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Reconstructed">Reconstruido</sys:String>
@@ -287,7 +291,11 @@
     <sys:String x:Key="GridUtility.OtherCharges">Otros cargos (+/−)</sys:String>
     <sys:String x:Key="GridUtility.TotalDue">Total a pagar</sys:String>
     <sys:String x:Key="GridUtility.BillLinesHeading">Detalle de cargos y créditos</sys:String>
-    <sys:String x:Key="GridUtility.BillLinesIntro">Selecciona una boleta guardada y conserva cada línea tal como aparece. Descripción y monto son la evidencia mínima. Cantidad, unidad, precio unitario y tratamiento tributario son opcionales: complétalos sólo si aparecen explícitamente en la boleta. No inventes una tasa; la auditoría buscará la fuente oficial.</sys:String>
+    <sys:String x:Key="GridUtility.BillLinesIntro">Selecciona una boleta guardada y conserva cada línea tal como aparece. Para “Electricidad consumida” y “Transporte de electricidad” usa el tipo de cargo específico: la app reutiliza automáticamente el consumo kWh de la boleta como base de cálculo cuando el tarifario oficial confirma que corresponde. No repitas esos kWh en la línea. Descripción y monto son la evidencia mínima; cantidad, unidad, precio unitario y tratamiento tributario se ingresan sólo si están impresos.</sys:String>
+    <sys:String x:Key="GridUtility.BillType">Tipo de cargo</sys:String>
+    <sys:String x:Key="GridUtility.BillType.Custom">Otro / texto libre</sys:String>
+    <sys:String x:Key="GridUtility.BillType.ElectricityConsumed">Electricidad consumida</sys:String>
+    <sys:String x:Key="GridUtility.BillType.ElectricityTransport">Transporte de electricidad</sys:String>
     <sys:String x:Key="GridUtility.BillSection">Sección</sys:String>
     <sys:String x:Key="GridUtility.BillSection.Service">Servicio eléctrico</sys:String>
     <sys:String x:Key="GridUtility.BillSection.OtherCharges">Otros cargos</sys:String>

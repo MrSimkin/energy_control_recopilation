@@ -1275,6 +1275,12 @@ try
         verifiedActualOnly.Status != "ACTUAL_ONLY_UNMAPPED" ||
         pendingOfficialDerivation.Status != "OFFICIAL_RATE_DERIVATION_PENDING" ||
         pendingOfficialDerivation.PrintedUnitRateClp is not null ||
+        pendingOfficialDerivation.CalculationQuantity is null ||
+        Math.Abs(
+            pendingOfficialDerivation.CalculationQuantity.Value -
+            expectedGridImport) > 0.000001 ||
+        pendingOfficialDerivation.CalculationUnit != "kWh" ||
+        pendingOfficialDerivation.CalculationQuantitySource != "BILL_BILLED_KWH" ||
         pendingOfficialDerivation.PublicationIds.Count != 1 ||
         pendingOfficialDerivation.PublicationIds[0] != januaryPublicationId)
     {
