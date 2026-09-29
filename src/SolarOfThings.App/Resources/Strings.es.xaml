@@ -188,6 +188,8 @@
     <sys:String x:Key="GridUtility.AuditBill">Boleta a auditar</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAudit">Exportar auditoría PDF</sys:String>
     <sys:String x:Key="GridUtility.AuditEvidencePending">Selecciona una boleta para revisar/exportar su evidencia. La tarifa aplicable se verificará por separado.</sys:String>
+    <sys:String x:Key="GridUtility.AuditNoBillLines">Esta boleta no tiene líneas de cargo guardadas. No hay nada que auditar línea por línea todavía; completa primero la evidencia de cargos en “Boletas Enel”.</sys:String>
+    <sys:String x:Key="GridUtility.AuditNoBillIdentity">sin referencia / sin kWh / sin total</sys:String>
     <sys:String x:Key="GridUtility.AuditSelectBill">Selecciona una boleta antes de exportar.</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditTitle">Exportar auditoría de boleta Enel</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditSaved">Auditoría guardada: {0}</sys:String>
