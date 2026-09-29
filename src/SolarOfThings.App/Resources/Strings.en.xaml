@@ -188,6 +188,8 @@
     <sys:String x:Key="GridUtility.AuditBill">Bill to audit</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAudit">Export audit PDF</sys:String>
     <sys:String x:Key="GridUtility.AuditEvidencePending">Select a bill to review/export its evidence. The applicable tariff is verified separately.</sys:String>
+    <sys:String x:Key="GridUtility.AuditNoBillLines">This bill has no stored charge lines. There is nothing to audit line by line yet; complete the bill-charge evidence in “Enel bills” first.</sys:String>
+    <sys:String x:Key="GridUtility.AuditNoBillIdentity">no reference / no kWh / no total</sys:String>
     <sys:String x:Key="GridUtility.AuditSelectBill">Select a bill before exporting.</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditTitle">Export Enel bill audit</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditSaved">Audit saved: {0}</sys:String>
