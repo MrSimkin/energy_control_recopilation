@@ -2740,3 +2740,31 @@ Required UX change before next handoff:
 - expose enough identifying evidence to distinguish duplicate/overlapping bill records;
 - investigate duplicate/near-duplicate stored bill records as a separate data-quality issue rather than hiding them.
 
+
+
+## Build 486 QA 7 clarification — bill lines exist but tariff inputs are incomplete — 2026-09-28
+
+Target evidence now clarifies the audit state:
+- the selected bill DOES have stored charge lines;
+- audit PDF shows three lines:
+  - Electricidad consumida: actual amount 58,559 CLP;
+  - Transporte de electricidad: actual amount 5,679 CLP;
+  - Subsidio: actual amount -3,758 CLP;
+- however the two tariff-verifiable lines have no stored quantity and no stored unit rate;
+- therefore the audit correctly reports:
+  - Electricidad consumida -> no printed unit rate;
+  - Transporte de electricidad -> no printed unit rate;
+  - Subsidio -> actual-only evidence.
+
+The problem is not "no bill lines"; it is incomplete per-line bill evidence for tariff reconstruction.
+
+UX requirement:
+- Boletas Enel must clearly explain which line fields are needed for verification:
+  - description;
+  - quantity where printed on bill;
+  - unit;
+  - printed unit rate;
+  - actual line amount;
+- do not require the user to know internal category keys;
+- for lines such as Subsidio or other non-reconstructable adjustments, amount-only evidence is acceptable;
+- audit empty/incomplete states must distinguish "no lines" from "lines present but missing quantity/rate".
