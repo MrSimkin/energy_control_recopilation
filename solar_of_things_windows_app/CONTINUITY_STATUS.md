@@ -2925,3 +2925,51 @@ Target-PC QA for Build 491:
 7. continue with Enel tariff-PDF import only if the audit still reports missing final tariff source.
 
 Do not test Build 490 separately.
+
+## Target-PC observation after Build 491 — audit report needs multi-level evidence and financial scenarios — 2026-09-28
+
+User reviewed `Auditoria-Boleta-Enel-20260928-2238.pdf` and rejected the current report as insufficient.
+
+Observed defects:
+- tariff-reconstruction table is visually unreadable and splits badly across pages;
+- long source filenames dominate the main table;
+- technical detail leaks in English;
+- report says no rates were found/reconstructed even though official July/August Enel tariff sources and bill-level kWh are present;
+- the report focuses almost entirely on the utility/billed consumption and does not translate Solar of Things consumption into tariff-based financial scenarios.
+
+User expectation:
+- presentation and evidence hierarchy should reach the standard already used by the internal/family energy-audit XLSX;
+- the reader must be able to follow conclusions from summary -> comparison -> evidence -> quality -> technical traceability;
+- show at least three parallel energy/financial views:
+  1. Enel billed/meter consumption;
+  2. Solar of Things observed grid import;
+  3. Solar of Things sensitivity range;
+- for each view, derive what the applicable official tariff implies in CLP where evidence supports it;
+- show both energy variance and monetary variance;
+- preserve a clear distinction between measured/printed values, derived values, scenario/counterfactual values, and unresolved values;
+- do not call the current sensitivity range probabilistic/confidence-based unless a probabilistic model is actually implemented.
+
+Evidence from the target PDF:
+- billed / meter consumption: 266.000 kWh;
+- Solar of Things observed import: 204.260 kWh;
+- observed difference: -61.740 kWh / 23.21%;
+- coverage: 90.3%;
+- sensitivity range: 204.260–505.168 kWh;
+- actual billed total: CLP 60,104;
+- actual gross bill: CLP 65,422.
+
+Official-tariff cross-check performed against Enel's 2026 retroactive publications:
+- August 2026 BT1 publishes ELECTRICITY_CONSUMED for BT_AA/T5 at 220.147 CLP/kWh in the published IVA column;
+- 266 kWh × 220.147 = 58,559.102 CLP, essentially exactly the actual `Electricidad consumida` line of CLP 58,559;
+- July 2026 equivalent BT_AA/T5 published IVA value is 220.115 CLP/kWh, which does not reconcile as tightly;
+- this creates strong bill-derived evidence that the August publication/rate is the rate actually represented by that line, without requiring a generic unproven proration rule;
+- official August table defines T5 as prior-year average consumption >230 and <=240 kWh; current bill kWh must not be used to define ETR;
+- official August `Transporte de electricidad` is 20.489 CLP/kWh in published IVA column and public-service charge is 0.855 CLP/kWh; the residential bill line may require composite treatment, not a naive single-component match.
+
+Required redesign direction:
+- Page/level 1: executive energy + money comparison and concise audit conclusion;
+- Page/level 2: scenario comparison table (billed, Solar observed, sensitivity bounds) with tariff-driven components and CLP differences;
+- Page/level 3: actual-vs-reconstructed bill charges, explicit unresolved residual;
+- Page/level 4: data quality/sensitivity/observability;
+- Page/level 5: sources, version/retroactivity, inferred applicability and reading traceability;
+- long raw filenames belong in evidence/annex, not headline tables.
