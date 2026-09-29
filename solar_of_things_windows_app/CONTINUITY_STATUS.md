@@ -2716,3 +2716,27 @@ QA interpretation at this point:
 
 Do not ask the user to repeat prior QA while diagnosing this empty-grid condition.
 
+
+## Build 486 QA 7 additional screenshot findings — 2026-09-28
+
+Second target-PC screenshot confirms additional audit UX/data-quality issues:
+
+1. **Empty audit grid remains visually unexplained.**
+   - The selected bill shows no verification rows.
+   - The UI does not clearly tell the user whether the selected bill lacks stored charge lines, lacks tariff evidence, or has another prerequisite problem.
+
+2. **Duplicate / near-duplicate bill periods are visible in the selector.**
+   - Multiple entries overlap the same July-August 2026 period.
+   - One pair differs only by an end-boundary timestamp representation (e.g. 27-08 23:59 vs 27-08 00:00), which is especially confusing given the canonical Enel date-boundary model.
+   - Audit UX must not force the user to distinguish records by raw timestamp artifacts.
+
+3. **Bill selector remains too technical.**
+   - It displays full raw timestamps with seconds.
+   - It should display human-readable billing dates/boundaries and, where possible, bill reference / billed kWh / total to disambiguate records.
+
+Required UX change before next handoff:
+- when a selected bill has zero stored charge lines, show an explicit empty-state explanation and direct action to complete bill evidence;
+- simplify bill labels to date/boundary semantics;
+- expose enough identifying evidence to distinguish duplicate/overlapping bill records;
+- investigate duplicate/near-duplicate stored bill records as a separate data-quality issue rather than hiding them.
+
