@@ -1921,8 +1921,7 @@ public partial class MainWindow : Window
             .OrderByDescending(item => item.PeriodEndUtc)
             .Select(item => new UtilityBillChoice(
                 item.BillId,
-                $"{FormatUtilityInterval(item.PeriodStartUtc, item.PeriodEndUtc, timeZone)} · " +
-                $"{(string.IsNullOrWhiteSpace(item.InvoiceReference) ? "sin referencia" : item.InvoiceReference)}"))
+                FormatAuditBillChoice(item, timeZone)))
             .ToArray();
         UtilityAuditBillSelector.ItemsSource = auditBillChoices;
         if (previousAuditBill is long previousAuditBillId &&
@@ -2746,6 +2745,19 @@ public partial class MainWindow : Window
                 ? "America/Santiago"
                 : profile.StationTimeZone;
 
+            var repository =
+                _services.GetRequiredService<UtilityMeterRepository>();
+            var billLines = repository.GetBillLines(billId);
+
+            if (billLines.Count == 0)
+            {
+                UtilityAuditVerificationGrid.ItemsSource = null;
+                UtilityAuditStatusText.Text =
+                    _localization.GetString(
+                        "GridUtility.AuditNoBillLines");
+                return;
+            }
+
             var verifications = _services
                 .GetRequiredService<TariffBillRateVerificationService>()
                 .VerifyBill(
@@ -2794,6 +2806,50 @@ public partial class MainWindow : Window
             UtilityAuditVerificationGrid.ItemsSource = null;
             UtilityAuditStatusText.Text = ex.Message;
         }
+    }
+
+    private string FormatAuditBillChoice(
+        UtilityBillRecord bill,
+        string timeZoneId)
+    {
+        var fromLocal = SolarApiTime.ConvertToLocalTime(
+            bill.PeriodStartUtc,
+            timeZoneId);
+        var toLocal = SolarApiTime.ConvertToLocalTime(
+            bill.PeriodEndUtc,
+            timeZoneId);
+
+        var interval =
+            $"{fromLocal:dd-MM-yyyy} → {toLocal:dd-MM-yyyy}";
+
+        var identityParts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(bill.InvoiceReference))
+        {
+            identityParts.Add(bill.InvoiceReference.Trim());
+        }
+
+        if (bill.BilledConsumptionKwh.HasValue)
+        {
+            identityParts.Add(
+                $"{bill.BilledConsumptionKwh.Value:N1} kWh");
+        }
+
+        var total = bill.TotalDueClp ?? bill.AmountClp;
+        if (total.HasValue)
+        {
+            identityParts.Add(
+                $"$ {total.Value:N0}");
+        }
+
+        if (identityParts.Count == 0)
+        {
+            identityParts.Add(
+                _localization.GetString(
+                    "GridUtility.AuditNoBillIdentity"));
+        }
+
+        return $"{interval} · {string.Join(" · ", identityParts)}";
     }
 
     private string FormatAuditTariffPublication(
