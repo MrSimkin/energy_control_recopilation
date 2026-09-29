@@ -3114,3 +3114,43 @@ Important:
 - Build 492 must not present the old maximum-observed-power missing-data stress bound as a probable lower/central/upper range;
 - P5/P50/P95 are empirical predictive-imputation percentiles, not meter calibration confidence;
 - exact target-PC P5/P50/P95 and tariff reconstruction values are intentionally not pre-assumed; they must be read from the user's real database output.
+
+## Target-PC observation after Build 492 — adopt card-based report grammar in Audit and Informes — 2026-09-28
+
+User provided two reference PDFs:
+- `Auditoria-Boleta-Enel-20260928-2351.pdf` (Build 492 audit output);
+- `Resumen simple de energía_20260420_20260927.pdf` (existing Informes visual reference).
+
+Observed presentation problem:
+- the audit now contains useful P5/P50/P95 and financial calculations, but its primary sections still read like dense technical tables;
+- the audit's tariff-evidence area leaks raw parser/source text and internal status tokens, making it unsuitable for presentation;
+- the existing Informes PDF demonstrates the preferred visual grammar: cards with short labels, large values, concise context and clear grouping.
+
+Required cross-report design rule:
+- use the existing Informes card grammar for headline audit metrics;
+- P5/P50/P95 must be visually presented as first-class cards, not buried in rows;
+- P50 is the central estimate and should be visually identified as such;
+- each percentile needs a short plain-language explanation;
+- technical parser strings/status codes must not appear in the main presentation layer;
+- raw tariff evidence belongs in a concise evidence/annex layer with human-readable status.
+
+Informes extension:
+- the existing “Importación total desde Enel” export card must be expanded to communicate:
+  - directly observed import;
+  - P5 lower predictive completion;
+  - P50 central predictive completion;
+  - P95 upper predictive completion;
+- explain that P5/P50/P95 complete missing telemetry statistically and are not Enel meter readings or metrological confidence intervals;
+- preserve the distinction between temporal grid coverage and source-attribution coverage.
+
+Audit layout target:
+- executive consumption comparison as cards:
+  - Enel billed/meter;
+  - Solar observed;
+  - Solar P5;
+  - Solar P50;
+  - Solar P95;
+- financial comparison as matching cards;
+- keep concise comparison deltas versus Enel under the Solar cards;
+- actual/reconstructed charges may remain tabular where tabular comparison is genuinely clearer;
+- tariff evidence must show only concise fields: effective period/version, RED/ETR, official rate, composition and human-readable reconciliation status.
