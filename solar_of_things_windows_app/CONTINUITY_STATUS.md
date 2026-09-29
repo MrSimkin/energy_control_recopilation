@@ -3177,3 +3177,61 @@ Informes PDF extension:
 - each card explains its percentile meaning;
 - a note states the number of uncovered hours completed statistically and clarifies that these are not Enel meter readings or metrological confidence intervals;
 - the distinction between grid temporal coverage and source-attribution coverage remains intact.
+
+## Build 493 — card-based audit + Informes P5/P50/P95 presentation — GREEN — 2026-09-28
+
+Identity:
+- code commit: `0da377bce777d814b17ef32e7ca21d4fc516aa5f`;
+- workflow run: `36515330128`;
+- Windows Build: **493**;
+- CI build: PASS;
+- SQLite smoke: PASS;
+- Informes statistical-model smoke: PASS;
+- bill-audit PDF smoke: PASS;
+- portable publish/upload: PASS;
+- artifact ID: `11011390406`;
+- handoff ZIP: `SolarEnergyMonitor-Build-493-win-x64.zip`;
+- ZIP SHA-256: `2f6b247ea8f99fd87bd4869aac9f44228867fceb8881a635d1dcedb028ce2cc1`.
+
+Presentation changes:
+- Audit:
+  - Enel and observed Solar are primary cards;
+  - P5/P50/P95 are a dedicated predictive-range card row;
+  - P50 is visually highlighted as central estimate;
+  - each Solar card shows delta vs Enel plus a concise meaning;
+  - monetary scenarios use the same card grammar;
+  - quality/evidence uses cards and a plain-language percentile explanation;
+  - tariff evidence no longer prints raw parser text/status tokens;
+  - tariff components appear as concise reconciliation cards;
+  - human-readable bill section labels and signed currency formatting.
+- Informes / Resumen simple PDF:
+  - existing Importación total desde Enel card is explicitly the directly observed amount;
+  - P5/P50/P95 cards appear immediately below it;
+  - each percentile explains its meaning;
+  - note states uncovered hours completed statistically and distinguishes this from Enel readings/metrological confidence;
+  - same independent statistical service as bill audit, avoiding divergent calculations.
+
+Target-PC QA for Build 493:
+1. reuse the same existing `Data` folder;
+2. confirm footer `Build 493 · 0da377bc`;
+3. do not re-enter any bill, tariff, reading or Solar historical data;
+4. export exactly:
+   - one new Enel bill-audit PDF for the existing July/August bill;
+   - one new **Resumen simple de energía** PDF using the same report range previously used for the visual-reference PDF, if practical;
+5. return both PDFs.
+
+Review focus:
+- cards are readable and visually hierarchical;
+- P5/P50/P95 meanings are understandable without technical interpretation;
+- P50 reads as the central estimate;
+- audit monetary cards remain traceable to official tariff evidence;
+- tariff evidence contains no raw parser dumps/internal status codes;
+- Informes clearly distinguishes observed grid import, P5/P50/P95, grid temporal coverage and attribution coverage.
+
+Do not repeat:
+- data import;
+- tariff import;
+- startup QA;
+- broad responsive QA;
+- manual bill entry;
+- unrelated report pages unless visual pagination is obviously broken.
