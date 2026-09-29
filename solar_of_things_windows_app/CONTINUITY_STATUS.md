@@ -2640,3 +2640,30 @@ Next action:
 - add durable local diagnostic output for the tariff update path;
 - validate the same packaged application path as closely as possible before another user handoff.
 
+
+## Correction from target-PC video evidence — 2026-09-28
+
+The previously recorded statement that Build 486 itself had failed tariff QA is **not supported**.
+
+User-supplied screen recording `Grabación 2026-09-28 205723.mp4` shows:
+- footer identity: **v0.10.0 · Build 441 · e4ae3b47**;
+- therefore the executable under test was Build 441, not Build 486;
+- tariff year selector shown in the recording: **2025**;
+- UI shown is the older Build 441 Enel-only tariff surface:
+  - heading `Tarifas oficiales Enel`;
+  - action `Descargar / actualizar año`;
+  - no CNE evidence controls / no Enel browser+PDF-import fallback introduced later;
+- pressing the button completes with the old `0/0` result, consistent with the already-known Build 441 Imperva failure.
+
+QA status correction:
+- **Build 441 item 6 remains FAIL** as previously established;
+- **Build 486 item 6 is NOT YET TESTED on the target PC**;
+- Build 486 items 7/8B remain pending, not failed;
+- do not perform further code fixes based on the mistaken premise that Build 486 showed the same target behavior.
+
+Likely operational cause:
+- an older extracted folder/executable or shortcut was launched instead of the Build 486 executable.
+
+Next target action:
+- launch a clean Build 486 folder and verify the footer says `Build 486 · 78817105` before running tariff QA.
+
