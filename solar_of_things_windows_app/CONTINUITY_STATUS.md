@@ -3072,3 +3072,45 @@ PDF redesign:
 - tariff evidence and full reading traceability in the technical evidence layer;
 - long source filenames no longer dominate the headline tariff table;
 - English internal detail is removed from the principal audit narrative.
+
+## Build 492 — statistical Solar margins + financial tariff audit — GREEN — 2026-09-28
+
+Identity:
+- code commit: `fbcc5c9d7c347e2b083660f912889d874caec35a`;
+- workflow run: `36512369715`;
+- Windows Build: **492**;
+- CI build: PASS;
+- SQLite smoke: PASS;
+- statistical-completion smoke: PASS;
+- bill-audit PDF smoke: PASS;
+- portable publish/upload: PASS;
+- artifact ID: `11010445054`;
+- handoff ZIP: `SolarEnergyMonitor-Build-492-win-x64.zip`;
+- ZIP SHA-256: `5fa51e3dd5c39edb8a5fb40e2262ae0862957b9b0d26b615ae5fc8ea4c3f4c2c`.
+
+Target-PC QA is intentionally focused on the real July/August bill:
+1. reuse the same existing `Data` folder from Build 491;
+2. confirm footer `Build 492 · fbcc5c9d`;
+3. do not re-enter the bill, lines, readings, tariff PDFs or historical Solar data;
+4. open **Auditoría de boleta**, select the existing 29-07-2026 -> 27-08-2026 bill, and export one new audit PDF;
+5. return that PDF for review.
+
+Expected high-level PDF structure:
+- executive energy comparison:
+  - Enel measured/billed;
+  - Solar observed;
+  - Solar lower P5;
+  - Solar central P50;
+  - Solar upper P95;
+  - kWh and percentage deltas vs Enel;
+- explicit statement whether Enel falls inside/outside the independent Solar predictive interval;
+- official-tariff financial scenario table for the same energy references;
+- actual-charge vs reconstructed-component reconciliation;
+- data-quality/statistical-method evidence;
+- tariff source/version/applicability evidence;
+- reading traceability.
+
+Important:
+- Build 492 must not present the old maximum-observed-power missing-data stress bound as a probable lower/central/upper range;
+- P5/P50/P95 are empirical predictive-imputation percentiles, not meter calibration confidence;
+- exact target-PC P5/P50/P95 and tariff reconstruction values are intentionally not pre-assumed; they must be read from the user's real database output.
