@@ -3004,3 +3004,33 @@ Presentation consequence:
   2. Solar of Things directly observed/integrated value;
   3. Solar of Things statistical completion for missing telemetry;
   4. worst-case engineering stress bound (technical appendix only, if retained).
+
+## Audit presentation requirement — explicit lower/central/upper Solar sensitivity vs Enel — 2026-09-28
+
+User clarification:
+- the bill-audit report must show the Solar of Things estimate as an explicit **lower / central / upper** sensitivity band and compare every point directly with Enel;
+- the comparison must be readable enough to present to another person without interpreting engineering/debug tables;
+- evidence/provenance must accompany each displayed value.
+
+Required headline comparison:
+- Enel measured/billed kWh;
+- Solar of Things directly observed kWh;
+- Solar statistical lower bound;
+- Solar statistical central estimate;
+- Solar statistical upper bound;
+- for each Solar value:
+  - difference vs Enel in kWh;
+  - difference vs Enel in percent;
+  - tariff-derived CLP scenario where tariff evidence is sufficient.
+
+Evidence labels must distinguish:
+- **Measured / printed by Enel**;
+- **Directly observed by Solar of Things**;
+- **Statistically completed from Solar of Things telemetry**;
+- **Official tariff-derived**;
+- **Unresolved / insufficient evidence**.
+
+Presentation rule:
+- these values belong in the executive comparison layer, not only in the quality annex;
+- the old max-observed-power stress bound must not occupy the lower/central/upper statistical slots;
+- the technical annex must explain the statistical method, sample/context basis, coverage and percentile semantics used to construct the lower/central/upper band.
