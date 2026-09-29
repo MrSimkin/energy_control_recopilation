@@ -181,3 +181,33 @@ Likely operational cause:
 Next target action:
 - launch a clean Build 486 folder and verify the footer says `Build 486 · 78817105` before running tariff QA.
 
+
+## Target-PC result — Build 486 — QA 6 PASS — 2026-09-28
+
+User-supplied screenshot confirms Build 486 is actually running:
+- footer: `v0.10.0 · Build 486 · 78817105`;
+- selected year: 2026.
+
+Official tariff evidence update result:
+- **CNE 12 VAD documents captured**;
+- **2 corrections**;
+- **0 failures**;
+- Enel automatic acquisition explicitly reports unavailable due to web protection and directs the user to:
+  - `Abrir página oficial Enel`;
+  - `Importar PDFs oficiales Enel...`.
+
+Visible version/correction handling:
+- 2026-08 Resolution 380 appears as **Corrección vigente**;
+- 2026-08 Resolution 368 appears as **Rectificada**;
+- 2026-09 Resolution 440 appears as unique/current;
+- 2026-10 Resolution 506 appears as unique/current.
+
+UI result:
+- tariff/evidence table is populated;
+- source, effective date, correction state, capture state, version state, pages, hash and official publication title are visible;
+- the previous blank/0-0 behavior is resolved for the automatic official-evidence path.
+
+QA status:
+- Build 486 item 6: **PASS**.
+- Proceed to item 7: browser-assisted official Enel PDF import + bill audit.
+
