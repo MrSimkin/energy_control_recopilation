@@ -211,3 +211,22 @@ QA status:
 - Build 486 item 6: **PASS**.
 - Proceed to item 7: browser-assisted official Enel PDF import + bill audit.
 
+
+## Target-PC result — Build 486 — QA 7 partial evidence — 2026-09-28
+
+User screenshot confirms:
+- footer identity: `v0.10.0 · Build 486 · 78817105`;
+- **Auditoría de boleta** tab opens;
+- bill selector is populated with multiple stored bill intervals;
+- selected example: `29-07-2026 00:00:00 -> 27-08-2026 23:59:00 · sin referencia`;
+- audit verification grid is visible but contains **no rows** for the selected bill;
+- no visible tariff-verification outcome is therefore available yet.
+
+QA interpretation at this point:
+- bill-audit surface/navigation: functionally reachable;
+- QA 7 is **PARTIAL / BLOCKED** until the empty verification grid is explained;
+- do not infer tariff verification PASS or FAIL yet;
+- investigate whether the selected bill lacks stored bill lines, lacks imported Enel tariff-table evidence, has an interval/source applicability issue, or the preview refresh path is defective.
+
+Do not ask the user to repeat prior QA while diagnosing this empty-grid condition.
+
