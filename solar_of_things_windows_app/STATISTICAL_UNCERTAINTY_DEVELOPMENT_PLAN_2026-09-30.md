@@ -381,7 +381,38 @@ No production change is authorized by this note.
 
 # Phase 2 — Design and compare candidate completion methods
 
-Status: PENDING
+Status: **COMPLETE — 2026-09-30**
+
+Selected Phase 3 candidate:
+- `grid-import-context-block-bootstrap-120m.candidate-v1`;
+- research alias: **C2-120**;
+- context: +/-15 minutes, weekday/weekend matched;
+- contiguous block length up to 120 minutes;
+- longer gaps are stitched from additional contextual blocks;
+- current 2,000 simulations retained during comparison.
+
+Holdout:
+- 8 untouched scenario families;
+- 1,000 paired repetitions per family;
+- C2-120: 1 corrected undercoverage failure / 8;
+- C0 current baseline: 7 / 8;
+- C2-120 mean normalized interval score 1.059 vs C0 1.822;
+- paired score improvement vs C0: -0.764, bootstrap 95% CI [-0.895,-0.646].
+
+Known candidate limitation:
+- extreme AR phi=0.95;
+- overall holdout coverage 86.9%;
+- diagnostic 240-minute gaps 80.3% when two 120-minute blocks must be stitched.
+
+Canonical evidence:
+- `research/statistical_uncertainty/PHASE2_CANDIDATE_COMPARISON_PROTOCOL_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE2_DISCOVERY_CHECKPOINT_AND_AMENDMENT_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE2_HOLDOUT_REPORT_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE2_HOLDOUT_RESULTS_2026-09-30.csv`;
+- `research/statistical_uncertainty/PHASE2_AR095_DIAGNOSTIC_2026-09-30.csv`.
+
+C2-120 is a **provisional Phase 3 candidate only**, not production approval.
+
 
 Minimum candidates:
 1. current point-wise empirical bootstrap;
