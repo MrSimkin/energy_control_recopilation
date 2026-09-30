@@ -211,6 +211,33 @@ All are satisfied:
 
 ---
 
+## Mandatory reader-explanation rule — user requirement 2026-09-30
+
+The final PDF/report must never assume that a reader understands P5/P50/P95 merely because the labels are present.
+
+Whenever P5/P50/P95 are shown to a third-party reader, the presentation must include an immediately adjacent plain-language explanation covering all four questions:
+
+1. **What was done?**
+   - missing intervals were reconstructed statistically using comparable observed telemetry through repeated simulations/resampling;
+
+2. **Why was it done?**
+   - because missing telemetry cannot honestly be treated as zero and a single invented replacement value would hide uncertainty;
+
+3. **What is it for?**
+   - to produce a plausible range for the missing-data contribution and then compare the independently constructed Solar of Things range with the external utility value;
+
+4. **What do P5/P50/P95 mean?**
+   - P5: lower percentile / lower plausible edge under the model;
+   - P50: median / central estimate;
+   - P95: upper percentile / upper plausible edge under the model;
+   - P5-P95: central 90% of simulated/completed outcomes under the stated model.
+
+Reader wording must avoid assuming prior statistical training. The technical annex may be more formal, but the primary explanatory paragraph must remain understandable to an educated non-specialist.
+
+Do not call P5/P50/P95 “tests” unless a real statistical hypothesis test is actually being performed. In this tranche they are percentiles/scenarios from a simulated completion distribution.
+
+---
+
 # Phase 1 — Audit the current statistical method
 
 Status: PENDING
