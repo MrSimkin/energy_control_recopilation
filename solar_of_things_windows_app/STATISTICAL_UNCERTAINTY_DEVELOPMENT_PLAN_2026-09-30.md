@@ -238,6 +238,21 @@ Do not call P5/P50/P95 “tests” unless a real statistical hypothesis test is 
 
 ---
 
+## Simulation-count parameterization requirement — user decision 2026-09-30
+
+The Monte Carlo/resampling trial count must be parameterizable.
+
+Rules:
+- Phase 1 audits the current production method at its existing baseline of **2,000 simulations** so the current algorithm is measured without changing it.
+- The test harness must accept an explicit simulation-count parameter so convergence can later be tested without redesigning the harness.
+- Phase 2 must compare at least: 2,000; 5,000; 10,000; 20,000; 50,000; and 100,000 simulations.
+- No final production default is fixed in Phase 1.
+- Candidate production counts must be selected from observed convergence of P5/P50/P95, computational cost, and backtesting behavior rather than by convention alone.
+- 100,000 simulations is a serious candidate for final report generation if runtime remains operationally acceptable.
+- Increasing trial count reduces Monte Carlo numerical error only; it does not correct a misspecified statistical model or insufficient donor data.
+
+---
+
 # Phase 1 — Audit the current statistical method
 
 Status: PENDING
