@@ -269,7 +269,25 @@ Lot 1 evidence:
 - high autocorrelation: 30.6%;
 - P50 mean directional bias remained near zero in all four Lot 1 scenarios;
 - finding: current point-wise resampling can materially understate uncertainty under serial dependence;
-- Phase 1 remains open because gap-length, multiple-gap, spike/regime and additional scenario tests are still pending.
+- Phase 1 remains open.
+
+Lot 2 completed 2026-09-30:
+- harness: `research/statistical_uncertainty/phase1_gap_duration_audit.py`;
+- raw results: `research/statistical_uncertainty/PHASE1_LOT2_RESULTS_2026-09-30.csv`;
+- report: `research/statistical_uncertainty/PHASE1_LOT2_REPORT_2026-09-30.md`;
+- 1,000 repetitions per scenario/duration cell;
+- 2,000 simulations retained for every statistical completion;
+- confirmed 15-minute effective continuity threshold under nominal 5-minute cadence;
+- 10/15-minute separations are bridged and can report 100% temporal coverage despite missing source samples;
+- 20 minutes and above activate statistical completion;
+- stable/day-night scenarios remain broadly near nominal coverage;
+- moderate/high autocorrelation materially undercovers across all tested statistical gap lengths;
+- P50 remains comparatively centered, reinforcing that the main defect is interval calibration, not simple directional bias.
+
+Remaining Phase 1 work:
+- missingness topology: one long gap vs multiple/distributed gaps;
+- appliance-like/persistent load episodes;
+- any additional scenario checks required before method-comparison Phase 2.
 
 
 
