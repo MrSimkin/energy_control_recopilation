@@ -142,6 +142,17 @@ Candidate settings are frozen before holdout execution.
 
 ## 6. Primary metrics
 
+Replication counts are fixed before numerical discovery:
+- discovery: **500 paired repetitions per declared cell**;
+- holdout: **1,000 paired repetitions per declared cell**.
+
+Rationale:
+- discovery estimates are used only to freeze candidate settings;
+- the larger untouched holdout is the stronger confirmation gate;
+- all coverage results retain Wilson intervals and exact-binomial inference.
+
+For C2, "insufficient contextual blocks" means fewer than **8 eligible contiguous donor starts**. Fallback widening is therefore deterministic: +/-15 min -> +/-30 min -> +/-60 min -> same hour -> all valid contiguous starts.
+
 For every scenario/method cell:
 - empirical P5-P95 coverage;
 - 95% Wilson interval for coverage;
