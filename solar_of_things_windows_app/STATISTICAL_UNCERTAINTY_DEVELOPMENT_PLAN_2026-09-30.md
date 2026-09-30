@@ -255,7 +255,23 @@ Rules:
 
 # Phase 1 — Audit the current statistical method
 
-Status: PENDING
+Status: **IN PROGRESS — Lot 1 complete 2026-09-30**
+
+Lot 1 evidence:
+- research harness: `research/statistical_uncertainty/phase1_current_method_audit.py`;
+- results: `research/statistical_uncertainty/PHASE1_LOT1_RESULTS_2026-09-30.md`;
+- 1,000 repetitions per scenario;
+- 2,000 simulated completions per repetition;
+- 2-hour controlled gap;
+- stable: 89.5% empirical P5-P95 coverage;
+- day/night: 87.8%;
+- moderate autocorrelation: 61.7%;
+- high autocorrelation: 30.6%;
+- P50 mean directional bias remained near zero in all four Lot 1 scenarios;
+- finding: current point-wise resampling can materially understate uncertainty under serial dependence;
+- Phase 1 remains open because gap-length, multiple-gap, spike/regime and additional scenario tests are still pending.
+
+
 
 Goal:
 - measure objectively where `grid-import-empirical-bootstrap.v1` works and fails.
