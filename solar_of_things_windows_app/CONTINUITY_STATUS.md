@@ -3434,3 +3434,40 @@ Siguiente paso autorizado:
 - **Phase 1 — auditoría estadística del método actual**;
 - ejecutar pruebas reproducibles del método `grid-import-empirical-bootstrap.v1`;
 - todavía NO reemplazar algoritmo, NO cambiar PDF y NO crear build de usuario.
+
+
+## Statistical uncertainty Phase 1 — Lot 1 — 2026-09-30
+
+UX observation recorded before the statistical lot:
+- Reports > Export PDF is now the canonical long-operation progress pattern;
+- transversal requirement persisted in `PRE_BUILD_OBSERVATION_REVIEW_RULE.md`;
+- future operations should use local bar/status under the action, Paso n/X when staged, completion ping, and explicit output path;
+- Settings must eventually expose a persistent default export folder;
+- this UX work is deferred from the statistical tranche and does not justify an isolated build.
+
+Phase 1 Lot 1:
+- harness: `research/statistical_uncertainty/phase1_current_method_audit.py`;
+- results: `research/statistical_uncertainty/PHASE1_LOT1_RESULTS_2026-09-30.md`;
+- harness default `simulation_count=2000`, parameterizable for later convergence analysis;
+- 1,000 repetitions per scenario with a 2-hour hidden interval.
+
+Observed empirical P5-P95 coverage:
+- stable: 89.5%;
+- day/night: 87.8%;
+- moderate temporal autocorrelation: 61.7%;
+- high temporal autocorrelation: 30.6%.
+
+Interpretation:
+- P50 showed no material directional bias in this lot;
+- the dominant observed weakness is interval undercoverage under temporal dependence;
+- increasing Monte Carlo draws alone cannot repair missing serial dependence;
+- Phase 1 remains open.
+
+Execution caveat:
+- this lot used a behavioral Python mirror of the current C# algorithm because the local analysis runtime could not clone/execute .NET;
+- no production C# algorithm was modified;
+- no Windows build was triggered by the research-path commits.
+
+Next proposed Phase 1 lot:
+- vary gap duration while holding process behavior controlled;
+- then test multiple gaps and contiguous appliance-like spikes.
