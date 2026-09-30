@@ -3607,3 +3607,53 @@ Next authorized work:
 - retain current 2,000 simulation baseline during initial method comparison;
 - use predeclared metrics: empirical coverage + Wilson CI, exact binomial calibration test, Holm correction, P50 bias/MAE/RMSE, interval width, and alpha=0.10 interval score;
 - simulation-count convergence remains a separate later Phase 2 subtest.
+
+
+## Phase 2 statistical method comparison — CLOSED — 2026-09-30
+
+Phase 2 holdout completed.
+
+Provisional Phase 3 candidate:
+- `grid-import-context-block-bootstrap-120m.candidate-v1` / C2-120.
+
+Untouched holdout summary:
+- 8 scenario families;
+- 1,000 paired repetitions each;
+- 2,000 simulated completions per candidate;
+- 90-day synthetic history.
+
+C2-120:
+- Holm-corrected undercoverage failures: 1/8;
+- worst coverage: 86.9% (AR phi=0.95);
+- mean coverage: 90.8%;
+- mean normalized interval score: 1.059;
+- paired interval-score improvement vs current C0: -0.764, 95% bootstrap CI [-0.895,-0.646].
+
+Current C0:
+- corrected failures: 7/8;
+- worst coverage: 35.6%;
+- mean coverage: 63.84%;
+- mean normalized interval score: 1.822.
+
+Known C2 limitation:
+- very strong persistence;
+- AR95 diagnostic coverage:
+  - 30m 91.1%;
+  - 60m 87.6%;
+  - 120m 88.3%;
+  - 240m 80.3%;
+- 240m requires stitching two independent 120m blocks, reintroducing lost dependence.
+
+Other discovery candidates:
+- C3/C4 achieved slightly better average interval scores but failed holdout structural contexts (intrahour ramp and/or weekend shift);
+- they do not advance.
+
+No production code or PDF changed.
+No Windows application build generated.
+No Enel value used.
+
+Next authorized work:
+- Phase 3 real-data backtesting;
+- first finalize/build a read-only research exporter that extracts only the whitelisted telemetry/context required from the user's latest `energy.db`;
+- user should need to run that exporter once and return one research ZIP;
+- Phase 3 must reject C2-120 and return to Phase 2 if real telemetry shows material undercoverage.
