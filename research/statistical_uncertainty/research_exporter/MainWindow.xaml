@@ -1,0 +1,123 @@
+<Window x:Class="SolarOfThings.ResearchExporter.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Solar of Things — Research Exporter"
+        Width="760"
+        Height="520"
+        MinWidth="620"
+        MinHeight="460"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F6F8">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="Paquete de investigación estadística"
+                           FontSize="24"
+                           FontWeight="SemiBold"
+                           Foreground="#24292F"/>
+                <TextBlock Margin="0,7,0,0"
+                           TextWrapping="Wrap"
+                           FontSize="13"
+                           Foreground="#57606A"
+                           Text="Lee energy.db en modo sólo lectura y genera un ZIP reducido para backtesting. No exporta boletas, tarifas, credenciales, seriales ni respuestas API crudas."/>
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Margin="0,22,0,0"
+                    Padding="18"
+                    Background="White"
+                    BorderBrush="#D0D7DE"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <StackPanel>
+                    <TextBlock Text="1. Base de datos"
+                               FontSize="16"
+                               FontWeight="SemiBold"/>
+                    <Grid Margin="0,9,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="DatabasePathTextBox"
+                                 MinHeight="34"
+                                 Padding="8,6"
+                                 VerticalContentAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Padding="13,6"
+                                Content="Buscar…"
+                                Click="BrowseDatabase_Click"/>
+                    </Grid>
+
+                    <TextBlock Margin="0,18,0,0"
+                               Text="2. Carpeta de salida"
+                               FontSize="16"
+                               FontWeight="SemiBold"/>
+                    <Grid Margin="0,9,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="OutputFolderTextBox"
+                                 MinHeight="34"
+                                 Padding="8,6"
+                                 VerticalContentAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Padding="13,6"
+                                Content="Cambiar…"
+                                Click="BrowseOutput_Click"/>
+                    </Grid>
+
+                    <Button x:Name="GenerateButton"
+                            Margin="0,22,0,0"
+                            HorizontalAlignment="Left"
+                            Padding="18,9"
+                            FontWeight="SemiBold"
+                            Content="Generar paquete de investigación"
+                            Click="Generate_Click"/>
+
+                    <TextBlock x:Name="ProgressLabel"
+                               Margin="0,14,0,5"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="#495057"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed"/>
+                    <ProgressBar x:Name="ProgressBar"
+                                 Height="16"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Value="0"
+                                 Visibility="Collapsed"/>
+                    <TextBlock x:Name="StatusText"
+                               Margin="0,9,0,0"
+                               FontSize="12"
+                               Foreground="#57606A"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2"
+                    Margin="0,16,0,0"
+                    Padding="14"
+                    Background="#FFF8C5"
+                    BorderBrush="#D4A72C"
+                    BorderThickness="1"
+                    CornerRadius="7">
+                <TextBlock FontSize="12"
+                           Foreground="#4D3B00"
+                           TextWrapping="Wrap">
+                    <Run FontWeight="SemiBold" Text="Qué debes enviarme: "/>
+                    <Run Text="sólo el ZIP generado. Puedes cerrar Solar of Things antes de exportar para dejar el punto de extracción estable. El extractor no modifica la base original."/>
+                </TextBlock>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</Window>
