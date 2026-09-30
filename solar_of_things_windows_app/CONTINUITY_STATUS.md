@@ -3568,3 +3568,42 @@ Next proposed Lot 3, NOT YET EXECUTED:
 No production C# changed.
 No report/PDF code changed.
 No Windows build generated.
+
+
+## Phase 1 statistical audit — CLOSED — 2026-09-30
+
+Phase 1 has been closed after:
+- Lot 1 baseline process-family audit;
+- Lot 2 gap-duration/boundary audit;
+- formal exact-binomial + Holm inference;
+- direct C# analytical fixture validation in GitHub Actions;
+- Lot 3 paired missingness-topology audit;
+- Lot 4 donor-time-resolution causal audit with exact oracle;
+- Lot 5 persistent-regime/appliance-like analytical stress test.
+
+Key conclusions:
+- P50 can remain near unbiased while P5-P95 is badly under-calibrated;
+- serial dependence causes omitted covariance under independent 5-minute resampling;
+- 2h AR-style analytical examples predict coverage losses of the same order observed in simulation;
+- whole-hour donor bins can miscalibrate short gaps on intrahour ramps even with more donor days;
+- a narrow time-position pool restored controlled day/night calibration while the exact oracle stayed near 90%;
+- persistent ON/OFF episodes provide an exact variance-ratio counterexample:
+  - point-wise variance / persistent variance = 1/m;
+  - for a 60m / 12-segment episode, only 1/12 of the regime variance remains;
+- isolated missing 5-minute samples can be bridged and still report 100% integration coverage.
+
+Direct C# research workflow:
+- run 36781580855;
+- job 110112872942;
+- SUCCESS.
+
+No production statistical algorithm changed.
+No PDF/report code changed.
+No Windows build generated.
+
+Next authorized work:
+- Phase 2 only: compare candidate dependent-data completion methods;
+- keep Enel completely outside candidate construction/tuning;
+- retain current 2,000 simulation baseline during initial method comparison;
+- use predeclared metrics: empirical coverage + Wilson CI, exact binomial calibration test, Holm correction, P50 bias/MAE/RMSE, interval width, and alpha=0.10 interval score;
+- simulation-count convergence remains a separate later Phase 2 subtest.
