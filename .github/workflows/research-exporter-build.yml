@@ -1,0 +1,43 @@
+name: Research Exporter Build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "research/statistical_uncertainty/research_exporter/**"
+      - ".github/workflows/research-exporter-build.yml"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish Research Exporter
+        run: >
+          dotnet publish
+          research/statistical_uncertainty/research_exporter/SolarOfThings.ResearchExporter.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output artifacts/ResearchExporter
+
+      - name: Add readme marker
+        shell: pwsh
+        run: Copy-Item research/statistical_uncertainty/research_exporter/README.md artifacts/ResearchExporter/README.md -Force
+
+      - name: Upload Research Exporter
+        uses: actions/upload-artifact@v4
+        with:
+          name: SolarOfThings-ResearchExporter-R1-win-x64
+          path: artifacts/ResearchExporter
+          if-no-files-found: error
