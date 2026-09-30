@@ -1,3 +1,6 @@
+using System.Threading.Tasks;
+using System.Linq;
+using System.IO;
 using System.Media;
 using System.Windows;
 using Microsoft.Win32;
