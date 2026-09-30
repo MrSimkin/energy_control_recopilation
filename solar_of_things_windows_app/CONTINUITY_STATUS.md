@@ -3402,3 +3402,35 @@ Al comenzar la próxima sesión:
 - pedir/usar únicamente los dos PDFs de Build 494 si el usuario ya los generó;
 - si no existen aún, solicitar sólo esa validación visual mínima;
 - cualquier nueva observación del usuario debe registrarse antes de abrir un nuevo tranche de código.
+
+
+## Nuevo tranche canónico — incertidumbre estadística / reportes Enel-SEC — 2026-09-30
+
+Observación del usuario que abre el tranche:
+- antes de probar Build 494, el usuario requiere que los PDFs expliquen P5/P50/P95 de forma comprensible para terceros de Enel/SEC;
+- la explicación debe dejar claro por qué se calcula un rango y qué incertidumbre representa;
+- además debe revisarse el tratamiento estadístico de los kWh observados que permanecen sin atribución de origen;
+- antes de cualquier cambio productivo, se exige investigación/prueba estadística y desarrollo por fases.
+
+Plan canónico nuevo:
+- `STATISTICAL_UNCERTAINTY_DEVELOPMENT_PLAN_2026-09-30.md`.
+
+Estado:
+- **Phase 0 COMPLETE**;
+- Build 494 permanece congelada como baseline histórico;
+- el usuario no dispone actualmente de Build 494 localmente;
+- la antigua validación visual inmediata de Build 494 queda pospuesta mientras se ejecuta este tranche estadístico;
+- NO se modifica código productivo ni se genera Build 495 en Phase 0.
+
+Separación canónica confirmada:
+- `grid_import_power_w` / P5-P50-P95 actual responde a incertidumbre temporal de **importación total desde red**;
+- `UnattributedHouseKwh` responde a incertidumbre de **atribución de origen dentro del consumo observado de la casa**;
+- ambas magnitudes NO son equivalentes;
+- queda prohibido sumar directamente `UnattributedHouseKwh` a P5/P50/P95 por riesgo de doble conteo;
+- `Importación total desde Enel` sigue siendo la magnitud destinada a comparación con medidor/boleta;
+- `Enel -> Casa` sigue siendo una métrica analítica de flujo doméstico y no se intercambia con importación total.
+
+Siguiente paso autorizado:
+- **Phase 1 — auditoría estadística del método actual**;
+- ejecutar pruebas reproducibles del método `grid-import-empirical-bootstrap.v1`;
+- todavía NO reemplazar algoritmo, NO cambiar PDF y NO crear build de usuario.
