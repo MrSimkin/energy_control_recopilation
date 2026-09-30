@@ -301,6 +301,66 @@ Exit:
 
 ---
 
+## Phase 1 design note — 5-minute cadence and next-lot boundary tests
+
+Recorded: 2026-09-30
+
+The source telemetry has a nominal cadence near **5 minutes**. This materially affects both statistical dependence and gap detection.
+
+### Why cadence matters
+
+Adjacent 5-minute grid-import values can be positively serially dependent because household loads often persist across several consecutive samples.
+
+The current point-wise completion method samples missing 5-minute segments independently. Therefore it may preserve the marginal level by time-of-day while failing to preserve realistic contiguous high/low-load episodes. This is a plausible mechanism for the severe P5-P95 undercoverage observed in Lot 1 under synthetic autocorrelation.
+
+This is not an argument against 5-minute data. The cadence is useful; the model must respect dependence across adjacent samples.
+
+### Existing continuity/gap policy that must be audited separately
+
+The current integration logic derives a continuity threshold from the median sample gap:
+- median gap × 3;
+- clamped to approximately 10–20 minutes;
+- only separations **greater than** the threshold are treated as uncovered gaps rather than integrated continuously.
+
+With a typical 5-minute median cadence, the effective threshold is normally around **15 minutes**.
+
+Therefore the audit must distinguish:
+1. a missing source sample that is still bridged by the ordinary integration rule;
+2. a discontinuity that crosses the uncovered-gap threshold and enters statistical completion.
+
+### Revised next Phase 1 lot
+
+Before broader scenario expansion, test the gap-detection and gap-duration boundary explicitly.
+
+Candidate controlled separations/durations:
+- 10 minutes;
+- 15 minutes;
+- 20 minutes;
+- 30 minutes;
+- 1 hour;
+- 2 hours;
+- 4 hours;
+- 8 hours;
+- 12 hours.
+
+For each case record:
+- whether the current integration layer classifies it as continuous or uncovered;
+- number of missing 5-minute segments actually statistically completed;
+- P5-P95 empirical coverage;
+- P50 bias/MAE;
+- interval width;
+- donor-pool behavior.
+
+Also compare, with careful interpretation:
+- one long contiguous missing period;
+- the same nominal number of missing 5-minute samples distributed across the period.
+
+This comparison must explicitly account for the fact that isolated missing samples may remain below the continuity threshold and therefore may be bridged by trapezoidal integration rather than sent to the statistical completion service.
+
+No production change is authorized by this note.
+
+---
+
 # Phase 2 — Design and compare candidate completion methods
 
 Status: PENDING
