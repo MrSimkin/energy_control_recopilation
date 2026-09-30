@@ -3471,3 +3471,52 @@ Execution caveat:
 Next proposed Phase 1 lot:
 - vary gap duration while holding process behavior controlled;
 - then test multiple gaps and contiguous appliance-like spikes.
+
+
+## Safety checkpoint — Phase 1 statistical audit — 2026-09-30
+
+User temporarily stepped away and requested repository persistence before further work.
+
+Current state is fully persisted.
+
+Last completed statistical work:
+- Phase 1 Lot 1 is complete;
+- 2,000 simulations per reconstruction;
+- 1,000 repetitions per scenario;
+- 2-hour controlled gap;
+- empirical P5-P95 coverage:
+  - stable 89.5%;
+  - day/night 87.8%;
+  - moderate autocorrelation 61.7%;
+  - high autocorrelation 30.6%;
+- P50 mean directional bias remained near zero;
+- current concern is interval undercoverage under serial dependence, not primarily central-estimate bias.
+
+New design clarification persisted:
+- telemetry cadence is nominally ~5 minutes;
+- adjacent 5-minute observations may be serially dependent;
+- point-wise independent resampling can destroy realistic contiguous load episodes;
+- this can narrow P5-P95 even when P50 remains reasonable.
+
+Existing gap-detection behavior to audit:
+- continuity threshold = median sample gap ×3, clamped ~10–20 minutes;
+- with normal 5-minute cadence this is typically ~15 minutes;
+- separations greater than the threshold are treated as uncovered/statistically completable;
+- isolated missing samples can remain bridgeable by ordinary integration and therefore are not equivalent to one long gap.
+
+Next proposed Phase 1 lot, NOT YET EXECUTED:
+- test 10m, 15m, 20m, 30m, 1h, 2h, 4h, 8h, 12h gap/separation cases;
+- record classification as continuous vs uncovered;
+- measure P5-P95 coverage, P50 error, interval width and donor behavior;
+- compare one long contiguous loss with the same nominal count of distributed 5-minute losses, explicitly accounting for continuity-threshold behavior;
+- after that, test multiple gaps and appliance-like contiguous spikes.
+
+No further test lot has been executed after this checkpoint.
+No production C# was modified.
+No PDF/report code was modified.
+No Windows build was generated.
+
+UX requirement already persisted earlier today:
+- Reports > Export PDF pattern is canonical for long button operations;
+- local progress bar + stage text/Paso n/X + final path + completion ping;
+- Settings must later provide persistent default export folder.
