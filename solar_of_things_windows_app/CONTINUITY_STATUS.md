@@ -3520,3 +3520,51 @@ UX requirement already persisted earlier today:
 - Reports > Export PDF pattern is canonical for long button operations;
 - local progress bar + stage text/Paso n/X + final path + completion ping;
 - Settings must later provide persistent default export folder.
+
+
+## Statistical uncertainty Phase 1 — Lot 2 complete — 2026-09-30
+
+Artifacts:
+- `research/statistical_uncertainty/phase1_gap_duration_audit.py`;
+- `research/statistical_uncertainty/PHASE1_LOT2_RESULTS_2026-09-30.csv`;
+- `research/statistical_uncertainty/PHASE1_LOT2_REPORT_2026-09-30.md`.
+
+Design:
+- 4 process families: stable, day/night, moderate autocorrelation, high autocorrelation;
+- separations: 10m, 15m, 20m, 30m, 1h, 2h, 4h, 8h, 12h;
+- 1,000 repetitions per cell;
+- 2,000 current-method simulations per statistical reconstruction.
+
+Confirmed threshold behavior:
+- nominal 5-minute cadence -> continuity threshold ≈15 minutes;
+- 10m and 15m are bridged as continuous;
+- 20m+ becomes an uncovered statistical gap.
+
+Important semantic finding:
+- 10m/15m cases may contain missing source samples but still return 100% temporal integration coverage / COMPLETE_OBSERVATION;
+- synthetic absolute integration error was small, but “100% coverage” is therefore not the same as raw source-sample completeness;
+- later report wording should distinguish those concepts if exposed.
+
+Empirical P5-P95 coverage for statistical gaps:
+- stable: 86.5%–93.5% across 20m–12h;
+- day/night: 87.2%–91.4%;
+- moderate autocorrelation: 58.9%–72.4%;
+- high autocorrelation: 22.7%–56.5%.
+
+Interpretation:
+- hour/day-type stratification is adequate for these simple stable/day-night synthetic processes;
+- serial dependence is the dominant structural weakness;
+- P50 remains generally near unbiased;
+- P5-P95 is too narrow under autocorrelation;
+- more Monte Carlo draws alone will not correct missing covariance.
+
+Phase 1 remains open.
+
+Next proposed Lot 3, NOT YET EXECUTED:
+- compare one contiguous gap vs several medium gaps vs distributed losses at similar total missing duration;
+- explicitly separate isolated 5-minute losses that are bridged by integration;
+- then add appliance-like persistent high-load episodes.
+
+No production C# changed.
+No report/PDF code changed.
+No Windows build generated.
