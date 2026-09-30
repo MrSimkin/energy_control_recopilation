@@ -255,7 +255,7 @@ Rules:
 
 # Phase 1 — Audit the current statistical method
 
-Status: **IN PROGRESS — Lot 1 complete 2026-09-30**
+Status: **COMPLETE — 2026-09-30**
 
 Lot 1 evidence:
 - research harness: `research/statistical_uncertainty/phase1_current_method_audit.py`;
@@ -550,3 +550,36 @@ Only then:
 - publish the next coherent Windows test build after Build 494;
 - follow `BUILD_HANDOFF_RULE.md`;
 - ask the user only for the bundled target-PC QA needed for that coherent tranche.
+
+
+## Phase 1 closure — 2026-09-30
+
+Phase 1 is closed after five synthetic audit lots plus a direct production-code validation gate.
+
+Canonical evidence:
+- `research/statistical_uncertainty/PHASE1_LOT1_RESULTS_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE1_LOT2_REPORT_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE1_LOT2_INFERENTIAL_VALIDATION_2026-09-30.csv`;
+- `research/statistical_uncertainty/PHASE1_LOT3_REPORT_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE1_LOT4_DONOR_RESOLUTION_REPORT_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE1_LOT5_PERSISTENT_REGIME_REPORT_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE1_MATHEMATICAL_VALIDATION_PROTOCOL_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE1_VALIDATION_CHECKPOINT_2026-09-30.md`.
+
+Direct C# validation:
+- workflow run `36781580855`;
+- job `110112872942`;
+- result **SUCCESS**;
+- confirmed 15-minute bridge behavior, 20-minute statistical activation, and exact constant-energy fixtures.
+
+Phase 1 conclusion:
+- current P50 can remain approximately centered in many scenarios;
+- current P5-P95 is not reliably calibrated under serial dependence;
+- point-wise resampling omits covariance across persistent 5-minute segments;
+- whole-hour donor bins can be too coarse for intrahour ramps;
+- finite effective donor units matter when repeated 5-minute samples belong to one persistent episode;
+- short source-sample losses may still be reported as 100% integration coverage because they are bridged rather than statistically completed.
+
+The synthetic audit does not claim the user's real telemetry has any particular AR coefficient or regime probability.
+
+**Next authorized phase: Phase 2 — compare candidate dependent-data completion methods using the same predeclared calibration metrics.**
