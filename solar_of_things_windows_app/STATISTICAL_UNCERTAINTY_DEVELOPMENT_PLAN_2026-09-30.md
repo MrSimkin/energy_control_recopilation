@@ -1,0 +1,416 @@
+# Statistical Uncertainty / Enel-SEC Reporting Development Plan
+
+Date: 2026-09-30
+
+Status: **ACTIVE CANONICAL DEVELOPMENT TRANCHE**
+
+Scope:
+- Enel bill-audit PDF;
+- Simple Energy Report PDF where grid-import uncertainty is shown;
+- statistical completion of missing `grid_import_power_w` telemetry;
+- treatment and presentation of `UnattributedHouseKwh`;
+- validation/backtesting of P5/P50/P95 before those values are presented as strong third-party evidence.
+
+This tranche starts from the accepted visual/reporting baseline already present in the repository. It does **not** reopen unrelated tariff, bill-entry, ingestion, dashboard or family-report work.
+
+---
+
+# Governing principles
+
+1. **Do not tune the model toward the Enel bill.**
+   - The Enel billed/meter value must not participate in constructing the Solar of Things statistical distribution.
+   - Enel is compared only after the Solar distribution is produced.
+
+2. **Do not treat missing data as zero.**
+
+3. **Do not merge different uncertainty sources without a model that prevents double counting.**
+
+4. **Do not describe P5/P50/P95 as meter accuracy, calibration limits or Enel measurement error.**
+
+5. **Validate the method before strengthening the report language.**
+
+6. **Preserve the accepted card-based PDF visual grammar.**
+   - Statistical clarity may add explanatory text, validation metadata or technical annex content.
+   - It must not revert the reports to dense raw technical tables.
+
+7. **No user-facing build is required during research/design phases 0-5.**
+   - Internal commits/tests are allowed.
+   - The first coherent user-testable implementation after this tranche should become the next Windows build after Build 494.
+
+---
+
+# Phase 0 — Freeze baseline and define the uncertainty problem
+
+Status: **COMPLETE — 2026-09-30**
+
+## 0.1 Frozen baseline
+
+Repository baseline at tranche opening:
+- default branch: `main`;
+- Build 494 code commit: `a0eea98e513f1ce822073c0c02a4f2a104ffc9a3`;
+- Build 494 workflow: `36517130642`;
+- Build 494 artifact ID: `11011373590`;
+- Build 494 CI / SQLite smoke / bill-report export smoke / portable publish: GREEN;
+- Build 494 changes were presentation-only relative to the prior statistical implementation.
+
+Build 494 remains the historical baseline even if the user has not downloaded/tested that ZIP locally.
+
+The new statistical tranche supersedes the immediate need to perform the old Build-494-only visual QA before research begins. No Build 495 is created merely for Phase 0 documentation.
+
+## 0.2 Existing statistical behavior
+
+Current service:
+- `UtilityGridImportStatisticalCompletionService`;
+- method version: `grid-import-empirical-bootstrap.v1`;
+- target metric: `grid_import_power_w`;
+- current simulation count: 2,000;
+- uncovered grid-import intervals are completed statistically;
+- the Enel bill value is intentionally excluded from distribution construction;
+- output includes:
+  - observed kWh;
+  - P5/lower;
+  - P50/median;
+  - P95/upper;
+  - simulated mean and standard deviation;
+  - temporal coverage;
+  - missing hours;
+  - donor sample count.
+
+Current P5-P95 therefore addresses **missing temporal coverage of total grid import**.
+
+## 0.3 Existing source-attribution behavior
+
+Current source-attribution model separately produces:
+- `SolarToHouseKwh`;
+- `BatteryToHouseKwh`;
+- `GridToHouseKwh`;
+- `UnattributedHouseKwh`;
+- observed-house kWh;
+- attribution coverage of observed household energy.
+
+`UnattributedHouseKwh` means:
+
+> household energy was observed, but the available evidence was insufficient to assign that household energy confidently to Solar, Battery or Grid.
+
+It does **not** mean:
+- missing `grid_import_power_w` telemetry;
+- unmeasured energy;
+- automatically imported Enel energy.
+
+## 0.4 Two formal uncertainty problems
+
+### Problem A — temporal uncertainty in total utility import
+
+Question:
+
+> How much **total grid-import energy** could have occurred during periods where `grid_import_power_w` telemetry is missing or discontinuous?
+
+Target quantity:
+- total `grid_import_power_w` energy over the selected interval.
+
+Primary output:
+- observed grid-import kWh;
+- completed P5;
+- completed P50;
+- completed P95.
+
+This is the quantity intended for comparison with the utility meter/bill, subject to aligned time windows and evidence quality.
+
+### Problem B — source-attribution uncertainty inside observed household load
+
+Question:
+
+> Of the household energy that was observed, how much cannot be assigned with sufficient evidence to Solar, Battery or Enel?
+
+Target quantities:
+- `GridToHouseKwh`;
+- `SolarToHouseKwh`;
+- `BatteryToHouseKwh`;
+- `UnattributedHouseKwh`.
+
+This is an analytical energy-flow problem. It is not the same as total grid import.
+
+## 0.5 Canonical anti-double-counting rule
+
+The following identity is now mandatory:
+
+> **Missing total grid-import energy is not the same quantity as observed household energy with unresolved source attribution.**
+
+Therefore:
+
+- never add `UnattributedHouseKwh` directly to P5/P50/P95 total-grid-import values;
+- never assume all unattributed household kWh came from Enel;
+- never subtract all unattributed household kWh from Enel;
+- never use source-attribution uncertainty to alter directly measured `grid_import_power_w` without explicit evidence;
+- any future combined uncertainty model must identify overlap and prove that energy is not counted twice.
+
+## 0.6 Canonical metric semantics for third-party reporting
+
+### Importación total desde Enel
+
+Meaning:
+- all measured/estimated energy entering the installation from the utility grid.
+
+Use:
+- metric intended for comparison with Enel meter/bill.
+
+Uncertainty addressed by Phase 1-3:
+- missing/discontinuous grid-import telemetry.
+
+### Enel -> Casa
+
+Meaning:
+- the portion of observed household consumption that can be attributed to the utility.
+
+Use:
+- household energy-flow interpretation.
+
+Not directly interchangeable with:
+- total utility import;
+- utility bill consumption.
+
+### Sin atribuir
+
+Meaning:
+- observed household energy for which source allocation could not be supported sufficiently.
+
+Use:
+- explicit evidence-quality disclosure.
+
+It must remain visible unless a later validated model can allocate part of it probabilistically without fabrication.
+
+## 0.7 What Phase 0 deliberately does not decide
+
+Phase 0 does not yet decide:
+- whether the current empirical bootstrap is adequate;
+- the correct block length for a block bootstrap;
+- whether moving/stationary/circular block bootstrap is preferable;
+- whether 2,000, 10,000 or another simulation count is appropriate;
+- whether attribution uncertainty can be modeled probabilistically;
+- whether some attribution-reason categories must remain permanently unresolved;
+- the final wording that Enel/SEC will see;
+- acceptance thresholds for production use.
+
+Those belong to later phases.
+
+## 0.8 Phase 0 exit criteria
+
+All are satisfied:
+
+- [x] Build 494 frozen as historical baseline.
+- [x] Current P5/P50/P95 target quantity identified.
+- [x] Current `UnattributedHouseKwh` semantics identified.
+- [x] Temporal coverage and attribution coverage explicitly separated.
+- [x] Total grid import and Grid -> House explicitly separated.
+- [x] Anti-double-counting rule documented.
+- [x] Enel bill excluded from construction of the Solar statistical distribution.
+- [x] No production code modified.
+- [x] No user-facing build generated.
+
+**PHASE 0 COMPLETE.**
+
+---
+
+# Phase 1 — Audit the current statistical method
+
+Status: PENDING
+
+Goal:
+- measure objectively where `grid-import-empirical-bootstrap.v1` works and fails.
+
+Required controlled scenarios:
+- stable consumption;
+- day/night pattern;
+- weekday/weekend regimes;
+- weak temporal autocorrelation;
+- strong temporal autocorrelation;
+- load spikes;
+- short gaps;
+- long gaps;
+- multiple distributed gaps.
+
+Required metrics:
+- empirical P5-P95 coverage;
+- P50 bias;
+- interval width;
+- error by gap duration;
+- stability/reproducibility.
+
+No production replacement is selected in this phase.
+
+Exit:
+- reproducible evidence table describing current-method behavior.
+
+---
+
+# Phase 2 — Design and compare candidate completion methods
+
+Status: PENDING
+
+Minimum candidates:
+1. current point-wise empirical bootstrap;
+2. contiguous block bootstrap;
+3. context-stratified contiguous block bootstrap.
+
+Selection rules:
+- do not select based on producing a larger discrepancy with Enel;
+- select using predeclared reconstruction/backtesting metrics;
+- preserve time dependence where evidence shows it is material.
+
+Exit:
+- one justified candidate method or a documented STOP if none is adequate.
+
+---
+
+# Phase 3 — Backtest on real Solar of Things telemetry
+
+Status: PENDING
+
+Goal:
+- validate the candidate using real known data.
+
+Method:
+- choose periods with adequate real `grid_import_power_w` coverage;
+- hide known segments;
+- reconstruct them without access to the hidden values;
+- compare P5/P50/P95 and P50 with the true hidden total.
+
+Required stratification where sample size permits:
+- hour-of-day;
+- weekday/weekend;
+- gap duration;
+- low/normal/high load regimes.
+
+Exit:
+- measured real-data interval coverage and bias;
+- evidence-based applicability limits;
+- STOP if the method is not sufficiently defensible.
+
+---
+
+# Phase 4 — Model source-attribution uncertainty
+
+Status: PENDING
+
+Goal:
+- determine whether any portion of `UnattributedHouseKwh` can be handled statistically without fabrication or double counting.
+
+Required work:
+- classify unresolved attribution reasons;
+- identify which reason families have comparable resolved historical cases;
+- test any probabilistic allocation only against cases with known/resolved outcomes;
+- preserve an explicit unresolved remainder.
+
+Outputs must remain separate from total-grid-import P5/P50/P95 unless a formally validated joint model is later justified.
+
+Exit:
+- validated attribution uncertainty method, or explicit decision to keep categories unresolved.
+
+---
+
+# Phase 5 — Design Enel/SEC narrative and audit presentation
+
+Status: PENDING
+
+Goal:
+- explain the statistical evidence to a non-specialist technical/regulatory reader without overstating what it proves.
+
+Mandatory content:
+- why missing data require a range instead of zero/single invented value;
+- plain-language P5 explanation;
+- plain-language P50 explanation;
+- plain-language P95 explanation;
+- what the central 90% means;
+- method summary;
+- temporal coverage;
+- missing duration;
+- donor evidence;
+- validation/backtesting result;
+- explicit statement that Enel was not used to construct the interval;
+- explicit statement that the interval is not meter calibration/tolerance;
+- separate explanation of attribution uncertainty.
+
+Preserve:
+- current card hierarchy;
+- readable PDF layout;
+- technical annex/provenance where needed.
+
+Exit:
+- wording and information architecture approved before code integration.
+
+---
+
+# Phase 6 — Implement the validated statistical model
+
+Status: PENDING
+
+Goal:
+- implement only methods accepted in Phases 1-5.
+
+Requirements:
+- method versioning;
+- deterministic/reproducible seed behavior where applicable;
+- sufficient provenance metadata;
+- automated statistical regression tests;
+- existing smoke tests remain green;
+- legacy method retained as test baseline until replacement is proven.
+
+No user-facing build is handed off until the implementation forms a coherent tranche.
+
+---
+
+# Phase 7 — Integrate into PDFs without visual regression
+
+Status: PENDING
+
+Targets:
+- Enel bill-audit PDF;
+- Simple Energy Report where applicable.
+
+Preserve:
+- accepted card-based presentation;
+- existing hierarchy;
+- readability at normal screen/print size.
+
+Add only validated:
+- P5/P50/P95 explanations;
+- validation evidence;
+- method/coverage context;
+- attribution-uncertainty disclosure;
+- neutral interpretation against Enel.
+
+Exit:
+- export tests green;
+- visual QA-ready PDFs.
+
+---
+
+# Phase 8 — Adversarial QA and next build
+
+Status: PENDING
+
+Minimum cases:
+- 100% grid coverage;
+- small gap;
+- large gap;
+- multiple gaps;
+- insufficient donors;
+- atypical behavior;
+- Enel inside interval;
+- Enel outside interval;
+- high unattributed household energy;
+- attribution not modelable;
+- report without Enel reference value.
+
+Required final gates:
+- statistical tests PASS;
+- real-data backtesting accepted;
+- no double counting;
+- smoke PASS;
+- PDF export PASS;
+- visual QA PASS.
+
+Only then:
+- publish the next coherent Windows test build after Build 494;
+- follow `BUILD_HANDOFF_RULE.md`;
+- ask the user only for the bundled target-PC QA needed for that coherent tranche.
