@@ -3657,3 +3657,51 @@ Next authorized work:
 - first finalize/build a read-only research exporter that extracts only the whitelisted telemetry/context required from the user's latest `energy.db`;
 - user should need to run that exporter once and return one research ZIP;
 - Phase 3 must reject C2-120 and return to Phase 2 if real telemetry shows material undercoverage.
+
+
+## Phase 3 research-exporter gate — READY / awaiting real-data package — 2026-09-30
+
+Canonical statistical state:
+- Phase 1: COMPLETE;
+- Phase 2: COMPLETE;
+- sole provisional Phase 3 candidate: `grid-import-context-block-bootstrap-120m.candidate-v1` / C2-120;
+- candidate is not production-approved and must be rejected if real-data backtesting shows material undercoverage.
+
+Research Exporter R1:
+- source path: `research/statistical_uncertainty/research_exporter/`;
+- purpose: create the minimal pseudonymized package required for Phase 3 and, where sufficient, Phase 4;
+- source database is opened SQLite `Mode=ReadOnly`;
+- excludes original identifiers, serials, credentials, Enel bills, utility readings, tariff data and raw API payloads from output;
+- UX follows canonical progress pattern: local progress, Paso n/4, completion ping, exact output path.
+
+Final green build:
+- workflow: `Research Exporter Build`;
+- run number: 4;
+- run ID: `36786984422`;
+- source commit: `716b87808f5183692de237205cc2a67c0b44d9c5`;
+- conclusion: **SUCCESS**;
+- artifact: `SolarOfThings-ResearchExporter-R1-win-x64`;
+- artifact ID: `11130595515`;
+- artifact size: 66,136,544 bytes;
+- artifact SHA-256: `af325caf9aff4dc806fe2db5327ff48bcc7e6232f3f7008105251533bf800cf5`;
+- artifact expiry: 2026-12-29.
+
+Next owner action / Phase 3 gate:
+1. extract the Research Exporter ZIP;
+2. run `SolarOfThings.ResearchExporter.exe`;
+3. use the latest `energy.db` (auto-detected when possible; otherwise select it manually);
+4. choose an output folder;
+5. generate one research package;
+6. return only the generated `SolarOfThings-ResearchPackage-*.zip`.
+
+No Build 494 visual QA, Enel bill entry, PDF generation or Windows-app regression QA is required for this extractor gate.
+
+After the research ZIP is returned:
+- verify manifest and SHA-256 entries;
+- profile actual telemetry cadence/completeness/effective donor days/autocorrelation;
+- execute Phase 3 paired masking/backtesting of C0 vs frozen C2-120 on real known telemetry;
+- stratify by gap duration, hour/day type and load regime where sample size permits;
+- pay particular attention to >=120-minute and >=240-minute gaps because C2-120's synthetic limitation is block stitching under extreme persistence;
+- STOP and return to Phase 2 redesign if real-data calibration is materially inadequate.
+
+No production statistical code or PDF wording changes are authorized before that gate passes.
