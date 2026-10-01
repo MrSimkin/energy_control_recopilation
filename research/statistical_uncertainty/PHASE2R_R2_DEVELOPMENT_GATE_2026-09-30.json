@@ -1,0 +1,20 @@
+{
+  "active_pooled_coverage_pct": 96.09756097560975,
+  "active_short_coverage_pct": 96.17834394904459,
+  "active_long_coverage_pct": 95.83333333333334,
+  "min_primary_group_cluster_upper_pct": 99.45953211275793,
+  "raw_active_p50_bias_kwh": -1.5420956169287665,
+  "r2_active_p50_bias_kwh": 0.09964591077644028,
+  "active_abs_bias_reduction_pct": 93.53827935942813,
+  "overall_interval_score_ratio_vs_raw_c2": 0.8829048964404069,
+  "min_duration_coverage_pct": 95.71428571428572,
+  "insufficient_pct": 0.0,
+  "gate1_active_pooled_ge85": true,
+  "gate2_active_short_long_ge85": true,
+  "gate3_no_group_upper_below90": true,
+  "gate4_active_abs_bias_reduced": true,
+  "gate5_score_le110pct_raw": true,
+  "gate6_no_duration_below80": true,
+  "gate7_insufficient_le5pct": true,
+  "development_pass": true
+}
