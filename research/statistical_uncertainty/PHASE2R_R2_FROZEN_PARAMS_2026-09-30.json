@@ -1,0 +1,12 @@
+{
+  "harness_version": "phase2r-r2-grouped-day-calibration.v1",
+  "input_case_sha256": "726ae954afeb996bece4e3f30c4d9fc6f8275a4783691393cba0390dbb64f03f",
+  "development_dates": ["2026-07-19","2026-09-11"],
+  "holdout_dates": ["2026-09-13","2026-09-26"],
+  "groups": {
+    "inactive-short": {"group":"inactive-short","status":"OK","calibration_days":46,"b_kw":0.0,"q_kw":0.0,"conformal_rank":43},
+    "active-short": {"group":"active-short","status":"OK","calibration_days":23,"b_kw":1.3778323466001217,"q_kw":1.3400162967546214,"conformal_rank":22},
+    "inactive-long": {"group":"inactive-long","status":"OK","calibration_days":46,"b_kw":0.0,"q_kw":0.043215279794698164,"conformal_rank":43},
+    "active-long": {"group":"active-long","status":"OK","calibration_days":20,"b_kw":0.510132381740355,"q_kw":0.6267871081698897,"conformal_rank":19}
+  }
+}
