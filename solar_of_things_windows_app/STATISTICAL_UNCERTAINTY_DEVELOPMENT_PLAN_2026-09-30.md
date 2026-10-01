@@ -431,7 +431,15 @@ Exit:
 
 # Phase 3 — Backtest on real Solar of Things telemetry
 
-Status: PENDING
+Status: **READY — awaiting Research Exporter R1 package from latest real energy.db**
+
+Input gate:
+- use `SolarOfThings-ResearchExporter-R1-win-x64`;
+- green run `36786984422`, artifact `11130595515`;
+- source commit `716b87808f5183692de237205cc2a67c0b44d9c5`;
+- artifact SHA-256 `af325caf9aff4dc806fe2db5327ff48bcc7e6232f3f7008105251533bf800cf5`;
+- owner returns only the generated pseudonymized research ZIP;
+- no Enel bill/meter value is part of Phase 3 model construction or scoring.
 
 Goal:
 - validate the candidate using real known data.
