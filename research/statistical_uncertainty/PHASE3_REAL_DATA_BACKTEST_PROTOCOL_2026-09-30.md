@@ -103,6 +103,34 @@ Within each day/band/duration, target selection is deterministic and timestamp-b
 
 This deliberately balances time-of-day rather than allowing the many zero-import periods to dominate the sample.
 
+## 4.1 Donor-history horizon — pre-score amendment
+
+Before running C0/C2 outcome scoring, the donor-history horizon is fixed as:
+
+- **rolling 90 calendar days strictly prior to the target gap start**;
+- same-day samples earlier than the gap start are allowed;
+- samples at or after the target gap start are not donor evidence for that target;
+- no future observations are used;
+- both C0 and C2 receive the same historical horizon.
+
+Targets are therefore restricted to dates for which the package contains a full preceding 90-calendar-day observation horizon.
+
+Rationale:
+- Phase 2 holdout used 90-day histories;
+- a causal historical-only rule prevents future-data leakage;
+- the same horizon isolates method structure rather than giving one candidate more information;
+- production implementation can later reproduce the rule deterministically.
+
+C0 under this Phase 3 comparison is therefore a **same-evidence structural baseline** implementing the production point-wise donor hierarchy, rather than a claim that the current production service already loads an external 90-day lookback outside its requested report range.
+
+For C2, report both:
+- eligible contiguous donor-start count;
+- distinct donor local-date count.
+
+This is required because many 5-minute block starts from one day are not equivalent to many independent days.
+
+---
+
 ## 5. Masking and anti-leakage
 
 For each target:
