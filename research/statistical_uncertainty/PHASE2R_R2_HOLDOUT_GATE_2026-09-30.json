@@ -1,0 +1,16 @@
+{
+  "active_pooled_coverage_pct": 100.0,
+  "active_short_coverage_pct": 100.0,
+  "active_long_coverage_pct": 100.0,
+  "min_primary_group_cluster_upper_pct": 100.0,
+  "raw_active_p50_bias_kwh": -0.6512604422354111,
+  "r2_active_p50_bias_kwh": 0.8990177508506583,
+  "active_abs_bias_reduction_pct": -38.04273874900731,
+  "overall_interval_score_ratio_vs_raw_c2": 1.2187006107850349,
+  "min_duration_coverage_pct": 94.73684210526315,
+  "insufficient_pct": 0.0,
+  "coverage_gates_pass": true,
+  "holdout_score_gate_le110pct_raw": false,
+  "holdout_active_abs_bias_lower_than_raw": false,
+  "holdout_pass": false
+}
