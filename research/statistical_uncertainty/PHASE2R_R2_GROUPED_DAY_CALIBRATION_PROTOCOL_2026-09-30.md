@@ -1,0 +1,214 @@
+# Phase 2R — R2 grouped day-calibrated C2 protocol
+
+Date: 2026-09-30
+
+Status: **FROZEN BEFORE R2 DEVELOPMENT/HOLDOUT OUTCOMES**
+
+Research label:
+`grid-import-c2-grouped-day-calibrated.candidate-v3`
+
+Base model:
+- frozen C2-120 from Phase 2 / rejected Phase 3 general candidate;
+- no C2 block/matching/simulation rule is retuned;
+- 2,000 C2 simulations remain the structural base.
+
+Purpose:
+- correct the real-data P50 location bias observed when a gap begins in an active-grid state;
+- calibrate predictive interval width by observable regime without hard-splitting the donor block corpus;
+- use local day as the calibration unit so multiple windows from one day are not treated as independent calibration observations.
+
+No Enel/meter/bill value is used.
+
+## 1. Fixed observable groups
+
+Groups are defined solely from information known when completing an internal bounded gap:
+
+Grid-start state:
+- INACTIVE: first observed boundary grid import <=100 W;
+- ACTIVE: first observed boundary grid import >100 W.
+
+Duration class:
+- SHORT: nominal duration <=120 minutes;
+- LONG: nominal duration >=240 minutes.
+
+Four fixed groups:
+1. inactive-short;
+2. active-short;
+3. inactive-long;
+4. active-long.
+
+Development evidence before outcome calibration:
+- inactive-short: 585 cases / 46 distinct days;
+- active-short: 157 cases / 23 distinct days;
+- inactive-long: 176 cases / 46 distinct days;
+- active-long: 48 cases / 20 distinct days.
+
+No finer time/hour/power bins are allowed in R2.
+
+## 2. Development / locked holdout split
+
+Development:
+- 2026-07-19 through 2026-09-11;
+- exact 90-day source-history horizon required;
+- same Phase 3 truth-quality target construction.
+
+Locked R2 holdout:
+- 2026-09-13 through 2026-09-26 inclusive.
+
+The locked holdout may be evaluated only if R2 passes the cross-fitted development gate.
+
+The baseline C2 outputs on these dates were previously examined in Phase 3; therefore the holdout is not claimed to be pristine for C2. It remains untouched with respect to the new R2 calibration parameters and calibrated interval outputs.
+
+## 3. Group location correction for P50
+
+For case i:
+- true hidden energy: y_i kWh;
+- raw C2 median: m_i kWh;
+- actual hidden duration: H_i hours.
+
+Signed rate residual:
+
+```
+r_i = (y_i - m_i) / H_i   [kW]
+```
+
+Within each local date d and fixed group g:
+- compute the median r_i for all group-g cases on date d.
+
+Group location correction:
+- `b_g` = median of the per-day medians.
+
+Corrected center:
+```
+M_i = max(0, m_i + b_g * H_i)
+```
+
+The same shift is applied to raw C2 lower/upper bounds before width calibration:
+
+```
+L*_i = max(0, L_i + b_g * H_i)
+U*_i = max(L*_i, U_i + b_g * H_i)
+```
+
+Using kW-rate residuals makes the correction scale naturally with gap duration rather than imposing one absolute-kWh correction on 20-minute and 480-minute gaps.
+
+## 4. Day-clustered conformal-style width calibration
+
+After location correction, per-case nonconformity rate is:
+
+```
+s_i = max(0, L*_i - y_i, y_i - U*_i) / H_i   [kW]
+```
+
+For every calibration local date d and group g:
+
+```
+S_dg = max(s_i for cases i in date d, group g)
+```
+
+Thus one day contributes one calibration score per group, preventing multiple highly dependent windows from masquerading as independent calibration observations.
+
+For n day scores in group g:
+- sort them ascending;
+- use rank `k = ceil((n+1)*0.90)`, capped at n;
+- `q_g = S_(k)`.
+
+Calibrated interval:
+
+```
+Lower_i = max(0, L*_i - q_g * H_i)
+Upper_i = U*_i + q_g * H_i
+```
+
+Corrected P50 remains `M_i`.
+
+Important semantics:
+- `Lower_i/Upper_i` are **calibrated 90% predictive bounds**;
+- they are not renamed P5/P95;
+- raw C2 P5/P50/P95 remain technical base-distribution percentiles;
+- if R2 later survives validation, third-party report wording must distinguish the calibrated predictive range from raw Monte Carlo percentiles.
+
+## 5. Dependence / guarantee limitation
+
+The conformal rank is used as a transparent empirical calibration rule.
+
+R2 does **not** claim exact finite-sample distribution-free coverage for this installation because:
+- ordinary split-conformal guarantees rely on iid/exchangeable calibration/test observations;
+- the Solar of Things data are demonstrably temporally dependent;
+- exact fully conditional distribution-free coverage is not generally available without stronger assumptions.
+
+The day-cluster score reduces pseudo-replication and the locked temporal holdout provides the decisive empirical gate.
+
+Relevant methodological context:
+- Romano, Patterson & Candès (2019), Conformalized Quantile Regression;
+- Boström & Johansson (2020/2021), Mondrian/grouped conformal regression/predictive distributions;
+- Barber & Pananjady (2026), split conformal under temporal dependence / beta-mixing;
+- Barber, Candès, Ramdas & Tibshirani, limits of exact distribution-free conditional predictive inference.
+
+## 6. Cross-fitted development evaluation
+
+R2 may not evaluate development in-sample.
+
+For each development local date D:
+1. remove every case from date D;
+2. estimate `b_g` from all remaining development dates;
+3. calculate remaining-date location-corrected scores;
+4. estimate `q_g` from remaining day-max scores;
+5. predict every eligible case on date D;
+6. repeat for every development date.
+
+This leave-one-day-out procedure gives every development case a calibration that excludes its own day.
+
+If a fold has fewer than 15 calibration days in a required group:
+- mark that fold/group INSUFFICIENT_CALIBRATION_DAYS;
+- do not fabricate a calibrated interval.
+
+## 7. Development gate
+
+R2 passes development only if all are true:
+
+1. active-start pooled coverage across development is >=85%;
+2. active-short and active-long group point coverage are each >=85% where evaluable;
+3. no primary group has a cluster-bootstrap 95% coverage upper bound below 90%;
+4. active-start absolute P50 signed bias is materially reduced versus raw C2;
+5. overall mean alpha=0.10 interval score is no more than 10% worse than raw C2;
+6. no duration has point coverage below 80%;
+7. calibration insufficiency is <=5% of eligible cases.
+
+If development fails:
+- do not inspect R2 locked-holdout outputs;
+- redesign again.
+
+## 8. Final parameter fit if development passes
+
+Using all development dates:
+- fit one `b_g` per group;
+- fit one `q_g` per group using the day-max score rule;
+- freeze the four b/q pairs before holdout.
+
+No parameter may change after holdout is viewed.
+
+## 9. Locked holdout gate
+
+R2 advances back to Phase 3 only if:
+
+1. overall and active-start coverage do not show a material undercoverage pattern;
+2. each fixed observable group has point coverage >=85% where at least 10 cases exist;
+3. no fixed group has a cluster-bootstrap 95% coverage upper bound below 90%;
+4. no duration has point coverage below 80% where at least 10 cases exist;
+5. overall interval score is <=110% of raw C2 on the same holdout;
+6. active-start P50 absolute signed bias is lower than raw C2;
+7. no new structural failure is identified.
+
+With small groups, uncertainty must be reported rather than converted into a false PASS.
+
+## 10. Non-goals
+
+R2 does not:
+- change production C#;
+- change PDF wording;
+- use Enel;
+- claim an exact conformal guarantee;
+- alter C2 donor matching;
+- solve source-attribution uncertainty;
+- create a Windows user build.
