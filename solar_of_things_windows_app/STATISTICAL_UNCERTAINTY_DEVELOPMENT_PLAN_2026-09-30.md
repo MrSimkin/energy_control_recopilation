@@ -431,7 +431,7 @@ Exit:
 
 # Phase 3 — Backtest on real Solar of Things telemetry
 
-Status: **READY — awaiting Research Exporter R1 package from latest real energy.db**
+Status: **COMPLETE — C2-120 REJECTED; RETURNED TO PHASE 2R REDESIGN — 2026-09-30**
 
 Input gate:
 - use `SolarOfThings-ResearchExporter-R1-win-x64`;
@@ -622,3 +622,20 @@ Phase 1 conclusion:
 The synthetic audit does not claim the user's real telemetry has any particular AR coefficient or regime probability.
 
 **Next authorized phase: Phase 2 — compare candidate dependent-data completion methods using the same predeclared calibration metrics.**
+
+
+## Phase 3 real-data decision — 2026-09-30
+
+Canonical evidence:
+- `research/statistical_uncertainty/PHASE3_REAL_DATA_BACKTEST_PROTOCOL_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE3_REAL_DATA_BACKTEST_REPORT_2026-09-30.md`;
+- `research/statistical_uncertainty/PHASE3_DURATION_RESULTS_2026-09-30.csv`;
+- `research/statistical_uncertainty/PHASE3_LOAD_REGIME_RESULTS_2026-09-30.csv`;
+- `research/statistical_uncertainty/PHASE3_START_STATE_RESULTS_2026-09-30.csv`;
+- `research/statistical_uncertainty/PHASE3_ACTUAL_GAP_PROFILE_2026-09-30.csv`.
+
+Decision:
+- C2-120 strongly improves on C0;
+- C2-120 is nevertheless rejected as a general production interval because observable active-start gaps remain materially under-covered and long-gap behavior is inadequate;
+- no production statistical/PDF change is authorized;
+- Phase 2R redesign is active under `PHASE2R_REAL_DATA_REDESIGN_PROTOCOL_2026-09-30.md`.
