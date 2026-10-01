@@ -1,0 +1,27 @@
+{
+  "harness_version": "phase3-real-backtest.v2.1",
+  "input_package": "SolarOfThings-ResearchPackage-20260930-214934.zip",
+  "input_package_sha256": "277c0d6a4707deb225562b567f349ddb658cbc4b1b72f53bc863e8f16f9f46ec",
+  "expected_package_sha256": "277c0d6a4707deb225562b567f349ddb658cbc4b1b72f53bc863e8f16f9f46ec",
+  "manifest_package_version": "solar-of-things-research-package.v1",
+  "timezone": "America/Santiago",
+  "simulation_count": 2000,
+  "cluster_bootstrap_reps": 5000,
+  "target_counts": {
+    "20": 242,
+    "30": 242,
+    "60": 241,
+    "120": 241,
+    "240": 192,
+    "480": 84
+  },
+  "seed_rule": "uint64 big-endian first 8 bytes of SHA256('|'.join(parts)); parts include harness_version, method/aggregate label, target start UTC, nominal duration, simulation count",
+  "percentile_semantics": "numpy.quantile(method='linear')",
+  "python_version": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "numpy_version": "2.3.5",
+  "pandas_version": "2.2.3",
+  "package_hash_match_expected": true,
+  "per_case_csv_sha256": "726ae954afeb996bece4e3f30c4d9fc6f8275a4783691393cba0390dbb64f03f",
+  "committed_harness_commit": "6bddba0325057bcff1bcc85e0b49e12bc6bdf9aa"
+}
