@@ -639,3 +639,24 @@ Decision:
 - C2-120 is nevertheless rejected as a general production interval because observable active-start gaps remain materially under-covered and long-gap behavior is inadequate;
 - no production statistical/PDF change is authorized;
 - Phase 2R redesign is active under `PHASE2R_REAL_DATA_REDESIGN_PROTOCOL_2026-09-30.md`.
+
+
+## Phase 2R status update — R2 rejected after locked holdout
+
+R1:
+- rejected at development gate;
+- holdout never inspected.
+
+R2:
+- cross-fitted development passed;
+- parameters frozen before holdout;
+- locked holdout failed proper interval-score and active-start P50-bias gates;
+- R2 is rejected and must not be retuned on that holdout.
+
+Active research state:
+- return to Phase 2R redesign;
+- next candidate must address temporal calibration drift using prior-only adaptive evidence;
+- existing corpus is development-only for any post-R2 method;
+- a new future real-data validation period is mandatory before production approval.
+
+Phase 3 remains closed as a rejection gate until a redesigned candidate survives both development and genuinely future validation.
