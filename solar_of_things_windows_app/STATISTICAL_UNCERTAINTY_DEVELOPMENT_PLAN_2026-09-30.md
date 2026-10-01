@@ -660,3 +660,32 @@ Active research state:
 - a new future real-data validation period is mandatory before production approval.
 
 Phase 3 remains closed as a rejection gate until a redesigned candidate survives both development and genuinely future validation.
+
+
+## Current active research state after Phase 3 / Phase 2R — 2026-09-30
+
+Phase 3:
+- canonical v2 rerun COMPLETE;
+- C2-120 rejection confirmed reproducibly.
+
+Phase 2R:
+- R1 REJECTED at development;
+- R2 REJECTED after locked holdout;
+- R3 protocol FROZEN before future validation outcomes.
+
+Active candidate:
+- `grid-import-boundary-residual-dayweighted-240m.candidate-v4`.
+
+Authority:
+- `research/statistical_uncertainty/PHASE2R_R3_FUTURE_VALIDATION_PROTOCOL_2026-09-30.md`;
+- `research/statistical_uncertainty/STATISTICAL_RESEARCH_CONSOLIDATED_HANDOFF_2026-09-30.md`.
+
+R3 requires genuinely future telemetry beginning 2026-09-28.
+The current owner package ends 2026-09-27 and is not a future-validation set.
+
+Before any future outcome scoring:
+- an executable R3 validation harness may be implemented and frozen from the existing protocol;
+- future evidence stopping counts must be evaluated without inspecting model outcomes;
+- no acceptance gate may be changed after future outcomes are viewed.
+
+Production implementation remains blocked until R3 passes its frozen future-validation gates.
