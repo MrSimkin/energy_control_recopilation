@@ -1,0 +1,5 @@
+r2_group,cases,distinct_dates,coverage_pct,cluster_ci_low_pct,cluster_ci_high_pct,r2_p50_bias_kwh,raw_c2_p50_bias_kwh,r2_mean_interval_score,raw_c2_mean_interval_score
+active-long,8,4,100.0,100.0,100.0,1.139292,-1.668867,10.999616,4.741140
+active-short,44,6,100.0,100.0,100.0,0.855331,-0.466241,3.912553,1.854778
+inactive-long,44,14,95.454545,87.179487,100.0,0.370970,0.370970,5.497359,5.466023
+inactive-short,180,14,100.0,100.0,100.0,-0.019254,-0.019254,1.606631,1.606631
