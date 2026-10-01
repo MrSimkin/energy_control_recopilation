@@ -3705,3 +3705,58 @@ After the research ZIP is returned:
 - STOP and return to Phase 2 redesign if real-data calibration is materially inadequate.
 
 No production statistical code or PDF wording changes are authorized before that gate passes.
+
+
+## Statistical Phase 3 real-data gate — C2 REJECTED — 2026-09-30
+
+Research package received and validated:
+- `SolarOfThings-ResearchPackage-20260930-214934.zip`;
+- package SHA-256 `277c0d6a4707deb225562b567f349ddb658cbc4b1b72f53bc863e8f16f9f46ec`;
+- all manifest file hashes/lengths PASS.
+
+Phase 2 omitted simulation-count gate repaired before scoring:
+- 2k/5k/10k/20k/50k/100k tested against 500k numerical reference on realistic C2 donor geometries;
+- 100k has best tail stability and remains preferred production-count candidate if runtime permits;
+- Phase 3 structural comparison intentionally retained 2,000 simulations.
+
+Real profile:
+- 43,741 confirmed grid-import samples;
+- 140/161 days with >=280 grid samples;
+- residual autocorrelation ~0.955 at 5m, 0.803 at 30m, 0.659 at 60m, 0.449 at 120m.
+
+Frozen 90-day historical-only backtest:
+- C2 overall coverage:
+  - 20m 93.0%;
+  - 30m 93.0%;
+  - 60m 92.1%;
+  - 120m 93.4%;
+  - 240m 92.7%;
+  - 480m 83.3%.
+- C0 is materially worse at every duration.
+
+Critical conditional defect:
+- when the observable gap-start grid value is >100 W, C2 coverage:
+  - 20m 68.5%;
+  - 30m 68.5%;
+  - 60m 66.7%;
+  - 120m 74.5%;
+  - 240m 78.0%;
+- 20–120m clustered 95% upper bounds remain below nominal 90%;
+- P50 bias becomes increasingly negative with duration.
+
+Hard active/inactive donor filtering was diagnostic only and did not rescue calibration; effective donor days collapsed to around 8 in many active cases.
+
+Actual corpus has 28 source separations >15m, including 10 >240m and 4 >1440m, so long-gap behavior is operationally relevant.
+
+Decision:
+- **REJECT C2-120 as a general production model**;
+- retain it only as research baseline;
+- do not change production C# or PDF language;
+- return to Phase 2R redesign.
+
+Active next protocol:
+- `research/statistical_uncertainty/PHASE2R_REAL_DATA_REDESIGN_PROTOCOL_2026-09-30.md`;
+- first candidate R1 = boundary-state whole-gap day bootstrap;
+- development dates through 2026-09-11;
+- locked new-candidate holdout = 2026-09-13 through 2026-09-26;
+- do not inspect R1 holdout unless development gate passes.
