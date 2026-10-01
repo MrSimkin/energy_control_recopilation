@@ -3760,3 +3760,48 @@ Active next protocol:
 - development dates through 2026-09-11;
 - locked new-candidate holdout = 2026-09-13 through 2026-09-26;
 - do not inspect R1 holdout unless development gate passes.
+
+
+## Phase 2R — R2 locked holdout — REJECTED — 2026-09-30
+
+Canonical base:
+- Phase 3 v2 harness commit: `6bddba0325057bcff1bcc85e0b49e12bc6bdf9aa`;
+- canonical per-case SHA-256: `726ae954afeb996bece4e3f30c4d9fc6f8275a4783691393cba0390dbb64f03f`;
+- C2 rejection confirmed reproducibly.
+
+R2:
+- candidate: `grid-import-c2-grouped-day-calibrated.candidate-v3`;
+- harness commit: `f56e91261380d7e499fd80772973a2af0ef7e7ce`;
+- development cross-fit: PASS all seven frozen gates;
+- frozen parameter commit: `5cc12e78bf7517c36114ab24d9fed238499e8036`;
+- locked holdout 2026-09-13 through 2026-09-26 opened exactly once after development PASS.
+
+Holdout result:
+- active coverage: 100%;
+- all duration coverages >=94.7%;
+- however overall interval-score ratio vs raw C2 = **1.2187**, exceeding the <=1.10 gate;
+- raw C2 active P50 bias = -0.6513 kWh;
+- R2 active P50 bias = +0.8990 kWh;
+- absolute active bias therefore worsened by ~38%;
+- R2 FAILS the frozen proper-score and active-bias gates.
+
+Decision:
+- **R2 REJECTED**;
+- do not retune R2 on the consumed holdout;
+- high/100% coverage is not accepted when achieved by excessive width;
+- fixed development-period calibration is not stable under observed temporal drift.
+
+Observed diagnostic:
+- active-short day-median residual rate shifted from development median ~+1.378 kW to holdout median ~+0.500 kW;
+- active-long shifted from ~+0.510 kW to ~+0.380 kW;
+- recent-prior residuals were materially lower than the full-development correction.
+
+Next authorized research:
+- Phase 2R R3 adaptive/rolling calibration design;
+- use only prior observations at each prediction time;
+- retain day-level weighting to avoid 5-minute pseudo-replication;
+- evaluate proper interval score as well as coverage;
+- current corpus may be used only for R3 **development/diagnostics**, because all existing dates have now participated in prior model design/evaluation;
+- final R3 production approval requires a genuinely future real-data validation period not used to design R3.
+
+No production statistical C# or PDF wording change is authorized.
