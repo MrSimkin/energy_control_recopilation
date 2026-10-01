@@ -3805,3 +3805,53 @@ Next authorized research:
 - final R3 production approval requires a genuinely future real-data validation period not used to design R3.
 
 No production statistical C# or PDF wording change is authorized.
+
+
+## Statistical uncertainty consolidated interruption handoff — 2026-09-30
+
+Canonical consolidated references:
+- `research/statistical_uncertainty/STATISTICAL_RESEARCH_CONSOLIDATED_HANDOFF_2026-09-30.md`;
+- `research/statistical_uncertainty/PROMPT_CONTINUE_STATISTICAL_RESEARCH_2026-09-30.md`.
+
+Verified pre-handoff research HEAD:
+- `13d1c307cfbebba7fb0e6b794c3a42e42303f86e`;
+- latest research action at that point: freeze R3 boundary-residual future-validation protocol.
+
+Interruption reconciliation:
+- the earlier apparently interrupted Phase 3 v2 harness work did in fact complete;
+- Phase 3 v2 is reproducible and C2 rejection is confirmed;
+- R1 is rejected at development;
+- R2 passed development but failed locked holdout and is rejected;
+- R2 holdout must never be reused for retuning;
+- no duplicate/partial build, publication or research operation was found at the verified pre-handoff HEAD.
+
+Active statistical state:
+- Phase 2R / R3;
+- frozen candidate: `grid-import-boundary-residual-dayweighted-240m.candidate-v4`;
+- canonical protocol: `PHASE2R_R3_FUTURE_VALIDATION_PROTOCOL_2026-09-30.md`;
+- R3 is **not validated and not production-approved**.
+
+Existing owner package:
+- ends 2026-09-27;
+- is development/calibration-only for R3;
+- cannot provide pristine R3 validation outcomes.
+
+Future-validation epoch:
+- starts 2026-09-28.
+
+Frozen outcome-independent stopping evidence:
+- >=15 distinct future dates with eligible ACTIVE-start targets;
+- >=100 ACTIVE-start single-gap cases;
+- >=10 ACTIVE-start cases in each duration group G20_30, G60_120, G240.
+
+Current repo does not contain an executable R3 future-validation harness.
+It is permissible to implement that harness from the already-frozen R3 protocol **without scoring any future outcomes**, so validation mechanics are fixed before a future package is evaluated.
+
+After harness freeze:
+- obtain/ingest a newer Research Exporter package containing post-2026-09-27 telemetry;
+- validate integrity;
+- count eligibility without looking at outcomes;
+- if stopping evidence is insufficient, record INSUFFICIENT and do not score;
+- only once stopping conditions are met, score R3 future validation exactly once.
+
+No production C# statistical replacement, PDF wording change or Solar of Things user build is authorized before R3 future validation passes.
