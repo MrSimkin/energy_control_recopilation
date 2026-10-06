@@ -3950,3 +3950,123 @@ Resume rule:
 - do not score until `READY`;
 - do not synthetically fill deficient days;
 - a later legitimate historical backfill may make a previously deficient future date eligible if its real source evidence reaches the frozen quality requirement.
+
+
+## Enel bill-audit urgent evidence path — owner decision 2026-10-06
+
+Canonical specification:
+- `solar_of_things_windows_app/ENEL_BILL_AUDIT_REPORT_AND_EVIDENCE_SPEC_2026-10-06.md`;
+- freeze commit: `38e77899bf3c88ab8336169fd02c2e79cd2401e1`.
+
+Owner decision:
+- the immediate critical path is now a self-contained, printable Enel bill-audit evidence package;
+- the document must stand on its own when handed to a third party without relying on the primary operator being present;
+- the first real acceptance case is the 2026-08-28 through 2026-09-28 bill interval with 97 kWh billed;
+- do not commit unnecessary customer PII/address/account identifiers to the public repository.
+
+Product split remains mandatory:
+1. arbitrary reading/period comparison;
+2. Enel bill audit starting from one actual bill.
+
+Canonical report structure:
+1. executive energy summary + plain-language P5/P50/P95 + Enel-vs-P5/P50/P95 deltas;
+2. economic comparison;
+3. full economic decomposition;
+4. energy evidence + early explanation of frames/gaps;
+5. hard numerical data-quality/coverage evidence;
+6. findings/inconsistencies;
+7. sources/provenance;
+8. technical methodology.
+
+Separate deliverable:
+- exhaustive technical evidence annex;
+- printable if desired;
+- CSV/XLSX/raw tabular export alongside it.
+
+Temporal Enel convention, until contrary evidence appears:
+- printed date range X–Y is treated internally as full local days;
+- use [X 00:00, Y+1 00:00) as the preferred calculation representation;
+- do not force the user to resolve 00:00/23:59 timestamp artifacts manually.
+
+Economic rule:
+- never scale the whole bill by kWh;
+- classify lines as VARIABLE_POR_CONSUMO / FIJO / CONDICIONAL_REGULADO / NO_RECONSTRUIBLE;
+- fixed lines remain invariant across Enel/P5/P50/P95;
+- conditional lines are recalculated only when the rule is supported;
+- preserve printed, reconstructed and counterfactual amounts as distinct semantics.
+
+Statistical rule:
+- observed inverter energy and estimated gap contribution must be shown separately;
+- gaps are acknowledged, quantified and never silently treated as zero;
+- Enel values remain excluded from statistical construction/calibration;
+- R3 remains frozen and future validation remains INSUFFICIENT.
+
+### Controlled exception to prior R3 production/PDF gate
+
+The earlier rule that no PDF/build work may proceed until R3 passes is now narrowed by explicit owner decision.
+
+Authorized in parallel with frozen R3 validation:
+- bill-audit calculation development;
+- bill-audit PDF/report implementation;
+- report-specific UX improvements;
+- tariff/economic reconstruction work;
+- evidence annex/export work;
+- work builds needed to complete the urgent evidence package.
+
+Still forbidden:
+- retuning R3 from future outcomes;
+- scoring R3 before its stopping rule is READY;
+- presenting R3 as validated before it actually passes;
+- calibrating/selecting a statistical model against the Enel bill;
+- weakening R3 gates;
+- calling another provisional method “R3”.
+
+The final urgent report may use a provisional statistical method only if:
+- the exact method/version is stated;
+- its real validation status is stated accurately;
+- no stronger claim is made than the evidence supports.
+
+### Immediate implementation sequence
+
+Do not begin with visual PDF polishing.
+
+First build the authoritative truth table for the real bill case:
+1. bill evidence;
+2. exact comparable interval;
+3. inverter frames;
+4. data coverage/gaps;
+5. directly observed grid-import energy;
+6. selected statistical completion method and P5/P50/P95;
+7. official applicable tariff evidence;
+8. bill-line classification and reconstruction;
+9. energy/monetary inconsistencies;
+10. provenance/version/hash metadata.
+
+Only after those numbers are internally validated:
+- render the main report;
+- render the technical evidence annex;
+- improve/reuse the demonstrated workflow in application UX.
+
+### Open technical items, not owner-decision blockers
+
+- choose the provisional statistical method for the urgent report while R3 remains unvalidated;
+- determine whether target HPVINV02 exposes a trustworthy grid-import energy counter/aggregate;
+- resolve exact Enel tariff version/applicability for the bill interval;
+- resolve subsidy/conditional-charge rules;
+- calculate final observed/P5/P50/P95/CLP results.
+
+### Working relationship for this tranche
+
+The assistant acts as technical director:
+- orders dependencies;
+- proposes and executes the technical sequence;
+- surfaces only material owner decisions.
+
+The owner acts primarily as:
+- requester;
+- priority/requirements adjuster;
+- source of real-world evidence;
+- human intermediary for actions that require local machine/browser/account access;
+- final acceptance authority.
+
+Do not turn ordinary implementation details into repeated owner approval gates.
