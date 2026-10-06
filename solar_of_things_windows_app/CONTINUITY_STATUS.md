@@ -4198,3 +4198,58 @@ Earlier repo evidence established August BT_AA/T5 electricity at 220.147 CLP/kWh
 5. only then implement/report PDF and annex rendering.
 
 Do not visually polish the PDF ahead of these truth-table gates.
+
+
+## Urgent Enel audit owner-evidence handoff — 2026-10-06
+
+Canonical handoff receipt:
+- `research/bill_audit/OWNER_EVIDENCE_HANDOFF_CHECKPOINT_2026-10-06.md`;
+- commit: `5ae21936a402324609465d2c4ac5ab531e4a3c28`.
+
+Current invariant energy result:
+- observed inverter import: 88.065413 kWh;
+- temporal coverage: 99.334903%;
+- provisional report P5/P50/P95: 88.103333 / 88.103333 / 96.606322 kWh;
+- printed Enel: 97.000 kWh;
+- Enel - provisional P95: 0.393678 kWh / 0.4059%.
+
+Sensitivity:
+- 10/12/15 comparable-date histories retain the exact same P95;
+- longer histories lower P95;
+- no-daytype stress lowers P95;
+- current provisional high side is conservative relative to tested alternatives.
+
+Economic classification:
+- administration: fixed;
+- electricity consumed: kWh-variable;
+- transport: kWh-variable/composite official components;
+- meter rent: fixed;
+- service common: invariant actual-only for inverter counterfactual;
+- subsidy -3,758: official second-semester monthly regulated benefit, invariant for this bill counterfactual;
+- preserve an explicit rounding/reconciliation residual where needed.
+
+Target-device evidence probe now exists:
+- UI action: `Comprobar energía comprada a red`;
+- reads monthly `pvInverterElectricityQuantityClass` aggregates and selected-key purchase counters;
+- preserves `buyElectricityQuantity` reality flags and `dayPurchaseElectricityConsumption` candidates;
+- read-only.
+
+Validated portable:
+- Windows Build **499**;
+- run ID `37532423163`;
+- tested HEAD `34d36042ef642493cd7880bf6d775e0bdb9f363c`;
+- CI/SQLite smoke/publish: PASS;
+- artifact `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID **11444757944**.
+
+Next owner evidence pass:
+1. run Build 499 with the existing complete portable `Data\` folder;
+2. Technical diagnostics -> `Comprobar energía comprada a red`;
+3. export investigation bundle and return the ZIP;
+4. download and return the official Enel September 2026 regulated-supply PDF.
+
+Once both files arrive:
+- classify target HPVINV02 import-energy counter as real/placeholder/unusable;
+- close official tariff/component rates;
+- freeze economic truth table;
+- proceed to audit PDF + technical annex implementation.
