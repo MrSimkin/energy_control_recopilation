@@ -1902,8 +1902,14 @@
                                                 Content="{DynamicResource GridUtility.ExportBillAudit}"
                                                 Padding="14,7"
                                                 VerticalAlignment="Bottom"
-                                                Margin="0,0,0,10"
+                                                Margin="0,0,8,10"
                                                 Click="UtilityExportBillAudit_Click"/>
+                                        <Button x:Name="UtilityExportBillAnnexButton"
+                                                Content="{DynamicResource GridUtility.ExportBillAnnex}"
+                                                Padding="14,7"
+                                                VerticalAlignment="Bottom"
+                                                Margin="0,0,0,10"
+                                                Click="UtilityExportBillAnnex_Click"/>
                                     </WrapPanel>
 
                                     <TextBlock x:Name="UtilityAuditStatusText"
