@@ -184,9 +184,12 @@
     <sys:String x:Key="GridUtility.Tab.Audit">Bill audit</sys:String>
     <sys:String x:Key="GridUtility.Tab.Tariffs">Official tariffs</sys:String>
     <sys:String x:Key="GridUtility.AuditHeading">Enel bill audit</sys:String>
-    <sys:String x:Key="GridUtility.AuditIntro">Select a bill. The audit starts from its linked official readings, compares energy with Solar of Things and preserves the actual charges. If the bill does not print a quantity or unit price, do not invent one: the app uses official sources and states explicitly what can and cannot be reconstructed.</sys:String>
+    <sys:String x:Key="GridUtility.AuditIntro">Select a bill. The audit compares billed energy with independent inverter records and preserves the actual charges. If the bill does not print a quantity or unit price, do not invent one: the app uses official sources and states explicitly what can and cannot be reconstructed.</sys:String>
     <sys:String x:Key="GridUtility.AuditBill">Bill to audit</sys:String>
-    <sys:String x:Key="GridUtility.ExportBillAudit">Export audit PDF</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAudit">Export audit report PDF</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAnnex">Export technical annex + data</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAnnexTitle">Export technical evidence annex</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAnnexSaved">Technical annex saved: {0}</sys:String>
     <sys:String x:Key="GridUtility.AuditEvidencePending">Select a bill to review/export its evidence. The applicable tariff is verified separately.</sys:String>
     <sys:String x:Key="GridUtility.AuditNoBillLines">This bill has no stored charge lines. There is nothing to audit line by line yet; complete the bill-charge evidence in “Enel bills” first.</sys:String>
     <sys:String x:Key="GridUtility.AuditNoBillIdentity">no reference / no kWh / no total</sys:String>
