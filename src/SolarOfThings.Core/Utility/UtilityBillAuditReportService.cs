@@ -100,8 +100,8 @@ public sealed class UtilityBillAuditReportService
         AddHeading(section, document.Info.Title, 18);
         var subtitle = section.AddParagraph(
             L(
-                "Documento técnico: evidencia de boleta, lecturas oficiales y contraste independiente con Solar of Things.",
-                "Technical document: bill evidence, official readings and independent Solar of Things comparison."));
+                "Documento técnico: evidencia de boleta, lecturas oficiales y contraste independiente con registros del inversor.",
+                "Technical document: bill evidence, official readings and independent inverter records."));
         subtitle.Format.Font.Color = Colors.DimGray;
         subtitle.Format.SpaceAfter = Unit.FromPoint(10);
 
@@ -211,7 +211,7 @@ public sealed class UtilityBillAuditReportService
 
         var footer = section.Footers.Primary.AddParagraph();
         footer.Format.Alignment = ParagraphAlignment.Center;
-        footer.AddText("Solar Energy Monitor · ");
+        footer.AddText(L("Informe técnico · ", "Technical report · "));
         footer.AddPageField();
         footer.AddText("/");
         footer.AddNumPagesField();
@@ -256,7 +256,7 @@ public sealed class UtilityBillAuditReportService
 
         AddAuditMetricCard(
             primaryRow.Cells[1],
-            L("SOLAR OF THINGS · OBSERVADO", "SOLAR OF THINGS · OBSERVED"),
+            L("INVERSOR · OBSERVADO", "INVERTER · OBSERVED"),
             $"{statistical.ObservedKwh:N3} kWh",
             DifferenceContext(
                 statistical.ObservedKwh,
@@ -269,8 +269,8 @@ public sealed class UtilityBillAuditReportService
 
         var rangeHeading = section.AddParagraph(
             L(
-                "Rango predictivo Solar of Things",
-                "Solar of Things predictive range"));
+                "Rango estadístico del inversor",
+                "Inverter statistical range"));
         rangeHeading.Format.Font.Size = 10.5;
         rangeHeading.Format.Font.Bold = true;
         rangeHeading.Format.SpaceBefore = Unit.FromPoint(6);
@@ -294,8 +294,8 @@ public sealed class UtilityBillAuditReportService
                     statistical.LowerKwh.Value,
                     enel,
                     L(
-                        "Margen inferior del rango central del 90% de simulaciones.",
-                        "Lower edge of the central 90% simulation range."))
+                        "Valor hacia el extremo inferior: aproximadamente 5% de los resultados del método queda por debajo.",
+                        "Lower-side value: approximately 5% of method results fall below it."))
                 : L("Sin evidencia suficiente", "Insufficient evidence"),
             Colors.AliceBlue,
             13);
@@ -311,8 +311,8 @@ public sealed class UtilityBillAuditReportService
                     statistical.MedianKwh.Value,
                     enel,
                     L(
-                        "Mediana y estimación central de las 2.000 imputaciones.",
-                        "Median and central estimate of the 2,000 imputations."))
+                        "Mediana y estimación central: aproximadamente la mitad de los resultados queda por debajo y la mitad por encima.",
+                        "Median and central estimate: approximately half the results fall below and half above."))
                 : L("Sin evidencia suficiente", "Insufficient evidence"),
             Colors.Honeydew,
             13);
@@ -328,11 +328,75 @@ public sealed class UtilityBillAuditReportService
                     statistical.UpperKwh.Value,
                     enel,
                     L(
-                        "Margen superior del rango central del 90% de simulaciones.",
-                        "Upper edge of the central 90% simulation range."))
+                        "Valor hacia el extremo superior: aproximadamente 95% de los resultados del método queda por debajo.",
+                        "Upper-side value: approximately 95% of method results fall below it."))
                 : L("Sin evidencia suficiente", "Insufficient evidence"),
             Colors.AliceBlue,
             13);
+
+        AddCallout(
+            section,
+            L("¿QUÉ SIGNIFICAN P5, P50 Y P95?", "WHAT DO P5, P50 AND P95 MEAN?"),
+            L(
+                "Como existen períodos sin telemetría, no sería correcto inventar un único valor exacto. P5 es un valor hacia el extremo inferior; P50 es la mediana y estimación central; P95 es un valor hacia el extremo superior. El intervalo P5–P95 contiene el 90% central de los resultados producidos por el método estadístico aplicado.",
+                "Because some periods lack telemetry, it would not be correct to invent one exact value. P5 is a lower-side value; P50 is the median and central estimate; P95 is an upper-side value. The P5–P95 interval contains the central 90% of the results produced by the statistical method."),
+            Colors.WhiteSmoke);
+
+        if (enel.HasValue &&
+            statistical.LowerKwh.HasValue &&
+            statistical.MedianKwh.HasValue &&
+            statistical.UpperKwh.HasValue)
+        {
+            var differences = section.AddTable();
+            differences.Borders.Width = 0.25;
+            differences.AddColumn(Unit.FromCentimeter(4.8));
+            differences.AddColumn(Unit.FromCentimeter(5.6));
+            differences.AddColumn(Unit.FromCentimeter(5.9));
+
+            var header = differences.AddRow();
+            header.Format.Font.Bold = true;
+            header.Cells[0].AddParagraph(L("Comparación", "Comparison"));
+            header.Cells[1].AddParagraph(L("Diferencia", "Difference"));
+            header.Cells[2].AddParagraph(L("Diferencia %", "Difference %"));
+
+            AddExecutiveDifferenceRow(
+                differences,
+                "Enel − P5",
+                enel.Value,
+                statistical.LowerKwh.Value);
+            AddExecutiveDifferenceRow(
+                differences,
+                "Enel − P50",
+                enel.Value,
+                statistical.MedianKwh.Value);
+            AddExecutiveDifferenceRow(
+                differences,
+                "Enel − P95",
+                enel.Value,
+                statistical.UpperKwh.Value);
+        }
+    }
+
+    private static void AddExecutiveDifferenceRow(
+        Table table,
+        string label,
+        double enelKwh,
+        double inverterKwh)
+    {
+        var difference =
+            enelKwh - inverterKwh;
+        var percent =
+            enelKwh > 0
+                ? difference / enelKwh * 100.0
+                : 0;
+
+        var row = table.AddRow();
+        row.Cells[0].AddParagraph(label);
+        row.Cells[0].Format.Font.Bold = true;
+        row.Cells[1].AddParagraph(
+            $"{difference:+0.000;-0.000;0.000} kWh");
+        row.Cells[2].AddParagraph(
+            $"{percent:+0.00;-0.00;0.00}%");
     }
 
     private static string DifferenceContext(
@@ -393,8 +457,8 @@ public sealed class UtilityBillAuditReportService
             inside
                 ? string.Format(
                     L(
-                        "Los {0:N3} kWh de Enel caen dentro del intervalo predictivo Solar of Things P5–P95 ({1:N3}–{2:N3} kWh). La estimación central es {3:N3} kWh y Enel está a {4:N3} kWh de esa mediana. Esto no prueba equivalencia metrológica: indica compatibilidad con el patrón estadístico de la telemetría disponible.",
-                        "The utility value of {0:N3} kWh falls inside the Solar of Things P5–P95 predictive interval ({1:N3}–{2:N3} kWh). The central estimate is {3:N3} kWh and the utility value is {4:N3} kWh from that median. This does not prove metrological equivalence; it indicates compatibility with the statistical pattern of available telemetry."),
+                        "Los {0:N3} kWh de Enel caen dentro del rango P5–P95 derivado de los registros del inversor ({1:N3}–{2:N3} kWh). La estimación central es {3:N3} kWh y Enel está a {4:N3} kWh de esa mediana. Esto no prueba equivalencia metrológica: indica compatibilidad con el patrón estadístico de la telemetría disponible.",
+                        "The utility value of {0:N3} kWh falls inside the P5–P95 range derived from inverter records ({1:N3}–{2:N3} kWh). The central estimate is {3:N3} kWh and the utility value is {4:N3} kWh from that median. This does not prove metrological equivalence; it indicates compatibility with the statistical pattern of available telemetry."),
                     enel.Value,
                     lower,
                     upper,
@@ -402,8 +466,8 @@ public sealed class UtilityBillAuditReportService
                     distance)
                 : string.Format(
                     L(
-                        "Los {0:N3} kWh de Enel quedan fuera del intervalo predictivo Solar of Things P5–P95 ({1:N3}–{2:N3} kWh), a {3:N3} kWh del límite más cercano. Esto justifica revisión adicional de cobertura, límites temporales, medición y facturación.",
-                        "The utility value of {0:N3} kWh falls outside the Solar of Things P5–P95 predictive interval ({1:N3}–{2:N3} kWh), {3:N3} kWh from the nearest bound. This supports additional review of coverage, time boundaries, metering and billing."),
+                        "Los {0:N3} kWh de Enel quedan fuera del rango P5–P95 derivado de los registros del inversor ({1:N3}–{2:N3} kWh), a {3:N3} kWh del límite más cercano. Esto justifica revisión adicional de cobertura, límites temporales, medición y facturación.",
+                        "The utility value of {0:N3} kWh falls outside the P5–P95 range derived from inverter records ({1:N3}–{2:N3} kWh), {3:N3} kWh from the nearest bound. This supports additional review of coverage, time boundaries, metering and billing."),
                     enel.Value,
                     lower,
                     upper,
@@ -466,7 +530,7 @@ public sealed class UtilityBillAuditReportService
 
         AddAuditMoneyCard(
             primaryRow.Cells[1],
-            L("SOLAR OBSERVADO", "SOLAR OBSERVED"),
+            L("INVERSOR OBSERVADO", "INVERTER OBSERVED"),
             observed,
             enel,
             L(
@@ -669,20 +733,20 @@ public sealed class UtilityBillAuditReportService
             13);
         AddAuditMetricCard(
             first.Cells[2],
-            L("MUESTRAS DONANTES", "DONOR SAMPLES"),
+            L("VENTANAS DE CALIBRACIÓN", "CALIBRATION WINDOWS"),
             statistical.DonorSampleCount.ToString("N0"),
             L(
-                "Telemetría comparable usada por el bootstrap.",
-                "Comparable telemetry used by the bootstrap."),
+                "Ventanas históricas completas comparables utilizadas en los gaps.",
+                "Comparable complete historical windows used for the gaps."),
             Colors.AliceBlue,
             13);
 
         var second = cards.AddRow();
         AddAuditMetricCard(
             second.Cells[0],
-            L("SIMULACIONES", "SIMULATIONS"),
+            L("COMBINACIONES EXACTAS", "EXACT COMBINATIONS"),
             statistical.SimulationCount.ToString("N0"),
-            L("Construyen P5/P50/P95.", "Build P5/P50/P95."),
+            L("Combinaciones históricas usadas para P5/P50/P95.", "Historical combinations used for P5/P50/P95."),
             Colors.WhiteSmoke,
             13);
         AddAuditMetricCard(
@@ -701,8 +765,8 @@ public sealed class UtilityBillAuditReportService
             L("MÉTODO", "METHOD"),
             "P5 / P50 / P95",
             L(
-                "Bootstrap empírico por hora local y tipo de día.",
-                "Empirical bootstrap by local hour and day type."),
+                "Ventanas históricas completas por horario, duración y tipo de día.",
+                "Complete historical windows by clock time, duration and day type."),
             Colors.Honeydew,
             12);
 
@@ -879,13 +943,13 @@ public sealed class UtilityBillAuditReportService
             "ENEL_BILLED" =>
                 spanish ? "Enel facturado" : "Utility billed",
             "SOLAR_OBSERVED" =>
-                spanish ? "Solar observado" : "Solar observed",
+                spanish ? "Inversor observado" : "Inverter observed",
             "SOLAR_LOWER" =>
-                spanish ? "Solar inferior P5" : "Solar lower P5",
+                spanish ? "Inversor P5" : "Inverter P5",
             "SOLAR_CENTRAL" =>
-                spanish ? "Solar central P50" : "Solar central P50",
+                spanish ? "Inversor P50" : "Inverter P50",
             "SOLAR_UPPER" =>
-                spanish ? "Solar superior P95" : "Solar upper P95",
+                spanish ? "Inversor P95" : "Inverter P95",
             _ => key
         };
 
