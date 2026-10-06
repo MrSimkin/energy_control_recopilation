@@ -3022,6 +3022,99 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void UtilityExportBillAnnex_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var profile = _profiles.Get();
+        if (profile is null ||
+            UtilityAuditBillSelector.SelectedValue is not long billId)
+        {
+            UtilityAuditStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.AuditSelectBill");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = _localization.GetString(
+                "GridUtility.ExportBillAnnexTitle"),
+            Filter = "ZIP (*.zip)|*.zip",
+            DefaultExt = "zip",
+            AddExtension = true,
+            FileName =
+                $"Anexo-Tecnico-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.zip"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        var spanish =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase);
+
+        UtilityExportBillAnnexButton.IsEnabled = false;
+        UtilityExportBillAuditButton.IsEnabled = false;
+        UtilityAuditStatusText.Text =
+            spanish
+                ? "Generando anexo técnico y datos..."
+                : "Generating technical annex and data...";
+        SetGlobalOperation(
+            true,
+            spanish
+                ? "Exportando anexo técnico..."
+                : "Exporting technical annex...");
+
+        try
+        {
+            var timeZone =
+                string.IsNullOrWhiteSpace(
+                    profile.StationTimeZone)
+                    ? "America/Santiago"
+                    : profile.StationTimeZone;
+
+            var service =
+                _services.GetRequiredService<
+                    UtilityBillAuditAnnexExportService>();
+
+            await Task.Run(
+                () =>
+                    service.ExportZip(
+                        dialog.FileName,
+                        profile.DeviceId,
+                        billId,
+                        timeZone,
+                        _localization.CurrentLanguage));
+
+            UtilityAuditStatusText.Text =
+                string.Format(
+                    _localization.GetString(
+                        "GridUtility.ExportBillAnnexSaved"),
+                    dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            UtilityAuditStatusText.Text =
+                ex.Message;
+            MessageBox.Show(
+                ex.Message,
+                _localization.GetString(
+                    "GridUtility.AuditHeading"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            UtilityExportBillAnnexButton.IsEnabled = true;
+            UtilityExportBillAuditButton.IsEnabled = true;
+            SetGlobalOperation(
+                false,
+                string.Empty);
+        }
+    }
+
     private void UtilityAddBill_Click(
         object sender,
         RoutedEventArgs e)
