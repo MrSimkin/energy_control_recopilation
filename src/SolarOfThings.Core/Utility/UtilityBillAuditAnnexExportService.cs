@@ -50,7 +50,8 @@ public sealed class UtilityBillAuditAnnexExportService
         string deviceId,
         long billId,
         string timeZoneId,
-        string languageCode)
+        string languageCode,
+        string? producerIdentity = null)
     {
         var bill = _repository.GetBills()
             .SingleOrDefault(item => item.BillId == billId)
@@ -111,7 +112,8 @@ public sealed class UtilityBillAuditAnnexExportService
                             analysis,
                             tariff,
                             telemetry.Count,
-                            languageCode)),
+                            languageCode,
+                            producerIdentity)),
                 ["05-cobertura-diaria.csv"] =
                     Utf8(
                         DailyCoverageCsv(
@@ -131,7 +133,8 @@ public sealed class UtilityBillAuditAnnexExportService
                 analysis,
                 tariff,
                 telemetry,
-                languageCode);
+                languageCode,
+                producerIdentity);
 
             entries[
                 "00-Anexo-Tecnico-Evidencia-Numerica.pdf"] =
@@ -172,6 +175,8 @@ public sealed class UtilityBillAuditAnnexExportService
                         end_utc_exclusive =
                             analysis.EndUtcExclusive.ToString("O")
                     },
+                producer_identity =
+                    producerIdentity,
                 statistical_method =
                     analysis.Completion.MethodVersion,
                 statistical_status =
@@ -648,7 +653,8 @@ public sealed class UtilityBillAuditAnnexExportService
         UtilityBillGapStatisticalAnalysis analysis,
         UtilityBillTariffScenarioAnalysis tariff,
         int frameCount,
-        string languageCode)
+        string languageCode,
+        string? producerIdentity)
     {
         var spanish =
             languageCode.StartsWith(
@@ -665,6 +671,8 @@ public sealed class UtilityBillAuditAnnexExportService
             new string('=', 45));
         sb.AppendLine(
             $"Export version: {ExportVersion}");
+        sb.AppendLine(
+            $"Producer: {producerIdentity ?? "-"}");
         sb.AppendLine(
             $"Generated UTC: {DateTimeOffset.UtcNow:O}");
         sb.AppendLine(
@@ -701,7 +709,8 @@ public sealed class UtilityBillAuditAnnexExportService
         UtilityBillGapStatisticalAnalysis analysis,
         UtilityBillTariffScenarioAnalysis tariff,
         IReadOnlyList<TelemetryRow> rows,
-        string languageCode)
+        string languageCode,
+        string? producerIdentity)
     {
         EnsurePdfFonts();
 
@@ -854,8 +863,16 @@ public sealed class UtilityBillAuditAnnexExportService
             ParagraphAlignment.Center;
         footer.AddText(
             L(
-                "Anexo técnico · página ",
-                "Technical annex · page "));
+                "Anexo técnico",
+                "Technical annex"));
+        if (!string.IsNullOrWhiteSpace(producerIdentity))
+        {
+            footer.AddText($" · {producerIdentity}");
+        }
+        footer.AddText(
+            L(
+                " · página ",
+                " · page "));
         footer.AddPageField();
         footer.AddText("/");
         footer.AddNumPagesField();
