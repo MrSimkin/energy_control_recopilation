@@ -357,6 +357,14 @@ public sealed class UtilityBillGapStatisticalCompletionService
                   (totals.Count - 1)
                 : 0;
 
+        var dailyEvidence =
+            BuildDailyEvidence(
+                interval.Samples,
+                startUtc,
+                endUtcExclusive,
+                threshold,
+                timeZoneId);
+
         var denominator =
             interval.CoveredHours +
             interval.UncoveredHours;
@@ -399,6 +407,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
             interval.UncoveredHours,
             deterministicBoundaryKwh,
             gapEvidence,
+            dailyEvidence,
             totals.Count,
             mean,
             totals.Max(),
@@ -445,6 +454,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
             covered,
             uncovered,
             0,
+            [],
             [],
             0,
             null,
@@ -881,6 +891,238 @@ public sealed class UtilityBillGapStatisticalCompletionService
         return output;
     }
 
+    private static IReadOnlyList<UtilityBillDailyQualityEvidence>
+        BuildDailyEvidence(
+            IReadOnlyList<StatSample> samples,
+            DateTimeOffset startUtc,
+            DateTimeOffset endUtcExclusive,
+            double thresholdMinutes,
+            string timeZoneId)
+    {
+        var firstDay =
+            SolarApiTime.GetLocalDate(
+                startUtc,
+                timeZoneId);
+        var lastDay =
+            SolarApiTime.GetLocalDate(
+                endUtcExclusive.AddTicks(-1),
+                timeZoneId);
+
+        var map =
+            new SortedDictionary<
+                DateOnly,
+                DailyAccumulator>();
+
+        for (var day = firstDay;
+             day <= lastDay;
+             day = day.AddDays(1))
+        {
+            map[day] =
+                new DailyAccumulator();
+        }
+
+        foreach (var sample in samples)
+        {
+            var day =
+                SolarApiTime.GetLocalDate(
+                    sample.TimestampUtc,
+                    timeZoneId);
+            if (map.TryGetValue(
+                    day,
+                    out var accumulator))
+            {
+                accumulator.ValidSamples++;
+            }
+        }
+
+        if (samples.Count == 0)
+        {
+            AllocateDailyInterval(
+                startUtc,
+                endUtcExclusive,
+                false,
+                null,
+                null,
+                map,
+                timeZoneId);
+        }
+        else
+        {
+            if (samples[0].TimestampUtc >
+                startUtc)
+            {
+                AllocateDailyInterval(
+                    startUtc,
+                    samples[0].TimestampUtc,
+                    false,
+                    null,
+                    null,
+                    map,
+                    timeZoneId);
+            }
+
+            for (var index = 0;
+                 index < samples.Count - 1;
+                 index++)
+            {
+                var left = samples[index];
+                var right = samples[index + 1];
+                var durationMinutes =
+                    (right.TimestampUtc -
+                     left.TimestampUtc)
+                    .TotalMinutes;
+
+                if (durationMinutes <= 0)
+                    continue;
+
+                var covered =
+                    durationMinutes <=
+                    thresholdMinutes;
+
+                AllocateDailyInterval(
+                    left.TimestampUtc,
+                    right.TimestampUtc,
+                    covered,
+                    left.Watts,
+                    right.Watts,
+                    map,
+                    timeZoneId);
+            }
+
+            if (samples[^1].TimestampUtc <
+                endUtcExclusive)
+            {
+                AllocateDailyInterval(
+                    samples[^1].TimestampUtc,
+                    endUtcExclusive,
+                    false,
+                    null,
+                    null,
+                    map,
+                    timeZoneId);
+            }
+        }
+
+        return map
+            .Select(item =>
+            {
+                var total =
+                    item.Value.CoveredHours +
+                    item.Value.UncoveredHours;
+                return new UtilityBillDailyQualityEvidence(
+                    item.Key,
+                    item.Value.ValidSamples,
+                    item.Value.CoveredHours,
+                    item.Value.UncoveredHours,
+                    total > 0
+                        ? item.Value.CoveredHours /
+                          total *
+                          100.0
+                        : 0,
+                    item.Value.ObservedPositiveKwh);
+            })
+            .ToArray();
+    }
+
+    private static void AllocateDailyInterval(
+        DateTimeOffset leftUtc,
+        DateTimeOffset rightUtc,
+        bool covered,
+        double? leftWatts,
+        double? rightWatts,
+        IDictionary<DateOnly, DailyAccumulator> map,
+        string timeZoneId)
+    {
+        if (rightUtc <= leftUtc)
+            return;
+
+        var totalSeconds =
+            (rightUtc - leftUtc)
+            .TotalSeconds;
+        var cursor =
+            leftUtc;
+
+        while (cursor < rightUtc)
+        {
+            var day =
+                SolarApiTime.GetLocalDate(
+                    cursor,
+                    timeZoneId);
+            var nextMidnight =
+                LocalInstant(
+                    day.AddDays(1),
+                    TimeOnly.MinValue,
+                    timeZoneId);
+            var pieceEnd =
+                nextMidnight < rightUtc
+                    ? nextMidnight
+                    : rightUtc;
+
+            if (!map.TryGetValue(
+                    day,
+                    out var accumulator))
+            {
+                cursor = pieceEnd;
+                continue;
+            }
+
+            var hours =
+                (pieceEnd - cursor)
+                .TotalHours;
+
+            if (covered &&
+                leftWatts.HasValue &&
+                rightWatts.HasValue &&
+                totalSeconds > 0)
+            {
+                accumulator.CoveredHours +=
+                    hours;
+
+                var f0 =
+                    (cursor - leftUtc)
+                    .TotalSeconds /
+                    totalSeconds;
+                var f1 =
+                    (pieceEnd - leftUtc)
+                    .TotalSeconds /
+                    totalSeconds;
+                var p0 =
+                    leftWatts.Value +
+                    (rightWatts.Value -
+                     leftWatts.Value) *
+                    f0;
+                var p1 =
+                    leftWatts.Value +
+                    (rightWatts.Value -
+                     leftWatts.Value) *
+                    f1;
+
+                accumulator.ObservedPositiveKwh +=
+                    (Math.Max(0, p0) +
+                     Math.Max(0, p1)) /
+                    2.0 *
+                    hours /
+                    1000.0;
+            }
+            else
+            {
+                accumulator.UncoveredHours +=
+                    hours;
+            }
+
+            cursor =
+                pieceEnd;
+        }
+    }
+
+    private sealed class DailyAccumulator
+    {
+        public int ValidSamples { get; set; }
+        public double CoveredHours { get; set; }
+        public double UncoveredHours { get; set; }
+        public double ObservedPositiveKwh { get; set; }
+    }
+
     private static DateTimeOffset LocalInstant(
         DateOnly day,
         TimeOnly clock,
@@ -1004,11 +1246,20 @@ public sealed record UtilityBillGapStatisticalAnalysis(
     double UncoveredHours,
     double DeterministicBoundaryCompletionKwh,
     IReadOnlyList<UtilityBillGapEvidence> Gaps,
+    IReadOnlyList<UtilityBillDailyQualityEvidence> DailyEvidence,
     int ExactCombinationCount,
     double? MeanKwh,
     double? MaximumKwh,
     string Status,
     bool EnelValueUsedInConstruction);
+
+public sealed record UtilityBillDailyQualityEvidence(
+    DateOnly LocalDate,
+    int ValidSamples,
+    double CoveredHours,
+    double UncoveredHours,
+    double CoveragePercent,
+    double ObservedPositiveKwh);
 
 public sealed record UtilityBillGapEvidence(
     int GapIndex,
