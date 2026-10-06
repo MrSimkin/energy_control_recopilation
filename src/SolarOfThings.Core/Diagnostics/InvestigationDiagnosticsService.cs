@@ -843,6 +843,7 @@ public sealed class InvestigationDiagnosticsService
         WriteResearchCaptureInventory(zip, connection, profile.DeviceId);
         WriteResearchJsonPathInventory(zip, connection, profile.DeviceId);
         WriteSelectedRawCaptures(zip, connection, profile.DeviceId);
+        WriteGridImportEnergyRawCaptures(zip, connection, profile.DeviceId);
         WriteResearchRawCaptures(zip, connection, profile.DeviceId);
         WriteProfileEvidence(zip, profile);
 
@@ -2386,6 +2387,75 @@ public sealed class InvestigationDiagnosticsService
         DateTimeOffset.TryParse(raw, out var value)
             ? value.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)
             : "unknown";
+
+    private static void WriteGridImportEnergyRawCaptures(
+        ZipArchive zip,
+        SqliteConnection connection,
+        string deviceId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT capture_id, operation, source, local_date, page,
+                   request_json, response_json, retrieved_utc
+            FROM raw_api_capture
+            WHERE device_id = $deviceId
+              AND operation LIKE 'GridImportEnergy%'
+            ORDER BY capture_id;
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+
+        using var reader = command.ExecuteReader();
+        var inventory = new List<string[]>();
+
+        while (reader.Read())
+        {
+            var captureId = reader.GetInt64(0);
+            var operation = reader.GetString(1);
+            var source = reader.GetString(2);
+            var localDate = reader.IsDBNull(3) ? "no-date" : reader.GetString(3);
+            var page = reader.IsDBNull(4)
+                ? string.Empty
+                : Convert.ToString(reader.GetValue(4), CultureInfo.InvariantCulture) ?? string.Empty;
+            var retrievedUtc = reader.IsDBNull(7) ? string.Empty : reader.GetString(7);
+
+            inventory.Add([
+                captureId.ToString(CultureInfo.InvariantCulture),
+                operation,
+                source,
+                localDate,
+                page,
+                retrievedUtc
+            ]);
+
+            var safeOperation = new string(operation
+                .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
+                .ToArray());
+
+            if (!reader.IsDBNull(5))
+            {
+                WriteText(
+                    zip,
+                    $"60-grid-import-energy-{captureId}-{safeOperation}-{localDate}-request.json",
+                    DiagnosticSanitizer.SanitizeJson(reader.GetString(5), 16_000_000)
+                    ?? DiagnosticSanitizer.SanitizeText(reader.GetString(5)));
+            }
+
+            if (!reader.IsDBNull(6))
+            {
+                WriteText(
+                    zip,
+                    $"60-grid-import-energy-{captureId}-{safeOperation}-{localDate}-response.json",
+                    DiagnosticSanitizer.SanitizeJson(reader.GetString(6), 16_000_000)
+                    ?? DiagnosticSanitizer.SanitizeText(reader.GetString(6)));
+            }
+        }
+
+        WriteCsv(
+            zip,
+            "60-grid-import-energy-inventory.csv",
+            ["capture_id","operation","source","local_date","page","retrieved_utc"],
+            inventory);
+    }
 
     private static IEnumerable<string[]> ExpandTableCounts(
         SqliteConnection connection,
