@@ -897,6 +897,7 @@ try
                 "02-intervalos-sin-telemetria.csv",
                 "03-escenarios-economicos.csv",
                 "04-fuentes-y-metodo.txt",
+                "05-cobertura-diaria.csv",
                 "99-manifest-integridad.json"
             };
 
