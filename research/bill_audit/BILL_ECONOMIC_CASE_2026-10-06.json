@@ -1,0 +1,63 @@
+{
+  "period": {
+    "start_local_date": "2026-08-28",
+    "end_local_date_inclusive": "2026-09-28"
+  },
+  "applicability": {
+    "tariff_plan_printed": "BT1-T5",
+    "typical_area_printed": "1A",
+    "commune": "Ñuñoa",
+    "network_type": "BT_AA",
+    "network_type_status": "INFERRED_FROM_PRIOR_AND_CURRENT_BILL_ARITHMETIC_NOT_PRINTED",
+    "etr_band": "T5",
+    "etr_status": "PRINTED_IN_TARIFF_LABEL_AND_DEFINED_BY_PRIOR_YEAR_AVERAGE"
+  },
+  "monthly_rates": [
+    {
+      "month": "2026-08",
+      "electricity_iva_clp_per_kwh": 220.147,
+      "transport_iva_clp_per_kwh": 20.489,
+      "public_service_exempt_clp_per_kwh": 0.855
+    },
+    {
+      "month": "2026-09",
+      "electricity_iva_clp_per_kwh": 220.539,
+      "transport_iva_clp_per_kwh": 20.489,
+      "public_service_exempt_clp_per_kwh": 0.855
+    }
+  ],
+  "fet_no_surcharge_up_to_kwh": 350.0,
+  "fixed_and_actual_components": {
+    "administration_official_iva_clp": 727.230,
+    "meter_rent_actual_clp": 463.0,
+    "common_service_actual_clp": 5964.0,
+    "subsidy_actual_clp": -3758.0
+  },
+  "energy_scenarios_kwh": {
+    "ENEL_BILLED": 97.0,
+    "INVERTER_OBSERVED": 88.06541295361112,
+    "INVERTER_P5": 88.10333292583331,
+    "INVERTER_P50": 88.10333292583331,
+    "INVERTER_P95": 96.6063221773611
+  },
+  "printed_bill": {
+    "administration_line_clp": 727.0,
+    "electricity_line_clp": 21389.0,
+    "transport_line_clp": 2072.0,
+    "meter_rent_line_clp": 463.0,
+    "total_bill_clp": 24648.0,
+    "common_service_clp": 5964.0,
+    "subsidy_clp": -3758.0,
+    "other_charges_credits_clp": 2206.0,
+    "total_due_clp": 26854.0
+  },
+  "source_semantics": {
+    "electricity_rate_august": "Official Enel August 2026 retroactive BT_AA/T5 published IVA column; value previously verified and preserved in repository evidence.",
+    "electricity_rate_september": "Official Enel September 2026 BT_AA/T5 Ñuñoa published IVA column.",
+    "transport": "Official Enel published IVA transport component.",
+    "public_service": "Official Enel exempt public-service charge.",
+    "day_split": "Decreto 5T 2024: when billing spans fractions of two calendar months, energy consumption is estimated in proportion to the number of days belonging to each month.",
+    "subsidy": "Ley 21.667 subsidy is granted as a semestral benefit paid in six successive monthly installments; preserved because every scenario remains above the installment amount.",
+    "common_service": "Actual common-service proration is independent of the disputed apartment-meter kWh."
+  }
+}
