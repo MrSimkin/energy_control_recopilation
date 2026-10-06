@@ -858,6 +858,57 @@ try
             throw new InvalidOperationException(
                 "Bill-first Enel audit PDF smoke test failed.");
         }
+
+        var billAuditAnnexPath =
+            Path.Combine(root, "smoke-enel-bill-annex.zip");
+        var billAuditAnnex =
+            new UtilityBillAuditAnnexExportService(
+                database,
+                utilityRepository,
+                new UtilityBillGapStatisticalCompletionService(
+                    database),
+                new UtilityBillTariffScenarioAnalysisService(
+                    utilityRepository,
+                    smokeTariffRepository,
+                    smokeCandidateRepository,
+                    smokeVersionResolver));
+        billAuditAnnex.ExportZip(
+            billAuditAnnexPath,
+            familySmokeDeviceId,
+            billId,
+            "America/Santiago",
+            "es");
+
+        if (!File.Exists(billAuditAnnexPath) ||
+            new FileInfo(billAuditAnnexPath).Length < 500)
+        {
+            throw new InvalidOperationException(
+                "Bill audit technical annex ZIP smoke test failed.");
+        }
+
+        using (var annex =
+               System.IO.Compression.ZipFile.OpenRead(
+                   billAuditAnnexPath))
+        {
+            var requiredAnnexEntries = new[]
+            {
+                "00-Anexo-Tecnico-Evidencia-Numerica.pdf",
+                "01-telemetria-importacion-red.csv",
+                "02-intervalos-sin-telemetria.csv",
+                "03-escenarios-economicos.csv",
+                "04-fuentes-y-metodo.txt",
+                "99-manifest-integridad.json"
+            };
+
+            foreach (var name in requiredAnnexEntries)
+            {
+                if (annex.GetEntry(name) is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Bill audit annex entry missing: {name}");
+                }
+            }
+        }
     }
 
     if (string.Equals(
