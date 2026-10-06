@@ -3855,3 +3855,50 @@ After harness freeze:
 - only once stopping conditions are met, score R3 future validation exactly once.
 
 No production C# statistical replacement, PDF wording change or Solar of Things user build is authorized before R3 future validation passes.
+
+
+## Statistical uncertainty R3 harness freeze — 2026-10-06
+
+The frozen future-validation harness for R3 is now implemented and persisted.
+
+Canonical candidate:
+- `grid-import-boundary-residual-dayweighted-240m.candidate-v4`.
+
+Frozen protocol:
+- `research/statistical_uncertainty/PHASE2R_R3_FUTURE_VALIDATION_PROTOCOL_2026-09-30.md`.
+
+Harness:
+- `research/statistical_uncertainty/phase2r_r3_future_validation.py`;
+- version: `phase2r-r3-future-validation.v1`;
+- implementation commit: `0d7ebb7bf9ef648eae37bc4efd4a518ca42af759`;
+- Git blob SHA: `8e50f134f35c83774edca47652ff22b8315acd1c`;
+- file SHA-256: `39012e73ac5638f8b37f765d370ea91b1f0d994c21127c1e9a5d17e696504e57`.
+
+Freeze receipt:
+- `research/statistical_uncertainty/PHASE2R_R3_HARNESS_FREEZE_REPORT_2026-10-06.md`;
+- report commit: `cc04aef844cfcf32a1e5dec7e0e1035ce41022b1`.
+
+Important state change from the 2026-09-30 handoff:
+- it is no longer correct to say that no executable R3 harness exists;
+- the harness exists and is frozen before owner future outcomes have been scored;
+- `count` is outcome-blind and may be run on future Research Exporter data;
+- `score` is blocked until the frozen stopping rule is satisfied and then scores only through the first stopping date;
+- no Enel/utility value enters construction, calibration, stopping, scoring or selection;
+- no owner future validation result currently exists.
+
+No newer owner Research Exporter ZIP was available in the 2026-10-06 continuation session, so no real future count/scoring outputs were persisted.
+
+Calendar lower bound:
+- validation starts 2026-09-28;
+- 15 distinct future local dates cannot exist before 2026-10-12;
+- therefore R3 cannot legally reach its stopping rule before 2026-10-12, and it may remain INSUFFICIENT after that if case/group counts are short.
+
+Resume statistical work from:
+1. obtain a newer genuine Research Exporter ZIP;
+2. run R3 `count` only;
+3. if `INSUFFICIENT`, stop without scoring;
+4. only if `READY`, run frozen scoring exactly once and then perform structural gate-10 review;
+5. only after a full PASS consider later production implementation.
+
+Do not repeat Phase 1, Phase 2 candidate selection, Phase 3 v2, R1 or R2.
+Do not modify production C#/PDF wording/builds merely because the R3 harness now exists.
