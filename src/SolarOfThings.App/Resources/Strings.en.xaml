@@ -588,6 +588,7 @@
     <sys:String x:Key="Diagnostics.CaptureFlow">Capture EnergyFlow</sys:String>
     <sys:String x:Key="Diagnostics.ConfigCache">Read config cache</sys:String>
     <sys:String x:Key="Diagnostics.ConfigRead">Direct config read</sys:String>
+    <sys:String x:Key="Diagnostics.GridImportEnergy">Check grid-purchase energy</sys:String>
     <sys:String x:Key="Diagnostics.ExportBundle">Export investigation bundle</sys:String>
 
     <!-- Product experience / help / import -->
