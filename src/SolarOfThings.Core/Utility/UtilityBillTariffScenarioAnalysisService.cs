@@ -691,11 +691,21 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             {
                 var sameIndexWithinIdentity =
                     sameIdentity
-                        .SingleOrDefault(item =>
+                        .Where(item =>
                             item.CandidateIndex ==
-                            seed.CandidateIndex);
-                if (sameIndexWithinIdentity is not null)
-                    return sameIndexWithinIdentity;
+                            seed.CandidateIndex)
+                        .ToArray();
+
+                var collapsed =
+                    CollapseEquivalentCandidates(
+                        sameIndexWithinIdentity);
+                if (collapsed is not null)
+                    return collapsed;
+
+                // More than one semantically matching candidate remains and
+                // they are not rate-equivalent. Do not guess.
+                if (sameIndexWithinIdentity.Length > 1)
+                    return null;
             }
         }
 
@@ -706,11 +716,80 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     seed.CandidateIndex)
                 .ToArray();
 
-        return sameIndex.Length == 1
-            ? sameIndex[0]
-            : candidates.Length == 1
-                ? candidates[0]
-                : null;
+        var sameIndexCollapsed =
+            CollapseEquivalentCandidates(
+                sameIndex);
+        if (sameIndexCollapsed is not null)
+            return sameIndexCollapsed;
+
+        return candidates.Length == 1
+            ? candidates[0]
+            : null;
+    }
+
+    private static TariffRateCandidate?
+        CollapseEquivalentCandidates(
+            IReadOnlyList<TariffRateCandidate> candidates)
+    {
+        if (candidates.Count == 0)
+            return null;
+
+        if (candidates.Count == 1)
+            return candidates[0];
+
+        var first = candidates[0];
+        var allEquivalent = candidates.All(item =>
+            string.Equals(
+                item.ComponentKey,
+                first.ComponentKey,
+                StringComparison.Ordinal) &&
+            string.Equals(
+                item.NetworkType,
+                first.NetworkType,
+                StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(
+                item.EtrBand,
+                first.EtrBand,
+                StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(
+                item.Unit,
+                first.Unit,
+                StringComparison.OrdinalIgnoreCase) &&
+            NullableRateEquals(
+                item.NetRateClp,
+                first.NetRateClp) &&
+            NullableRateEquals(
+                item.PublishedIvaColumnClp,
+                first.PublishedIvaColumnClp));
+
+        if (!allEquivalent)
+            return null;
+
+        return candidates
+            .OrderBy(item =>
+                item.PageNumber)
+            .ThenBy(item =>
+                item.CandidateIndex)
+            .ThenBy(item =>
+                item.RateCandidateId)
+            .First();
+    }
+
+    private static bool NullableRateEquals(
+        double? left,
+        double? right)
+    {
+        if (!left.HasValue ||
+            !right.HasValue)
+        {
+            return left.HasValue ==
+                   right.HasValue;
+        }
+
+        return Math.Abs(
+                   left.Value -
+                   right.Value) <=
+               0.000001;
     }
 
     private static bool TryRate(
@@ -1025,13 +1104,44 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             }
             else
             {
-                chosen = options
-                    .SingleOrDefault(item =>
+                var preferred = options
+                    .Where(item =>
                         resolutions.TryGetValue(
                             item.PublicationId,
                             out var resolution) &&
                         resolution.Status ==
-                            "VERSION_PREFERRED_RETROACTIVE");
+                            "VERSION_PREFERRED_RETROACTIVE")
+                    .ToArray();
+
+                if (preferred.Length == 1)
+                {
+                    chosen = preferred[0];
+                }
+                else if (preferred.Length > 1)
+                {
+                    // Duplicate discoveries of the exact same official file
+                    // may coexist in an older target DB. Collapse only when
+                    // the preserved file hash proves equivalence.
+                    var hashes = preferred
+                        .Select(item =>
+                            item.ContentSha256)
+                        .Where(item =>
+                            !string.IsNullOrWhiteSpace(item))
+                        .Distinct(
+                            StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+
+                    if (hashes.Length == 1 &&
+                        preferred.All(item =>
+                            !string.IsNullOrWhiteSpace(
+                                item.ContentSha256)))
+                    {
+                        chosen = preferred
+                            .OrderByDescending(item =>
+                                item.PublicationId)
+                            .First();
+                    }
+                }
             }
 
             if (chosen is not null)
