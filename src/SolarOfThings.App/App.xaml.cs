@@ -99,6 +99,7 @@ public partial class App : Application
         builder.Services.AddSingleton<UtilityBillTariffScenarioAnalysisService>();
         builder.Services.AddSingleton<UtilityReconciliationReportService>();
         builder.Services.AddSingleton<UtilityBillAuditReportService>();
+        builder.Services.AddSingleton<UtilityBillAuditAnnexExportService>();
         builder.Services.AddSingleton<TariffPublicationRepository>();
         builder.Services.AddSingleton<TariffRateCandidateRepository>();
         builder.Services.AddSingleton<EnelBt1TariffTextParser>();
