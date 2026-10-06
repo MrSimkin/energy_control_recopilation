@@ -62,7 +62,14 @@ public sealed class UtilityBillGapStatisticalCompletionService
                 "INSUFFICIENT_GRID_HISTORY");
         }
 
-        var threshold = ContinuityThresholdMinutes(all);
+        var medianCadenceMinutes =
+            MedianPositiveGapMinutes(all);
+        var threshold =
+            Math.Min(
+                20.0,
+                Math.Max(
+                    10.0,
+                    medianCadenceMinutes * 3.0));
         var startUtc =
             LocalInstant(startLocalDate, TimeOnly.MinValue, timeZoneId);
         var endUtcExclusive =
@@ -385,6 +392,8 @@ public sealed class UtilityBillGapStatisticalCompletionService
             endLocalDateInclusive,
             startUtc,
             endUtcExclusive,
+            interval.Samples.Count,
+            medianCadenceMinutes,
             threshold,
             interval.CoveredHours,
             interval.UncoveredHours,
@@ -430,6 +439,8 @@ public sealed class UtilityBillGapStatisticalCompletionService
             end,
             default,
             default,
+            interval?.Samples.Count ?? 0,
+            0,
             interval?.ContinuityThresholdMinutes ?? 0,
             covered,
             uncovered,
@@ -520,7 +531,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
         return rows;
     }
 
-    private static double ContinuityThresholdMinutes(
+    private static double MedianPositiveGapMinutes(
         IReadOnlyList<StatSample> samples)
     {
         var gaps =
@@ -540,14 +551,9 @@ public sealed class UtilityBillGapStatisticalCompletionService
 
         var median =
             Median(gaps);
-        if (median <= 0)
-            median = 5.0;
-
-        return Math.Min(
-            20.0,
-            Math.Max(
-                10.0,
-                median * 3.0));
+        return median > 0
+            ? median
+            : 5.0;
     }
 
     private static IntervalTruth BuildIntervalTruth(
@@ -991,6 +997,8 @@ public sealed record UtilityBillGapStatisticalAnalysis(
     DateOnly EndLocalDateInclusive,
     DateTimeOffset StartUtc,
     DateTimeOffset EndUtcExclusive,
+    int IntervalSampleCount,
+    double MedianCadenceMinutes,
     double ContinuityThresholdMinutes,
     double CoveredHours,
     double UncoveredHours,
