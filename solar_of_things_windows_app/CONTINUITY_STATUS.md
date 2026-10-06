@@ -3902,3 +3902,51 @@ Resume statistical work from:
 
 Do not repeat Phase 1, Phase 2 candidate selection, Phase 3 v2, R1 or R2.
 Do not modify production C#/PDF wording/builds merely because the R3 harness now exists.
+
+
+## Statistical uncertainty R3 first future count checkpoint — 2026-10-06
+
+A newer cumulative Research Exporter package was supplied and evaluated with the frozen R3 **count-only / outcome-blind** logic.
+
+Input:
+- `SolarOfThings-ResearchPackage-20261006-154413.zip`;
+- SHA-256: `3a7bc7edb9e264333cd6da73b85f9f2d805b6eb4f5ef20594ddc34ffdbdd6295`;
+- cumulative telemetry span: 2026-04-20 through 2026-10-06;
+- manifest/internal hashes: PASS.
+
+Canonical count receipt:
+- `research/statistical_uncertainty/PHASE2R_R3_FUTURE_COUNT_REPORT_2026-10-06.md`;
+- report commit: `68d4ee2262b84d7b4b423a2f070a628fe59295d1`.
+
+Important result:
+- `INSUFFICIENT`;
+- stopping rule NOT met;
+- no R3 truth, P5/P50/P95, coverage, bias, interval score or C2 outcome comparison was computed/inspected;
+- no Enel/utility evidence was used.
+
+Current outcome-independent evidence counts:
+- 178 structural future targets;
+- 178/178 have sufficient calibration history;
+- 4 distinct future dates contain at least one eligible ACTIVE-start target (need 15);
+- 36 ACTIVE-start cases (need 100);
+- ACTIVE `G20_30`: 15 (minimum 10 reached);
+- ACTIVE `G60_120`: 19 (minimum 10 reached);
+- ACTIVE `G240`: 2 (need 10).
+
+Future dates currently passing the >=280 grid-sample day-quality threshold:
+- 2026-09-28;
+- 2026-10-01;
+- 2026-10-02;
+- 2026-10-03;
+- 2026-10-04;
+- 2026-10-05.
+
+2026-09-29 (240 samples) and 2026-09-30 (132) currently fail that threshold.
+2026-10-06 had 191 samples at export time and was still a partial day.
+
+Resume rule:
+- later cumulative Research Exporter ZIPs are valid inputs;
+- rerun only frozen `count` while status remains INSUFFICIENT;
+- do not score until `READY`;
+- do not synthetically fill deficient days;
+- a later legitimate historical backfill may make a previously deficient future date eligible if its real source evidence reaches the frozen quality requirement.
