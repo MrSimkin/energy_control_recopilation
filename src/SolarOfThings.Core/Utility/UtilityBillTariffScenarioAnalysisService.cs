@@ -656,30 +656,61 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     "BT1",
                     StringComparison.OrdinalIgnoreCase) &&
                 item.ComponentKey ==
-                    componentKey &&
-                item.CandidateIndex ==
-                    seed.CandidateIndex)
+                    componentKey)
             .ToArray();
 
-        if (candidates.Length == 1)
-            return candidates[0];
+        if (candidates.Length == 0)
+            return null;
 
-        var sameIdentity =
+        // CandidateIndex is parser-local and may change when a later official
+        // PDF changes column ordering. Cross-publication identity must prefer
+        // the semantic RED/network + ETR pair, then use CandidateIndex only
+        // as a last-resort fallback.
+        if (!string.IsNullOrWhiteSpace(
+                seed.NetworkType) ||
+            !string.IsNullOrWhiteSpace(
+                seed.EtrBand))
+        {
+            var sameIdentity =
+                candidates
+                    .Where(item =>
+                        string.Equals(
+                            item.NetworkType,
+                            seed.NetworkType,
+                            StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(
+                            item.EtrBand,
+                            seed.EtrBand,
+                            StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+            if (sameIdentity.Length == 1)
+                return sameIdentity[0];
+
+            if (sameIdentity.Length > 1)
+            {
+                var sameIndexWithinIdentity =
+                    sameIdentity
+                        .SingleOrDefault(item =>
+                            item.CandidateIndex ==
+                            seed.CandidateIndex);
+                if (sameIndexWithinIdentity is not null)
+                    return sameIndexWithinIdentity;
+            }
+        }
+
+        var sameIndex =
             candidates
                 .Where(item =>
-                    string.Equals(
-                        item.NetworkType,
-                        seed.NetworkType,
-                        StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(
-                        item.EtrBand,
-                        seed.EtrBand,
-                        StringComparison.OrdinalIgnoreCase))
+                    item.CandidateIndex ==
+                    seed.CandidateIndex)
                 .ToArray();
 
-        return sameIdentity.Length == 1
-            ? sameIdentity[0]
-            : candidates.FirstOrDefault();
+        return sameIndex.Length == 1
+            ? sameIndex[0]
+            : candidates.Length == 1
+                ? candidates[0]
+                : null;
     }
 
     private static bool TryRate(
