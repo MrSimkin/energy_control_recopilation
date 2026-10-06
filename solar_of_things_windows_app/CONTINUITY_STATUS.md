@@ -4337,3 +4337,154 @@ Next authorized sequence after counter classification:
 
 R3 remains separate, frozen and INSUFFICIENT.
 Do not retune or score R3 from this bill work.
+
+
+## Urgent Enel bill-audit implementation tranche ready for target QA — 2026-10-06
+
+Evidence gates are now closed for the urgent current-bill tranche.
+
+### Target-device counter result
+
+Canonical classification:
+- `research/bill_audit/HPVINV02_GRID_IMPORT_COUNTER_CLASSIFICATION_2026-10-06.md`;
+- evidence ZIP SHA-256:
+  `c7044f5eeb2bc6e970fa726c39877e77db395260428531d30c1f33065cd22f24`.
+
+Result on the actual HPVINV02:
+- `buyElectricityQuantity`: placeholder / `isRealValue=false`;
+- `dayPurchaseElectricityConsumption`: not populated;
+- no usable independent grid-import energy counter exists on the validated target surfaces.
+
+Therefore:
+- `mainsPower` -> `grid_import_power_w` timestamp integration remains canonical inverter-side energy evidence;
+- this negative counter result does not invalidate the time-series evidence;
+- do not spend more urgent-path time on undocumented counter aliases without new evidence.
+
+### Final provenance table
+
+Canonical:
+- `research/bill_audit/BILL_AUDIT_FINAL_PROVENANCE_TABLE_2026-10-06.md`.
+
+Source classes S1-S8 remain distinct:
+- printed Enel bill;
+- inverter telemetry;
+- provisional bill-specific statistical completion;
+- official Enel tariffs;
+- regulatory rules;
+- negative target-counter cross-check;
+- economic truth table;
+- separate frozen R3 stream.
+
+### Bill-specific statistical production path
+
+New service:
+- `src/SolarOfThings.Core/Utility/UtilityBillGapStatisticalCompletionService.cs`;
+- method: `bill-gap-calendar-window-empirical.v1`;
+- status in external report: `PROVISIONAL / RESEARCH ONLY`.
+
+The bill-audit report now:
+- uses the full printed bill date interval as complete local days;
+- no longer uses the arbitrary linked-reading timestamp interval for inverter energy integration;
+- does not use the generic production pointwise bootstrap;
+- keeps arbitrary reading comparison unchanged;
+- preserves R3 unchanged/frozen.
+
+Current canonical acceptance-case numbers remain:
+- observed: 88.065413 kWh;
+- P5: 88.103333 kWh;
+- P50: 88.103333 kWh;
+- P95: 96.606322 kWh;
+- Enel: 97.000000 kWh;
+- coverage: 99.334903%.
+
+### Canonical eight-section report implemented
+
+`UtilityBillAuditReportService` now renders the approved evidence hierarchy:
+
+1. executive energy discrepancy;
+2. economic effect;
+3. economic decomposition/reconstruction;
+4. energy evidence + treatment of gaps;
+5. hard numerical quality/coverage evidence, including daily coverage;
+6. findings/inconsistencies;
+7. sources/provenance;
+8. technical methodology/limitations.
+
+Presentation changes:
+- primary narrative says inverter records/telemetry rather than “Solar of Things”;
+- P5/P50/P95 are explained in layman language;
+- Enel-vs-P5/P50/P95 differences are explicit;
+- old bootstrap/simulation wording removed;
+- report preserves the conclusion that official tariff reconstruction is coherent and the dispute is centered on billed kWh;
+- footer carries the producing application build/revision identity.
+
+### Technical annex implemented
+
+New service:
+- `src/SolarOfThings.Core/Utility/UtilityBillAuditAnnexExportService.cs`;
+- export version: `bill-audit-evidence-annex.v1`.
+
+The audit UX now exposes two separate actions:
+- `Exportar informe de auditoría PDF`;
+- `Exportar anexo técnico + datos`.
+
+The annex ZIP contains:
+- `00-Anexo-Tecnico-Evidencia-Numerica.pdf` — printable raw numeric sheet;
+- `01-telemetria-importacion-red.csv` — frame-level grid-import evidence;
+- `02-intervalos-sin-telemetria.csv`;
+- `03-escenarios-economicos.csv`;
+- `04-fuentes-y-metodo.txt`;
+- `05-cobertura-diaria.csv`;
+- `99-manifest-integridad.json` with per-file SHA-256.
+
+The printable annex includes every valid grid-import frame for the audited period, real timestamps, W, next-link delta, observed Wh contribution, link status, confidence and normalization source/rule.
+
+Export is off the UI thread and report/annex actions mutually disable while one export is running.
+
+### Target QA build
+
+Windows Build **527**:
+- workflow run: `37538625099`;
+- tested code HEAD:
+  `c3ba58b371c6a9331416f0aae91061d8005f6b02`;
+- artifact: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11447302070`;
+- artifact digest:
+  `sha256:0c9a91c03e0601e3ad6f51642c5c458df39c7748b32351e45be5ef5bf33ba68e`;
+- Build: PASS;
+- SQLite smoke: PASS;
+- bill-audit PDF smoke: PASS through the consolidated smoke;
+- annex ZIP smoke: PASS through the consolidated smoke;
+- portable publish/upload: PASS.
+
+Build 527 is the coherent owner QA handoff for this tranche.
+
+### Next owner QA — one bundled pass only
+
+Reuse/copy the existing complete portable `Data\` folder.
+
+In Build 527:
+1. open `Red eléctrica` -> `Auditoría de boleta`;
+2. select the current bill with period 28-08-2026 -> 28-09-2026 / 97 kWh if already present;
+3. export `informe de auditoría PDF`;
+4. export `anexo técnico + datos`;
+5. return the PDF and annex ZIP together.
+
+If the current bill is not present in the selector:
+- do not create a duplicate blindly;
+- report that fact and stop that QA path so bill-entry/import can be corrected deliberately.
+
+If the PDF reports missing official tariff source instead of reconstructing the current bill:
+- return the PDF as-is;
+- do not manually invent/import rates just to make the test pass;
+- the next fix must close the source-presence path from evidence.
+
+Do not ask the owner to repeat the HPVINV02 counter probe.
+
+### Next assistant action after returned artifacts
+
+- inspect PDF visually/semantically;
+- inspect annex integrity and exact numbers;
+- verify target-PC output against canonical 88.065 / P5-P50 88.103 / P95 96.606 and economic truth table;
+- fix any layout/source-presence defects in one internal tranche;
+- then produce the final printable evidence package.
