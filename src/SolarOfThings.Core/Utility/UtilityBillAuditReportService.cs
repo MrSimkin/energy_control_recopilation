@@ -499,12 +499,12 @@ public sealed class UtilityBillAuditReportService
         if (!enel.HasValue)
             return evidence;
 
-        var difference = value - enel.Value;
+        var difference = enel.Value - value;
         var percent = enel.Value > 0
             ? difference / enel.Value * 100.0
             : 0;
 
-        return $"Δ Enel {difference:+0.000;-0.000;0.000} kWh " +
+        return $"Enel − escenario {difference:+0.000;-0.000;0.000} kWh " +
                $"({percent:+0.00;-0.00;0.00}%) · {evidence}";
     }
 
