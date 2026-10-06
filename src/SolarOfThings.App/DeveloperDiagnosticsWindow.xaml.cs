@@ -84,18 +84,17 @@ public partial class DeveloperDiagnosticsWindow : Window
             });
     }
 
-    private void ExportBundle_Click(object sender, RoutedEventArgs e)
+    private async void ExportBundle_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            var path = _investigation.SaveInvestigationBundle();
-            ActionStatusText.Text = $"Paquete guardado: {path}";
-            ShowSaved(path);
-        }
-        catch (Exception ex)
-        {
-            ActionStatusText.Text = $"ERROR — {ex.Message}";
-        }
+        await RunAsync(
+            async () =>
+            {
+                ActionStatusText.Text = "Creando paquete de investigación...";
+                var path = await Task.Run(
+                    () => _investigation.SaveInvestigationBundle());
+                ActionStatusText.Text = $"Paquete guardado: {path}";
+                ShowSaved(path);
+            });
     }
 
     private async Task RunAsync(Func<Task> action)
