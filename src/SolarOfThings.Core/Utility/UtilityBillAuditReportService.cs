@@ -35,7 +35,8 @@ public sealed class UtilityBillAuditReportService
         string deviceId,
         long billId,
         string timeZoneId,
-        string languageCode)
+        string languageCode,
+        string? producerIdentity = null)
     {
         EnsurePdfFonts();
 
@@ -284,7 +285,13 @@ public sealed class UtilityBillAuditReportService
 
         var footer = section.Footers.Primary.AddParagraph();
         footer.Format.Alignment = ParagraphAlignment.Center;
-        footer.AddText(L("Informe técnico · ", "Technical report · "));
+        footer.AddText(
+            L("Informe técnico", "Technical report"));
+        if (!string.IsNullOrWhiteSpace(producerIdentity))
+        {
+            footer.AddText($" · {producerIdentity}");
+        }
+        footer.AddText(" · ");
         footer.AddPageField();
         footer.AddText("/");
         footer.AddNumPagesField();
