@@ -1517,17 +1517,31 @@ try
         electricityConsumedCandidate
             .PublishedIvaColumnClp.Value;
 
+    var duplicateZone =
+        SolarApiTime.GetTimeZoneInfo(
+            "America/Santiago");
+    var duplicateStartLocal =
+        DateTime.SpecifyKind(
+            duplicateTariffStart.ToDateTime(
+                TimeOnly.MinValue),
+            DateTimeKind.Unspecified);
+    var duplicateEndLocal =
+        DateTime.SpecifyKind(
+            duplicateTariffEnd.ToDateTime(
+                TimeOnly.MinValue),
+            DateTimeKind.Unspecified);
+
     var duplicateTariffBillId =
         utilityRepository.AddBill(
             new DateTimeOffset(
-                duplicateTariffStart.ToDateTime(
-                    TimeOnly.MinValue),
-                TimeSpan.FromHours(-4))
+                duplicateStartLocal,
+                duplicateZone.GetUtcOffset(
+                    duplicateStartLocal))
                 .ToUniversalTime(),
             new DateTimeOffset(
-                duplicateTariffEnd.ToDateTime(
-                    TimeOnly.MinValue),
-                TimeSpan.FromHours(-4))
+                duplicateEndLocal,
+                duplicateZone.GetUtcOffset(
+                    duplicateEndLocal))
                 .ToUniversalTime(),
             duplicateTariffKwh,
             duplicateTariffAmount,
