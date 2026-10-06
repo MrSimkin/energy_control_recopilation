@@ -4070,3 +4070,131 @@ The owner acts primarily as:
 - final acceptance authority.
 
 Do not turn ordinary implementation details into repeated owner approval gates.
+
+
+## Urgent Enel audit truth-table execution — 2026-10-06
+
+The urgent audit path has moved from specification into evidence construction.
+
+Canonical product specification:
+- `solar_of_things_windows_app/ENEL_BILL_AUDIT_REPORT_AND_EVIDENCE_SPEC_2026-10-06.md`.
+
+### Deterministic interval truth table
+
+Harness:
+- `research/bill_audit/bill_interval_truth_table.py`;
+- version: `bill-interval-truth-table.v1`;
+- implementation commit: `03dac66fd6f8510d49583f3c6577c23e14a4e3ae`.
+
+Checkpoint:
+- `research/bill_audit/BILL_INTERVAL_DETERMINISTIC_CHECKPOINT_2026-10-06.md`;
+- commit: `d95195ce8d79b2be40a1dc53eb4221d2e79769b5`.
+
+Real target bill interval:
+- local `[2026-08-28 00:00, 2026-09-29 00:00)`;
+- elapsed real time: 767 h because the Chile DST transition occurs inside the interval;
+- 9,180 valid `grid_import_power_w` samples;
+- unresolved/non-finite: 0;
+- directly observed grid import: **88.065413 kWh**;
+- covered time: **761.898707 h**;
+- uncovered time: **5.101293 h**;
+- temporal coverage: **99.334903%**;
+- five uncovered intervals;
+- dominant gap: 2026-09-12 15:09:33.752 to 19:32:00.957 local, **262.453 min**, boundaries 0 W / 0 W.
+
+Important consequence:
+- frozen R3 is inapplicable to the complete bill because the dominant individual gap exceeds its <=240m applicability limit;
+- do not weaken R3 to make the bill fit.
+
+### Provisional report-specific gap model
+
+Harness:
+- `research/bill_audit/bill_gap_calendar_window_empirical.py`;
+- version: `bill-gap-calendar-window-empirical.v1`;
+- implementation commit: `236ce274634a0a17cb3e0f0268981a6ceec4ba01`.
+
+Research report:
+- `research/bill_audit/BILL_GAP_CALENDAR_WINDOW_EMPIRICAL_REPORT_2026-10-06.md`;
+- commit: `4c46b81ec796691650d5668da898eb1017e6f450`.
+
+Method:
+- complete historical windows rather than independent 5-minute donor frames;
+- same local clock time + actual gap duration + weekday/weekend class;
+- strictly prior dates;
+- latest 15 eligible dates, minimum 10;
+- equal empirical weight per date;
+- inverse empirical q05/q50/q95;
+- target boundary state intentionally NOT used to narrow the primary interval;
+- short bill-edge slivers completed deterministically from nearest observed boundary;
+- exact Cartesian aggregation across 3 internal gaps = 3,375 combinations;
+- Enel billed kWh never used in construction/selection/backtest.
+
+Provisional bill result:
+- observed: **88.065413 kWh**;
+- P5: **88.103333 kWh**;
+- P50: **88.103333 kWh**;
+- P95: **96.606322 kWh**;
+- empirical mean: 89.100796 kWh;
+- empirical maximum combination: 97.669742 kWh.
+
+Post-model comparison only:
+- printed Enel: 97.000 kWh;
+- Enel - P50: 8.896667 kWh / 9.1718%;
+- Enel - P95: **0.393678 kWh / 0.4059%**.
+
+Interpret carefully:
+- Enel is slightly above provisional P95;
+- it is NOT correct to claim that 97 kWh is physically impossible;
+- the high-side difference is small after conservative gap treatment;
+- the method is `PROVISIONAL REPORT METHOD / RESEARCH ONLY`, not R3 and not production approval.
+
+Topology-specific prequential historical coverage:
+- 15.0m weekend: 92.6% (27 cases);
+- 262.5m weekend: 96.0% (25 cases);
+- 20.0m weekday: 95.9% (98 cases).
+
+Supporting boundary-state diagnostic, not used to shrink the headline interval:
+- 15m target start/end 0/0 W; 34 prior same-daytype INACTIVE-start windows, 0 non-zero;
+- 262m target start/end 0/0 W; 33 prior same-daytype INACTIVE-start windows, 0 non-zero.
+
+### Bill arithmetic / tariff clues
+
+Checkpoint:
+- `research/bill_audit/BILL_ARITHMETIC_AND_TARIFF_CLUES_2026-10-06.md`;
+- commit: `6d7bedea48f29439cd8d30deeade48d4231217fa`.
+
+Printed summary arithmetic:
+- taxable 20,643 + IVA 3,922 + exempt 83 = total bill 24,648;
+- 20,643 × 19% = 3,922.17 -> printed IVA 3,922;
+- Servicio Común 5,964 - Subsidio 3,758 = Otros cargos/abonos 2,206;
+- 24,648 + 2,206 = total due 26,854 exactly.
+
+Main detailed service-line display:
+- administration 727;
+- electricity consumed 21,389;
+- transport 2,072;
+- meter rent 463;
+- visible sum 24,651 vs printed total bill 24,648: 3 CLP display-level difference, treat as rounding/reconstruction issue rather than automatic error.
+
+Bill-implied verification clues only:
+- electricity: 21,389 / 97 = **220.505154639 CLP/kWh**;
+- transport: 2,072 / 97 = **21.360824742 CLP/kWh**.
+
+Do not use bill-implied rates as final tariff authority.
+
+Official archive remains the authority.
+Current public Enel archive exposes both:
+- August 2026 retroactive regulated-supply tariff PDF;
+- September 2026 regulated-supply tariff PDF.
+
+Earlier repo evidence established August BT_AA/T5 electricity at 220.147 CLP/kWh; this cannot reproduce the new 21,389 line over 97 kWh, making a September ~220.505 candidate the leading hypothesis pending exact official-row confirmation.
+
+### Immediate next order
+
+1. close exact official tariff/component applicability for this bill;
+2. resolve printed transport composition;
+3. investigate target HPVINV02 grid-import energy counter/aggregate as an independent cross-check;
+4. freeze economic truth table;
+5. only then implement/report PDF and annex rendering.
+
+Do not visually polish the PDF ahead of these truth-table gates.
