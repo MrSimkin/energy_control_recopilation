@@ -84,8 +84,8 @@ public sealed class UtilityBillAuditReportService
 
         var document = new Document();
         document.Info.Title = L(
-            "Auditoría de boleta Enel",
-            "Enel bill audit");
+            "Informe técnico de revisión de consumo eléctrico facturado",
+            "Technical review of billed electricity consumption");
 
         var normal = document.Styles["Normal"];
         normal.Font.Name = "Arial";
@@ -97,48 +97,62 @@ public sealed class UtilityBillAuditReportService
         section.PageSetup.LeftMargin = Unit.FromCentimeter(1.5);
         section.PageSetup.RightMargin = Unit.FromCentimeter(1.5);
 
+        var fromLocal =
+            SolarApiTime.ConvertToLocalTime(
+                from.ReadingAtUtc,
+                timeZoneId);
+        var toLocal =
+            SolarApiTime.ConvertToLocalTime(
+                to.ReadingAtUtc,
+                timeZoneId);
+        var verifications =
+            _tariffVerification.VerifyBill(
+                billId,
+                timeZoneId);
+
+        // PAGE 1 — executive energy summary.
         AddHeading(section, document.Info.Title, 18);
         var subtitle = section.AddParagraph(
             L(
                 "Documento técnico: evidencia de boleta, lecturas oficiales y contraste independiente con registros del inversor.",
                 "Technical document: bill evidence, official readings and independent inverter records."));
         subtitle.Format.Font.Color = Colors.DimGray;
-        subtitle.Format.SpaceAfter = Unit.FromPoint(10);
+        subtitle.Format.SpaceAfter = Unit.FromPoint(8);
 
         var identity = section.AddTable();
         identity.Borders.Width = 0.3;
         identity.AddColumn(Unit.FromCentimeter(5.2));
         identity.AddColumn(Unit.FromCentimeter(11.5));
-        AddDefinitionRow(identity, L("Referencia", "Reference"),
-            string.IsNullOrWhiteSpace(bill.InvoiceReference) ? "—" : bill.InvoiceReference);
-        AddDefinitionRow(identity, L("Tarifa impresa", "Printed tariff"),
-            string.IsNullOrWhiteSpace(bill.TariffPlan) ? "—" : bill.TariffPlan);
-        AddDefinitionRow(identity, L("Consumo facturado", "Billed consumption"),
-            bill.BilledConsumptionKwh.HasValue ? $"{bill.BilledConsumptionKwh.Value:N3} kWh" : "—");
-        AddDefinitionRow(identity, L("Total a pagar", "Total due"),
+        AddDefinitionRow(
+            identity,
+            L("Referencia", "Reference"),
+            string.IsNullOrWhiteSpace(bill.InvoiceReference)
+                ? "—"
+                : bill.InvoiceReference);
+        AddDefinitionRow(
+            identity,
+            L("Período auditado", "Audited period"),
+            $"{billGapAnalysis.StartLocalDate:dd-MM-yyyy} → {billGapAnalysis.EndLocalDateInclusive:dd-MM-yyyy}");
+        AddDefinitionRow(
+            identity,
+            L("Tarifa impresa", "Printed tariff"),
+            string.IsNullOrWhiteSpace(bill.TariffPlan)
+                ? "—"
+                : bill.TariffPlan);
+        AddDefinitionRow(
+            identity,
+            L("Consumo facturado", "Billed consumption"),
+            bill.BilledConsumptionKwh.HasValue
+                ? $"{bill.BilledConsumptionKwh.Value:N3} kWh"
+                : "—");
+        AddDefinitionRow(
+            identity,
+            L("Total a pagar", "Total due"),
             Money(bill.TotalDueClp ?? bill.AmountClp));
-
-        AddHeading(section, L("Intervalo oficial", "Official interval"), 13);
-
-        var fromLocal = SolarApiTime.ConvertToLocalTime(from.ReadingAtUtc, timeZoneId);
-        var toLocal = SolarApiTime.ConvertToLocalTime(to.ReadingAtUtc, timeZoneId);
-
-        var boundaryText = section.AddParagraph(
-            $"{ReadingBoundary(from, fromLocal, spanish)}  →  {ReadingBoundary(to, toLocal, spanish)}");
-        boundaryText.Format.Font.Size = 12;
-        boundaryText.Format.Font.Bold = true;
-
-        var convention = section.AddParagraph(
-            L(
-                "Convención Enel: una lectura informada sólo con fecha se trata como límite de período. El inicio de la fecha X equivale operacionalmente al cierre del día X−1; no se presenta 00:00 como una hora medida por Enel.",
-                "Enel convention: a date-only utility reading is treated as a period boundary. The start of date X is operationally equivalent to the end of day X−1; 00:00 is not presented as a measured utility time."));
-        convention.Format.Font.Size = 8.5;
-        convention.Format.Font.Color = Colors.DimGray;
-        convention.Format.SpaceAfter = Unit.FromPoint(8);
 
         AddHeading(
             section,
-            L("Resumen ejecutivo", "Executive summary"),
+            L("1. Resumen ejecutivo de la discrepancia", "1. Executive discrepancy summary"),
             13);
         AddExecutiveEnergyComparison(
             section,
@@ -153,61 +167,120 @@ public sealed class UtilityBillAuditReportService
             statistical,
             spanish);
 
+        // PAGE 2 — financial comparison.
+        section.AddPageBreak();
         AddHeading(
             section,
-            L("Impacto económico según tarifa oficial", "Financial impact under official tariff"),
-            13);
+            L("2. Efecto económico de la diferencia de consumo", "2. Financial effect of the consumption difference"),
+            16);
         AddFinancialScenarioComparison(
             section,
             tariffScenario,
             spanish);
+        AddComparableTotalDueTable(
+            section,
+            bill,
+            tariffScenario,
+            spanish);
 
+        // PAGE 3 — full economic decomposition.
         section.AddPageBreak();
-
         AddHeading(
             section,
-            L("Conciliación de cargos reales", "Actual-charge reconciliation"),
-            14);
+            L("3. Descomposición económica y reconstrucción", "3. Economic decomposition and reconstruction"),
+            16);
         AddActualBillLines(
             section,
             bill,
             spanish);
+        AddHeading(
+            section,
+            L("Componentes variables reconstruidos", "Reconstructed variable components"),
+            12);
         AddTariffComponentReconciliation(
             section,
             tariffScenario,
             spanish);
-
-        section.AddPageBreak();
-
         AddHeading(
             section,
-            L("Calidad, incertidumbre y evidencia", "Quality, uncertainty and evidence"),
-            14);
-        AddStatisticalEvidence(
+            L("Verificación contra fuentes oficiales", "Verification against official sources"),
+            12);
+        AddTariffVerification(
             section,
-            statistical,
-            billGapAnalysis,
+            verifications,
             spanish);
-        AddTariffEvidence(
+        AddEconomicConclusion(
             section,
             tariffScenario,
             spanish);
 
-        AddHeading(section, L("Trazabilidad de lecturas", "Reading traceability"), 13);
-        var readings = section.AddTable();
-        readings.Borders.Width = 0.25;
-        readings.AddColumn(Unit.FromCentimeter(2.4));
-        readings.AddColumn(Unit.FromCentimeter(4.2));
-        readings.AddColumn(Unit.FromCentimeter(3.0));
-        readings.AddColumn(Unit.FromCentimeter(7.1));
-        var rh = readings.AddRow();
-        rh.Format.Font.Bold = true;
-        rh.Cells[0].AddParagraph(L("Extremo", "Boundary"));
-        rh.Cells[1].AddParagraph(L("Fecha", "Date"));
-        rh.Cells[2].AddParagraph("kWh");
-        rh.Cells[3].AddParagraph(L("Evidencia", "Evidence"));
-        AddReadingRow(readings, L("Inicial", "Start"), from, fromLocal, spanish);
-        AddReadingRow(readings, L("Final", "End"), to, toLocal, spanish);
+        // PAGE 4 — energy evidence and early gap defense.
+        section.AddPageBreak();
+        AddHeading(
+            section,
+            L("4. Evidencia energética y tratamiento de discontinuidades", "4. Energy evidence and treatment of discontinuities"),
+            16);
+        AddEnergyEvidencePage(
+            section,
+            bill,
+            statistical,
+            billGapAnalysis,
+            spanish);
+
+        // PAGE 5 — hard numerical quality evidence.
+        section.AddPageBreak();
+        AddHeading(
+            section,
+            L("5. Calidad, cobertura y trazabilidad cuantitativa", "5. Numerical quality, coverage and traceability"),
+            16);
+        AddQualityEvidencePage(
+            section,
+            statistical,
+            billGapAnalysis,
+            spanish);
+
+        // PAGE 6 — findings.
+        section.AddPageBreak();
+        AddHeading(
+            section,
+            L("6. Hallazgos e inconsistencias", "6. Findings and inconsistencies"),
+            16);
+        AddFindingsPage(
+            section,
+            bill,
+            statistical,
+            tariffScenario,
+            spanish);
+
+        // PAGE 7 — sources and traceability.
+        section.AddPageBreak();
+        AddHeading(
+            section,
+            L("7. Fuentes y trazabilidad", "7. Sources and traceability"),
+            16);
+        AddSourcesAndTraceabilityPage(
+            section,
+            bill,
+            from,
+            to,
+            fromLocal,
+            toLocal,
+            statistical,
+            tariffScenario,
+            spanish);
+
+        // PAGE 8 — technical methodology.
+        section.AddPageBreak();
+        AddHeading(
+            section,
+            L("8. Metodología técnica y limitaciones", "8. Technical methodology and limitations"),
+            16);
+        AddTechnicalMethodologyPage(
+            section,
+            statistical,
+            billGapAnalysis,
+            tariffScenario,
+            spanish);
 
         var footer = section.Footers.Primary.AddParagraph();
         footer.Format.Alignment = ParagraphAlignment.Center;
