@@ -1447,6 +1447,130 @@ try
             "Phase 9 CNE tariff-boundary guard smoke test failed.");
     }
 
+    // Regression: real target databases can contain exact duplicate
+    // normalized candidate rows from repeated official evidence capture.
+    // Scenario reconstruction must collapse equivalent duplicates instead of
+    // throwing "Sequence contains more than one matching element".
+    if (electricityConsumedCandidate is null ||
+        !electricityConsumedCandidate.PublishedIvaColumnClp.HasValue ||
+        !storedTariff.EffectiveFrom.HasValue)
+    {
+        throw new InvalidOperationException(
+            "Duplicate tariff regression prerequisites are missing.");
+    }
+
+    using (var duplicateConnection =
+           database.OpenConnection())
+    {
+        using var duplicate =
+            duplicateConnection.CreateCommand();
+        duplicate.CommandText = """
+            INSERT INTO tariff_rate_candidate (
+                publication_id,
+                page_number,
+                tariff_plan,
+                component_key,
+                printed_description,
+                unit,
+                network_type,
+                etr_band,
+                candidate_index,
+                net_rate_clp,
+                published_iva_column_clp,
+                source_text,
+                parser_version,
+                validation_state,
+                created_utc
+            )
+            SELECT
+                publication_id,
+                page_number,
+                tariff_plan,
+                component_key,
+                printed_description,
+                unit,
+                network_type,
+                etr_band,
+                candidate_index,
+                net_rate_clp,
+                published_iva_column_clp,
+                source_text,
+                parser_version,
+                validation_state,
+                created_utc
+            FROM tariff_rate_candidate
+            WHERE rate_candidate_id = $candidateId;
+            """;
+        duplicate.Parameters.AddWithValue(
+            "$candidateId",
+            electricityConsumedCandidate.RateCandidateId);
+        duplicate.ExecuteNonQuery();
+    }
+
+    var duplicateTariffStart =
+        storedTariff.EffectiveFrom.Value.AddDays(5);
+    var duplicateTariffEnd =
+        duplicateTariffStart.AddDays(5);
+    var duplicateTariffKwh = 10.0;
+    var duplicateTariffAmount =
+        duplicateTariffKwh *
+        electricityConsumedCandidate
+            .PublishedIvaColumnClp.Value;
+
+    var duplicateTariffBillId =
+        utilityRepository.AddBill(
+            new DateTimeOffset(
+                duplicateTariffStart.ToDateTime(
+                    TimeOnly.MinValue),
+                TimeSpan.FromHours(-4))
+                .ToUniversalTime(),
+            new DateTimeOffset(
+                duplicateTariffEnd.ToDateTime(
+                    TimeOnly.MinValue),
+                TimeSpan.FromHours(-4))
+                .ToUniversalTime(),
+            duplicateTariffKwh,
+            duplicateTariffAmount,
+            "DUPLICATE-CANDIDATE-SMOKE",
+            "Equivalent candidate duplicates must not throw",
+            tariffPlan: "BT1-T5",
+            periodPrecision:
+                UtilityTimePrecision.DateOnly);
+
+    utilityRepository.AddBillLine(
+        duplicateTariffBillId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad consumida",
+        duplicateTariffAmount,
+        categoryKey: "ELECTRICITY_CONSUMED",
+        quantity: duplicateTariffKwh,
+        unit: "kWh",
+        taxTreatment: "AFECTO",
+        sortOrder: 10);
+
+    var duplicateScenario =
+        new UtilityBillTariffScenarioAnalysisService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver)
+        .Analyze(
+            duplicateTariffBillId,
+            "America/Santiago",
+            UtilityGridImportStatisticalCompletion
+                .Insufficient(
+                    9.0,
+                    100.0,
+                    0,
+                    0,
+                    "SMOKE"));
+
+    if (!duplicateScenario.HasTariffModel)
+    {
+        throw new InvalidOperationException(
+            "Equivalent duplicate tariff candidate regression failed.");
+    }
+
     var apiDiagnostics = new ApiDiagnosticsStore(paths);
     apiDiagnostics.Record(new ApiDiagnosticEntry(
         DateTimeOffset.UtcNow,
