@@ -1793,6 +1793,47 @@ public sealed class UtilityBillAuditReportService
                         : "—"));
         }
 
+        AddHeading(
+            section,
+            L("Cobertura por día", "Daily coverage"),
+            11.5);
+
+        var daily = section.AddTable();
+        daily.Borders.Width = 0.25;
+        daily.AddColumn(Unit.FromCentimeter(2.8));
+        daily.AddColumn(Unit.FromCentimeter(2.8));
+        daily.AddColumn(Unit.FromCentimeter(3.2));
+        daily.AddColumn(Unit.FromCentimeter(3.2));
+        daily.AddColumn(Unit.FromCentimeter(3.0));
+        daily.AddColumn(Unit.FromCentimeter(2.5));
+
+        var dh = daily.AddRow();
+        dh.Format.Font.Bold = true;
+        dh.HeadingFormat = true;
+        dh.Cells[0].AddParagraph(L("Fecha", "Date"));
+        dh.Cells[1].AddParagraph(L("Frames", "Frames"));
+        dh.Cells[2].AddParagraph(L("Cubierto", "Covered"));
+        dh.Cells[3].AddParagraph(L("Faltante", "Missing"));
+        dh.Cells[4].AddParagraph(L("Cobertura", "Coverage"));
+        dh.Cells[5].AddParagraph(L("kWh obs.", "Obs. kWh"));
+
+        foreach (var day in analysis.DailyEvidence)
+        {
+            var row = daily.AddRow();
+            row.Cells[0].AddParagraph(
+                $"{day.LocalDate:dd-MM-yyyy}");
+            row.Cells[1].AddParagraph(
+                day.ValidSamples.ToString("N0"));
+            row.Cells[2].AddParagraph(
+                $"{day.CoveredHours:N3} h");
+            row.Cells[3].AddParagraph(
+                $"{day.UncoveredHours:N3} h");
+            row.Cells[4].AddParagraph(
+                $"{day.CoveragePercent:N2}%");
+            row.Cells[5].AddParagraph(
+                $"{day.ObservedPositiveKwh:N3}");
+        }
+
         AddCallout(
             section,
             L("CONTROLES METODOLÓGICOS", "METHODOLOGICAL CONTROLS"),
