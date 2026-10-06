@@ -2976,6 +2976,7 @@ public partial class MainWindow : Window
             StringComparison.OrdinalIgnoreCase);
 
         UtilityExportBillAuditButton.IsEnabled = false;
+        UtilityExportBillAnnexButton.IsEnabled = false;
         UtilityAuditStatusText.Text = spanish
             ? "Generando auditoría de boleta..."
             : "Generating bill audit...";
@@ -3019,6 +3020,7 @@ public partial class MainWindow : Window
         finally
         {
             UtilityExportBillAuditButton.IsEnabled = true;
+            UtilityExportBillAnnexButton.IsEnabled = true;
             SetGlobalOperation(false, string.Empty);
         }
     }
