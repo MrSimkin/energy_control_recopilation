@@ -69,6 +69,9 @@ public partial class DeveloperDiagnosticsWindow : Window
     private async void ConfigRead_Click(object sender, RoutedEventArgs e) =>
         await RunActionAsync(() => _investigation.CaptureDirectConfigReadAsync());
 
+    private async void GridEnergy_Click(object sender, RoutedEventArgs e) =>
+        await RunActionAsync(() => _investigation.CaptureGridImportEnergyEvidenceAsync());
+
     private async Task RunActionAsync(
         Func<Task<InvestigationActionResult>> action)
     {
@@ -128,6 +131,7 @@ public partial class DeveloperDiagnosticsWindow : Window
         CaptureFlowButton.IsEnabled = !busy;
         ConfigCacheButton.IsEnabled = !busy;
         ConfigReadButton.IsEnabled = !busy;
+        GridEnergyButton.IsEnabled = !busy;
         ExportBundleButton.IsEnabled = !busy;
         DiagnosticsBusyBar.Visibility =
             busy ? Visibility.Visible : Visibility.Collapsed;
