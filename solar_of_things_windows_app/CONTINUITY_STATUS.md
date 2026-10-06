@@ -4595,3 +4595,29 @@ Acceptance checks on return:
 - energy values remain canonical;
 - P95 wording includes dependence caveat / empirical maximum;
 - source/provenance pages remain consistent.
+
+
+## Build 530 supersedes Build 529 for owner QA — 2026-10-06
+
+Build 530 contains all Build 529 fixes plus one final semantic correction:
+- every executive delta now uses the same convention:
+  `Enel - escenario`;
+- this removes the Build 527 contradiction where metric cards used scenario-minus-Enel while the comparison table used Enel-minus-scenario.
+
+Workflow run:
+- `37541568659`.
+
+Artifact:
+- `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11448681116`;
+- digest:
+  `sha256:a69255169ec4578b4cd060ca57ba65895313f9c96e77eb0702ceb8d6a8a5072d`.
+
+Code HEAD:
+- `3ef48ad991c2339f853c6f6c08f598c132687f9c`.
+
+Build: PASS.
+SQLite smoke: PASS.
+Portable publish/upload: PASS.
+
+Use Build 530, not Build 529, for the next owner PDF/anexo QA.
