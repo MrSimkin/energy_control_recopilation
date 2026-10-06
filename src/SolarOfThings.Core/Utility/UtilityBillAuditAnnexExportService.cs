@@ -853,12 +853,12 @@ public sealed class UtilityBillAuditAnnexExportService
         value ??= string.Empty;
         return value.IndexOfAny(
                    [',', '"', '\r', '\n']) >= 0
-            ? """ +
+            ? "\"" +
               value.Replace(
-                  """,
-                  """",
+                  "\"",
+                  "\"\"",
                   StringComparison.Ordinal) +
-              """
+              "\""
             : value;
     }
 
