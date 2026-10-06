@@ -4621,3 +4621,54 @@ SQLite smoke: PASS.
 Portable publish/upload: PASS.
 
 Use Build 530, not Build 529, for the next owner PDF/anexo QA.
+
+
+## Build 530 export crash fixed — Build 533 QA handoff — 2026-10-06
+
+Owner QA on Build 530 hit both audit export actions with:
+- `Sequence contains more than one matching element`.
+
+Root cause:
+- the Build 528 semantic cross-publication tariff matching correctly stopped trusting parser-local `CandidateIndex`;
+- the real target DB contains duplicate normalized tariff candidates with the same semantic RED/ETR identity and, in at least one path, the same candidate index;
+- `FindSameCandidate` still used `SingleOrDefault`, which throws when more than one equivalent row exists.
+
+Fix:
+- equivalent duplicate tariff candidates are collapsed deterministically only when component, RED/ETR identity, unit, net rate and published IVA-column rate all agree;
+- if duplicate semantic candidates disagree materially in rates, the tariff remains unresolved/ambiguous rather than selecting one silently;
+- duplicate preferred retroactive publications are also hardened: exact same-file duplicates may collapse only when preserved SHA-256 proves equivalence; otherwise no silent choice is made;
+- code commit:
+  `143cb605c7e16438aa33699d05bf0eb90b5c74af`.
+
+Regression coverage:
+- smoke test now deliberately inserts an exact duplicate normalized `ELECTRICITY_CONSUMED` tariff candidate;
+- scenario reconstruction must complete without `Sequence contains more than one matching element`;
+- smoke commit:
+  `04450c38b8ce3031abf5bdca3392d528d66325bc`;
+- timezone-safe regression adjustment:
+  `bb125601004660a3038e27bb87f9502c865ac50e`.
+
+Build 533:
+- workflow run: `37542899070`;
+- code HEAD:
+  `bb125601004660a3038e27bb87f9502c865ac50e`;
+- artifact: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11449352529`;
+- digest:
+  `sha256:59c65d4f722df3024f321f37282ee499e10d39b71af8a7a41dada96f420c4054`;
+- Build: PASS;
+- SQLite smoke: PASS;
+- duplicate tariff-candidate regression: PASS;
+- portable publish/upload: PASS.
+
+Build 533 supersedes Build 530 for owner QA.
+
+Next owner action:
+1. reuse/copy the same complete `Data\` folder;
+2. run Build 533;
+3. select the same 28-08-2026 -> 28-09-2026 / 97 kWh bill;
+4. export the audit PDF;
+5. export the technical annex ZIP;
+6. return both generated artifacts.
+
+Do not repeat the HPVINV02 purchased-energy counter probe.
