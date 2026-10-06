@@ -831,13 +831,13 @@ try
         var billAuditReport =
             new UtilityBillAuditReportService(
                 utilityRepository,
-                utilityReconciliation,
                 new TariffBillRateVerificationService(
                     utilityRepository,
                     smokeTariffRepository,
                     smokeCandidateRepository,
                     smokeVersionResolver),
-                utilityStatisticalCompletion,
+                new UtilityBillGapStatisticalCompletionService(
+                    database),
                 new UtilityBillTariffScenarioAnalysisService(
                     utilityRepository,
                     smokeTariffRepository,
