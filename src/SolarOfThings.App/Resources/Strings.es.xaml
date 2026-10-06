@@ -184,9 +184,12 @@
     <sys:String x:Key="GridUtility.Tab.Audit">Auditoría de boleta</sys:String>
     <sys:String x:Key="GridUtility.Tab.Tariffs">Tarifas oficiales</sys:String>
     <sys:String x:Key="GridUtility.AuditHeading">Auditoría de boleta Enel</sys:String>
-    <sys:String x:Key="GridUtility.AuditIntro">Selecciona una boleta. La auditoría parte desde sus lecturas oficiales vinculadas, contrasta energía con Solar of Things y conserva los cargos reales. Si la boleta no imprime cantidad o precio unitario, no debes inventarlos: la app usará las fuentes oficiales y mostrará explícitamente qué puede y qué no puede reconstruir.</sys:String>
+    <sys:String x:Key="GridUtility.AuditIntro">Selecciona una boleta. La auditoría contrasta la energía facturada con los registros independientes del inversor y conserva los cargos reales. Si la boleta no imprime cantidad o precio unitario, no debes inventarlos: la app usará las fuentes oficiales y mostrará explícitamente qué puede y qué no puede reconstruir.</sys:String>
     <sys:String x:Key="GridUtility.AuditBill">Boleta a auditar</sys:String>
-    <sys:String x:Key="GridUtility.ExportBillAudit">Exportar auditoría PDF</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAudit">Exportar informe de auditoría PDF</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAnnex">Exportar anexo técnico + datos</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAnnexTitle">Exportar anexo técnico de evidencia</sys:String>
+    <sys:String x:Key="GridUtility.ExportBillAnnexSaved">Anexo técnico guardado: {0}</sys:String>
     <sys:String x:Key="GridUtility.AuditEvidencePending">Selecciona una boleta para revisar/exportar su evidencia. La tarifa aplicable se verificará por separado.</sys:String>
     <sys:String x:Key="GridUtility.AuditNoBillLines">Esta boleta no tiene líneas de cargo guardadas. No hay nada que auditar línea por línea todavía; completa primero la evidencia de cargos en “Boletas Enel”.</sys:String>
     <sys:String x:Key="GridUtility.AuditNoBillIdentity">sin referencia / sin kWh / sin total</sys:String>
