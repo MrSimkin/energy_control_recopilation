@@ -95,6 +95,7 @@ public partial class App : Application
         builder.Services.AddSingleton<UtilityMeterRepository>();
         builder.Services.AddSingleton<UtilityReconciliationService>();
         builder.Services.AddSingleton<UtilityGridImportStatisticalCompletionService>();
+        builder.Services.AddSingleton<UtilityBillGapStatisticalCompletionService>();
         builder.Services.AddSingleton<UtilityBillTariffScenarioAnalysisService>();
         builder.Services.AddSingleton<UtilityReconciliationReportService>();
         builder.Services.AddSingleton<UtilityBillAuditReportService>();
