@@ -303,6 +303,163 @@ public sealed class InvestigationDiagnosticsService
         }
     }
 
+    public async Task<InvestigationActionResult> CaptureGridImportEnergyEvidenceAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var profile = RequireProfile();
+        var timeZone = TimeZone(profile);
+        var localNow = SolarApiTime.ConvertToLocalTime(
+            DateTimeOffset.UtcNow,
+            timeZone);
+
+        var months = Enumerable.Range(0, 3)
+            .Select(offset =>
+                new DateOnly(
+                    localNow.Year,
+                    localNow.Month,
+                    1)
+                .AddMonths(offset - 2))
+            .ToArray();
+
+        var attempted = 0;
+        var succeeded = 0;
+        var failures = new List<string>();
+
+        async Task CaptureAsync(
+            string operation,
+            string source,
+            string path,
+            object body,
+            DateOnly localDate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            attempted++;
+
+            try
+            {
+                var response = await _session.PostAsync(
+                    "GridImportEnergyEvidence",
+                    operation,
+                    path,
+                    body,
+                    timeZone,
+                    cancellationToken);
+
+                CaptureResearchResponse(
+                    operation,
+                    profile.DeviceId,
+                    localDate,
+                    source,
+                    1,
+                    body,
+                    response);
+
+                if (response.IsSuccess)
+                {
+                    succeeded++;
+                }
+                else
+                {
+                    failures.Add(
+                        $"{operation}:{response.Code ?? response.HttpStatus.ToString()}");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add(
+                    $"{operation}:{DiagnosticSanitizer.SanitizeText(ex.Message)}");
+            }
+
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(400),
+                cancellationToken);
+        }
+
+        foreach (var month in months)
+        {
+            var monthText = month.ToString("yyyy-MM");
+
+            await CaptureAsync(
+                $"GridImportEnergyCategoryMonthly-{monthText}",
+                $"state-attribute-category-monthly:{monthText}",
+                $"deviceOverView/stateAttributeSummary/category/monthly" +
+                $"?deviceId={Uri.EscapeDataString(profile.DeviceId)}" +
+                $"&summaryCategoryKey=pvInverterElectricityQuantityClass",
+                new { time = monthText },
+                month);
+        }
+
+        var candidateKeys = new[]
+        {
+            "dayPurchaseElectricityConsumption",
+            "buyElectricityQuantity"
+        };
+
+        foreach (var month in months)
+        {
+            var sampleDates = new[]
+            {
+                month,
+                month.AddDays(14),
+                new DateOnly(
+                    month.Year,
+                    month.Month,
+                    DateTime.DaysInMonth(month.Year, month.Month))
+            }
+            .Where(date =>
+                date <= DateOnly.FromDateTime(localNow.Date))
+            .Distinct()
+            .ToArray();
+
+            foreach (var localDate in sampleDates)
+            {
+                var (start, end) =
+                    SolarApiTime.GetLocalDayWindow(
+                        localDate,
+                        timeZone);
+
+                var body = new
+                {
+                    deviceId = profile.DeviceId,
+                    keys = candidateKeys,
+                    fromTime = SolarApiTime.FormatDateTime(
+                        start,
+                        timeZone),
+                    toTime = SolarApiTime.FormatDateTime(
+                        end,
+                        timeZone),
+                    page = 1,
+                    count = 500,
+                    orderByTimeAsc = true
+                };
+
+                await CaptureAsync(
+                    $"GridImportEnergyHistory-{localDate:yyyy-MM-dd}",
+                    $"selected-key-grid-import-energy:{localDate:yyyy-MM-dd}",
+                    "deviceState/simple/attribute/keys/history/v1",
+                    body,
+                    localDate);
+            }
+        }
+
+        return new InvestigationActionResult(
+            "GridImportEnergyEvidence",
+            succeeded == attempted
+                ? "SUCCESS"
+                : succeeded > 0
+                    ? "WARN"
+                    : "ERROR",
+            $"{succeeded}/{attempted} read-only grid-import-energy probes succeeded. " +
+            "The raw responses preserve buyElectricityQuantity reality flags " +
+            "and candidate daily purchase counters for later comparison with mainsPower integration." +
+            (failures.Count == 0
+                ? string.Empty
+                : $" Non-success probes: {string.Join(", ", failures.Take(8))}" +
+                  (failures.Count > 8
+                      ? $" (+{failures.Count - 8} more)."
+                      : ".")));
+    }
+
     public async Task<InvestigationActionResult> CaptureExhaustiveReadOnlyEvidenceAsync(
         CancellationToken cancellationToken = default)
     {
@@ -558,6 +715,7 @@ public sealed class InvestigationDiagnosticsService
             await CaptureEnergyFlowAsync(cancellationToken),
             await CaptureDirectConfigReadAsync(cancellationToken),
             await CaptureConfigCacheAsync(cancellationToken),
+            await CaptureGridImportEnergyEvidenceAsync(cancellationToken),
             await CaptureExhaustiveReadOnlyEvidenceAsync(cancellationToken)
         };
 
