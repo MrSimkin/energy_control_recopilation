@@ -166,6 +166,7 @@ public sealed class UtilityBillAuditReportService
             section,
             bill,
             statistical,
+            billGapAnalysis,
             spanish);
 
         // PAGE 2 — financial comparison.
@@ -206,10 +207,20 @@ public sealed class UtilityBillAuditReportService
             section,
             L("Verificación contra fuentes oficiales", "Verification against official sources"),
             12);
-        AddTariffVerification(
-            section,
-            verifications,
-            spanish);
+        if (tariffScenario.HasTariffModel)
+        {
+            AddResolvedTariffEvidence(
+                section,
+                tariffScenario,
+                spanish);
+        }
+        else
+        {
+            AddTariffVerification(
+                section,
+                verifications,
+                spanish);
+        }
         AddEconomicConclusion(
             section,
             tariffScenario,
@@ -250,6 +261,7 @@ public sealed class UtilityBillAuditReportService
             section,
             bill,
             statistical,
+            billGapAnalysis,
             tariffScenario,
             spanish);
 
@@ -500,6 +512,7 @@ public sealed class UtilityBillAuditReportService
         Section section,
         UtilityBillRecord bill,
         UtilityGridImportStatisticalCompletion statistical,
+        UtilityBillGapStatisticalAnalysis analysis,
         bool spanish)
     {
         string L(string es, string en) => spanish ? es : en;
@@ -531,14 +544,17 @@ public sealed class UtilityBillAuditReportService
                 ? lower - enel.Value
                 : enel.Value - upper;
 
+        var maxEmpirical =
+            analysis.MaximumKwh;
+
         AddCallout(
             section,
             L("LECTURA DEL RESULTADO", "RESULT INTERPRETATION"),
             inside
                 ? string.Format(
                     L(
-                        "Los {0:N3} kWh de Enel caen dentro del rango P5–P95 derivado de los registros del inversor ({1:N3}–{2:N3} kWh). La estimación central es {3:N3} kWh y Enel está a {4:N3} kWh de esa mediana. Esto no prueba equivalencia metrológica: indica compatibilidad con el patrón estadístico de la telemetría disponible.",
-                        "The utility value of {0:N3} kWh falls inside the P5–P95 range derived from inverter records ({1:N3}–{2:N3} kWh). The central estimate is {3:N3} kWh and the utility value is {4:N3} kWh from that median. This does not prove metrological equivalence; it indicates compatibility with the statistical pattern of available telemetry."),
+                        "Los {0:N3} kWh de Enel caen dentro del rango P5–P95 provisional ({1:N3}–{2:N3} kWh). La estimación central es {3:N3} kWh y Enel está a {4:N3} kWh de esa mediana. Esto no prueba equivalencia metrológica: indica compatibilidad con el patrón estadístico de la telemetría disponible.",
+                        "The utility value of {0:N3} kWh falls inside the provisional P5–P95 range ({1:N3}–{2:N3} kWh). The central estimate is {3:N3} kWh and the utility value is {4:N3} kWh from that median. This does not prove metrological equivalence; it indicates compatibility with the statistical pattern of available telemetry."),
                     enel.Value,
                     lower,
                     upper,
@@ -546,12 +562,15 @@ public sealed class UtilityBillAuditReportService
                     distance)
                 : string.Format(
                     L(
-                        "Los {0:N3} kWh de Enel quedan fuera del rango P5–P95 derivado de los registros del inversor ({1:N3}–{2:N3} kWh), a {3:N3} kWh del límite más cercano. Esto justifica revisión adicional de cobertura, límites temporales, medición y facturación.",
-                        "The utility value of {0:N3} kWh falls outside the P5–P95 range derived from inverter records ({1:N3}–{2:N3} kWh), {3:N3} kWh from the nearest bound. This supports additional review of coverage, time boundaries, metering and billing."),
+                        "Bajo la agregación provisional de gaps, Enel queda {3:N3} kWh por encima de P95 ({2:N3} kWh). La separación es pequeña. El soporte empírico completo alcanza {4}, por lo que 97 kWh no se presenta como imposible ni como estadísticamente excluido; sí se mantiene una diferencia material frente a P50 ({1:N3} kWh).",
+                        "Under the provisional gap aggregation, the utility value lies {3:N3} kWh above P95 ({2:N3} kWh). The separation is small. Full empirical support reaches {4}, so 97 kWh is not presented as impossible or statistically excluded; a material difference from P50 ({1:N3} kWh) remains."),
                     enel.Value,
-                    lower,
+                    central,
                     upper,
-                    distance),
+                    distance,
+                    maxEmpirical.HasValue
+                        ? $"{maxEmpirical.Value:N3} kWh"
+                        : "—"),
             inside
                 ? Colors.Honeydew
                 : Colors.LemonChiffon);
@@ -1048,6 +1067,70 @@ public sealed class UtilityBillAuditReportService
                 spanish ? "Completado estadísticamente" : "Statistically completed",
             _ => key
         };
+
+    private static void AddResolvedTariffEvidence(
+        Section section,
+        UtilityBillTariffScenarioAnalysis analysis,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        var intro = section.AddParagraph(
+            L(
+                "La reconstrucción monetaria usa únicamente publicaciones oficiales normalizadas y mantiene la misma identidad tarifaria entre los períodos efectivos. CandidateIndex no se trata como identidad estable entre PDFs.",
+                "The monetary reconstruction uses only normalized official publications and preserves the same tariff identity across effective periods. CandidateIndex is not treated as a stable identity across PDFs."));
+        intro.Format.Font.Size = 8;
+        intro.Format.Font.Color = Colors.DimGray;
+        intro.Format.SpaceAfter = Unit.FromPoint(4);
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.AddColumn(Unit.FromCentimeter(3.0));
+        table.AddColumn(Unit.FromCentimeter(2.0));
+        table.AddColumn(Unit.FromCentimeter(2.2));
+        table.AddColumn(Unit.FromCentimeter(3.0));
+        table.AddColumn(Unit.FromCentimeter(6.1));
+
+        var h = table.AddRow();
+        h.Format.Font.Bold = true;
+        h.Cells[0].AddParagraph(L("Período", "Period"));
+        h.Cells[1].AddParagraph(L("Días", "Days"));
+        h.Cells[2].AddParagraph(L("Peso", "Weight"));
+        h.Cells[3].AddParagraph(L("Versión", "Version"));
+        h.Cells[4].AddParagraph(L("Fuente oficial", "Official source"));
+
+        foreach (var period in analysis.PublicationPeriods)
+        {
+            var row = table.AddRow();
+            row.Cells[0].AddParagraph(
+                $"{period.AppliedFrom:dd-MM-yyyy} → {period.AppliedTo:dd-MM-yyyy}");
+            row.Cells[1].AddParagraph(
+                period.Days.ToString());
+            row.Cells[2].AddParagraph(
+                $"{period.Weight * 100.0:N2}%");
+            row.Cells[3].AddParagraph(
+                period.IsRetroactive
+                    ? L("Retroactiva", "Retroactive")
+                    : L("Normal", "Standard"));
+            row.Cells[4].AddParagraph(
+                period.EffectiveFrom.HasValue
+                    ? $"Enel · {period.EffectiveFrom.Value:yyyy-MM}"
+                    : "Enel");
+        }
+
+        AddCallout(
+            section,
+            L("ESTADO DE EVIDENCIA", "EVIDENCE STATUS"),
+            string.Format(
+                L(
+                    "Modelo tarifario conciliado: {0}. RED {1}; ETR {2}; columna {3}. Los títulos completos, tasas y bases de cálculo quedan en Fuentes y en el anexo.",
+                    "Tariff model reconciled: {0}. RED {1}; ETR {2}; column {3}. Full titles, rates and calculation bases remain in Sources and in the annex."),
+                analysis.Status,
+                analysis.NetworkType ?? "—",
+                analysis.EtrBand ?? "—",
+                analysis.Column ?? "—"),
+            Colors.Honeydew);
+    }
 
     private static void AddTariffVerification(
         Section section,
@@ -1624,12 +1707,15 @@ public sealed class UtilityBillAuditReportService
                 L("¿PUEDE LA DIFERENCIA EXPLICARSE SÓLO POR LOS DATOS FALTANTES?", "CAN MISSING DATA ALONE EXPLAIN THE DIFFERENCE?"),
                 string.Format(
                     L(
-                        "Enel: {0:N3} kWh · P95 del inversor: {1:N3} kWh · Enel − P95: {2:N3} kWh ({3:N2}%). El valor Enel queda apenas por encima del P95 provisional; esto merece revisión, pero no permite afirmar que 97 kWh sea físicamente imposible.",
-                        "Utility: {0:N3} kWh · inverter P95: {1:N3} kWh · utility − P95: {2:N3} kWh ({3:N2}%). The utility value lies only slightly above provisional P95; this merits review, but does not justify claiming that 97 kWh is physically impossible."),
+                        "Enel: {0:N3} kWh · P95 provisional: {1:N3} kWh · Enel − P95: {2:N3} kWh ({3:N2}%). El máximo empírico conjunto alcanza {4}; por ello el exceso sobre P95 se trata como una diferencia menor dependiente del supuesto de agregación, no como exclusión estadística.",
+                        "Utility: {0:N3} kWh · provisional P95: {1:N3} kWh · utility − P95: {2:N3} kWh ({3:N2}%). Full empirical support reaches {4}; therefore the excess above P95 is treated as a minor difference dependent on the aggregation assumption, not as statistical exclusion."),
                     enel,
                     statistical.UpperKwh.Value,
                     difference,
-                    percent),
+                    percent,
+                    analysis.MaximumKwh.HasValue
+                        ? $"{analysis.MaximumKwh.Value:N3} kWh"
+                        : "—"),
                 difference > 0
                     ? Colors.LemonChiffon
                     : Colors.Honeydew);
@@ -1719,11 +1805,11 @@ public sealed class UtilityBillAuditReportService
         var gaps = section.AddTable();
         gaps.Borders.Width = 0.25;
         gaps.AddColumn(Unit.FromCentimeter(1.0));
-        gaps.AddColumn(Unit.FromCentimeter(2.3));
-        gaps.AddColumn(Unit.FromCentimeter(4.2));
-        gaps.AddColumn(Unit.FromCentimeter(2.3));
-        gaps.AddColumn(Unit.FromCentimeter(3.1));
-        gaps.AddColumn(Unit.FromCentimeter(3.4));
+        gaps.AddColumn(Unit.FromCentimeter(2.7));
+        gaps.AddColumn(Unit.FromCentimeter(4.0));
+        gaps.AddColumn(Unit.FromCentimeter(2.1));
+        gaps.AddColumn(Unit.FromCentimeter(2.8));
+        gaps.AddColumn(Unit.FromCentimeter(3.7));
         var gh = gaps.AddRow();
         gh.Format.Font.Bold = true;
         gh.Cells[0].AddParagraph("#");
@@ -1737,7 +1823,10 @@ public sealed class UtilityBillAuditReportService
         {
             var row = gaps.AddRow();
             row.Cells[0].AddParagraph(gap.GapIndex.ToString());
-            row.Cells[1].AddParagraph(gap.Kind);
+            row.Cells[1].AddParagraph(
+                GapKindLabel(
+                    gap.Kind,
+                    spanish));
             row.Cells[2].AddParagraph(
                 $"{gap.StartLocal:dd-MM-yyyy HH:mm:ss}");
             row.Cells[3].AddParagraph(
@@ -1800,10 +1889,19 @@ public sealed class UtilityBillAuditReportService
                         : "—"));
         }
 
+        AddCallout(
+            section,
+            L("CONTROLES METODOLÓGICOS", "METHODOLOGICAL CONTROLS"),
+            L(
+                "Timestamps reales · ausencia ≠ cero · sin grilla artificial de 5 minutos · sin observaciones fabricadas · Enel excluido de la calibración · método versionado · datos fuente disponibles para anexo.",
+                "Real timestamps · missing ≠ zero · no artificial 5-minute grid · no fabricated observations · utility value excluded from calibration · versioned method · source data available for annex."),
+            Colors.Honeydew);
+
+        section.AddPageBreak();
         AddHeading(
             section,
-            L("Cobertura por día", "Daily coverage"),
-            11.5);
+            L("5.1 Cobertura diaria del período", "5.1 Daily period coverage"),
+            14);
 
         var daily = section.AddTable();
         daily.Borders.Width = 0.25;
@@ -1841,14 +1939,21 @@ public sealed class UtilityBillAuditReportService
                 $"{day.ObservedPositiveKwh:N3}");
         }
 
-        AddCallout(
-            section,
-            L("CONTROLES METODOLÓGICOS", "METHODOLOGICAL CONTROLS"),
-            L(
-                "Timestamps reales · ausencia ≠ cero · sin grilla artificial de 5 minutos · sin observaciones fabricadas · Enel excluido de la calibración · método versionado · datos fuente disponibles para anexo.",
-                "Real timestamps · missing ≠ zero · no artificial 5-minute grid · no fabricated observations · utility value excluded from calibration · versioned method · source data available for annex."),
-            Colors.Honeydew);
     }
+
+    private static string GapKindLabel(
+        string kind,
+        bool spanish) =>
+        kind switch
+        {
+            "BOUNDARY_START" =>
+                spanish ? "BORDE INICIO" : "START EDGE",
+            "BOUNDARY_END" =>
+                spanish ? "BORDE FIN" : "END EDGE",
+            "INTERNAL" =>
+                spanish ? "INTERNO" : "INTERNAL",
+            _ => kind
+        };
 
     private static string FormatWatts(
         double? watts) =>
@@ -1860,6 +1965,7 @@ public sealed class UtilityBillAuditReportService
         Section section,
         UtilityBillRecord bill,
         UtilityGridImportStatisticalCompletion statistical,
+        UtilityBillGapStatisticalAnalysis analysis,
         UtilityBillTariffScenarioAnalysis tariff,
         bool spanish)
     {
@@ -1907,12 +2013,15 @@ public sealed class UtilityBillAuditReportService
                 "H02",
                 string.Format(
                     L(
-                        "Comparación de extremo alto: Enel − P95 = {0:N3} kWh ({1:N2}%). P95 sigue ligeramente por debajo de Enel, pero la separación es pequeña.",
-                        "High-side comparison: utility − P95 = {0:N3} kWh ({1:N2}%). P95 remains slightly below the utility value, but the separation is small."),
+                        "Comparación de extremo alto: Enel − P95 = {0:N3} kWh ({1:N2}%). La separación es pequeña y el máximo empírico conjunto alcanza {2}; por ello P95 no se usa como prueba de exclusión estadística.",
+                        "High-side comparison: utility − P95 = {0:N3} kWh ({1:N2}%). The separation is small and full empirical support reaches {2}; therefore P95 is not used as proof of statistical exclusion."),
                     diff,
-                    pct),
+                    pct,
+                    analysis.MaximumKwh.HasValue
+                        ? $"{analysis.MaximumKwh.Value:N3} kWh"
+                        : "—"),
                 diff > 0
-                    ? L("REQUIERE REVISIÓN", "REVIEW REQUIRED")
+                    ? L("DIFERENCIA MENOR", "MINOR DIFFERENCE")
                     : L("COINCIDE", "CONSISTENT"));
         }
 
@@ -2172,6 +2281,24 @@ public sealed class UtilityBillAuditReportService
             L(
                 "P5 es un valor hacia el extremo inferior; P50 es la mediana y estimación central; P95 es un valor hacia el extremo superior. P5–P95 contiene el 90% central de los resultados producidos por este método. No es una tolerancia metrológica ni un intervalo de confianza certificado.",
                 "P5 is a lower-side value; P50 is the median and central estimate; P95 is an upper-side value. P5–P95 contains the central 90% of results produced by this method. It is not a metrological tolerance or a certified confidence interval."));
+
+        AddMethodBlock(
+            section,
+            L("Cuantiles empíricos discretos", "Discrete empirical quantiles"),
+            L(
+                "Cada gap interno usa 15 ventanas históricas. Con cuantiles empíricos inversos, q05 coincide con el mínimo y q95 con el máximo de esas 15 ventanas. El P95 total no es la suma de esos máximos: es el percentil 95 de las 3.375 combinaciones exactas de los tres gaps.",
+                "Each internal gap uses 15 historical windows. With inverse empirical quantiles, q05 equals the minimum and q95 the maximum of those 15 windows. Total P95 is not the sum of those maxima: it is the 95th percentile of the 3,375 exact combinations of the three gaps."));
+
+        AddMethodBlock(
+            section,
+            L("Dependencia entre gaps", "Dependence across gaps"),
+            string.Format(
+                L(
+                    "La agregación P5/P50/P95 supone independencia empírica entre gaps separados. Ese supuesto no está validado como probabilidad metrológica. El máximo empírico conjunto de las combinaciones disponibles es {0}; por eso un valor Enel por encima del P95 provisional no se interpreta como imposibilidad ni exclusión estadística.",
+                    "P5/P50/P95 aggregation assumes empirical independence across separated gaps. That assumption is not validated as a metrological probability model. The maximum joint empirical combination is {0}; therefore a utility value above provisional P95 is not interpreted as impossibility or statistical exclusion."),
+                analysis.MaximumKwh.HasValue
+                    ? $"{analysis.MaximumKwh.Value:N3} kWh"
+                    : "—"));
 
         AddMethodBlock(
             section,
