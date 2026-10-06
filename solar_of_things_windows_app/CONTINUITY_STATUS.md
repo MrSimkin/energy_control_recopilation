@@ -4253,3 +4253,87 @@ Once both files arrive:
 - close official tariff/component rates;
 - freeze economic truth table;
 - proceed to audit PDF + technical annex implementation.
+
+
+## Enel bill-audit economic truth table frozen — 2026-10-06
+
+Canonical economic reconstruction:
+- `research/bill_audit/BILL_OFFICIAL_TARIFF_RECONSTRUCTION_2026-10-06.md`;
+- freeze commit: `06925faf4709602d06878c1c79440d1a89890f5a`.
+
+Reproducible engine:
+- `research/bill_audit/bill_economic_truth_table.py`;
+- version: `bill-economic-truth-table.v1`;
+- implementation commit: `38afcefc6d55ce5b6102608746c46f44c22c86be`.
+
+Canonical case config:
+- `research/bill_audit/BILL_ECONOMIC_CASE_2026-10-06.json`;
+- commit: `d1aac9d19d50dd081fcda6e08fe58127c20cf394`.
+
+Economic gate result:
+- official tariff/component applicability is now sufficiently closed for implementation;
+- do not continue treating September tariff or transport composition as open blockers.
+
+Official cross-month rule:
+- bill period 2026-08-28 through 2026-09-28 = 32 calendar days;
+- August allocation = 4/32;
+- September allocation = 28/32;
+- apply calendar-day proportional allocation across the two tariff months.
+
+Canonical official rates for the current case:
+- August 2026 BT_AA/T5 electricity, published IVA column: 220.147 CLP/kWh;
+- September 2026 BT_AA/T5 electricity, published IVA column: 220.539 CLP/kWh;
+- transport, published IVA column: 20.489 CLP/kWh;
+- public-service charge, exempt: 0.855 CLP/kWh;
+- administration fixed official IVA-column amount: 727.230 CLP/month;
+- FET <=350 kWh: no surcharge for all current scenarios.
+
+Source-driven Enel control:
+- reconstructed regulated bill subtotal = 24,648.128 CLP -> 24,648 printed;
+- + Servicio Común 5,964;
+- - Subsidio 3,758;
+- reconstructed total due = 26,854.128 CLP -> 26,854 printed;
+- printed total due = 26,854;
+- result: exact agreement at printed-peso precision.
+
+Audit conclusion:
+- current evidence does NOT support a material tariff/rate error;
+- the urgent dispute should focus on whether the billed **97 kWh** is the correct metered energy;
+- do not dilute the report by alleging a tariff defect.
+
+Canonical energy / monetary scenarios:
+- directly observed inverter: 88.065413 kWh -> 24,693 CLP rounded total due;
+- provisional P5: 88.103333 kWh -> 24,703 CLP;
+- provisional P50: 88.103333 kWh -> 24,703 CLP;
+- provisional P95: 96.606322 kWh -> 26,759 CLP;
+- Enel control: 97.000000 kWh -> 26,854 CLP.
+
+Differences versus printed Enel:
+- observed: about -2,161 CLP;
+- P5/P50: about -2,151 CLP;
+- P95: about -95 CLP.
+
+Interpretation remains conservative:
+- Enel is 8.897 kWh above provisional P50;
+- Enel is only 0.394 kWh above provisional P95;
+- 97 kWh is not physically impossible under the historical empirical support;
+- do not present the P95 comparison as proof of a large high-confidence overcharge.
+
+Remaining owner-side evidence gate:
+- target HPVINV02 independent grid-import energy counter/aggregate cross-check;
+- Build 499 read-only action: `Comprobar energía comprada a red`;
+- return exported investigation ZIP after running it on the target installation.
+
+This counter is corroborating evidence only:
+- it is not required to derive the existing 88.065 / P5 / P50 / P95 results;
+- a placeholder/unavailable result will not invalidate the time-series evidence.
+
+Next authorized sequence after counter classification:
+1. freeze final source/provenance table;
+2. implement source-driven multi-period tariff reconstruction in production bill-audit path;
+3. implement the canonical 8-page report;
+4. implement technical annex/raw-data export;
+5. run one bundled target-PC PDF QA.
+
+R3 remains separate, frozen and INSUFFICIENT.
+Do not retune or score R3 from this bill work.
