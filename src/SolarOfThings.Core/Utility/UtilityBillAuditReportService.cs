@@ -13,23 +13,20 @@ namespace SolarOfThings.Core.Utility;
 public sealed class UtilityBillAuditReportService
 {
     private readonly UtilityMeterRepository _repository;
-    private readonly UtilityReconciliationService _reconciliation;
     private readonly TariffBillRateVerificationService _tariffVerification;
-    private readonly UtilityGridImportStatisticalCompletionService _statisticalCompletion;
+    private readonly UtilityBillGapStatisticalCompletionService _billGapCompletion;
     private readonly UtilityBillTariffScenarioAnalysisService _tariffScenarioAnalysis;
     private static int _pdfFontsInitialized;
 
     public UtilityBillAuditReportService(
         UtilityMeterRepository repository,
-        UtilityReconciliationService reconciliation,
         TariffBillRateVerificationService tariffVerification,
-        UtilityGridImportStatisticalCompletionService statisticalCompletion,
+        UtilityBillGapStatisticalCompletionService billGapCompletion,
         UtilityBillTariffScenarioAnalysisService tariffScenarioAnalysis)
     {
         _repository = repository;
-        _reconciliation = reconciliation;
         _tariffVerification = tariffVerification;
-        _statisticalCompletion = statisticalCompletion;
+        _billGapCompletion = billGapCompletion;
         _tariffScenarioAnalysis = tariffScenarioAnalysis;
     }
 
@@ -57,19 +54,28 @@ public sealed class UtilityBillAuditReportService
         var to = _repository.GetReading(bill.ToReadingId.Value)
             ?? throw new InvalidOperationException("Bill end reading was not found.");
 
-        var energy = _reconciliation.ReconcileReadings(
-            deviceId,
-            from,
-            to);
-        var statistical = _statisticalCompletion.Analyze(
-            deviceId,
-            from.ReadingAtUtc,
-            to.ReadingAtUtc,
-            timeZoneId);
-        var tariffScenario = _tariffScenarioAnalysis.Analyze(
-            billId,
-            timeZoneId,
-            statistical);
+        var billStartLocalDate =
+            SolarApiTime.GetLocalDate(
+                bill.PeriodStartUtc,
+                timeZoneId);
+        var billEndLocalDate =
+            SolarApiTime.GetLocalDate(
+                bill.PeriodEndUtc,
+                timeZoneId);
+
+        var billGapAnalysis =
+            _billGapCompletion.Analyze(
+                deviceId,
+                billStartLocalDate,
+                billEndLocalDate,
+                timeZoneId);
+        var statistical =
+            billGapAnalysis.Completion;
+        var tariffScenario =
+            _tariffScenarioAnalysis.Analyze(
+                billId,
+                timeZoneId,
+                statistical);
 
         var spanish = languageCode.StartsWith(
             "es",
@@ -137,7 +143,8 @@ public sealed class UtilityBillAuditReportService
         AddExecutiveEnergyComparison(
             section,
             bill,
-            energy,
+            from,
+            to,
             statistical,
             spanish);
         AddExecutiveInterpretation(
@@ -179,7 +186,7 @@ public sealed class UtilityBillAuditReportService
         AddStatisticalEvidence(
             section,
             statistical,
-            energy,
+            billGapAnalysis,
             spanish);
         AddTariffEvidence(
             section,
@@ -217,13 +224,19 @@ public sealed class UtilityBillAuditReportService
     private static void AddExecutiveEnergyComparison(
         Section section,
         UtilityBillRecord bill,
-        UtilityMeterReconciliation energy,
+        UtilityMeterReading from,
+        UtilityMeterReading to,
         UtilityGridImportStatisticalCompletion statistical,
         bool spanish)
     {
         string L(string es, string en) => spanish ? es : en;
-        var enel = bill.BilledConsumptionKwh ??
-                   energy.MeterConsumptionKwh;
+        var meterDifference =
+            to.ReadingKwh >= from.ReadingKwh
+                ? to.ReadingKwh - from.ReadingKwh
+                : (double?)null;
+        var enel =
+            bill.BilledConsumptionKwh ??
+            meterDifference;
 
         var primary = section.AddTable();
         primary.Borders.Width = 0;
@@ -624,7 +637,7 @@ public sealed class UtilityBillAuditReportService
     private static void AddStatisticalEvidence(
         Section section,
         UtilityGridImportStatisticalCompletion statistical,
-        UtilityMeterReconciliation energy,
+        UtilityBillGapStatisticalAnalysis billGapAnalysis,
         bool spanish)
     {
         string L(string es, string en) => spanish ? es : en;
@@ -701,16 +714,15 @@ public sealed class UtilityBillAuditReportService
                 "P5 and P95 bound the central 90% of simulated results. P5 is the lower margin, P50 is the median and central estimate, and P95 is the upper margin. The utility value does not participate in building this range; it is compared afterward as an independent reference."),
             Colors.Honeydew);
 
-        if (energy.Sensitivity is not null)
-        {
-            AddCallout(
-                section,
-                L("LÍMITE DE INGENIERÍA (NO PROBABILÍSTICO)", "ENGINEERING BOUND (NOT PROBABILISTIC)"),
+        AddCallout(
+            section,
+            L("ESTADO DEL MÉTODO", "METHOD STATUS"),
+            string.Format(
                 L(
-                    "El antiguo escenario de máxima potencia observada se conserva sólo como diagnóstico extremo y no se usa como rango probable.",
-                    "The previous maximum-observed-power scenario is retained only as an extreme diagnostic and is not used as a probable range."),
-                Colors.WhiteSmoke);
-        }
+                    "Método {0}. Estado: PROVISIONAL / RESEARCH ONLY. Se usan ventanas históricas completas del mismo horario, duración y tipo de día. Enel no participa en la construcción ni selección del rango.",
+                    "Method {0}. Status: PROVISIONAL / RESEARCH ONLY. Complete historical windows with the same clock time, duration and day type are used. The utility value does not participate in constructing or selecting the range."),
+                statistical.MethodVersion),
+            Colors.WhiteSmoke);
     }
 
     private static void AddTariffEvidence(
