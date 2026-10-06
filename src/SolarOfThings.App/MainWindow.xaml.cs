@@ -3000,7 +3000,8 @@ public partial class MainWindow : Window
                     profile.DeviceId,
                     billId,
                     timeZone,
-                    _localization.CurrentLanguage));
+                    _localization.CurrentLanguage,
+                    ReportProducerIdentity()));
 
             UtilityAuditStatusText.Text = string.Format(
                 _localization.GetString("GridUtility.ExportBillAuditSaved"),
@@ -3086,7 +3087,8 @@ public partial class MainWindow : Window
                         profile.DeviceId,
                         billId,
                         timeZone,
-                        _localization.CurrentLanguage));
+                        _localization.CurrentLanguage,
+                        ReportProducerIdentity()));
 
             UtilityAuditStatusText.Text =
                 string.Format(
@@ -3113,6 +3115,28 @@ public partial class MainWindow : Window
                 false,
                 string.Empty);
         }
+    }
+
+    private static string ReportProducerIdentity()
+    {
+        var assembly =
+            System.Reflection.Assembly.GetEntryAssembly();
+        var informational =
+            assembly?
+                .GetCustomAttributes(
+                    typeof(
+                        System.Reflection.AssemblyInformationalVersionAttribute),
+                    false)
+                .OfType<
+                    System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault()?
+                .InformationalVersion;
+
+        return !string.IsNullOrWhiteSpace(
+                informational)
+            ? informational
+            : assembly?.GetName().Version?.ToString()
+              ?? "unknown";
     }
 
     private void UtilityAddBill_Click(
