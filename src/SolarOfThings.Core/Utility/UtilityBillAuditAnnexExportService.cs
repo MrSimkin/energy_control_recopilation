@@ -111,7 +111,11 @@ public sealed class UtilityBillAuditAnnexExportService
                             analysis,
                             tariff,
                             telemetry.Count,
-                            languageCode))
+                            languageCode)),
+                ["05-cobertura-diaria.csv"] =
+                    Utf8(
+                        DailyCoverageCsv(
+                            analysis))
             };
 
         var tempPdf =
@@ -522,6 +526,46 @@ public sealed class UtilityBillAuditAnnexExportService
                             .ToString(
                                 "0.######",
                                 CultureInfo.InvariantCulture))));
+        }
+
+        return sb.ToString();
+    }
+
+    private static string DailyCoverageCsv(
+        UtilityBillGapStatisticalAnalysis analysis)
+    {
+        var sb =
+            new StringBuilder();
+        sb.AppendLine(
+            "local_date,valid_samples,covered_hours,uncovered_hours,coverage_percent,observed_positive_kwh");
+
+        foreach (var day in analysis.DailyEvidence)
+        {
+            sb.AppendLine(
+                string.Join(
+                    ",",
+                    Csv(
+                        day.LocalDate.ToString(
+                            "yyyy-MM-dd")),
+                    Csv(
+                        day.ValidSamples.ToString(
+                            CultureInfo.InvariantCulture)),
+                    Csv(
+                        day.CoveredHours.ToString(
+                            "0.######",
+                            CultureInfo.InvariantCulture)),
+                    Csv(
+                        day.UncoveredHours.ToString(
+                            "0.######",
+                            CultureInfo.InvariantCulture)),
+                    Csv(
+                        day.CoveragePercent.ToString(
+                            "0.######",
+                            CultureInfo.InvariantCulture)),
+                    Csv(
+                        day.ObservedPositiveKwh.ToString(
+                            "0.######",
+                            CultureInfo.InvariantCulture))));
         }
 
         return sb.ToString();
