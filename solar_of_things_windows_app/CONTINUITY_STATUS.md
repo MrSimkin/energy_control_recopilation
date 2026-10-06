@@ -4488,3 +4488,110 @@ Do not ask the owner to repeat the HPVINV02 counter probe.
 - verify target-PC output against canonical 88.065 / P5-P50 88.103 / P95 96.606 and economic truth table;
 - fix any layout/source-presence defects in one internal tranche;
 - then produce the final printable evidence package.
+
+
+## Build 527 returned QA + P95 validation + Build 529 handoff — 2026-10-06
+
+Owner returned:
+- `Auditoria-Boleta-Enel-20261006-1918.pdf`;
+- `Anexo-Tecnico-Boleta-Enel-20261006-1921.zip`.
+
+### Returned PDF findings
+
+Confirmed on rendered output:
+- real text overlap in Section 5 gap-detail rows, especially `BOUNDARY_START` / `BOUNDARY_END` against local timestamps;
+- methodological-controls callout was orphaned onto a near-empty following page;
+- page 2 reported `TARIFA NO RESUELTA`;
+- page 3/4 official-rate verification still showed multi-period derivation pending;
+- page 9 source table reported no resolved tariff publication;
+- annex economic CSV contained header only.
+
+The energy/statistical sections otherwise reproduced the canonical values.
+
+### Annex integrity
+
+All manifest-listed files:
+- byte-count PASS;
+- SHA-256 PASS.
+
+### Independent P95 re-validation
+
+Canonical validation report:
+- `research/bill_audit/BILL_P95_POST_QA_VALIDATION_2026-10-06.md`.
+
+Independent reproduction from the original Research Package confirms:
+- observed = 88.06541295361109 kWh;
+- deterministic bill-edge completion = 0.03791997222222222 kWh;
+- exact combinations = 3,375;
+- P5 = 88.10333292583331 kWh;
+- P50 = 88.10333292583331 kWh;
+- P95 = 96.60632217736110 kWh;
+- maximum empirical combination = 97.66974164694443 kWh.
+
+Decision:
+- KEEP provisional P95 = 96.606322 kWh;
+- do not retune post hoc;
+- do not claim 97 kWh is statistically impossible/excluded;
+- report that Enel is only 0.394 kWh above provisional P95 under the stated independent-gap aggregation;
+- disclose full empirical support reaching 97.670 kWh;
+- preserve the robust central discrepancy Enel vs P50 = 8.897 kWh.
+
+Method caveat strengthened:
+- each gap uses 15 empirical windows;
+- inverse empirical q05 = minimum and q95 = maximum of those 15 at gap level;
+- aggregate P95 is the 95th percentile of 3,375 exact combinations;
+- gap independence is provisional and not a metrological probability model.
+
+### Fixes after returned QA
+
+Tariff:
+- cross-publication candidate identity now prefers semantic RED/network + ETR identity over parser-local `CandidateIndex`;
+- commit `c8657204f84af8839462ec9349808ab07785814e`;
+- Build 528 PASS.
+
+Report/P95/layout:
+- executive P95 language no longer implies statistical exclusion;
+- full empirical maximum is shown/used in interpretation;
+- H02 changed to a minor high-side difference rather than strong review finding;
+- gap-kind labels shortened/localized;
+- gap table columns rebalanced;
+- methodological controls moved before daily coverage;
+- daily coverage intentionally starts on a dedicated continuation page;
+- resolved tariff scenario uses compact source evidence instead of obsolete multi-period-pending table;
+- technical methodology now discloses discrete quantile behavior and gap-independence limitation;
+- commit `78881b61f12a6ff3c37ccd920317ae8b14fca71e`;
+- Windows Build 529 PASS.
+
+### Build 529 owner QA handoff
+
+Workflow run:
+- `37541249420`.
+
+Artifact:
+- `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID `11448468241`;
+- digest `sha256:fbe3a4d88c4fdef876323a3a931ad5427ff984dc62e4d6bd5b93905411c87678`.
+
+Code HEAD in build:
+- `78881b61f12a6ff3c37ccd920317ae8b14fca71e`.
+
+Next owner pass:
+1. reuse/copy the same complete `Data\` folder;
+2. run Build 529;
+3. select the same 28-08-2026 -> 28-09-2026 / 97 kWh bill;
+4. export audit PDF;
+5. export technical annex ZIP;
+6. return both files.
+
+Owner does not need to manually validate numbers/layout before returning them.
+Assistant will inspect both artifacts.
+
+Acceptance checks on return:
+- no text overlap;
+- no orphaned controls page;
+- tariff/economic model resolves on target DB;
+- page 2 contains economic scenarios;
+- annex economic CSV contains scenario rows;
+- energy values remain canonical;
+- P95 wording includes dependence caveat / empirical maximum;
+- source/provenance pages remain consistent.
