@@ -512,8 +512,8 @@ public sealed class UtilityBillAuditReportService
                 section,
                 L("LECTURA DEL RESULTADO", "RESULT INTERPRETATION"),
                 L(
-                    "La comparación observada está disponible, pero todavía no hay evidencia estadística suficiente para ubicar el valor Enel dentro de un intervalo predictivo.",
-                    "The observed comparison is available, but statistical evidence is not yet sufficient to place the utility value inside a predictive interval."),
+                    "La comparación observada está disponible, pero todavía no hay evidencia estadística suficiente para ubicar el valor Enel dentro de un rango P5–P95.",
+                    "The observed comparison is available, but statistical evidence is not yet sufficient to place the utility value inside a P5–P95 range."),
                 Colors.LemonChiffon);
             return;
         }
@@ -831,7 +831,7 @@ public sealed class UtilityBillAuditReportService
             13);
         AddAuditMetricCard(
             second.Cells[1],
-            L("DESVIACIÓN SIMULADA", "SIMULATED STD. DEV."),
+            L("DESVIACIÓN DE RESULTADOS", "RESULT STD. DEV."),
             statistical.StandardDeviationKwh.HasValue
                 ? $"{statistical.StandardDeviationKwh.Value:N3} kWh"
                 : "—",
@@ -854,8 +854,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("CÓMO LEER LOS PERCENTILES", "HOW TO READ THE PERCENTILES"),
             L(
-                "P5 y P95 delimitan el 90% central de los resultados simulados. P5 es el margen inferior, P50 es la mediana y estimación central, y P95 es el margen superior. Enel no participa en la construcción de este rango; se compara después como referencia independiente.",
-                "P5 and P95 bound the central 90% of simulated results. P5 is the lower margin, P50 is the median and central estimate, and P95 is the upper margin. The utility value does not participate in building this range; it is compared afterward as an independent reference."),
+                "P5 y P95 delimitan el 90% central de los resultados producidos por el método. P5 es el margen inferior, P50 es la mediana y estimación central, y P95 es el margen superior. Enel no participa en la construcción de este rango; se compara después como referencia independiente.",
+                "P5 and P95 bound the central 90% of results produced by the method. P5 is the lower margin, P50 is the median and central estimate, and P95 is the upper margin. The utility value does not participate in building this range; it is compared afterward as an independent reference."),
             Colors.Honeydew);
 
         AddCallout(
