@@ -5205,3 +5205,27 @@ Owner instruction update:
 - do not emit new-chat continuity prompts until the owner explicitly re-enables them;
 - canonical user-facing QA build download filename remains:
   `SolarEnergyMonitor-Build-XXX-win-x64.zip`.
+
+
+## Owner batching decision — combined next tranche — 2026-10-07
+
+Owner decision:
+- do **not** create a dedicated build/QA cycle solely for the Enel browser-assisted UX refinement;
+- advance that refinement in parallel with the next substantive Grid Utility / bill-reconciliation work;
+- hand off a new build only when the combined tranche contains enough user-visible functional value to justify one QA cycle, unless a blocking data-integrity/provenance defect requires an earlier stop.
+
+Combined tranche direction:
+1. Enel acquisition UX refinement:
+   - stage browser-captured PDFs under app-controlled `Data/Tariffs/Enel` rather than generic OS temp;
+   - preserve canonical official PDFs locally;
+   - reduce per-PDF manual clicks where supported by normal WebView2 session behavior;
+   - retain the validated Build-578 `DownloadStarting` route as a fallback;
+   - no Imperva/Reese bypass.
+2. Grid Utility / billing productization:
+   - build on the already-existing utility bill, tariff verification, tariff scenario and audit infrastructure;
+   - move from one-off evidence-package capability toward normal in-app bill/reconciliation workflow;
+   - preserve the accepted Build-538 statistical/economic semantics rather than recalibrating them.
+
+QA policy for this tranche:
+- batch both areas into the same owner QA where practical;
+- do not stop merely to validate cosmetic/UX-only progress if the next functional work can continue safely.
