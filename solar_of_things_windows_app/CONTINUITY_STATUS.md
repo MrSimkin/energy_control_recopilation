@@ -5490,3 +5490,87 @@ Build-585 source HEAD:
 
 Build-585 documentation checkpoint before this blocked-QA record:
 `785a7a61ef962955872198493f1d7b329d1e1aa2`
+
+
+## Build 587 — responsiveness corrective candidate — 2026-10-07
+
+Build 585 remains **NOT ACCEPTED / QA BLOCKED**. Do not resume its QA.
+
+Source diagnosis against responsive Build 583 confirmed the primary regression path:
+- `UtilityAuditBillSelector_SelectionChanged` called `RefreshUtilityAuditPreview()` on the WPF Dispatcher;
+- the Build-585 DATE_ONLY product summary synchronously called
+  `UtilityBillGapStatisticalCompletionService.Analyze(...)`;
+- that frozen research analysis loads the device grid-import history and performs statistical
+  calibration/completion work that the normal product summary does not consume;
+- therefore bill selection/refresh could block the UI thread.
+
+Shared QA Data bootstrap was inspected and is not the repeated-click cause:
+- when `D:\\SolarEnergyMonitorTest\\Data\\energy.db` already exists,
+  `TryBootstrapSharedQaData` returns before sibling-build enumeration or tree copying;
+- no AppPaths behavior was changed in this corrective tranche.
+
+Enel/browser-assisted code was also hardened for responsiveness:
+- PDF extraction/normalization import work now runs off the WPF Dispatcher;
+- the already validated `DownloadStarting` fallback remains intact;
+- no Imperva/Reese bypass was added.
+
+Corrective implementation:
+- product DATE_ONLY reconciliation now uses a lightweight observed-only interval path that
+  reuses the same inclusive local-day interval truth as the frozen bill-gap method but does
+  **not** execute P5/P50/P95 calibration/completion;
+- the full frozen statistical method remains unchanged and available for the accepted
+  research/evidence workflow;
+- product bill-summary analysis runs through `Task.Run` and stale async selection results
+  are discarded by a refresh-generation guard;
+- manual and browser-assisted Enel PDF import extraction/normalization also run off the UI
+  Dispatcher.
+
+Build 586:
+- source commit `a0d2c8b9ef0404557c1939eaf77515aaef4fab6e`;
+- workflow run `37648337839`;
+- failed compilation because the new observed-only helper omitted the existing
+  `timeZoneId` argument to `BuildIntervalTruth`;
+- no artifact/QA candidate produced.
+
+Build 587:
+- source commit `74040567f26371927d072c22aaf614e6779548f1`;
+- workflow run `37648734731`;
+- run/build number **587**;
+- Build: **PASS**;
+- SQLite smoke: **PASS**, including the existing DATE_ONLY regression that compares the
+  product summary observed kWh/coverage against the frozen full bill-gap analysis;
+- live Enel/CNE probes: intentionally skipped by workflow conditions;
+- portable publish: **PASS**;
+- portable marker: **PASS**;
+- artifact upload: **PASS**.
+
+Artifact:
+- GitHub name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11496255650`;
+- digest:
+  `sha256:be4246c9f505cf7df860a1ed93f7839ccbe285650cc7a50f90ce6054404dc2da`;
+- user-facing filename:
+  `SolarEnergyMonitor-Build-587-win-x64.zip`.
+
+Build 587 is a **QA candidate, not yet accepted**.
+
+Minimum owner QA:
+1. launch Build 587 without copying a per-build Data folder;
+2. confirm footer points to
+   `D:\\SolarEnergyMonitorTest\\Data\\energy.db`;
+3. navigate/click between pages and confirm Windows does not enter “(No responde)”;
+4. open `Red eléctrica -> Auditoría de boleta` and select
+   `28-08-2026 -> 28-09-2026`;
+5. report the values actually displayed; expected neighborhood remains approximately:
+   - bill: $26,854;
+   - Enel: 97.000 kWh;
+   - observed inverter: 88.065 kWh;
+   - coverage: 99.33%;
+   - estimated observed total: $24,693;
+   - actual minus estimated: +$2,161;
+6. only after responsiveness + bill reconciliation are usable, test the September-2026
+   Enel browser-assisted PDF path: first without viewer Download, then one Download fallback
+   click only if automatic 200/206 capture does not complete.
+
+Do not reopen Build-538 evidence, P5/P50/P95 calibration, HPVINV02, CNE 380->368,
+schema migration, tariff precedence, or Imperva classification.
