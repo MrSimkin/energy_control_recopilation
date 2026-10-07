@@ -21,6 +21,7 @@ public sealed class EnelTariffBrowserWindow : Window
 {
     private readonly EnelTariffPdfImportService _importService;
     private readonly TextBlock _statusText;
+    private readonly TextBlock _receiptText;
     private readonly ProgressBar _busyBar;
     private readonly WebView2 _browser;
     private readonly HashSet<string> _activeDownloads =
@@ -97,6 +98,21 @@ public sealed class EnelTariffBrowserWindow : Window
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 4, 0, 0)
             });
+
+        _receiptText = new TextBlock
+        {
+            Text =
+                "Última captura Enel desde navegador: " +
+                "sin descarga interceptada en esta sesión.",
+            Foreground =
+                new SolidColorBrush(
+                    Color.FromRgb(0x34, 0x3A, 0x40)),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 8, 0, 0),
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 12
+        };
+        heading.Children.Add(_receiptText);
         Grid.SetRow(heading, 0);
         root.Children.Add(heading);
 
@@ -338,37 +354,55 @@ public sealed class EnelTariffBrowserWindow : Window
         var suggested =
             Path.GetFileName(
                 e.ResultFilePath);
+        string? uriSuggested = null;
 
-        if (string.IsNullOrWhiteSpace(suggested) &&
-            Uri.TryCreate(
+        if (Uri.TryCreate(
                 uri,
                 UriKind.Absolute,
                 out var parsedUri))
         {
-            suggested =
+            uriSuggested =
                 Uri.UnescapeDataString(
                     Path.GetFileName(
                         parsedUri.AbsolutePath));
         }
 
         if (!IsSupportedTariffPdf(
+                suggested) &&
+            IsSupportedTariffPdf(
+                uriSuggested))
+        {
+            suggested = uriSuggested!;
+        }
+
+        _receiptText.Text =
+            "CoreWebView2.DownloadStarting capturado.\n" +
+            $"Archivo detectado: {suggested}\n" +
+            $"Hora UTC: {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss}";
+
+        if (!IsSupportedTariffPdf(
                 suggested))
         {
             _statusText.Text =
                 "Descarga no interceptada: no parece un PDF oficial “Tarifas Suministro Eléctrico”.";
+            _receiptText.Text +=
+                "\nResultado: descarga observada, pero nombre/URI no reconocido como tarifario Enel compatible.";
             return;
         }
 
+        // Keep the official filename intact. Uniqueness belongs in the temp
+        // directory, not in the filename consumed by the provenance importer.
         var tempDir = Path.Combine(
             Path.GetTempPath(),
             "SolarEnergyMonitor",
-            "EnelTariffBrowser");
+            "EnelTariffBrowser",
+            Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(
             tempDir);
 
         var targetPath = Path.Combine(
             tempDir,
-            $"{Guid.NewGuid():N}-{suggested}");
+            suggested);
 
         e.ResultFilePath =
             targetPath;
@@ -385,6 +419,8 @@ public sealed class EnelTariffBrowserWindow : Window
 
         _statusText.Text =
             $"Descargando e importando {suggested}…";
+        _receiptText.Text +=
+            "\nResultado: descarga compatible interceptada; esperando finalización e importación.";
         _busyBar.Visibility =
             Visibility.Visible;
 
@@ -427,6 +463,9 @@ public sealed class EnelTariffBrowserWindow : Window
 
                             TryDelete(
                                 targetPath);
+                            TryDeleteDirectory(
+                                Path.GetDirectoryName(
+                                    targetPath));
                         }
                     });
             };
@@ -450,9 +489,27 @@ public sealed class EnelTariffBrowserWindow : Window
         if (result.Imported == 1 &&
             result.Failed == 0)
         {
+            var receipt =
+                result.Receipts.SingleOrDefault();
+
             _statusText.Text =
                 $"Importado: {displayName}. " +
                 $"{result.NormalizedCandidates} candidato(s) tarifario(s) normalizado(s).";
+
+            if (receipt is not null)
+            {
+                _receiptText.Text =
+                    FormatReceipt(
+                        receipt);
+            }
+            else
+            {
+                _receiptText.Text =
+                    "CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO.\n" +
+                    $"Archivo: {displayName}\n" +
+                    $"Candidatos normalizados: {result.NormalizedCandidates}";
+            }
+
             TariffImported?.Invoke(
                 this,
                 EventArgs.Empty);
@@ -465,6 +522,9 @@ public sealed class EnelTariffBrowserWindow : Window
                     " | ",
                     result.Messages)
                 : "La descarga terminó, pero el PDF no pudo importarse.";
+        _receiptText.Text +=
+            "\nImportación: FALLÓ. " +
+            _statusText.Text;
     }
 
     private static bool IsOfficialEnelNavigation(
@@ -508,6 +568,32 @@ public sealed class EnelTariffBrowserWindow : Window
             "Tarifas Suministro Eléctrico",
             StringComparison.OrdinalIgnoreCase);
 
+    private static string FormatReceipt(
+        EnelTariffPdfImportReceipt receipt)
+    {
+        var outcome = receipt.Outcome switch
+        {
+            "NEW_PUBLICATION" =>
+                "nueva publicación importada",
+            "EXISTING_IDENTICAL_REIMPORT" =>
+                "existente · reimportación byte-idéntica",
+            "CAPTURED_EXISTING_DISCOVERY" =>
+                "publicación ya descubierta · captura completada",
+            "UPDATED_EXISTING_PUBLICATION" =>
+                "publicación existente · contenido actualizado",
+            _ => receipt.Outcome
+        };
+
+        return
+            "CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO.\n" +
+            $"Archivo oficial: {receipt.OfficialFileName}\n" +
+            $"Resultado: {outcome}\n" +
+            $"SHA-256: {receipt.Sha256}\n" +
+            $"Publicación ID: {receipt.PublicationId} · páginas: {receipt.PageCount} · " +
+            $"candidatos normalizados: {receipt.NormalizedCandidates}\n" +
+            $"Hora UTC: {receipt.CompletedUtc:yyyy-MM-dd HH:mm:ss}";
+    }
+
     private static void TryDelete(
         string path)
     {
@@ -520,6 +606,24 @@ public sealed class EnelTariffBrowserWindow : Window
         {
             // The canonical imported copy already lives under Data/Tariffs.
             // Temporary cleanup failure must not invalidate captured evidence.
+        }
+    }
+
+    private static void TryDeleteDirectory(
+        string? path)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(path) &&
+                Directory.Exists(path) &&
+                !Directory.EnumerateFileSystemEntries(path).Any())
+            {
+                Directory.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup only; provenance lives under Data/Tariffs.
         }
     }
 }

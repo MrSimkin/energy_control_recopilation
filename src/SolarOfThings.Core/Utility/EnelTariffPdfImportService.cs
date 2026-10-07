@@ -46,6 +46,7 @@ public sealed class EnelTariffPdfImportService
         var failed = 0;
         var normalizedCandidates = 0;
         var messages = new List<string>();
+        var receipts = new List<EnelTariffPdfImportReceipt>();
 
         for (var index = 0; index < files.Count; index++)
         {
@@ -163,6 +164,28 @@ public sealed class EnelTariffPdfImportService
                         publicationId,
                         pageTexts);
 
+                var outcome = existing is null
+                    ? "NEW_PUBLICATION"
+                    : string.Equals(
+                        existing.ContentSha256,
+                        sha,
+                        StringComparison.OrdinalIgnoreCase)
+                        ? "EXISTING_IDENTICAL_REIMPORT"
+                        : string.IsNullOrWhiteSpace(
+                            existing.ContentSha256)
+                            ? "CAPTURED_EXISTING_DISCOVERY"
+                            : "UPDATED_EXISTING_PUBLICATION";
+
+                receipts.Add(
+                    new EnelTariffPdfImportReceipt(
+                        title,
+                        publicationId,
+                        sha,
+                        pageTexts.Count,
+                        normalization.CandidateCount,
+                        outcome,
+                        DateTimeOffset.UtcNow));
+
                 normalizedCandidates +=
                     normalization.CandidateCount;
                 imported++;
@@ -183,7 +206,8 @@ public sealed class EnelTariffPdfImportService
             imported,
             failed,
             normalizedCandidates,
-            messages);
+            messages,
+            receipts);
     }
 
     private static string CanonicalOfficialTitle(
@@ -283,8 +307,18 @@ public sealed class EnelTariffPdfImportService
     }
 }
 
+public sealed record EnelTariffPdfImportReceipt(
+    string OfficialFileName,
+    long PublicationId,
+    string Sha256,
+    int PageCount,
+    int NormalizedCandidates,
+    string Outcome,
+    DateTimeOffset CompletedUtc);
+
 public sealed record EnelTariffPdfImportResult(
     int Imported,
     int Failed,
     int NormalizedCandidates,
-    IReadOnlyList<string> Messages);
+    IReadOnlyList<string> Messages,
+    IReadOnlyList<EnelTariffPdfImportReceipt> Receipts);
