@@ -2095,6 +2095,7 @@ public partial class MainWindow : Window
             }
 
             TariffCaptureResult? enelResult = null;
+            string? enelError = null;
             string enelStatus;
             try
             {
@@ -2111,8 +2112,9 @@ public partial class MainWindow : Window
                     enelResult.Discovered,
                     enelResult.NormalizedCandidates);
             }
-            catch
+            catch (Exception ex)
             {
+                enelError = ex.Message;
                 enelStatus = _localization.GetString(
                     "GridUtility.TariffEnelBlocked");
             }
@@ -2135,10 +2137,25 @@ public partial class MainWindow : Window
                      cneResult.Messages.Count > 0)
             {
                 TariffCaptureStatusText.Text +=
-                    " " +
+                    " CNE: " +
                     string.Join(
                         " | ",
                         cneResult.Messages.Take(3));
+            }
+
+            if (!string.IsNullOrWhiteSpace(enelError))
+            {
+                TariffCaptureStatusText.Text +=
+                    $" Enel: {enelError}";
+            }
+            else if (enelResult is not null &&
+                     enelResult.Messages.Count > 0)
+            {
+                TariffCaptureStatusText.Text +=
+                    " Enel: " +
+                    string.Join(
+                        " | ",
+                        enelResult.Messages.Take(4));
             }
 
             RefreshTariffPublications();
