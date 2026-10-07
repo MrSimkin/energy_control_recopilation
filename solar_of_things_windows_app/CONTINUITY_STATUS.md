@@ -4908,3 +4908,55 @@ After owner QA:
 
 Mandatory owner handoff rule remains active:
 every substantial cycle ends with repo consolidation + self-contained new-chat continuation prompt.
+
+
+## Build 575 supersedes Build 566 for tariff owner QA — 2026-10-06
+
+Build 575 is the canonical current owner-QA handoff for the tariff
+precedence/acquisition tranche.
+
+Why it supersedes Build 566:
+- it contains all schema14 / correction-graph / resilient-acquisition work;
+- it also contains the browser-assisted Enel fallback based on Edge WebView2;
+- the browser-assisted action is wired into the Tariffs UI and mutually
+  exclusive with other import/update operations;
+- Spanish/English guidance is updated.
+
+Build 575:
+- workflow run `37556413195`;
+- code HEAD `1bda3f73a647c9cc6b5d02f73cd5d968f19570fb`;
+- artifact `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID `11454832323`;
+- digest `sha256:fca91116ea603e786dee7aead5a1fab3c6107d66c5a273dcf85931cdcda26aa4`;
+- Build PASS;
+- SQLite smoke PASS;
+- portable publish/upload PASS.
+
+Browser-assisted semantics:
+- normal WebView2 browser session to the official Enel archive;
+- no unsupported anti-bot circumvention;
+- only official tariff-PDF-looking downloads are intercepted;
+- downloaded PDF is routed into existing controlled import/hash/normalization;
+- temporary browser file is removed after canonical import;
+- manual import remains fallback.
+
+Owner QA now:
+1. COPY accepted Build-538-era `Data\`;
+2. launch Build 575 (migration v13 -> v14 target gate);
+3. `Red eléctrica -> Tarifas oficiales`;
+4. year 2026;
+5. `Descargar / actualizar año`;
+6. screenshot full status + August CNE 368/380 version rows;
+7. report responsiveness;
+8. if automatic Enel succeeds: stop;
+9. if Enel automatic reports web protection:
+   - `Capturar Enel en navegador…`;
+   - navigate normally;
+   - download ONE known official September-2026 tariff PDF;
+   - app should auto-import/normalize;
+   - return browser/status screenshot;
+10. do not use manual PDF import during this QA unless requested later.
+
+Do NOT regenerate the accepted Build 538 bill audit/annex for this infrastructure QA.
+
+Canonical tranche report has been updated with Build 575 handoff.
