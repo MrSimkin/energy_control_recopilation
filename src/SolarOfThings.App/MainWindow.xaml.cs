@@ -2237,6 +2237,7 @@ public partial class MainWindow : Window
         }
 
         TariffCaptureButton.IsEnabled = false;
+        TariffBrowserEnelButton.IsEnabled = false;
         TariffImportEnelButton.IsEnabled = false;
         TariffYearSelector.IsEnabled = false;
         SetGlobalOperation(
@@ -2279,6 +2280,7 @@ public partial class MainWindow : Window
         finally
         {
             TariffCaptureButton.IsEnabled = true;
+            TariffBrowserEnelButton.IsEnabled = true;
             TariffImportEnelButton.IsEnabled = true;
             TariffYearSelector.IsEnabled = true;
             SetGlobalOperation(false, string.Empty);
