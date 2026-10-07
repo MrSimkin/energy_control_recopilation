@@ -238,6 +238,8 @@ public sealed class EnelTariffBrowserWindow : Window
                 .AreDefaultContextMenusEnabled = true;
             _browser.CoreWebView2.Settings
                 .AreDevToolsEnabled = false;
+            _browser.CoreWebView2.SaveAsUIShowing +=
+                CoreWebView2_SaveAsUIShowing;
             _browser.CoreWebView2.DownloadStarting +=
                 CoreWebView2_DownloadStarting;
             _browser.CoreWebView2.WebResourceResponseReceived +=
@@ -539,6 +541,59 @@ public sealed class EnelTariffBrowserWindow : Window
         bytes[2] == (byte)'D' &&
         bytes[3] == (byte)'F' &&
         bytes[4] == (byte)'-';
+
+    private void CoreWebView2_SaveAsUIShowing(
+        object? sender,
+        CoreWebView2SaveAsUIShowingEventArgs e)
+    {
+        if (!Uri.TryCreate(
+                _browser.Source?.AbsoluteUri,
+                UriKind.Absolute,
+                out var currentUri) ||
+            !IsOfficialTariffPdfUri(
+                currentUri))
+        {
+            return;
+        }
+
+        var fileName =
+            NormalizeBrowserDownloadFileName(
+                Uri.UnescapeDataString(
+                    Path.GetFileName(
+                        currentUri.AbsolutePath)));
+
+        if (!IsSupportedTariffPdf(
+                fileName))
+        {
+            return;
+        }
+
+        // The integrated PDF viewer invokes WebView2's Save As UI before
+        // DownloadStarting. DownloadStarting.Handled therefore arrives too
+        // late to suppress this native picker. Intercept SaveAsUIShowing
+        // first, silently choose app-controlled incoming storage, and let
+        // DownloadStarting remain the validated import/completion fallback.
+        Directory.CreateDirectory(
+            _paths.TariffEnelIncomingDirectory);
+
+        e.SuppressDefaultDialog = true;
+        e.AllowReplace = true;
+        e.Kind =
+            CoreWebView2SaveAsKind.Default;
+        e.SaveAsFilePath =
+            Path.Combine(
+                _paths.TariffEnelIncomingDirectory,
+                fileName);
+
+        _statusText.Text =
+            $"Guardar como interceptado para {fileName}; " +
+            "continuando en almacenamiento controlado por la app…";
+        _receiptText.Text =
+            "CoreWebView2.SaveAsUIShowing capturado.\n" +
+            $"Archivo oficial: {fileName}\n" +
+            $"Ruta controlada: {_paths.TariffEnelIncomingDirectory}\n" +
+            "Resultado: diálogo nativo suprimido; esperando DownloadStarting/importación.";
+    }
 
     private void CoreWebView2_DownloadStarting(
         object? sender,
