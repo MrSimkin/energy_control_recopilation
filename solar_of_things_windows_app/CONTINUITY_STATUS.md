@@ -5229,3 +5229,119 @@ Combined tranche direction:
 QA policy for this tranche:
 - batch both areas into the same owner QA where practical;
 - do not stop merely to validate cosmetic/UX-only progress if the next functional work can continue safely.
+
+
+## Build 583 — combined Enel acquisition UX + Phase 10 bill reconciliation candidate — 2026-10-07
+
+Owner batching decision has been implemented: this build combines the Enel browser-assisted
+UX refinement with substantive bill-reconciliation product work rather than spending a
+separate QA cycle on browser UX alone.
+
+Code HEAD:
+- `ac29e94fcc43bda80875b3e6c1a617f9c493f9bd`.
+
+Windows Build:
+- workflow run: `37566514802`;
+- run/build number: **583**;
+- Build: **PASS**;
+- SQLite smoke: **PASS**;
+- portable publish/upload: **PASS**;
+- live CNE/Enel HTTP probes intentionally skipped because this tranche does not alter the
+  already accepted live CNE correction graph or HTTP-protection classification.
+
+Artifact:
+- GitHub artifact name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11459340572`;
+- digest:
+  `sha256:c92e76d024b93e7a730adef06c261d1e7cdd9d8e45d48f1289620347b47e3392`;
+- user-facing handoff filename:
+  `SolarEnergyMonitor-Build-583-win-x64.zip`.
+
+### Enel browser-assisted acquisition changes
+
+- app-controlled staging now lives under:
+  `Data/Tariffs/Enel/_incoming`;
+- canonical PDFs remain under:
+  `Data/Tariffs/Enel/<year>/<official filename>.pdf`;
+- the validated Build-578 `DownloadStarting` import route remains as fallback;
+- WebView2 now also observes `WebResourceResponseReceived`;
+- when the integrated session receives an official tariff-PDF URI as a complete HTTP 200
+  PDF response, the app writes it to app-controlled incoming storage and imports it
+  automatically without requiring the PDF-viewer download click;
+- non-PDF/challenge HTML is rejected by PDF magic validation;
+- partial/range responses are not promoted by this automatic route; the already-validated
+  viewer-download fallback remains available;
+- no Imperva/Reese bypass is attempted.
+
+### Phase 10 product-facing bill reconciliation
+
+New service:
+`UtilityBillReconciliationSummaryService`.
+
+Normal product semantics deliberately remain separate from the frozen Build-538 provisional
+P5/P50/P95 research method:
+- uses directly observed inverter grid-import energy;
+- reports coverage;
+- does not fill telemetry gaps in the normal summary;
+- applies the supported official variable tariff model;
+- preserves all other actual bill charges/credits;
+- computes:
+  - actual bill total;
+  - billed Enel kWh;
+  - observed inverter kWh;
+  - Enel minus observed energy difference;
+  - supported variable official rate;
+  - estimated total using observed inverter energy;
+  - actual minus estimated amount;
+  - tariff publication periods and SHA provenance.
+
+The Audit tab now shows a visible five-card reconciliation summary above the line-level
+verification grid.
+
+Tariff scenario matching was also hardened:
+- explicit `category_key` classification now takes precedence over fallback description-text
+  matching when both are present.
+
+### CI smoke coverage
+
+A dedicated Phase-10 smoke fixture proves:
+- observed energy equals billed energy in the controlled fixture;
+- supported official electricity/transport components are recalculated;
+- non-variable charges are preserved;
+- estimated observed total reconstructs the actual total within tolerance;
+- amount difference is zero within tolerance;
+- coverage remains high.
+
+### Combined owner QA requested
+
+Use the same copied QA `Data\` used for the Build-578 tariff/browser validation.
+
+A. Bill reconciliation:
+1. launch Build 583;
+2. open `Red eléctrica -> Auditoría de boleta Enel`;
+3. select the accepted 28-08-2026 -> 28-09-2026 bill;
+4. return one screenshot containing the new reconciliation summary and the source/detail text.
+
+Expected approximate values from already accepted evidence:
+- actual bill: $26,854;
+- Enel energy: 97.000 kWh;
+- observed inverter: 88.065 kWh;
+- estimated according to observed energy: approximately $24,693;
+- actual minus observed estimate: approximately +$2,161;
+- coverage approximately 99.33%.
+
+These values are expected from the frozen accepted evidence, but QA should report the
+actual displayed values verbatim rather than force them.
+
+B. Enel browser-assisted automatic capture:
+1. open `Tarifas oficiales -> Capturar Enel en navegador…`;
+2. navigate to the same September-2026 official tariff PDF;
+3. after the PDF opens, **do not click the PDF viewer download icon initially**;
+4. inspect the receipt/status:
+   - if it shows
+     `CoreWebView2.WebResourceResponseReceived → EnelTariffPdfImportService: COMPLETADO`,
+     automatic no-viewer-click capture is PASS;
+   - if no automatic receipt appears, click the viewer download icon once and report the
+     resulting Build-578-style receipt; that confirms fallback remains intact.
+
+No migration/CNE/380-368/Imperva/bill-report regeneration QA is required.
