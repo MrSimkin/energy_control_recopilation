@@ -2064,6 +2064,101 @@ try
 
     // A printed small adjustment must be explicit evidence, never a
     // synthetic line inserted merely to force the bill to balance.
+    // Regression: an already-reviewed Build-632 style duplicate must
+    // collapse back to one canonical PDF-backed subsidy line.
+    var mergeBillId = utilityRepository.AddBill(
+        utilityFromUtc,
+        utilityToUtc,
+        97,
+        26854,
+        "PHASE10-PDF-MERGE",
+        "Anonymous PDF merge regression",
+        sourceKind: UtilityBillSourceKind.PdfReviewed,
+        reviewState: UtilityBillReviewState.Reviewed,
+        ivaRate: 0.19);
+
+    utilityRepository.AddBillLine(
+        mergeBillId,
+        "OTROS_CARGOS",
+        "Subsidio Electrico Ley 21677 (4/6)",
+        -3758,
+        categoryKey: "CUSTOM",
+        sortOrder: 10,
+        sourceKind: UtilityBillSourceKind.LegacyManual,
+        evidenceState: UtilityBillEvidenceState.LegacyUnreviewed);
+
+    utilityRepository.AddBillLine(
+        mergeBillId,
+        "OTROS_CARGOS",
+        "Subsidio Eléctrico Ley N° 21.667 (4/6)",
+        -3758,
+        categoryKey: UtilityBillLineCategory.Subsidy,
+        sortOrder: 20,
+        sourceKind: UtilityBillSourceKind.PdfReviewed,
+        evidenceState: UtilityBillEvidenceState.PdfExtractedConfirmed,
+        sourcePage: 2,
+        sourceText: "old duplicate");
+
+    var mergeDraft = new UtilityBillPdfDraft(
+        SourcePath: "anonymous-source.pdf",
+        StoredPath: "anonymous-stored.pdf",
+        OriginalFileName: "anonymous.pdf",
+        ContentSha256: "merge-smoke",
+        ContentLength: 1,
+        PageCount: 2,
+        ParserVersion: EnelUtilityBillPdfImportService.ParserVersion,
+        ExtractedText: string.Empty,
+        PeriodStart: new DateOnly(2026, 8, 28),
+        PeriodEndInclusive: new DateOnly(2026, 9, 28),
+        BilledConsumptionKwh: 97,
+        TaxableAmountClp: 20643,
+        IvaClp: 3922,
+        ExemptAmountClp: 83,
+        GrossBillAmountClp: 24648,
+        OtherChargesClp: 2206,
+        PreviousBalanceClp: 0,
+        MeterStartKwh: 79023,
+        MeterEndKwh: 79120,
+        TotalDueClp: 26854,
+        TariffPlan: "BT1-T5",
+        Lines:
+        [
+            new UtilityBillPdfDraftLine(
+                "OTROS_CARGOS",
+                UtilityBillLineCategory.Subsidy,
+                "Subsidio Eléctrico Ley N° 21.667 (4/6)",
+                -3758,
+                2,
+                "Subsidio Eléctrico Ley N° 21.667 (4/6) -3.758")
+        ],
+        Warnings: Array.Empty<string>());
+
+    var mergeResult =
+        new UtilityBillPdfReviewMergeService(
+            utilityRepository)
+        .Merge(
+            mergeBillId,
+            mergeDraft);
+
+    var mergedLines =
+        utilityRepository.GetBillLines(
+            mergeBillId);
+
+    if (mergeResult.RemovedDuplicates != 1 ||
+        mergedLines.Count != 1 ||
+        mergedLines[0].CategoryKey !=
+            UtilityBillLineCategory.Subsidy ||
+        mergedLines[0].SourceKind !=
+            UtilityBillSourceKind.PdfReviewed ||
+        mergedLines[0].EvidenceState !=
+            UtilityBillEvidenceState.PdfExtractedConfirmed ||
+        mergedLines[0].Description !=
+            "Subsidio Eléctrico Ley N° 21.667 (4/6)")
+    {
+        throw new InvalidOperationException(
+            "Phase 10 PDF review duplicate-line merge regression failed.");
+    }
+
     var balancedAdjustmentBillId = utilityRepository.AddBill(
         utilityFromUtc,
         utilityToUtc,
