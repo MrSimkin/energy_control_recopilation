@@ -5445,3 +5445,48 @@ Owner QA should verify:
    neighborhood (~$24.693 observed estimate, ~+$2.161 actual-minus-estimate);
 4. browser PDF open attempts automatic 200/206 capture before manual fallback;
 5. if fallback click is needed, report whether the native Save As dialog still appears.
+
+
+## Build 585 owner QA BLOCKED — UI unresponsive regression — 2026-10-07
+
+Owner attempted the Build-585 QA and could not complete it.
+
+Observed on the real target PC:
+- the application repeatedly enters Windows “(No responde)” after clicks/interactions;
+- this prevents meaningful validation of the shared Data path, corrected bill reconciliation,
+  and Enel browser-assisted behavior;
+- Build 585 is therefore **NOT ACCEPTED** and its QA is **BLOCKED**.
+
+Do not infer PASS from CI:
+- Build 585 CI/SQLite smoke/portable publication passed;
+- the target-PC responsiveness regression is material and overrides any assumption that the
+  build is suitable for owner QA.
+
+Next cycle must begin with:
+1. reproduce/inspect the Build-585 responsiveness regression from source;
+2. compare the Build-585 changes against the last responsive owner-tested build;
+3. identify whether work is running synchronously on the WPF UI thread or whether the new
+   shared-data initialization/path behavior is causing blocking I/O/DB work;
+4. in particular inspect the new product bill-summary path, because DATE_ONLY reconciliation
+   now invokes bill-gap analysis and may be triggered from UI refresh/selection handlers;
+5. also inspect any shared-Data startup/bootstrap work and WebView2 changes for synchronous
+   blocking;
+6. fix the regression without changing accepted Build-538 statistical/economic truth;
+7. produce a new build (586 or later);
+8. require Build PASS + SQLite smoke PASS + portable PASS;
+9. only then return to owner QA.
+
+Owner instruction for the next cycle:
+- review first;
+- rebuild only after the responsiveness defect is addressed;
+- then test again;
+- do not ask the owner to continue testing Build 585.
+
+Persistent QA Data target remains:
+`D:\SolarEnergyMonitorTest\Data`
+
+Build-585 source HEAD:
+`4eafed811851605b32588371c2b4988607d05600`
+
+Build-585 documentation checkpoint before this blocked-QA record:
+`785a7a61ef962955872198493f1d7b329d1e1aa2`
