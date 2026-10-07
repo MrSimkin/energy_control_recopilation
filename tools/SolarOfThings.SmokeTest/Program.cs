@@ -2187,6 +2187,135 @@ try
     }
 
 
+    // Phase 10 regression derived from the structure of a real Enel bill,
+    // with all customer-identifying data intentionally omitted.
+    // Printed summary:
+    // 20,643 + 3,922 + 83 = 24,648
+    // 24,648 + 2,206 + 0 = 26,854
+    // Printed detail lines sum to 26,857, so the detail has a small
+    // unexplained -3 CLP residual and must NOT receive a synthetic adjustment.
+    var printedStructureBillId = utilityRepository.AddBill(
+        new DateTimeOffset(
+            2026, 8, 28, 3, 0, 0,
+            TimeSpan.Zero),
+        new DateTimeOffset(
+            2026, 9, 28, 3, 0, 0,
+            TimeSpan.Zero),
+        97,
+        26854,
+        "ANON-PRINTED-STRUCTURE",
+        "Anonymous Phase 10 printed-bill structure regression",
+        meterStartKwh: 79023,
+        meterEndKwh: 79120,
+        tariffPlan: "BT1-T5",
+        taxableAmountClp: 20643,
+        ivaClp: 3922,
+        exemptAmountClp: 83,
+        grossBillAmountClp: 24648,
+        otherChargesClp: 2206,
+        totalDueClp: 26854,
+        periodPrecision: UtilityTimePrecision.DateOnly,
+        sourceKind: UtilityBillSourceKind.Manual,
+        reviewState: UtilityBillReviewState.Reviewed,
+        ivaRate: 0.19,
+        previousBalanceClp: 0);
+
+    utilityRepository.AddBillLine(
+        printedStructureBillId,
+        "SERVICIO_ELECTRICO",
+        "Administración del servicio",
+        727,
+        categoryKey: UtilityBillLineCategory.ServiceAdministration,
+        sortOrder: 10);
+    utilityRepository.AddBillLine(
+        printedStructureBillId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad Consumida (97kWh)",
+        21389,
+        categoryKey: UtilityBillLineCategory.ElectricityConsumed,
+        sortOrder: 20);
+    utilityRepository.AddBillLine(
+        printedStructureBillId,
+        "SERVICIO_ELECTRICO",
+        "Transporte de electricidad",
+        2072,
+        categoryKey: UtilityBillLineCategory.ElectricityTransport,
+        sortOrder: 30);
+    utilityRepository.AddBillLine(
+        printedStructureBillId,
+        "SERVICIO_ELECTRICO",
+        "Arriendo Medidor",
+        463,
+        categoryKey: UtilityBillLineCategory.MeterRental,
+        sortOrder: 40);
+    utilityRepository.AddBillLine(
+        printedStructureBillId,
+        "SERVICIO_ELECTRICO",
+        "Servicio Común",
+        5964,
+        categoryKey: UtilityBillLineCategory.CommonService,
+        sortOrder: 50);
+    utilityRepository.AddBillLine(
+        printedStructureBillId,
+        "OTROS_CARGOS",
+        "Subsidio Eléctrico (4/6)",
+        -3758,
+        categoryKey: UtilityBillLineCategory.Subsidy,
+        sortOrder: 60);
+
+    var printedStructureRecord =
+        utilityRepository.GetBills()
+            .Single(item =>
+                item.BillId ==
+                printedStructureBillId);
+
+    if (printedStructureRecord.MeterStartKwh != 79023 ||
+        printedStructureRecord.MeterEndKwh != 79120 ||
+        printedStructureRecord.BilledConsumptionKwh != 97 ||
+        printedStructureRecord.TaxableAmountClp != 20643 ||
+        printedStructureRecord.IvaClp != 3922 ||
+        printedStructureRecord.ExemptAmountClp != 83 ||
+        printedStructureRecord.GrossBillAmountClp != 24648 ||
+        printedStructureRecord.OtherChargesClp != 2206 ||
+        printedStructureRecord.PreviousBalanceClp != 0 ||
+        printedStructureRecord.TotalDueClp != 26854)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 printed bill summary persistence smoke test failed.");
+    }
+
+    var printedStructureAudit =
+        new UtilityBillAuditV2Service(
+            utilityRepository,
+            rateVerification,
+            new UtilityBillTariffScenarioAnalysisService(
+                utilityRepository,
+                tariffRepository,
+                candidateRepository,
+                versionResolver))
+        .Analyze(
+            printedStructureBillId,
+            "America/Santiago");
+
+    if (printedStructureAudit.TaxStatus != "IVA_MATCH_19" ||
+        printedStructureAudit.SummaryBalanceStatus !=
+            "SUMMARY_BALANCED" ||
+        printedStructureAudit.GrossBillDifferenceClp != 0 ||
+        printedStructureAudit.SummaryTotalDifferenceClp != 0 ||
+        printedStructureAudit.BalanceStatus !=
+            "SMALL_UNEXPLAINED_RESIDUAL" ||
+        !printedStructureAudit.UnexplainedResidualClp.HasValue ||
+        Math.Abs(
+            printedStructureAudit.UnexplainedResidualClp.Value + 3) >
+            0.001 ||
+        Math.Abs(
+            printedStructureAudit.SimpleAdjustmentClp) >
+            0.001)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 anonymous printed-bill quadrature regression failed.");
+    }
+
     var cneFebruaryId = tariffRepository.UpsertDiscovery(
         new TariffPublicationDiscovery(
             "CNE_CHILE",
