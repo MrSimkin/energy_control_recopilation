@@ -249,9 +249,52 @@ public sealed class UtilityBillAuditV2Service
                         ? "IVA_MATCH_19"
                         : "IVA_DIFFERENCE";
 
+        var expectedGross =
+            bill.TaxableAmountClp.HasValue &&
+            bill.IvaClp.HasValue &&
+            bill.ExemptAmountClp.HasValue
+                ? bill.TaxableAmountClp.Value +
+                  bill.IvaClp.Value +
+                  bill.ExemptAmountClp.Value
+                : (double?)null;
+        var grossDifference =
+            bill.GrossBillAmountClp.HasValue &&
+            expectedGross.HasValue
+                ? bill.GrossBillAmountClp.Value -
+                  expectedGross.Value
+                : (double?)null;
+
+        var expectedSummaryTotal =
+            bill.GrossBillAmountClp.HasValue &&
+            bill.OtherChargesClp.HasValue &&
+            bill.PreviousBalanceClp.HasValue
+                ? bill.GrossBillAmountClp.Value +
+                  bill.OtherChargesClp.Value +
+                  bill.PreviousBalanceClp.Value
+                : (double?)null;
+
         var totalDue =
             bill.TotalDueClp ??
             bill.AmountClp;
+        var summaryTotalDifference =
+            totalDue.HasValue &&
+            expectedSummaryTotal.HasValue
+                ? totalDue.Value -
+                  expectedSummaryTotal.Value
+                : (double?)null;
+
+        var summaryBalanceStatus =
+            grossDifference.HasValue &&
+            Math.Abs(grossDifference.Value) > 0.5
+                ? "SUMMARY_GROSS_DIFFERENCE"
+                : summaryTotalDifference.HasValue &&
+                  Math.Abs(summaryTotalDifference.Value) > 0.5
+                    ? "SUMMARY_TOTAL_DIFFERENCE"
+                    : grossDifference.HasValue &&
+                      summaryTotalDifference.HasValue
+                        ? "SUMMARY_BALANCED"
+                        : "SUMMARY_PARTIAL";
+
         var lineTotal =
             lines.Sum(item => item.AmountClp);
         var unexplainedResidual =
@@ -298,7 +341,14 @@ public sealed class UtilityBillAuditV2Service
             unexplainedResidual,
             balanceStatus,
             reconstructionCoverage,
-            audited);
+            audited)
+        {
+            ExpectedGrossBillClp = expectedGross,
+            GrossBillDifferenceClp = grossDifference,
+            ExpectedSummaryTotalClp = expectedSummaryTotal,
+            SummaryTotalDifferenceClp = summaryTotalDifference,
+            SummaryBalanceStatus = summaryBalanceStatus
+        };
     }
 }
 
@@ -318,7 +368,15 @@ public sealed record UtilityBillAuditV2(
     double? UnexplainedResidualClp,
     string BalanceStatus,
     double ReconstructionCoveragePercent,
-    IReadOnlyList<UtilityBillLineAuditV2> Lines);
+    IReadOnlyList<UtilityBillLineAuditV2> Lines)
+{
+    public double? ExpectedGrossBillClp { get; init; }
+    public double? GrossBillDifferenceClp { get; init; }
+    public double? ExpectedSummaryTotalClp { get; init; }
+    public double? SummaryTotalDifferenceClp { get; init; }
+    public string SummaryBalanceStatus { get; init; } =
+        "SUMMARY_PARTIAL";
+}
 
 public sealed record UtilityBillLineAuditV2(
     long BillLineId,
