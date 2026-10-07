@@ -5677,3 +5677,227 @@ Minimum owner QA for Build 589:
 
 Do not repeat Build-538 evidence, statistical recalibration, CNE, migration, precedence,
 Imperva classification, or SHA/provenance proof unless a new defect appears.
+
+
+## Build 612 — consolidated Phase-10 bill-ingestion/audit UX candidate — 2026-10-07
+
+Owner explicitly requested **batched QA rather than repeated mini-QA cycles** and asked that this
+tranche be the first deliberate UI/UX redesign of the bill workflow.
+
+Build 589 is therefore superseded as a QA handoff. Its fixes remain included:
+- DATE_ONLY observed reconciliation query bounded to the selected bill interval;
+- duplicate in-flight summary work deduplicated;
+- WebView2 `SaveAsUIShowing` interception for Enel PDF-viewer Save As;
+- app-controlled Enel incoming storage;
+- validated `DownloadStarting` import fallback retained;
+- no Imperva/Reese bypass.
+
+### Bill ingestion v2 / schema v15
+
+The bill path was rebuilt around one canonical bill model with **two first-class entry routes**:
+
+1. PDF-assisted entry/review;
+2. manual entry.
+
+Neither input route defines a weaker/different bill shape.
+
+Schema v15 adds:
+- `utility_bill_document`: preserved original PDF, local path, SHA-256, size, pages,
+  parser version, extracted text and import time;
+- `utility_bill_field_evidence`: per-field source/evidence state plus printed/normalized
+  representation and optional source-page/text;
+- bill-level source kind, source-document link, review state and IVA rate;
+- bill-line source kind, evidence state, source page and source text.
+
+Evidence semantics now distinguish:
+- MANUAL / user-entered;
+- PDF reviewed / PDF-extracted confirmed;
+- PDF review required;
+- derived;
+- not printed;
+- not provided;
+- legacy unreviewed.
+
+Legacy bills remain visible and are not silently promoted to reviewed.
+
+### PDF-assisted bill ingestion
+
+New `EnelUtilityBillPdfImportService`:
+- validates PDF magic;
+- preserves original PDF under app-controlled bill storage;
+- SHA-256 provenance;
+- text extraction without OCR;
+- conservative high-confidence prefill only;
+- review conflicts do not silently overwrite existing saved values;
+- PDF and manual review can update the **same bill record** rather than duplicating it;
+- canonical line categories include:
+  - electricity consumed;
+  - electricity transport;
+  - fixed monthly;
+  - subsidy/credit;
+  - service administration;
+  - meter rental;
+  - common service;
+  - IVA 19%;
+  - simple/rounding adjustment;
+- printed bill-line descriptions are preserved where extractable instead of replacing them
+  with generic normalized names;
+- amount sign detection uses the printed amount or explicit subsidy/discount/credit wording,
+  not arbitrary hyphens;
+- applying reviewed PDF lines saves them as confirmed evidence after the user commits the
+  review.
+
+A saved PDF-backed bill can now open its preserved original PDF directly from the UI.
+A manual/legacy bill can later be reviewed and linked to a PDF without creating a new bill.
+
+### Manual entry
+
+Manual entry remains a first-class workflow:
+- explicit `Nueva boleta manual` action;
+- uses the same canonical fields and lines as PDF-assisted entry;
+- optional blank canonical fields are recorded as `NOT_PROVIDED` rather than silently lacking
+  provenance;
+- save/cancel resets the editor including dates/times/precision to prevent accidental reuse
+  of a prior bill period;
+- after save, the bill remains selected so charge-line entry/review can continue immediately;
+- deleting a bill/line being edited clears the corresponding editor state.
+
+### IVA and end-of-bill adjustments
+
+Phase-10 product audit uses Chile standard IVA = **19%** when there is a sufficient taxable
+base.
+
+Simple adjustment policy:
+- a printed adjustment/rounding line is preserved explicitly as bill evidence;
+- the application never creates a fake adjustment merely to force a total to balance;
+- an unexplained residual of up to CLP 10 is classified as a small residual for review;
+- larger unexplained differences remain material.
+
+New deterministic smoke cases prove:
+1. taxable base 10,000 + IVA 1,900 + printed adjustment 2 = total 11,902 => BALANCED;
+2. same bill without the printed adjustment line => CLP 2
+   `SMALL_UNEXPLAINED_RESIDUAL`, with no synthetic adjustment.
+
+### Phase-10 line-by-line audit v2
+
+`UtilityBillAuditV2Service` now separates:
+- actual printed amount;
+- printed rate when present;
+- calculation quantity/basis;
+- official tariff reconstruction when supported;
+- amount difference;
+- actual-only/unmapped evidence;
+- IVA 19% reconstruction;
+- explicit printed adjustments;
+- reconstruction coverage;
+- bill balance/residual status.
+
+The official tariff bridge retains:
+- authoritative tariff-version precedence;
+- tariff changes within the bill interval;
+- local-day weighting across multiple effective tariff periods;
+- electricity + transport/public-service reconstruction where the captured official evidence
+  supports it;
+- fixed/other known component rate verification when printed quantity/rate provide sufficient
+  evidence;
+- no invented customer applicability.
+
+Accepted Build-538 statistical/economic research remains frozen; no P5/P50/P95 recalibration
+or HPVINV02 reopening occurred.
+
+### UI/UX redesign
+
+The Enel-bill tab was reorganized from one large technical `WrapPanel` into a guided workspace:
+
+1. **Start from PDF / first-class manual entry**;
+2. **Period, consumption and identity**;
+3. **Printed totals and taxes**;
+4. **PDF evidence review** when present;
+5. **Saved bills** with human-readable source/review labels;
+6. **Charges, credits and adjustments** editor.
+
+Additional UX changes:
+- clear hierarchy and helper copy;
+- PDF/manual paths visually distinct but converge to the same editor;
+- raw internal state codes are replaced in product UI with labels such as
+  `PDF + revisión`, `Ingresado manualmente`, `PDF confirmado · p.N`,
+  `Legacy · revisar`;
+- original PDF can be reopened from the saved-bill area;
+- audit table now includes **actual amount** alongside reconstructed amount/difference;
+- audit top-level cards explicitly surface:
+  - monetary reconstruction coverage;
+  - IVA 19% check;
+  - balance/adjustment status;
+- Spanish and English resource dictionaries remain key-aligned with no duplicate keys;
+- static check confirms all 46 bill/audit named controls referenced by code exist exactly once
+  in XAML.
+
+### Build 612
+
+Source commit:
+- `a263b5a0e403723461c07348e852613bd82cec17`.
+
+Workflow:
+- run `37675306167`;
+- run/build number **612**;
+- Build: **PASS**;
+- SQLite smoke: **PASS**, including:
+  - DATE_ONLY inclusive-end regression;
+  - schema v15 provenance/review;
+  - tariff-model bridge;
+  - IVA 19%;
+  - printed simple adjustment;
+  - explicit-adjustment balanced case;
+  - missing-adjustment small-residual case;
+- live Enel/CNE probes: skipped by workflow conditions, not failures;
+- portable publish: **PASS**;
+- portable marker: **PASS**;
+- artifact upload: **PASS**.
+
+Artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11507002349`;
+- digest:
+  `sha256:29e6b993c6966ecb88ef4abea1cb24f02abfb4057ecf81aadce45a55334ff6f4`;
+- user-facing filename:
+  `SolarEnergyMonitor-Build-612-win-x64.zip`.
+
+Build 612 is the current **consolidated QA candidate, not yet accepted**.
+
+### Consolidated owner QA scope
+
+Use the shared data directory; do not copy per-build Data.
+
+The QA should intentionally cover several pieces in one pass:
+
+1. launch/overall responsiveness and shared DB path;
+2. review the redesigned `Boletas Enel` UX;
+3. exercise manual entry workflow (no need to create junk data solely for cosmetic testing;
+   owner may review/update the existing bill);
+4. use the real September-2026 bill PDF when available to review the existing canonical bill
+   in place and compare extracted vs saved facts;
+5. confirm the canonical real bill still represents:
+   - printed period 28-08-2026 -> 28-09-2026;
+   - 97.000 kWh;
+   - total CLP 26,854;
+   - existing bill-line wording/amounts corrected against the PDF rather than assumed;
+6. confirm bill reconciliation is practically fast and retains approximately:
+   - observed inverter 88.065 kWh;
+   - coverage ~99.33%;
+   - accepted observed-estimate neighborhood unless richer reviewed bill evidence legitimately
+     changes a product-facing reconstruction, in which case record the actual basis/result;
+7. inspect line-by-line audit:
+   - actual amount;
+   - reconstructed amount where supported;
+   - difference;
+   - source/evidence;
+   - monetary reconstruction coverage;
+   - IVA card;
+   - balance/adjustment card;
+8. Enel browser-assisted tariff PDF:
+   - observe automatic capture first;
+   - if not, press Download once;
+   - Save-As fallback PASS requires no native folder picker and app-controlled import.
+
+Do not regenerate Build-538 evidence or reopen frozen CNE/380-368/migration/precedence/Imperva
+work unless a genuinely new defect appears.
