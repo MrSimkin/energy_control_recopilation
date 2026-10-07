@@ -195,6 +195,10 @@ public sealed class UtilityBillAuditReportService
             section,
             bill,
             spanish);
+        AddNonVariableChargeTreatment(
+            section,
+            bill,
+            spanish);
         AddHeading(
             section,
             L("Componentes variables reconstruidos", "Reconstructed variable components"),
@@ -1347,6 +1351,117 @@ public sealed class UtilityBillAuditReportService
                 spanish ? "Intervalo inválido" : "Invalid interval",
             _ => status
         };
+
+    private void AddNonVariableChargeTreatment(
+        Section section,
+        UtilityBillRecord bill,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        var rows = _repository
+            .GetBillLines(bill.BillId)
+            .Select(line =>
+            {
+                var normalized =
+                    (line.Description ?? string.Empty)
+                        .ToUpperInvariant();
+
+                if (normalized.Contains("ADMINISTR"))
+                {
+                    return new
+                    {
+                        Line = line,
+                        Class = L("FIJO", "FIXED"),
+                        Treatment = L(
+                            "Se preserva sin cambio entre escenarios.",
+                            "Preserved unchanged across scenarios.")
+                    };
+                }
+
+                if (normalized.Contains("ARRIENDO") &&
+                    normalized.Contains("MEDIDOR"))
+                {
+                    return new
+                    {
+                        Line = line,
+                        Class = L("FIJO", "FIXED"),
+                        Treatment = L(
+                            "Se preserva sin cambio entre escenarios.",
+                            "Preserved unchanged across scenarios.")
+                    };
+                }
+
+                if (normalized.Contains("SERVICIO COM") ||
+                    normalized.Contains("SERVICIO COMÚN"))
+                {
+                    return new
+                    {
+                        Line = line,
+                        Class = L(
+                            "PRESERVADO REAL",
+                            "PRESERVED ACTUAL"),
+                        Treatment = L(
+                            "No se recalcula desde el kWh individual discutido.",
+                            "Not recalculated from the disputed individual kWh.")
+                    };
+                }
+
+                if (normalized.Contains("SUBSIDIO"))
+                {
+                    return new
+                    {
+                        Line = line,
+                        Class = L(
+                            "CONDICIONAL / REGULADO",
+                            "CONDITIONAL / REGULATED"),
+                        Treatment = L(
+                            "Se conserva el crédito real de esta cuota; no se deriva del kWh contrafactual.",
+                            "The actual credit installment is preserved; it is not derived from counterfactual kWh.")
+                    };
+                }
+
+                return null;
+            })
+            .Where(item => item is not null)
+            .ToArray();
+
+        if (rows.Length == 0)
+            return;
+
+        AddHeading(
+            section,
+            L(
+                "Tratamiento de cargos no variables",
+                "Treatment of non-variable charges"),
+            11.5);
+
+        var table = section.AddTable();
+        table.Borders.Width = 0.25;
+        table.Format.Font.Size = 7.5;
+        table.AddColumn(Unit.FromCentimeter(4.6));
+        table.AddColumn(Unit.FromCentimeter(3.5));
+        table.AddColumn(Unit.FromCentimeter(6.2));
+        table.AddColumn(Unit.FromCentimeter(2.0));
+
+        var h = table.AddRow();
+        h.Format.Font.Bold = true;
+        h.Cells[0].AddParagraph(L("Concepto", "Concept"));
+        h.Cells[1].AddParagraph(L("Clasificación", "Classification"));
+        h.Cells[2].AddParagraph(L("Tratamiento", "Treatment"));
+        h.Cells[3].AddParagraph(L("Monto", "Amount"));
+
+        foreach (var item in rows)
+        {
+            var row = table.AddRow();
+            row.Cells[0].AddParagraph(item!.Line.Description);
+            row.Cells[1].AddParagraph(item.Class);
+            row.Cells[2].AddParagraph(item.Treatment);
+            row.Cells[3].AddParagraph(
+                MoneySigned(
+                    item.Line.AmountClp));
+        }
+    }
 
     private void AddActualBillLines(
         Section section,
