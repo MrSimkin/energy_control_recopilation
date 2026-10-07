@@ -223,10 +223,32 @@ public sealed class EnelTariffBrowserWindow : Window
             _browser.CoreWebView2.NavigationCompleted +=
                 (_, args) =>
                 {
-                    _statusText.Text =
-                        args.IsSuccess
-                            ? "Navegador listo. Descarga un PDF oficial de “Tarifas Suministro Eléctrico”."
-                            : $"La navegación terminó con {args.WebErrorStatus}. Puedes recargar o volver a la página de tarifas.";
+                    if (!args.IsSuccess)
+                    {
+                        _statusText.Text =
+                            $"La navegación terminó con {args.WebErrorStatus}. " +
+                            "Puedes recargar o volver a la página de tarifas.";
+                        return;
+                    }
+
+                    if (Uri.TryCreate(
+                            _browser.Source?.AbsoluteUri,
+                            UriKind.Absolute,
+                            out var currentUri) &&
+                        IsOfficialTariffPdfUri(
+                            currentUri))
+                    {
+                        _statusText.Text =
+                            "PDF oficial abierto dentro del navegador integrado. " +
+                            "Usa el icono Descargar del visor PDF; la app interceptará " +
+                            "esa descarga y la importará automáticamente.";
+                    }
+                    else
+                    {
+                        _statusText.Text =
+                            "Navegador listo. Descarga un PDF oficial de " +
+                            "“Tarifas Suministro Eléctrico”.";
+                    }
                 };
 
             NavigateToArchive();
