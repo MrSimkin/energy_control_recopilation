@@ -65,6 +65,10 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             lines,
             "ELECTRICITY_TRANSPORT",
             "TRANSPORTE");
+        var administration = FindComponent(
+            lines,
+            UtilityBillLineCategory.ServiceAdministration,
+            "ADMINISTRACION DEL SERVICIO");
 
         if (electricity is null)
         {
@@ -138,12 +142,30 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 components.Add(transportMatch);
         }
 
+        UtilityTariffComponentEvidence? administrationMatch = null;
+        if (administration is not null)
+        {
+            administrationMatch = MatchAdministration(
+                administration,
+                billedKwh.Value,
+                electricityMatch,
+                periods,
+                candidateCache);
+
+            if (administrationMatch is not null)
+                components.Add(administrationMatch);
+        }
+
         var supportedRate =
             components.Sum(item =>
                 item.RateClpPerKwh);
+        var supportedFixedAmount =
+            components.Sum(item =>
+                item.FixedAmountClp);
 
         var billedSupportedAmount =
-            billedKwh.Value * supportedRate;
+            billedKwh.Value * supportedRate +
+            supportedFixedAmount;
         var actualSupportedLines =
             components.Sum(item =>
                 item.ActualLineAmountClp);
@@ -154,11 +176,13 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 "ENEL_BILLED",
                 billedKwh.Value,
                 supportedRate,
+                supportedFixedAmount,
                 billedKwh.Value),
             Scenario(
                 "SOLAR_OBSERVED",
                 completion.ObservedKwh,
                 supportedRate,
+                supportedFixedAmount,
                 billedKwh.Value)
         };
 
@@ -169,6 +193,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     "SOLAR_LOWER",
                     completion.LowerKwh.Value,
                     supportedRate,
+                    supportedFixedAmount,
                     billedKwh.Value));
         }
 
@@ -179,6 +204,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     "SOLAR_CENTRAL",
                     completion.MedianKwh.Value,
                     supportedRate,
+                    supportedFixedAmount,
                     billedKwh.Value));
         }
 
@@ -189,6 +215,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     "SOLAR_UPPER",
                     completion.UpperKwh.Value,
                     supportedRate,
+                    supportedFixedAmount,
                     billedKwh.Value));
         }
 
@@ -213,8 +240,33 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     item.Weight))
             .ToArray();
 
+        var unresolved =
+            new List<string>();
+
+        if (transport is not null &&
+            transportMatch is null)
+        {
+            unresolved.Add(
+                "The transport line is not fully reconciled by the supported official component model.");
+        }
+
+        if (administration is not null &&
+            administrationMatch is null)
+        {
+            unresolved.Add(
+                billedKwh.Value > 350
+                    ? "Administration service was preserved as actual-only because the FET surcharge tier above 350 kWh is not yet normalized as a tariff candidate."
+                    : "Administration service was preserved as actual-only because a unique fixed-monthly + public-service reconstruction could not be established from the captured official candidates.");
+        }
+
+        if (periods.Count > 1)
+        {
+            unresolved.Add(
+                "The bill crosses multiple tariff-effective periods. Variable components are allocated by local calendar days; a fixed monthly component is reconstructed only when its consumer rate is unchanged across all selected periods.");
+        }
+
         var status =
-            transport is null || transportMatch is not null
+            unresolved.Count == 0
                 ? periods.Count > 1
                     ? "SUPPORTED_MULTI_PERIOD_COMPONENT_MODEL"
                     : "SUPPORTED_COMPONENT_MODEL"
@@ -223,12 +275,9 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     : "PARTIAL_COMPONENT_MODEL";
 
         var limitation =
-            transport is not null &&
-            transportMatch is null
-                ? "The transport line is not fully reconciled by the supported official component model."
-                : periods.Count > 1
-                    ? "The bill crosses multiple tariff-effective periods. Consumption is allocated by local calendar days and the same tariff identity is preserved across periods."
-                    : null;
+            unresolved.Count == 0
+                ? null
+                : string.Join(" ", unresolved);
 
         return new UtilityBillTariffScenarioAnalysis(
             true,
@@ -250,7 +299,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             electricityMatch.Column,
             limitation)
         {
-            PublicationPeriods = periodEvidence
+            PublicationPeriods = periodEvidence,
+            SupportedFixedAmountClp = supportedFixedAmount
         };
     }
 
@@ -380,10 +430,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
     {
         var first = periods[0];
-        var firstCandidates = candidateCache[
-            first.Publication.PublicationId];
-
-        var transportSeeds = firstCandidates
+        var seeds = candidateCache[
+                first.Publication.PublicationId]
             .Where(item =>
                 item.TariffPlan.Equals(
                     "BT1",
@@ -394,63 +442,25 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     electricity.CandidateIndex)
             .ToArray();
 
-        if (transportSeeds.Length == 0)
-            return null;
-
-        var publicServiceSeeds = firstCandidates
-            .Where(item =>
-                item.TariffPlan.Equals(
-                    "BT1",
-                    StringComparison.OrdinalIgnoreCase) &&
-                item.ComponentKey ==
-                    "PUBLIC_SERVICE" &&
-                item.CandidateIndex ==
-                    electricity.CandidateIndex)
-            .ToArray();
-
         var attempts =
-            new List<WeightedCompositeAttempt>();
+            new List<WeightedRateAttempt>();
 
-        foreach (var transportSeed in transportSeeds)
+        foreach (var seed in seeds)
         {
-            foreach (var transportRate in
-                     RateValues(transportSeed))
+            foreach (var rate in RateValues(seed))
             {
-                var transportOnly =
-                    BuildWeightedCompositeAttempt(
-                        transportSeed,
-                        transportRate.Column,
-                        null,
-                        null,
+                var attempt =
+                    BuildWeightedRateAttempt(
+                        seed,
+                        "ELECTRICITY_TRANSPORT",
+                        rate.Column,
                         periods,
                         candidateCache,
                         billedKwh,
                         line.AmountClp);
 
-                if (transportOnly is not null)
-                    attempts.Add(transportOnly);
-
-                foreach (var serviceSeed in
-                         publicServiceSeeds)
-                {
-                    foreach (var serviceRate in
-                             ConsumerRateValues(serviceSeed))
-                    {
-                        var composite =
-                            BuildWeightedCompositeAttempt(
-                                transportSeed,
-                                transportRate.Column,
-                                serviceSeed,
-                                serviceRate.Column,
-                                periods,
-                                candidateCache,
-                                billedKwh,
-                                line.AmountClp);
-
-                        if (composite is not null)
-                            attempts.Add(composite);
-                    }
-                }
+                if (attempt is not null)
+                    attempts.Add(attempt);
             }
         }
 
@@ -469,20 +479,17 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         }
 
         var description =
-            best.PublicServiceCandidate is null
-                ? best.TransportCandidate.PrintedDescription
-                : $"{best.TransportCandidate.PrintedDescription} + " +
-                  $"{best.PublicServiceCandidate.PrintedDescription}";
+            best.RepresentativeCandidate.PrintedDescription;
 
         if (periods.Count > 1)
+        {
             description +=
                 $" · day-weighted across {periods.Count} official tariff periods";
+        }
 
         return new UtilityTariffComponentEvidence(
             line.Description,
-            best.PublicServiceCandidate is null
-                ? "ELECTRICITY_TRANSPORT"
-                : "ELECTRICITY_TRANSPORT_PLUS_PUBLIC_SERVICE",
+            "ELECTRICITY_TRANSPORT",
             best.RateClpPerKwh,
             billedKwh,
             line.AmountClp,
@@ -498,12 +505,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             electricity.CandidateIndex,
             best.Column,
             periods.Count > 1
-                ? best.PublicServiceCandidate is null
-                    ? "BILL_AMOUNT_RECONCILED_MULTI_PERIOD"
-                    : "BILL_AMOUNT_RECONCILED_MULTI_PERIOD_COMPOSITE"
-                : best.PublicServiceCandidate is null
-                    ? "BILL_AMOUNT_RECONCILED"
-                    : "BILL_AMOUNT_RECONCILED_COMPOSITE",
+                ? "BILL_AMOUNT_RECONCILED_MULTI_PERIOD"
+                : "BILL_AMOUNT_RECONCILED",
             description)
         {
             PublicationIds = periods
@@ -515,6 +518,153 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 BuildRateBasis(
                     periods,
                     best.PeriodRates)
+        };
+    }
+
+    private UtilityTariffComponentEvidence? MatchAdministration(
+        UtilityBillLine line,
+        double billedKwh,
+        UtilityTariffComponentEvidence electricity,
+        IReadOnlyList<PublicationPeriod> periods,
+        IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
+    {
+        // Current Enel BT1 publications explicitly state that the FET tier has
+        // no surcharge at <= 350 kWh. Above that threshold, preserve the real
+        // billed line until FET tiers are normalized publication-by-publication.
+        if (billedKwh > 350.0)
+            return null;
+
+        var first = periods[0];
+        var firstCandidates = candidateCache[
+            first.Publication.PublicationId];
+
+        var fixedSeeds = firstCandidates
+            .Where(item =>
+                item.TariffPlan.Equals(
+                    "BT1",
+                    StringComparison.OrdinalIgnoreCase) &&
+                item.ComponentKey ==
+                    "FIXED_MONTHLY" &&
+                item.CandidateIndex ==
+                    electricity.CandidateIndex)
+            .ToArray();
+
+        var serviceSeeds = firstCandidates
+            .Where(item =>
+                item.TariffPlan.Equals(
+                    "BT1",
+                    StringComparison.OrdinalIgnoreCase) &&
+                item.ComponentKey ==
+                    "PUBLIC_SERVICE" &&
+                item.CandidateIndex ==
+                    electricity.CandidateIndex)
+            .ToArray();
+
+        if (fixedSeeds.Length == 0 ||
+            serviceSeeds.Length == 0)
+        {
+            return null;
+        }
+
+        var attempts =
+            new List<WeightedAdministrationAttempt>();
+
+        foreach (var fixedSeed in fixedSeeds)
+        {
+            foreach (var fixedRate in
+                     ConsumerRateValues(fixedSeed))
+            {
+                foreach (var serviceSeed in serviceSeeds)
+                {
+                    foreach (var serviceRate in
+                             ConsumerRateValues(serviceSeed))
+                    {
+                        var attempt =
+                            BuildWeightedAdministrationAttempt(
+                                fixedSeed,
+                                fixedRate.Column,
+                                serviceSeed,
+                                serviceRate.Column,
+                                periods,
+                                candidateCache,
+                                billedKwh,
+                                line.AmountClp);
+
+                        if (attempt is not null)
+                            attempts.Add(attempt);
+                    }
+                }
+            }
+        }
+
+        if (attempts.Count == 0)
+            return null;
+
+        var ordered = attempts
+            .OrderBy(item =>
+                item.AbsoluteDifferenceClp)
+            .ToArray();
+        var best = ordered[0];
+
+        if (best.AbsoluteDifferenceClp >
+            BillReconciliationToleranceClp)
+        {
+            return null;
+        }
+
+        var acceptable = ordered
+            .Where(item =>
+                item.AbsoluteDifferenceClp <=
+                    BillReconciliationToleranceClp)
+            .Select(item =>
+                $"{item.FixedColumn}|{item.ServiceColumn}|" +
+                $"{item.FixedAmountClp:0.######}|" +
+                $"{item.VariableRateClpPerKwh:0.######}")
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+
+        var status =
+            periods.Count > 1
+                ? acceptable > 1
+                    ? "BILL_AMOUNT_RECONCILED_MULTI_PERIOD_APPLICABILITY_AMBIGUOUS"
+                    : "BILL_AMOUNT_RECONCILED_MULTI_PERIOD"
+                : acceptable > 1
+                    ? "BILL_AMOUNT_RECONCILED_RATE_APPLICABILITY_AMBIGUOUS"
+                    : "BILL_AMOUNT_RECONCILED";
+
+        return new UtilityTariffComponentEvidence(
+            line.Description,
+            UtilityBillLineCategory.ServiceAdministration,
+            best.VariableRateClpPerKwh,
+            billedKwh,
+            line.AmountClp,
+            best.ReconstructedAmountClp,
+            line.AmountClp -
+                best.ReconstructedAmountClp,
+            best.RepresentativePublication.PublicationId,
+            best.RepresentativePublication.EffectiveFrom,
+            best.RepresentativePublication.IsRetroactive,
+            best.RepresentativePublication.Title,
+            electricity.NetworkType,
+            electricity.EtrBand,
+            electricity.CandidateIndex,
+            $"{best.FixedColumn}+{best.ServiceColumn}",
+            status,
+            "Administración del servicio = cargo fijo mensual + cargo por servicio público; FET = 0 para consumo <= 350 kWh")
+        {
+            PublicationIds = periods
+                .Select(item =>
+                    item.Publication.PublicationId)
+                .Distinct()
+                .ToArray(),
+            FixedAmountClp =
+                best.FixedAmountClp,
+            RateBasis =
+                best.RateBasis,
+            CalculationBasis =
+                $"{best.FixedAmountClp:0.###} CLP fijo + " +
+                $"{billedKwh:0.###} kWh × " +
+                $"{best.VariableRateClpPerKwh:0.######} CLP/kWh; FET 0"
         };
     }
 
@@ -573,6 +723,101 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             representative!,
             representativePublication!,
             periodRates.ToArray());
+    }
+
+    private WeightedAdministrationAttempt?
+        BuildWeightedAdministrationAttempt(
+            TariffRateCandidate fixedSeed,
+            string fixedColumn,
+            TariffRateCandidate serviceSeed,
+            string serviceColumn,
+            IReadOnlyList<PublicationPeriod> periods,
+            IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache,
+            double billedKwh,
+            double actualAmountClp)
+    {
+        var fixedRates =
+            new List<double>(periods.Count);
+        var serviceRates =
+            new List<double>(periods.Count);
+        TariffPublication? representativePublication = null;
+
+        foreach (var period in periods)
+        {
+            var fixedCandidate =
+                FindSameCandidate(
+                    period.Publication.PublicationId,
+                    "FIXED_MONTHLY",
+                    fixedSeed,
+                    candidateCache);
+            var serviceCandidate =
+                FindSameCandidate(
+                    period.Publication.PublicationId,
+                    "PUBLIC_SERVICE",
+                    serviceSeed,
+                    candidateCache);
+
+            if (fixedCandidate is null ||
+                serviceCandidate is null ||
+                !TryRate(
+                    fixedCandidate,
+                    fixedColumn,
+                    out var fixedRate,
+                    allowZeroIva: true) ||
+                !TryRate(
+                    serviceCandidate,
+                    serviceColumn,
+                    out var serviceRate,
+                    allowZeroIva: true))
+            {
+                return null;
+            }
+
+            fixedRates.Add(fixedRate);
+            serviceRates.Add(serviceRate);
+            representativePublication =
+                period.Publication;
+        }
+
+        // A fixed monthly charge is applied once per bill, not multiplied by
+        // consumption. For a bill crossing tariff periods we reconstruct it
+        // only when the consumer fixed rate itself did not change; otherwise
+        // the precise fixed-charge transition rule is left indeterminate.
+        var firstFixed =
+            fixedRates[0];
+        if (fixedRates.Any(item =>
+                Math.Abs(item - firstFixed) >
+                0.000001))
+        {
+            return null;
+        }
+
+        var weightedServiceRate =
+            WeightedRate(
+                periods,
+                serviceRates);
+        var reconstructed =
+            firstFixed +
+            billedKwh *
+            weightedServiceRate;
+
+        var serviceBasis =
+            BuildRateBasis(
+                periods,
+                serviceRates);
+
+        return new WeightedAdministrationAttempt(
+            firstFixed,
+            weightedServiceRate,
+            fixedColumn,
+            serviceColumn,
+            reconstructed,
+            Math.Abs(
+                actualAmountClp -
+                reconstructed),
+            representativePublication!,
+            $"Cargo fijo mensual: {firstFixed:0.###} CLP una vez; " +
+            $"servicio público: {serviceBasis}; FET: 0 CLP/kWh (<=350 kWh)");
     }
 
     private WeightedCompositeAttempt?
@@ -997,6 +1242,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         string key,
         double kwh,
         double supportedRate,
+        double supportedFixedAmount,
         double billedKwh)
     {
         var difference = kwh - billedKwh;
@@ -1009,7 +1255,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                   billedKwh *
                   100.0
                 : (double?)null,
-            kwh * supportedRate);
+            kwh * supportedRate +
+            supportedFixedAmount);
     }
 
     private static IEnumerable<(string Column, double Rate)>
@@ -1270,6 +1517,16 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         TariffPublication RepresentativePublication,
         IReadOnlyList<double> PeriodRates);
 
+    private sealed record WeightedAdministrationAttempt(
+        double FixedAmountClp,
+        double VariableRateClpPerKwh,
+        string FixedColumn,
+        string ServiceColumn,
+        double ReconstructedAmountClp,
+        double AbsoluteDifferenceClp,
+        TariffPublication RepresentativePublication,
+        string RateBasis);
+
     private sealed record WeightedCompositeAttempt(
         double RateClpPerKwh,
         string Column,
@@ -1303,6 +1560,8 @@ public sealed record UtilityTariffComponentEvidence(
     public IReadOnlyList<long> PublicationIds { get; init; } =
         [];
     public string? RateBasis { get; init; }
+    public double FixedAmountClp { get; init; }
+    public string? CalculationBasis { get; init; }
 }
 
 public sealed record UtilityTariffScenario(
@@ -1346,6 +1605,7 @@ public sealed record UtilityBillTariffScenarioAnalysis(
 {
     public IReadOnlyList<UtilityTariffPublicationPeriodEvidence>
         PublicationPeriods { get; init; } = [];
+    public double? SupportedFixedAmountClp { get; init; }
 
     public static UtilityBillTariffScenarioAnalysis Unavailable(
         string status) =>
