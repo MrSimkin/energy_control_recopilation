@@ -30,7 +30,7 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 13)
+        SqliteDatabase.CurrentSchemaVersion != 14)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
@@ -1166,6 +1166,74 @@ try
     {
         throw new InvalidOperationException(
             "Phase 9 retroactive tariff version resolution smoke test failed.");
+    }
+
+    var cneOriginalId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "CNE_CHILE",
+                "VAD_INDEX",
+                "Resolución Exenta CNE N° 368 · índices VAD 2026-08",
+                "https://www.cne.cl/smoke/rex-368-2026.pdf",
+                new DateOnly(2026, 8, 1),
+                false,
+                "REX-368-2026",
+                new DateOnly(2026, 7, 17),
+                null,
+                "SMOKE"));
+
+    var cneCorrectionId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "CNE_CHILE",
+                "VAD_INDEX",
+                "Resolución Exenta CNE N° 380 · índices VAD 2026-08 · rectificación",
+                "https://www.cne.cl/smoke/rex-380-2026.pdf",
+                new DateOnly(2026, 8, 1),
+                true,
+                "REX-380-2026",
+                new DateOnly(2026, 7, 24),
+                "REX-368-2026",
+                "SMOKE"));
+
+    tariffRepository.UpsertRelation(
+        new TariffPublicationRelationUpsert(
+            cneCorrectionId,
+            "CORRECTS",
+            "CNE_CHILE",
+            "VAD_INDEX",
+            "REX-368-2026",
+            "https://www.cne.cl/smoke/rex-380-2026.pdf",
+            "REX-380-2026 CORRECTS REX-368-2026"));
+    tariffRepository.ResolveRelationTargets();
+
+    var cnePublications = tariffRepository
+        .GetAll()
+        .Where(item =>
+            item.Provider == "CNE_CHILE" &&
+            item.Category == "VAD_INDEX" &&
+            item.EffectiveFrom ==
+                new DateOnly(2026, 8, 1) &&
+            item.OfficialDocumentNumber is
+                "REX-368-2026" or "REX-380-2026")
+        .ToArray();
+
+    var cneVersionResolutions =
+        versionResolver.Resolve(
+            cnePublications,
+            tariffRepository.GetRelations());
+
+    if (!cneVersionResolutions.Any(item =>
+            item.PublicationId == cneCorrectionId &&
+            item.Status ==
+                "VERSION_PREFERRED_OFFICIAL_CORRECTION") ||
+        !cneVersionResolutions.Any(item =>
+            item.PublicationId == cneOriginalId &&
+            item.Status ==
+                "VERSION_SUPERSEDED_BY_OFFICIAL_CORRECTION"))
+    {
+        throw new InvalidOperationException(
+            "Official tariff correction-graph resolution smoke test failed.");
     }
 
     var tariffPublicationId = tariffPublicationIds[0];
