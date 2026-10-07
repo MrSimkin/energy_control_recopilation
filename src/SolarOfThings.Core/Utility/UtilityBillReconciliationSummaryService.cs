@@ -63,18 +63,18 @@ public sealed class UtilityBillReconciliationSummaryService
                     timeZoneId);
 
             var observed =
-                _billGapCompletion.Analyze(
+                _billGapCompletion.AnalyzeObservedOnly(
                     deviceId,
                     startLocalDate,
                     endLocalDateInclusive,
                     timeZoneId);
 
             observedKwh =
-                observed.Completion.ObservedKwh;
+                observed.ObservedKwh;
             coveragePercent =
-                observed.Completion.CoveragePercent;
+                observed.CoveragePercent;
             uncoveredHours =
-                observed.Completion.MissingHours;
+                observed.MissingHours;
         }
         else
         {

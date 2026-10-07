@@ -26,6 +26,8 @@ public sealed class UtilityBillGapStatisticalCompletionService
 {
     public const string MethodVersion =
         "bill-gap-calendar-window-empirical.v1";
+    public const string ObservedOnlyMethodVersion =
+        "bill-gap-observed-interval.v1";
 
     private const int DayCount = 15;
     private const int MinimumDays = 10;
@@ -39,6 +41,91 @@ public sealed class UtilityBillGapStatisticalCompletionService
         SqliteDatabase database)
     {
         _database = database;
+    }
+
+    public UtilityGridImportStatisticalCompletion AnalyzeObservedOnly(
+        string deviceId,
+        DateOnly startLocalDate,
+        DateOnly endLocalDateInclusive,
+        string timeZoneId)
+    {
+        if (endLocalDateInclusive < startLocalDate)
+        {
+            (startLocalDate, endLocalDateInclusive) =
+                (endLocalDateInclusive, startLocalDate);
+        }
+
+        var all = LoadAllSamples(deviceId);
+        if (all.Count < 2)
+        {
+            return new UtilityGridImportStatisticalCompletion(
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                0,
+                0,
+                all.Count,
+                0,
+                ObservedOnlyMethodVersion,
+                "INSUFFICIENT_GRID_HISTORY",
+                0.05,
+                0.95);
+        }
+
+        var medianCadenceMinutes =
+            MedianPositiveGapMinutes(all);
+        var threshold =
+            Math.Min(
+                20.0,
+                Math.Max(
+                    10.0,
+                    medianCadenceMinutes * 3.0));
+        var startUtc =
+            LocalInstant(
+                startLocalDate,
+                TimeOnly.MinValue,
+                timeZoneId);
+        var endUtcExclusive =
+            LocalInstant(
+                endLocalDateInclusive.AddDays(1),
+                TimeOnly.MinValue,
+                timeZoneId);
+
+        var interval =
+            BuildIntervalTruth(
+                all,
+                startUtc,
+                endUtcExclusive,
+                threshold);
+
+        var denominator =
+            interval.CoveredHours +
+            interval.UncoveredHours;
+        var coveragePercent =
+            denominator > 0
+                ? interval.CoveredHours /
+                  denominator *
+                  100.0
+                : 0;
+
+        return new UtilityGridImportStatisticalCompletion(
+            interval.ObservedKwh,
+            null,
+            null,
+            null,
+            null,
+            null,
+            coveragePercent,
+            interval.UncoveredHours,
+            interval.Samples.Count,
+            0,
+            ObservedOnlyMethodVersion,
+            "OBSERVED_ONLY",
+            0.05,
+            0.95);
     }
 
     public UtilityBillGapStatisticalAnalysis Analyze(

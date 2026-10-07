@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private DateTimeOffset _dashboardLiveCycleStartedUtc = DateTimeOffset.UtcNow;
     private CancellationTokenSource? _syncCancellation;
     private bool _currentStateRefreshInProgress;
+    private int _utilityAuditRefreshGeneration;
     private bool _dashboardVisible;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
@@ -2252,11 +2253,13 @@ public partial class MainWindow : Window
                 message =>
                     TariffCaptureStatusText.Text = message);
 
-            var result = await _services
-                .GetRequiredService<EnelTariffPdfImportService>()
-                .ImportAsync(
-                    dialog.FileNames,
-                    progress);
+            var importService = _services
+                .GetRequiredService<EnelTariffPdfImportService>();
+            var files = dialog.FileNames.ToArray();
+            var result = await Task.Run(
+                () => importService.ImportAsync(
+                    files,
+                    progress));
 
             TariffCaptureStatusText.Text = string.Format(
                 _localization.GetString(
@@ -2783,7 +2786,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RefreshUtilityAuditPreview()
+    private async void RefreshUtilityAuditPreview()
     {
         if (UtilityAuditVerificationGrid is null ||
             UtilityAuditStatusText is null)
@@ -2811,6 +2814,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        var refreshGeneration =
+            ++_utilityAuditRefreshGeneration;
+
         try
         {
             var timeZone = string.IsNullOrWhiteSpace(
@@ -2818,10 +2824,27 @@ public partial class MainWindow : Window
                 ? "America/Santiago"
                 : profile.StationTimeZone;
 
-            RefreshUtilityBillSummary(
+            UtilityAuditStatusText.Text =
+                _localization.CurrentLanguage.StartsWith(
+                    "es",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "Calculando conciliación observada…"
+                    : "Calculating observed reconciliation…";
+
+            await RefreshUtilityBillSummaryAsync(
                 profile.DeviceId,
                 billId,
-                timeZone);
+                timeZone,
+                refreshGeneration);
+
+            if (refreshGeneration !=
+                    _utilityAuditRefreshGeneration ||
+                UtilityAuditBillSelector.SelectedValue is not long
+                    selectedBillId ||
+                selectedBillId != billId)
+            {
+                return;
+            }
 
             var repository =
                 _services.GetRequiredService<UtilityMeterRepository>();
@@ -2901,23 +2924,34 @@ public partial class MainWindow : Window
         UtilityBillSummarySourceText.Text = string.Empty;
     }
 
-    private void RefreshUtilityBillSummary(
+    private async Task RefreshUtilityBillSummaryAsync(
         string deviceId,
         long billId,
-        string timeZoneId)
+        string timeZoneId,
+        int refreshGeneration)
     {
         if (UtilityBillSummaryActualTotalText is null)
             return;
 
         try
         {
-            var summary = _services
+            var summaryService = _services
                 .GetRequiredService<
-                    UtilityBillReconciliationSummaryService>()
-                .Analyze(
+                    UtilityBillReconciliationSummaryService>();
+            var summary = await Task.Run(
+                () => summaryService.Analyze(
                     deviceId,
                     billId,
-                    timeZoneId);
+                    timeZoneId));
+
+            if (refreshGeneration !=
+                    _utilityAuditRefreshGeneration ||
+                UtilityAuditBillSelector.SelectedValue is not long
+                    selectedBillId ||
+                selectedBillId != billId)
+            {
+                return;
+            }
 
             UtilityBillSummaryActualTotalText.Text =
                 summary.ActualBillTotalClp.HasValue
@@ -3004,6 +3038,12 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            if (refreshGeneration !=
+                _utilityAuditRefreshGeneration)
+            {
+                return;
+            }
+
             ClearUtilityBillSummary();
             UtilityBillSummaryDetailText.Text =
                 ex.Message;

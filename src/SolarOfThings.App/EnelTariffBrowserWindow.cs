@@ -675,9 +675,10 @@ public sealed class EnelTariffBrowserWindow : Window
                         message);
 
         var result =
-            await _importService.ImportAsync(
-                [path],
-                progress);
+            await Task.Run(
+                () => _importService.ImportAsync(
+                    [path],
+                    progress));
 
         if (result.Imported == 1 &&
             result.Failed == 0)
