@@ -1459,7 +1459,9 @@
                                                            Foreground="#6C757D"
                                                            Margin="0,0,0,16"
                                                            TextWrapping="Wrap"/>
-                        <TabControl Style="{StaticResource PageTabControlStyle}">
+                        <TabControl x:Name="GridUtilityTabControl"
+                                    Style="{StaticResource PageTabControlStyle}"
+                                    SelectionChanged="GridUtilityTabControl_SelectionChanged">
                         <TabItem Header="{DynamicResource GridUtility.Tab.Overview}"
                                  Style="{StaticResource PageTabItemStyle}">
                             <StackPanel Margin="0,16,0,0">
@@ -1990,7 +1992,7 @@
                                 </Border>
                             </StackPanel>
                         </TabItem>
-                        <TabItem Header="{DynamicResource GridUtility.Tab.Audit}"
+                        <TabItem x:Name="UtilityAuditTab" Header="{DynamicResource GridUtility.Tab.Audit}"
                                  Style="{StaticResource PageTabItemStyle}">
                             <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
                                 <StackPanel>
