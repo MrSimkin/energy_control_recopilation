@@ -1122,17 +1122,69 @@ try
                 $"correction={item.IsRetroactive}; {item.Title}; {item.SourceUrl}");
         }
 
+        var liveCnePublications =
+            liveCneRepository
+                .GetAll()
+                .Where(item =>
+                    item.Provider == "CNE_CHILE" &&
+                    item.Category == "VAD_INDEX")
+                .ToArray();
+        var liveCneRelations =
+            liveCneRepository.GetRelations();
+
+        var live380 =
+            liveCnePublications.SingleOrDefault(item =>
+                string.Equals(
+                    item.OfficialDocumentNumber,
+                    "REX-380-2026",
+                    StringComparison.OrdinalIgnoreCase));
+        var live368 =
+            liveCnePublications.SingleOrDefault(item =>
+                string.Equals(
+                    item.OfficialDocumentNumber,
+                    "REX-368-2026",
+                    StringComparison.OrdinalIgnoreCase));
+
+        var liveAugustResolution =
+            new TariffPublicationVersionResolver()
+                .Resolve(
+                    liveCnePublications
+                        .Where(item =>
+                            item.EffectiveFrom ==
+                            new DateOnly(2026, 8, 1))
+                        .ToArray(),
+                    liveCneRelations);
+
         if (liveCneResult.CapturedVadIndexDocuments < 10 ||
             liveCneResult.Corrections < 1 ||
-            !liveCneRepository.GetAll().Any(item =>
-                item.Provider == "CNE_CHILE" &&
-                item.Category == "VAD_INDEX" &&
-                item.IsRetroactive &&
-                item.EffectiveFrom == new DateOnly(2026, 8, 1) &&
-                item.CaptureStatus == "CAPTURED"))
+            live380 is null ||
+            live368 is null ||
+            live380.OfficialPublicationDate !=
+                new DateOnly(2026, 7, 24) ||
+            live368.OfficialPublicationDate !=
+                new DateOnly(2026, 7, 17) ||
+            !liveCneRelations.Any(relation =>
+                relation.SourcePublicationId ==
+                    live380.PublicationId &&
+                relation.RelationType == "CORRECTS" &&
+                string.Equals(
+                    relation.TargetOfficialDocumentNumber,
+                    "REX-368-2026",
+                    StringComparison.OrdinalIgnoreCase)) ||
+            !liveAugustResolution.Any(item =>
+                item.PublicationId ==
+                    live380.PublicationId &&
+                item.Status ==
+                    "VERSION_PREFERRED_OFFICIAL_CORRECTION") ||
+            !liveAugustResolution.Any(item =>
+                item.PublicationId ==
+                    live368.PublicationId &&
+                item.Status ==
+                    "VERSION_SUPERSEDED_BY_OFFICIAL_CORRECTION"))
         {
             throw new InvalidOperationException(
-                "Live CNE tariff-evidence capture did not preserve the expected 2026 VAD correction chain.");
+                "Live CNE source did not prove the expected official " +
+                "REX-380-2026 -> REX-368-2026 correction graph.");
         }
     }
 
