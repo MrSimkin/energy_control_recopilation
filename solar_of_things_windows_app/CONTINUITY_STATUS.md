@@ -6149,3 +6149,222 @@ Sí. Hagamos un **QA único, ordenado y con puntos de decisión claros**, para n
 No sigas haciendo pruebas si ocurre cualquiera de estas tres cosas: **la app vuelve a `(No responde)`, importar el PDF modifica datos de forma claramente incorrecta, o aparece un error/crash**. En esos casos es mejor que me mandes inmediatamente el punto exacto + captura, porque continuar podría mezclar defectos.
 
 Y para este QA **no necesitas volver a probar Build 538, P5/P50/P95, HPVINV02, CNE 380→368 ni la migración antigua**. Todo eso sigue congelado.
+
+
+## Owner QA — Build 612 REJECTED; Build 632 corrective candidate — 2026-10-07
+
+Build 612 owner-PC QA is **REJECTED / superseded**.
+
+### Build 612 defects observed on owner PC
+
+The owner stopped the QA because responsiveness was not acceptable:
+- intermittent Windows `(No responde)`, including periods where no intentional user action was being performed;
+- repeated app restarts were required;
+- startup/base preparation felt slow;
+- the first interaction after startup could also be slow;
+- Audit remained without results for more than ~3 minutes before the app hung.
+
+The saved-bills grid also exposed a correctness regression:
+- the real 28-08-2026 -> 28-09-2026 DATE_ONLY bill still displayed about **80.907 kWh** inverter import in that grid;
+- accepted inclusive DATE_ONLY truth remains about **88.065413 kWh**, coverage about **99.33%**;
+- therefore a legacy/exclusive DATE_ONLY reconciliation route still existed in Build 612.
+
+### Root causes found after Build 612 QA
+
+1. `RefreshGridUtilityView()` synchronously executed full meter and bill reconciliations on the WPF UI thread.
+2. `UtilityReconciliationService` still treated a DATE_ONLY stored end boundary as exclusive for the saved-bills grid.
+3. Bill audit tariff services repeatedly reloaded the same large normalized tariff-candidate sets:
+   - scenario analysis re-read publication candidates inside candidate-matching loops;
+   - line-rate verification re-read the same publication candidates per bill line.
+4. Build-612 bill PDF parsing did not fully ingest the printed bill summary or direct meter readings, leaving legacy values in place during review.
+
+### Corrective performance architecture
+
+The corrective tranche:
+- moves Grid Utility heavy meter/bill reconciliation to `Task.Run` with generation guards;
+- renders a lightweight Grid Utility shell first while reconciliation calculates in the background;
+- removes eager Grid Utility / Analysis / Reports refresh from startup;
+- makes bill Audit lazy: it is calculated only when the Audit tab is actually selected;
+- runs `UtilityBillAuditV2Service.Analyze` off the Dispatcher;
+- uses the same inclusive DATE_ONLY observed-only path for saved-bill reconciliation;
+- caches normalized tariff candidates once per relevant publication during bill scenario analysis;
+- caches them once per publication across all bill-line rate verification.
+
+Build 612's Enel Save-As interception remains preserved; no Imperva/Reese bypass was added.
+
+### Bill-entry redesign after owner UX feedback
+
+Owner feedback showed that the Build-612 bill form still exposed implementation concepts rather than the document the user is transcribing.
+
+Normal bill entry is now independent of previously saved meter-reading rows:
+- the historical meter-reading comboboxes are hidden from normal bill entry and retained only for legacy compatibility;
+- the bill has direct **printed previous reading** and **printed current reading** numeric fields;
+- if both are supplied, consumption is derived automatically;
+- if the bill also prints total consumption, the app cross-checks it and blocks contradictory transcription;
+- existing legacy reading links may be preserved during review, but they no longer drive bill period or consumption.
+
+PDF and manual are explicitly two alternative entry routes into the same canonical editor:
+- `Import bill PDF` fills the editor for review;
+- `New manual bill` clears it for transcription;
+- users are not expected to use both.
+
+Tariff field semantics are now explained:
+- optional;
+- copy it only if printed;
+- it is used to verify the applicable official tariff table, not to calculate consumption.
+
+The financial editor now mirrors Enel's printed summary labels:
+- Monto afecto a impuesto;
+- IVA;
+- Monto exento de impuesto;
+- Total boleta;
+- Otros cargos/abonos;
+- Saldo anterior;
+- Total a pagar.
+
+Live checks explain:
+- previous reading -> current reading -> kWh;
+- taxable + IVA + exempt -> gross bill;
+- gross bill + other charges/credits + previous balance -> total due;
+- IVA uses Chile standard 19% when taxable base is available.
+
+No synthetic adjustment is ever inserted merely to force a match.
+
+### Anonymous real-bill structure regression
+
+The owner re-supplied the real September/October 2026 Enel PDF for comparison. No PDF, customer identity, address, account/customer number or other identifying content is stored in Git.
+
+Only the anonymous structural facts are locked as regression:
+- printed readings: **79,023 -> 79,120 kWh**;
+- printed consumption: **97 kWh**;
+- tariff: **BT1-T5**;
+- taxable: **20,643 CLP**;
+- IVA: **3,922 CLP**;
+- exempt: **83 CLP**;
+- gross bill: **24,648 CLP**;
+- other charges/credits: **+2,206 CLP**;
+- previous balance: **0 CLP**;
+- total due: **26,854 CLP**;
+- six printed detail lines total **26,857 CLP**;
+- therefore detail residual = **-3 CLP**, with no printed adjustment line.
+
+CI now asserts:
+- 79,120 - 79,023 = 97 kWh;
+- 20,643 + 3,922 + 83 = 24,648;
+- 24,648 + 2,206 + 0 = 26,854;
+- printed summary status = balanced;
+- detailed-line balance = small unexplained residual -3 CLP;
+- no synthetic/simple adjustment is created.
+
+Audit UI now separates:
+- **printed summary balance**;
+- **detailed line balance**.
+
+Expected real-bill wording after review is conceptually:
+- `Resumen impreso: OK`;
+- `Detalle: excede el total por $3 · sin ajuste impreso`.
+
+### Schema v16 / bill provenance
+
+Schema advanced from v15 to v16:
+- new `utility_bill.previous_balance_clp`;
+- v13 -> v16 migration remains covered by smoke;
+- canonical PDF draft/parser v3 now extracts:
+  - period;
+  - direct meter readings;
+  - billed kWh;
+  - taxable amount;
+  - IVA;
+  - exempt amount;
+  - gross bill / Total boleta;
+  - Otros cargos/abonos with printed sign;
+  - Saldo anterior;
+  - total due;
+  - tariff;
+  - recognized detail lines.
+
+Legacy-unreviewed PDF review behavior:
+- when the PDF disagrees with legacy stored transcription, the **review draft** is updated to the PDF value and reports the difference;
+- the database is not modified until the owner presses Save review;
+- already-reviewed bills retain conservative no-silent-overwrite conflict handling.
+
+### Build 632
+
+Source commit:
+- `8f1b0453e3cd29e2d779180a0351729e23743dd6`.
+
+Workflow:
+- run `37689611655`;
+- run/build number **632**;
+- Build: **PASS**;
+- SQLite smoke: **PASS**, including:
+  - schema v16;
+  - v13 -> v16 migration;
+  - inclusive DATE_ONLY reconciliation;
+  - Phase-10 bill provenance;
+  - IVA 19%;
+  - explicit vs missing adjustment;
+  - anonymous real-bill structural regression and -3 CLP detail residual;
+- live Enel/CNE probes: skipped by workflow conditions, not failures;
+- portable publish: **PASS**;
+- portable marker: **PASS**;
+- artifact upload: **PASS**.
+
+Artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11512856709`;
+- digest:
+  `sha256:b5fbe87ab5dd6f9f9419ea13f69312dab8024860d78d2a81596ea35e21523bdf`;
+- user-facing filename:
+  `SolarEnergyMonitor-Build-632-win-x64.zip`;
+- verified downloaded ZIP contains 490 entries, `portable.mode`, `SolarEnergyMonitor.exe`, and **no `energy.db` / bundled Data directory**.
+
+Static UI checks at the Build-632 source state:
+- 52 bill/audit named controls referenced by code: all present exactly once;
+- Spanish resource keys: 659;
+- English resource keys: 659;
+- no duplicate keys;
+- no language-only missing keys.
+
+Build 632 is the current **corrective owner-QA candidate, not yet accepted**.
+
+### Focused owner QA for Build 632
+
+Do not repeat the broad Build-612 QA from the beginning.
+
+Gate A — responsiveness:
+1. launch Build 632 against shared `D:\SolarEnergyMonitorTest\Data\energy.db`;
+2. note subjective startup and first-click behavior;
+3. navigate Dashboard -> Grid Utility -> another page -> Grid Utility;
+4. leave the app idle in Grid Utility for several minutes;
+5. any `(No responde)` is an immediate FAIL and should be reported with the exact visible page/state.
+
+Gate B — bill review:
+1. select the existing real 28-08-2026 -> 28-09-2026 legacy bill;
+2. review selected;
+3. import the real PDF into that same review;
+4. confirm the editor is now based on printed bill concepts rather than historical-reading comboboxes;
+5. expected draft facts:
+   - 79,023 / 79,120;
+   - 97 kWh;
+   - BT1-T5;
+   - 20,643 / 3,922 / 83 / 24,648 / +2,206 / 0 / 26,854;
+6. live checks should show consumption and printed summary arithmetic as consistent;
+7. save only if the review is visually correct; the same bill record must be updated.
+
+Gate C — DATE_ONLY / Audit:
+1. after background saved-bill reconciliation completes, the real bill must show observed inverter about **88.065 kWh**, not 80.907;
+2. enter Audit and measure approximate latency;
+3. target is practical seconds, not minutes;
+4. Audit must distinguish:
+   - printed summary = balanced;
+   - detail residual = -3 CLP / small unexplained residual;
+   - no fabricated adjustment.
+
+Gate D — Enel browser fallback:
+- only after Gates A-C are stable, reuse the prior focused test:
+  - attempt zero-click official tariff PDF capture;
+  - if it does not complete, click Download once;
+  - PASS fallback requires no native Save-As folder picker and app-controlled import.
+
+Do not reopen Build-538/P5-P50-P95/HPVINV02/CNE-380-368/Imperva frozen evidence unless a genuinely new defect appears.
