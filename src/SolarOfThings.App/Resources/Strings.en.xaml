@@ -320,6 +320,7 @@
     <sys:String x:Key="GridUtility.BillPeriodExact">Exact date and time</sys:String>
     <sys:String x:Key="GridUtility.ImportBillPdf">Import bill PDF…</sys:String>
     <sys:String x:Key="GridUtility.ReviewSelectedBill">Review selected</sys:String>
+    <sys:String x:Key="GridUtility.OpenOriginalBillPdf">Open original PDF</sys:String>
     <sys:String x:Key="GridUtility.CancelBillReview">Cancel review</sys:String>
     <sys:String x:Key="GridUtility.ApplyDetectedPdfLines">Apply/link detected PDF lines when saving</sys:String>
     <sys:String x:Key="GridUtility.EditBillLine">Edit line</sys:String>

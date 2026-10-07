@@ -1874,6 +1874,7 @@
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                                                 <Button x:Name="UtilityReviewBillButton" Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.ReviewSelectedBill}" Click="UtilityReviewBill_Click"/>
+                                                <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.OpenOriginalBillPdf}" Margin="8,0,0,0" Click="UtilityOpenOriginalBillPdf_Click"/>
                                                 <Button x:Name="UtilityDeleteBillButton" Style="{StaticResource DestructiveActionButtonStyle}" Content="{DynamicResource GridUtility.DeleteBill}" Margin="8,0,0,0" Click="UtilityDeleteBill_Click"/>
                                             </StackPanel>
                                         </Grid>

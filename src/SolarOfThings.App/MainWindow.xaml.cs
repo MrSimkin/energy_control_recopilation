@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Globalization;
 using System.IO;
@@ -4440,6 +4441,81 @@ public partial class MainWindow : Window
                 "0.###",
                 CultureInfo.CurrentCulture)
             : string.Empty;
+
+    private void UtilityOpenOriginalBillPdf_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (UtilityBillsGrid.SelectedItem
+            is not UtilityBillViewRow selected)
+        {
+            UtilityBillStatusText.Text =
+                _localization.CurrentLanguage.StartsWith(
+                    "es",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "Selecciona una boleta guardada."
+                    : "Select a saved bill.";
+            return;
+        }
+
+        var repository =
+            _services.GetRequiredService<UtilityMeterRepository>();
+        var bill = repository.GetBills()
+            .Single(item =>
+                item.BillId == selected.BillId);
+
+        if (!bill.SourceDocumentId.HasValue)
+        {
+            UtilityBillStatusText.Text =
+                _localization.CurrentLanguage.StartsWith(
+                    "es",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "Esta boleta no tiene un PDF original vinculado. Puedes revisarla y usar “Importar PDF de boleta…” para adjuntarlo sin crear un registro nuevo."
+                    : "This bill has no linked original PDF. Review it and use “Import bill PDF…” to attach one without creating a new record.";
+            return;
+        }
+
+        var document =
+            repository.GetBillDocument(
+                bill.SourceDocumentId.Value);
+
+        if (document is null ||
+            string.IsNullOrWhiteSpace(
+                document.LocalPdfPath) ||
+            !File.Exists(
+                document.LocalPdfPath))
+        {
+            UtilityBillStatusText.Text =
+                _localization.CurrentLanguage.StartsWith(
+                    "es",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "El registro conserva la procedencia del PDF, pero el archivo local ya no está disponible."
+                    : "The record retains PDF provenance, but the local file is no longer available.";
+            return;
+        }
+
+        try
+        {
+            Process.Start(
+                new ProcessStartInfo(
+                    document.LocalPdfPath)
+                {
+                    UseShellExecute = true
+                });
+
+            UtilityBillStatusText.Text =
+                _localization.CurrentLanguage.StartsWith(
+                    "es",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? $"Abriendo PDF original: {document.OriginalFileName}"
+                    : $"Opening original PDF: {document.OriginalFileName}";
+        }
+        catch (Exception ex)
+        {
+            UtilityBillStatusText.Text =
+                ex.Message;
+        }
+    }
 
     private void UtilityDeleteBill_Click(
         object sender,
