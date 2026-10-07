@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _syncCancellation;
     private bool _currentStateRefreshInProgress;
     private int _utilityAuditRefreshGeneration;
+    private int _utilityGridRefreshGeneration;
     private (string DeviceId, long BillId, string TimeZoneId)?
         _utilityBillSummaryInFlightKey;
     private Task<UtilityBillReconciliationSummary>?
@@ -130,10 +131,7 @@ public partial class MainWindow : Window
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
         RefreshBatteryView();
-        RefreshGridUtilityView();
         RefreshDataCoverageView();
-        RefreshAnalysisView(initializeRange: true);
-        RefreshReportsView(initializeRange: true);
         ShowPage("Dashboard");
         ApplyResponsiveCardLayouts();
         Loaded += MainWindow_Loaded;
@@ -277,8 +275,6 @@ public partial class MainWindow : Window
         RefreshDashboardMetrics();
         RefreshBatteryView();
         RefreshDataCoverageView();
-        RefreshAnalysisView();
-        RefreshReportsView();
         SetGlobalOperation(false, string.Empty);
     }
 
@@ -1772,12 +1768,15 @@ public partial class MainWindow : Window
     }
 
 
-    private void RefreshGridUtilityView()
+    private async void RefreshGridUtilityView()
     {
         if (!IsInitialized || GridUtilityContent is null)
         {
             return;
         }
+
+        var refreshGeneration =
+            ++_utilityGridRefreshGeneration;
 
         var profile = _profiles.Get();
         if (profile is null)
@@ -1831,6 +1830,9 @@ public partial class MainWindow : Window
         var previousCompareTo = UtilityCompareToSelector.SelectedValue;
         UtilityCompareFromSelector.ItemsSource = readingChoices;
         UtilityCompareToSelector.ItemsSource = readingChoices;
+
+        // These hidden selectors are retained only for legacy compatibility.
+        // New bill entry no longer depends on pre-existing meter-reading rows.
         var previousBillFrom = UtilityBillFromReadingSelector.SelectedValue;
         var previousBillTo = UtilityBillToReadingSelector.SelectedValue;
         UtilityBillFromReadingSelector.ItemsSource = readingChoices;
@@ -1845,7 +1847,6 @@ public partial class MainWindow : Window
         {
             UtilityBillToReadingSelector.SelectedValue = previousBillToId;
         }
-
 
         if (previousCompareFrom is long previousFrom &&
             readingChoices.Any(item => item.ReadingId == previousFrom))
@@ -1878,44 +1879,6 @@ public partial class MainWindow : Window
                 item.Notes ?? string.Empty))
             .ToArray();
 
-        var reconciliations =
-            reconciliation.GetMeterReconciliations(profile.DeviceId);
-
-        UtilityReconciliationGrid.ItemsSource = reconciliations
-            .OrderByDescending(item => item.ToUtc)
-            .Select(item => new UtilityReconciliationViewRow(
-                FormatUtilityInterval(
-                    item.FromUtc,
-                    item.ToUtc,
-                    timeZone),
-                item.MeterConsumptionKwh.HasValue
-                    ? $"{item.MeterConsumptionKwh.Value:N3}"
-                    : "—",
-                $"{item.InverterGridImportKwh:N3}",
-                item.SignedDifferenceKwh.HasValue
-                    ? FormatSigned(item.SignedDifferenceKwh.Value, "kWh")
-                    : "—",
-                item.DifferencePercent.HasValue
-                    ? $"{item.DifferencePercent.Value:N2}%"
-                    : "—",
-                $"{item.CoveragePercent:N1}%",
-                UtilityTimeBasisLabel(item.TimeBasis),
-                UtilityQualityLabel(item.Quality)))
-            .ToArray();
-
-        var latest = reconciliations.LastOrDefault();
-        if (latest is null)
-        {
-            ClearUtilitySummary();
-            UtilityLatestIntervalText.Text =
-                _localization.GetString(
-                    "GridUtility.NoReconciliation");
-        }
-        else
-        {
-            DisplayUtilityReconciliation(latest, timeZone);
-        }
-
         if (UtilityReadingSourceSelector.SelectedValue is null)
         {
             UtilityReadingSourceSelector.SelectedValue =
@@ -1924,6 +1887,8 @@ public partial class MainWindow : Window
         RefreshUtilityReadingSourceUi();
 
         var bills = repository.GetBills();
+        var previousSelectedBillId =
+            (UtilityBillsGrid.SelectedItem as UtilityBillViewRow)?.BillId;
 
         var previousAuditBill = UtilityAuditBillSelector.SelectedValue;
         var auditBillChoices = bills
@@ -1932,6 +1897,7 @@ public partial class MainWindow : Window
                 item.BillId,
                 FormatAuditBillChoice(item, timeZone)))
             .ToArray();
+
         UtilityAuditBillSelector.ItemsSource = auditBillChoices;
         if (previousAuditBill is long previousAuditBillId &&
             auditBillChoices.Any(item => item.BillId == previousAuditBillId))
@@ -1943,54 +1909,180 @@ public partial class MainWindow : Window
             UtilityAuditBillSelector.SelectedValue = auditBillChoices[0].BillId;
         }
 
-        var billReconciliations = reconciliation
-            .GetBillReconciliations(profile.DeviceId)
-            .ToDictionary(item => item.BillId);
-
         UtilityBillsGrid.ItemsSource = bills
             .Select(bill =>
             {
-                billReconciliations.TryGetValue(
-                    bill.BillId,
-                    out var comparison);
-
-                var effectiveFrom = comparison?.FromUtc ?? bill.PeriodStartUtc;
-                var effectiveTo = comparison?.ToUtc ?? bill.PeriodEndUtc;
                 var totalDue = bill.TotalDueClp ?? bill.AmountClp;
-
                 return new UtilityBillViewRow(
                     bill.BillId,
                     FormatUtilityInterval(
-                        effectiveFrom,
-                        effectiveTo,
+                        bill.PeriodStartUtc,
+                        bill.PeriodEndUtc,
                         timeZone),
                     bill.BilledConsumptionKwh.HasValue
                         ? $"{bill.BilledConsumptionKwh.Value:N3}"
                         : "—",
-                    comparison is null
-                        ? "—"
-                        : $"{comparison.InverterGridImportKwh:N3}",
-                    comparison?.SignedDifferenceKwh is double difference
-                        ? FormatSigned(difference, "kWh")
-                        : "—",
-                    comparison is null
-                        ? "—"
-                        : $"{comparison.CoveragePercent:N1}%",
+                    "…",
+                    "…",
+                    "…",
                     totalDue.HasValue
                         ? $"$ {totalDue.Value:N0}"
                         : "—",
                     UtilityBillSourceLabel(bill.SourceKind),
                     UtilityBillReviewLabel(bill.ReviewState),
                     bill.InvoiceReference ?? string.Empty,
-                    comparison is null
-                        ? string.Empty
-                        : UtilityQualityLabel(comparison.Quality));
+                    _localization.CurrentLanguage.StartsWith(
+                        "es",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? "Calculando en segundo plano"
+                        : "Calculating in background");
             })
             .ToArray();
 
+        if (previousSelectedBillId.HasValue &&
+            UtilityBillsGrid.ItemsSource is
+                IEnumerable<UtilityBillViewRow> initialRows)
+        {
+            UtilityBillsGrid.SelectedItem =
+                initialRows.FirstOrDefault(item =>
+                    item.BillId == previousSelectedBillId.Value);
+        }
+
         RefreshSelectedBillLines();
-        RefreshUtilityAuditPreview();
         RefreshTariffPublications();
+
+        UtilityReconciliationGrid.ItemsSource = null;
+        UtilityLatestIntervalText.Text =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase)
+                ? "Calculando conciliaciones en segundo plano…"
+                : "Calculating reconciliations in the background…";
+
+        try
+        {
+            var snapshot = await Task.Run(() =>
+            {
+                var meter =
+                    reconciliation.GetMeterReconciliations(
+                        profile.DeviceId);
+                var bill =
+                    reconciliation.GetBillReconciliations(
+                        profile.DeviceId,
+                        timeZone);
+
+                return (Meter: meter, Bill: bill);
+            });
+
+            if (refreshGeneration !=
+                    _utilityGridRefreshGeneration ||
+                !IsInitialized)
+            {
+                return;
+            }
+
+            var reconciliations = snapshot.Meter;
+            UtilityReconciliationGrid.ItemsSource = reconciliations
+                .OrderByDescending(item => item.ToUtc)
+                .Select(item => new UtilityReconciliationViewRow(
+                    FormatUtilityInterval(
+                        item.FromUtc,
+                        item.ToUtc,
+                        timeZone),
+                    item.MeterConsumptionKwh.HasValue
+                        ? $"{item.MeterConsumptionKwh.Value:N3}"
+                        : "—",
+                    $"{item.InverterGridImportKwh:N3}",
+                    item.SignedDifferenceKwh.HasValue
+                        ? FormatSigned(item.SignedDifferenceKwh.Value, "kWh")
+                        : "—",
+                    item.DifferencePercent.HasValue
+                        ? $"{item.DifferencePercent.Value:N2}%"
+                        : "—",
+                    $"{item.CoveragePercent:N1}%",
+                    UtilityTimeBasisLabel(item.TimeBasis),
+                    UtilityQualityLabel(item.Quality)))
+                .ToArray();
+
+            var latest = reconciliations.LastOrDefault();
+            if (latest is null)
+            {
+                ClearUtilitySummary();
+                UtilityLatestIntervalText.Text =
+                    _localization.GetString(
+                        "GridUtility.NoReconciliation");
+            }
+            else
+            {
+                DisplayUtilityReconciliation(
+                    latest,
+                    timeZone);
+            }
+
+            var billReconciliations = snapshot.Bill
+                .ToDictionary(item => item.BillId);
+
+            UtilityBillsGrid.ItemsSource = bills
+                .Select(bill =>
+                {
+                    billReconciliations.TryGetValue(
+                        bill.BillId,
+                        out var comparison);
+
+                    var totalDue = bill.TotalDueClp ?? bill.AmountClp;
+
+                    return new UtilityBillViewRow(
+                        bill.BillId,
+                        FormatUtilityInterval(
+                            bill.PeriodStartUtc,
+                            bill.PeriodEndUtc,
+                            timeZone),
+                        bill.BilledConsumptionKwh.HasValue
+                            ? $"{bill.BilledConsumptionKwh.Value:N3}"
+                            : "—",
+                        comparison is null
+                            ? "—"
+                            : $"{comparison.InverterGridImportKwh:N3}",
+                        comparison?.SignedDifferenceKwh is double difference
+                            ? FormatSigned(difference, "kWh")
+                            : "—",
+                        comparison is null
+                            ? "—"
+                            : $"{comparison.CoveragePercent:N1}%",
+                        totalDue.HasValue
+                            ? $"$ {totalDue.Value:N0}"
+                            : "—",
+                        UtilityBillSourceLabel(bill.SourceKind),
+                        UtilityBillReviewLabel(bill.ReviewState),
+                        bill.InvoiceReference ?? string.Empty,
+                        comparison is null
+                            ? string.Empty
+                            : UtilityQualityLabel(comparison.Quality));
+                })
+                .ToArray();
+
+            if (previousSelectedBillId.HasValue &&
+                UtilityBillsGrid.ItemsSource is
+                    IEnumerable<UtilityBillViewRow> finalRows)
+            {
+                UtilityBillsGrid.SelectedItem =
+                    finalRows.FirstOrDefault(item =>
+                        item.BillId == previousSelectedBillId.Value);
+            }
+
+            RefreshSelectedBillLines();
+        }
+        catch (Exception ex)
+        {
+            if (refreshGeneration !=
+                _utilityGridRefreshGeneration)
+            {
+                return;
+            }
+
+            UtilityLatestIntervalText.Text =
+                ex.Message;
+        }
     }
 
     private void RefreshTariffPublications()
@@ -2790,7 +2882,26 @@ public partial class MainWindow : Window
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (IsInitialized)
+        if (IsInitialized &&
+            UtilityAuditVerificationGrid?.IsVisible == true)
+        {
+            RefreshUtilityAuditPreview();
+        }
+    }
+
+    private void GridUtilityTabControl_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!IsInitialized ||
+            e.Source != sender)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(
+                GridUtilityTabControl.SelectedItem,
+                UtilityAuditTab))
         {
             RefreshUtilityAuditPreview();
         }
@@ -2869,11 +2980,21 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var audit = _services
-                .GetRequiredService<UtilityBillAuditV2Service>()
-                .Analyze(
+            var auditService = _services
+                .GetRequiredService<UtilityBillAuditV2Service>();
+            var audit = await Task.Run(
+                () => auditService.Analyze(
                     billId,
-                    timeZone);
+                    timeZone));
+
+            if (refreshGeneration !=
+                    _utilityAuditRefreshGeneration ||
+                UtilityAuditBillSelector.SelectedValue is not long
+                    auditSelectedBillId ||
+                auditSelectedBillId != billId)
+            {
+                return;
+            }
 
             UtilityAuditVerificationGrid.ItemsSource =
                 audit.Lines
