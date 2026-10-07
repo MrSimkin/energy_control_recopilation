@@ -1837,7 +1837,6 @@ try
     // independently cross-checked against the printed exempt subtotal.
     const double smokeAdminBilledKwh = 10.0;
     const double smokeAdminObservedKwh = 8.0;
-    const double smokeAdminFixedConsumer = 709.540;
     const double smokeAdminFixedPrinted = 710.0;
     const double smokeAdminPublicServiceRate = 0.855;
     const double smokeAdminTransportRate = 15.964;
@@ -2406,13 +2405,6 @@ try
         realStructureAnalysis.Components.SingleOrDefault(item =>
             item.ComponentKey ==
                 UtilityBillLineCategory.ServiceAdministration);
-
-    Console.WriteLine(
-        "Phase 10 Aug/Sep real-structure diagnostic: " +
-        $"status={realStructureAnalysis.Status}; " +
-        $"limitation={realStructureAnalysis.Limitation}; " +
-        $"periods={string.Join("|", realStructureAnalysis.PublicationPeriods.Select(p => $"{p.PublicationId}:{p.AppliedFrom:yyyy-MM-dd}..{p.AppliedTo:yyyy-MM-dd}:{p.Days}:retro={p.IsRetroactive}"))}; " +
-        $"components={string.Join(" || ", realStructureAnalysis.Components.Select(c => $"{c.BillLineDescription}|{c.ComponentKey}|rate={c.RateClpPerKwh:0.######}|fixed={c.FixedAmountClp:0.######}|actual={c.ActualLineAmountClp:0.######}|recon={c.ReconstructedAmountClp:0.######}|diff={c.DifferenceClp:0.######}|col={c.Column}|basis={c.CalculationBasis}|rateBasis={c.RateBasis}"))}");
 
     if (!realStructureAnalysis.HasTariffModel ||
         realTransport is null ||
