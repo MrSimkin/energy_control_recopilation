@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using SolarOfThings.Core.Infrastructure;
@@ -24,6 +25,31 @@ public sealed class EnelTariffCaptureService
         @"href\s*=\s*[""'](?<href>[^""']+?\.pdf(?:\?[^""']*)?)[""']",
         RegexOptions.IgnoreCase |
         RegexOptions.Singleline |
+        RegexOptions.Compiled);
+
+    private const string StaticSupplyTariffRoot =
+        "https://www.enel.cl/content/dam/enel-cl/es/personas/" +
+        "informacion-de-utilidad/tarifas-y-reglamentos/tarifas/" +
+        "tarifas-reguladas";
+
+    private static readonly string[] SpanishMonthNames =
+    [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+
+    private static readonly Regex SupplyFilenameFamilyRegex = new(
+        @"^(?<prefix>.*Tarifas\s+Suministro\s+El[ée]ctrico\s+\d+T_\s*VAD\s+\d+T\s+)" +
+        @"(?<month>Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)" +
+        @"\s+de\s+(?<year>20\d{2})(?:_Retroactivo)?\.pdf$",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
+    private static readonly Regex DeclaredEffectiveDateRegex = new(
+        @"a\s+partir\s+del\s+0?1[-\s]+(?<month>enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)[-\s]+(?<year>20\d{2})",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
 
     private static readonly Regex RawPdfUrlRegex = new(
@@ -104,11 +130,6 @@ public sealed class EnelTariffCaptureService
             throw new ArgumentOutOfRangeException(nameof(year));
         using var client = CreateClient();
 
-        progress?.Report("Consultando catálogo oficial de Enel...");
-        var catalog = await FetchCatalogAsync(
-            client,
-            cancellationToken);
-
         var providerRoot = Path.Combine(
             _paths.TariffDirectory,
             "Enel");
@@ -117,36 +138,116 @@ public sealed class EnelTariffCaptureService
         var catalogDiagnosticPath = Path.Combine(
             providerRoot,
             $"catalog-{year}-last.html");
-        await File.WriteAllTextAsync(
-            catalogDiagnosticPath,
-            catalog.Html,
+
+        var discoveryMessages = new List<string>();
+        IReadOnlyList<TariffPublicationDiscovery> discovered = [];
+
+        progress?.Report("Consultando catálogo oficial de Enel...");
+        try
+        {
+            var catalog = await FetchCatalogAsync(
+                client,
+                cancellationToken);
+
+            await File.WriteAllTextAsync(
+                catalogDiagnosticPath,
+                catalog.Html,
+                cancellationToken);
+
+            discovered = DiscoverSupplyTariffs(
+                catalog.Html,
+                new Uri(OfficialArchiveUrl),
+                year);
+
+            progress?.Report(
+                $"Catálogo recibido: HTTP {(int)catalog.StatusCode} · " +
+                $"{catalog.Html.Length:N0} caracteres · " +
+                $"{catalog.PdfHrefCount} enlace(s) PDF detectado(s) · " +
+                $"{discovered.Count} publicación(es) para {year}.");
+
+            if (discovered.Count == 0)
+            {
+                discoveryMessages.Add(
+                    $"Catálogo vivo sin publicaciones detectables. " +
+                    DetectCatalogBlockPage(catalog.Html));
+            }
+        }
+        catch (Exception ex) when (
+            ex is HttpRequestException or TaskCanceledException)
+        {
+            discoveryMessages.Add(
+                $"Catálogo vivo no disponible: {ex.Message}");
+            progress?.Report(
+                "Catálogo vivo no disponible; intentando evidencia local y assets oficiales directos...");
+        }
+
+        if (discovered.Count == 0 &&
+            File.Exists(catalogDiagnosticPath))
+        {
+            try
+            {
+                var cachedHtml =
+                    await File.ReadAllTextAsync(
+                        catalogDiagnosticPath,
+                        cancellationToken);
+                var cached = DiscoverSupplyTariffs(
+                    cachedHtml,
+                    new Uri(OfficialArchiveUrl),
+                    year);
+                if (cached.Count > 0)
+                {
+                    discovered = cached;
+                    discoveryMessages.Add(
+                        $"Se recuperaron {cached.Count} publicación(es) desde el último catálogo oficial cacheado.");
+                    progress?.Report(
+                        $"Fallback catálogo cacheado: {cached.Count} publicación(es).");
+                }
+            }
+            catch (Exception ex)
+            {
+                discoveryMessages.Add(
+                    $"No fue posible reutilizar catálogo cacheado: {ex.Message}");
+            }
+        }
+
+        var direct = await DiscoverDirectStaticAssetsAsync(
+            client,
+            year,
             cancellationToken);
+        if (direct.Count > 0)
+        {
+            var merged = discovered
+                .Concat(direct)
+                .GroupBy(
+                    item => item.SourceUrl,
+                    StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(item => item.EffectiveFrom)
+                .ThenBy(item => item.Title, StringComparer.Ordinal)
+                .ToArray();
 
-        var discovered = DiscoverSupplyTariffs(
-            catalog.Html,
-            new Uri(OfficialArchiveUrl),
-            year);
+            if (merged.Length > discovered.Count)
+            {
+                discoveryMessages.Add(
+                    $"Sondeo directo content/dam añadió {merged.Length - discovered.Count} publicación(es) oficial(es).");
+                progress?.Report(
+                    $"Fallback content/dam: {merged.Length - discovered.Count} publicación(es) adicional(es).");
+            }
 
-        progress?.Report(
-            $"Catálogo recibido: HTTP {(int)catalog.StatusCode} · " +
-            $"{catalog.Html.Length:N0} caracteres · " +
-            $"{catalog.PdfHrefCount} enlace(s) PDF detectado(s) · " +
-            $"{discovered.Count} publicación(es) para {year}.");
+            discovered = merged;
+        }
 
         if (discovered.Count == 0)
         {
-            var bodyHint = DetectCatalogBlockPage(catalog.Html);
             throw new InvalidOperationException(
-                $"Enel respondió HTTP {(int)catalog.StatusCode}, pero no se encontraron " +
-                $"publicaciones oficiales de suministro para {year}. " +
-                $"Contenido recibido: {catalog.Html.Length:N0} caracteres; " +
-                $"enlaces PDF detectados: {catalog.PdfHrefCount}. " +
-                $"{bodyHint} " +
-                $"Se guardó una copia diagnóstica del catálogo en " +
-                $"{catalogDiagnosticPath}.");
+                "No fue posible descubrir publicaciones oficiales Enel " +
+                $"para {year} mediante catálogo vivo, catálogo cacheado ni " +
+                "sondeo directo de assets content/dam. " +
+                string.Join(" ", discoveryMessages));
         }
 
-        var messages = new List<string>();
+        var messages = new List<string>(
+            discoveryMessages);
         var captured = 0;
         var failed = 0;
         var normalizedCandidates = 0;
@@ -193,6 +294,9 @@ public sealed class EnelTariffCaptureService
                     .ToLowerInvariant();
 
                 var pageTexts = ExtractPageText(localPath);
+                ValidateDeclaredEffectivePeriod(
+                    item,
+                    pageTexts);
                 _repository.MarkCaptured(
                     publicationId,
                     localPath,
@@ -392,6 +496,267 @@ public sealed class EnelTariffCaptureService
                 StringComparison.OrdinalIgnoreCase));
 
         result[discovery.SourceUrl] = discovery;
+    }
+
+    private async Task<IReadOnlyList<TariffPublicationDiscovery>>
+        DiscoverDirectStaticAssetsAsync(
+            HttpClient client,
+            int year,
+            CancellationToken cancellationToken)
+    {
+        var known = _repository
+            .GetAll()
+            .Where(item =>
+                string.Equals(
+                    item.Provider,
+                    "ENEL_DISTRIBUCION_CHILE",
+                    StringComparison.Ordinal) &&
+                string.Equals(
+                    item.Category,
+                    "SUPPLY_REGULATED",
+                    StringComparison.Ordinal))
+            .ToArray();
+
+        var families = known
+            .Select(item =>
+                ExtractFilenameFamily(
+                    item.Title))
+            .Where(item =>
+                !string.IsNullOrWhiteSpace(item))
+            .Distinct(
+                StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToArray();
+
+        if (families.Length == 0)
+            return [];
+
+        var existingUrls = known
+            .Select(item => item.SourceUrl)
+            .ToHashSet(
+                StringComparer.OrdinalIgnoreCase);
+
+        var existingMonths = known
+            .Where(item =>
+                item.EffectiveFrom?.Year == year)
+            .Select(item =>
+                item.EffectiveFrom!.Value.Month)
+            .ToHashSet();
+
+        var currentYear =
+            DateTime.Now.Year;
+        var currentMonth =
+            DateTime.Now.Month;
+        var maximumMonth =
+            year < currentYear
+                ? 12
+                : year == currentYear
+                    ? currentMonth
+                    : 1;
+
+        // Always re-probe the three most recent effective months because a
+        // retroactive replacement may coexist with an already captured
+        // original publication.
+        var recentFloor =
+            Math.Max(
+                1,
+                maximumMonth - 2);
+
+        var months = Enumerable
+            .Range(
+                1,
+                maximumMonth)
+            .Where(month =>
+                !existingMonths.Contains(month) ||
+                month >= recentFloor)
+            .ToArray();
+
+        var output =
+            new Dictionary<string, TariffPublicationDiscovery>(
+                StringComparer.OrdinalIgnoreCase);
+
+        foreach (var family in families)
+        {
+            foreach (var month in months)
+            {
+                foreach (var retroactive in new[] { false, true })
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var title =
+                        family +
+                        SpanishMonthNames[month - 1] +
+                        $" de {year}" +
+                        (retroactive
+                            ? "_Retroactivo"
+                            : string.Empty) +
+                        ".pdf";
+
+                    var url =
+                        BuildStaticAssetUrl(
+                            year,
+                            title);
+
+                    if (existingUrls.Contains(url) ||
+                        output.ContainsKey(url))
+                    {
+                        continue;
+                    }
+
+                    if (!await ProbePdfMagicAsync(
+                            client,
+                            url,
+                            cancellationToken))
+                    {
+                        continue;
+                    }
+
+                    output[url] =
+                        new TariffPublicationDiscovery(
+                            "ENEL_DISTRIBUCION_CHILE",
+                            "SUPPLY_REGULATED",
+                            title,
+                            url,
+                            new DateOnly(
+                                year,
+                                month,
+                                1),
+                            retroactive,
+                            RegulatoryMetadataSource:
+                                "ENEL_STATIC_CONTENT_DAM_PROBE");
+                }
+            }
+        }
+
+        return output.Values
+            .OrderBy(item => item.EffectiveFrom)
+            .ThenBy(item => item.Title, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string? ExtractFilenameFamily(
+        string title)
+    {
+        var match =
+            SupplyFilenameFamilyRegex.Match(
+                title);
+        return match.Success
+            ? match.Groups["prefix"].Value
+            : null;
+    }
+
+    private static string BuildStaticAssetUrl(
+        int year,
+        string title)
+    {
+        var encoded =
+            Uri.EscapeDataString(title)
+                .Replace(
+                    "%2F",
+                    "/",
+                    StringComparison.OrdinalIgnoreCase);
+        return $"{StaticSupplyTariffRoot}/{year}/{encoded}";
+    }
+
+    private static async Task<bool> ProbePdfMagicAsync(
+        HttpClient client,
+        string url,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            url,
+            "application/pdf,*/*;q=0.5");
+        request.Headers.Referrer =
+            new Uri(OfficialArchiveUrl);
+        request.Headers.Range =
+            new RangeHeaderValue(
+                0,
+                4);
+
+        try
+        {
+            using var response =
+                await client.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+                return false;
+
+            await using var stream =
+                await response.Content.ReadAsStreamAsync(
+                    cancellationToken);
+
+            var prefix = new byte[5];
+            var offset = 0;
+            while (offset < prefix.Length)
+            {
+                var read = await stream.ReadAsync(
+                    prefix.AsMemory(
+                        offset,
+                        prefix.Length - offset),
+                    cancellationToken);
+                if (read == 0)
+                    break;
+                offset += read;
+            }
+
+            return offset == 5 &&
+                   prefix[0] == (byte)'%' &&
+                   prefix[1] == (byte)'P' &&
+                   prefix[2] == (byte)'D' &&
+                   prefix[3] == (byte)'F' &&
+                   prefix[4] == (byte)'-';
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
+    private static void ValidateDeclaredEffectivePeriod(
+        TariffPublicationDiscovery item,
+        IReadOnlyList<string> pageTexts)
+    {
+        if (!item.EffectiveFrom.HasValue ||
+            pageTexts.Count == 0)
+        {
+            return;
+        }
+
+        var sample =
+            string.Join(
+                "\n",
+                pageTexts.Take(2));
+        var match =
+            DeclaredEffectiveDateRegex.Match(
+                sample);
+
+        if (!match.Success)
+            return;
+
+        var parsed =
+            ParseEffectiveDate(
+                $"{match.Groups["month"].Value} {match.Groups["year"].Value}",
+                int.Parse(
+                    match.Groups["year"].Value,
+                    System.Globalization.CultureInfo.InvariantCulture));
+
+        if (parsed.HasValue &&
+            parsed.Value !=
+            item.EffectiveFrom.Value)
+        {
+            throw new InvalidDataException(
+                $"El PDF oficial declara vigencia {parsed.Value:yyyy-MM-dd}, " +
+                $"pero fue descubierto como {item.EffectiveFrom.Value:yyyy-MM-dd}. " +
+                "Se rechaza para evitar asociar una tarifa al mes equivocado.");
+        }
     }
 
     private static async Task<CatalogFetchResult> FetchCatalogAsync(
