@@ -2240,6 +2240,226 @@ try
             "Phase 10 multi-period tariff reconstruction smoke test failed.");
     }
 
+    // Phase 10 real-bill tariff-structure regression using anonymous
+    // September-2026 structural values. No customer-identifying data is stored.
+    var augRealFixture =
+        tariffPageFixture
+            .Replace(
+                "596,252 709,540 596,252 709,540",
+                "610,588 726,600 610,588 726,600",
+                StringComparison.Ordinal)
+            .Replace(
+                "13,415 15,964 13,415 15,964",
+                "17,218 20,489 17,218 20,489",
+                StringComparison.Ordinal)
+            .Replace(
+                "176,2788 209,772 176,2788 209,772",
+                "220,147 220,147 220,147 220,147",
+                StringComparison.Ordinal);
+
+    var sepRealFixture =
+        tariffPageFixture
+            .Replace(
+                "596,252 709,540 596,252 709,540",
+                "611,118 727,230 611,118 727,230",
+                StringComparison.Ordinal)
+            .Replace(
+                "13,415 15,964 13,415 15,964",
+                "17,218 20,489 17,218 20,489",
+                StringComparison.Ordinal)
+            .Replace(
+                "176,2788 209,772 176,2788 209,772",
+                "220,539 220,539 220,539 220,539",
+                StringComparison.Ordinal);
+
+    var augRealId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "ENEL_DISTRIBUCION_CHILE",
+                "SUPPLY_REGULATED",
+                "Anonymous Agosto 2026 retroactivo structure",
+                "https://example.invalid/anonymous-aug-2026.pdf",
+                new DateOnly(2026, 8, 1),
+                true));
+    tariffRepository.MarkCaptured(
+        augRealId,
+        Path.Combine(
+            paths.TariffDirectory,
+            "anonymous-aug-2026.pdf"),
+        "anonymous-aug-2026",
+        1234,
+        1,
+        [augRealFixture]);
+    tariffNormalizer.NormalizePublication(
+        augRealId,
+        tariffRepository.GetPageTexts(
+            augRealId));
+
+    var sepRealId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "ENEL_DISTRIBUCION_CHILE",
+                "SUPPLY_REGULATED",
+                "Anonymous Septiembre 2026 structure",
+                "https://example.invalid/anonymous-sep-2026.pdf",
+                new DateOnly(2026, 9, 1),
+                false));
+    tariffRepository.MarkCaptured(
+        sepRealId,
+        Path.Combine(
+            paths.TariffDirectory,
+            "anonymous-sep-2026.pdf"),
+        "anonymous-sep-2026",
+        1234,
+        1,
+        [sepRealFixture]);
+    tariffNormalizer.NormalizePublication(
+        sepRealId,
+        tariffRepository.GetPageTexts(
+            sepRealId));
+
+    const double realStructureBilledKwh = 97.0;
+    const double realStructureObservedKwh = 88.065413;
+    const double realStructureAdminActual = 727.0;
+    const double realStructureTransportActual = 2072.0;
+    const double realStructureExempt = 83.0;
+    const double realStructureElectricityActual = 21389.0;
+
+    var realStructureBillId =
+        utilityRepository.AddBill(
+            new DateTimeOffset(
+                2026, 8, 28, 0, 0, 0,
+                TimeSpan.FromHours(-4))
+                .ToUniversalTime(),
+            new DateTimeOffset(
+                2026, 9, 28, 0, 0, 0,
+                TimeSpan.FromHours(-3))
+                .ToUniversalTime(),
+            realStructureBilledKwh,
+            26854,
+            "PHASE10-REAL-STRUCTURE",
+            "Anonymous real-bill tariff structure regression",
+            tariffPlan: "BT1-T5",
+            exemptAmountClp:
+                realStructureExempt,
+            totalDueClp: 26854,
+            periodPrecision:
+                UtilityTimePrecision.DateOnly);
+
+    utilityRepository.AddBillLine(
+        realStructureBillId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad Consumida (97kWh)",
+        realStructureElectricityActual,
+        categoryKey:
+            UtilityBillLineCategory.ElectricityConsumed,
+        sortOrder: 10);
+    var realTransportLineId =
+        utilityRepository.AddBillLine(
+            realStructureBillId,
+            "SERVICIO_ELECTRICO",
+            "Transporte de electricidad",
+            realStructureTransportActual,
+            categoryKey:
+                UtilityBillLineCategory.ElectricityTransport,
+            sortOrder: 20);
+    var realAdminLineId =
+        utilityRepository.AddBillLine(
+            realStructureBillId,
+            "SERVICIO_ELECTRICO",
+            "Administración del servicio",
+            realStructureAdminActual,
+            categoryKey:
+                UtilityBillLineCategory.ServiceAdministration,
+            sortOrder: 30);
+
+    var realStructureAnalysis =
+        new UtilityBillTariffScenarioAnalysisService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver)
+        .Analyze(
+            realStructureBillId,
+            "America/Santiago",
+            UtilityGridImportStatisticalCompletion
+                .Insufficient(
+                    realStructureObservedKwh,
+                    99.33,
+                    0,
+                    0,
+                    "PHASE10-REAL-STRUCTURE"));
+
+    var realTransport =
+        realStructureAnalysis.Components.SingleOrDefault(item =>
+            item.BillLineDescription ==
+                "Transporte de electricidad");
+    var realAdmin =
+        realStructureAnalysis.Components.SingleOrDefault(item =>
+            item.ComponentKey ==
+                UtilityBillLineCategory.ServiceAdministration);
+
+    if (!realStructureAnalysis.HasTariffModel ||
+        realTransport is null ||
+        realAdmin is null ||
+        realTransport.ComponentKey !=
+            "ELECTRICITY_TRANSPORT_PLUS_PUBLIC_SERVICE" ||
+        Math.Abs(
+            realTransport.ReconstructedAmountClp -
+            2070.368) > 0.01 ||
+        Math.Abs(
+            realTransport.DifferenceClp -
+            1.632) > 0.01 ||
+        string.IsNullOrWhiteSpace(
+            realTransport.CalculationBasis) ||
+        !realTransport.CalculationBasis.Contains(
+            "82.935",
+            StringComparison.Ordinal) ||
+        !realTransport.CalculationBasis.Contains(
+            "83",
+            StringComparison.Ordinal) ||
+        Math.Abs(
+            realAdmin.FixedAmountClp -
+            727) > 0.001 ||
+        Math.Abs(
+            realAdmin.ReconstructedAmountClp -
+            727) > 0.001 ||
+        realStructureAnalysis.PublicationPeriods.Count != 2 ||
+        realStructureAnalysis.PublicationPeriods[0].PublicationId !=
+            augRealId ||
+        realStructureAnalysis.PublicationPeriods[1].PublicationId !=
+            sepRealId)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 anonymous Aug/Sep 2026 real-bill tariff structure regression failed.");
+    }
+
+    var realStructureAudit =
+        new UtilityBillAuditV2Service(
+            utilityRepository,
+            rateVerification,
+            new UtilityBillTariffScenarioAnalysisService(
+                utilityRepository,
+                tariffRepository,
+                candidateRepository,
+                versionResolver))
+        .Analyze(
+            realStructureBillId,
+            "America/Santiago");
+
+    if (!realStructureAudit.Lines.Any(item =>
+            item.BillLineId ==
+                realTransportLineId &&
+            item.ReconstructedAmountClp.HasValue) ||
+        !realStructureAudit.Lines.Any(item =>
+            item.BillLineId ==
+                realAdminLineId &&
+            item.ReconstructedAmountClp.HasValue))
+    {
+        throw new InvalidOperationException(
+            "Phase 10 anonymous real-bill audit reconstruction regression failed.");
+    }
+
     // Phase 10 closure: when two normalized Enel versions share an effective
     // date, a retroactive replacement must be the publication used by the
     // product reconstruction rather than the superseded original.
