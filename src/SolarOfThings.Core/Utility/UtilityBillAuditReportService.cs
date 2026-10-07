@@ -198,11 +198,8 @@ public sealed class UtilityBillAuditReportService
         AddNonVariableChargeTreatment(
             section,
             bill,
+            tariffScenario,
             spanish);
-        AddHeading(
-            section,
-            L("Componentes variables reconstruidos", "Reconstructed variable components"),
-            12);
         AddTariffComponentReconciliation(
             section,
             tariffScenario,
@@ -760,9 +757,12 @@ public sealed class UtilityBillAuditReportService
             var r = table.AddRow();
             r.Cells[0].AddParagraph(item.BillLineDescription);
             r.Cells[1].AddParagraph(
-                item.FixedAmountClp > 0.0001
-                    ? $"$ {item.FixedAmountClp:N0} fijo + $ {item.RateClpPerKwh:N3}/kWh"
-                    : $"$ {item.RateClpPerKwh:N3}/kWh");
+                item.FixedAmountClp > 0.0001 &&
+                Math.Abs(item.RateClpPerKwh) <= 0.000001
+                    ? $"$ {item.FixedAmountClp:N0} fijo"
+                    : item.FixedAmountClp > 0.0001
+                        ? $"$ {item.FixedAmountClp:N0} fijo + $ {item.RateClpPerKwh:N3}/kWh"
+                        : $"$ {item.RateClpPerKwh:N3}/kWh");
             r.Cells[2].AddParagraph(
                 Money(item.ActualLineAmountClp));
             r.Cells[3].AddParagraph(
@@ -1360,6 +1360,7 @@ public sealed class UtilityBillAuditReportService
     private void AddNonVariableChargeTreatment(
         Section section,
         UtilityBillRecord bill,
+        UtilityBillTariffScenarioAnalysis analysis,
         bool spanish)
     {
         string L(string es, string en) => spanish ? es : en;
@@ -1374,13 +1375,20 @@ public sealed class UtilityBillAuditReportService
 
                 if (normalized.Contains("ADMINISTR"))
                 {
+                    if (analysis.Components.Any(item =>
+                            item.ComponentKey ==
+                                UtilityBillLineCategory.ServiceAdministration))
+                    {
+                        return null;
+                    }
+
                     return new
                     {
                         Line = line,
-                        Class = L("FIJO", "FIXED"),
+                        Class = L("FIJO · NO RECONSTRUIDO", "FIXED · NOT RECONSTRUCTED"),
                         Treatment = L(
-                            "Se preserva sin cambio entre escenarios.",
-                            "Preserved unchanged across scenarios.")
+                            "Se preserva porque la evidencia tarifaria no permitió reconstruir un cargo fijo único.",
+                            "Preserved because tariff evidence did not establish one unique fixed charge.")
                     };
                 }
 
@@ -1437,8 +1445,8 @@ public sealed class UtilityBillAuditReportService
         AddHeading(
             section,
             L(
-                "Tratamiento de cargos no variables",
-                "Treatment of non-variable charges"),
+                "Tratamiento de cargos no reconstruidos",
+                "Treatment of non-reconstructed charges"),
             11.5);
 
         var table = section.AddTable();

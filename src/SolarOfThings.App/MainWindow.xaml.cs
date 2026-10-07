@@ -3029,6 +3029,9 @@ public partial class MainWindow : Window
                 !item.Status.Contains(
                     "AMBIGUOUS",
                     StringComparison.Ordinal) ||
+                item.Status.StartsWith(
+                    "FIXED_AMOUNT_RECONCILED",
+                    StringComparison.Ordinal) ||
                 item.Status == "VAT_RECONSTRUCTED_19");
 
             var spanish =
