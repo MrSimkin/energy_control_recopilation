@@ -6547,3 +6547,151 @@ Accepted build:
 - SHA-256: 2f386ceb6ad97e6251e843df926a17acc4f842c05fd29e2d3b00c5a9a06e192d
 
 Build 635 is the accepted product baseline for the current Phase-10 bill-ingestion / reconciliation tranche. Do not reopen the accepted DATE_ONLY, +2,206 sign, single-subsidy-row, -3 CLP residual, IVA 19%, responsiveness, or Enel Download fallback behavior without new defect evidence.
+
+
+## Phase 10 closure candidate — Build 644 — 2026-10-07
+
+Build 635 remains the accepted baseline. Build 644 is a **Phase-10 closure candidate awaiting owner QA**; Phase 10 is not yet marked COMPLETED.
+
+### New independently reconstructed regulated component
+
+Official tariff evidence establishes that BT1 Administration service is composed of:
+- monthly fixed charge;
+- public-service charge proportional to consumption;
+- FET surcharge where the applicable consumption tier requires it.
+
+The product model now reconstructs `Administración del servicio` conservatively as:
+- one official fixed monthly consumer charge;
+- plus official public-service CLP/kWh × bill consumption;
+- with FET = 0 only when bill consumption is <=350 kWh, matching captured 2026 official tariff evidence.
+
+Safety/epistemic rules:
+- if consumption is above 350 kWh, Administration remains preserved actual-only until FET tiers are normalized deterministically;
+- if the official fixed consumer amount changes inside one bill interval, the app does not guess a fixed-charge prorating rule and preserves the line instead;
+- the line must reconcile to the actual bill amount within the existing audit tolerance before it is presented as reconstructed.
+
+`Arriendo Medidor`, `Servicio Común`, and `Subsidio` remain actual-bill evidence unless an independent deterministic rule is available. They are not force-mapped to supply-tariff components.
+
+### Corrected component allocation
+
+The public-service tariff component is no longer allowed to be absorbed into `Transporte de electricidad`. It belongs to the Administration-service reconstruction. Transport is reconstructed from the official transport component only.
+
+### Fixed + variable scenario model
+
+The supported monetary model now carries:
+- supported variable rate in CLP/kWh;
+- supported fixed amount in CLP.
+
+Each economic scenario is:
+`supported fixed amount + scenario kWh × supported variable rate`.
+
+Therefore a fixed monthly charge remains once per bill when comparing Enel billed energy with observed inverter energy; only supported energy-proportional portions change with kWh.
+
+Audit exposes a mixed calculation basis such as:
+`fixed CLP + billed kWh × public-service CLP/kWh; FET 0`.
+
+Product summary and export/report wording were updated accordingly.
+
+### Deterministic closure proofs
+
+Smoke now proves:
+
+1. **Administration service**
+   - fixed monthly + public service × kWh;
+   - FET zero for <=350 kWh fixture;
+   - supported fixed amount is charged once;
+   - observed-energy scenario changes variable portions only;
+   - Audit preserves the explicit mixed calculation basis.
+
+2. **Tariff change inside one bill**
+   - controlled bill spans 2026-05-20 through 2026-06-10;
+   - two normalized official-style Enel publications have genuinely different variable rates;
+   - period allocation is 12 local calendar days + 10 local calendar days;
+   - variable rates are day-weighted;
+   - unchanged fixed consumer charge is applied once;
+   - result status is `SUPPORTED_MULTI_PERIOD_COMPONENT_MODEL` when all required components resolve.
+
+3. **Retroactive tariff precedence**
+   - controlled original and retroactive Enel publications share the same effective date;
+   - product reconstruction selects the preferred retroactive version;
+   - superseded original is not used in the modeled period/component.
+
+These tests extend existing frozen precedence/CNE evidence without reopening or recalibrating prior accepted research.
+
+### Export alignment
+
+Bill audit report now distinguishes:
+- supported variable rate;
+- reconstructed supported fixed charge;
+- modeled subtotal containing both when applicable.
+
+Component table prints a mixed fixed + per-kWh rate for Administration.
+
+Technical annex export advanced to:
+- `bill-audit-evidence-annex.v2`;
+- economic CSV now includes:
+  - `supported_variable_rate_clp_per_kwh`;
+  - `supported_fixed_amount_clp`;
+  - `supported_modeled_subtotal_clp`;
+- provenance text records supported variable rate, supported fixed amount, and per-component calculation basis.
+
+### Build 644
+
+Source commit:
+- `9f760a441de3f0f0cf6ab8f92052224b09f43c0c`.
+
+Workflow:
+- run `37695865569`;
+- run/build number **644**;
+- Build: PASS;
+- SQLite smoke: PASS, including fixed+variable Administration, multi-period tariff change, retroactive selection, all prior DATE_ONLY/bill-ingestion regressions;
+- live Enel/CNE probes: skipped by workflow conditions, not failures;
+- portable publish: PASS;
+- portable marker: PASS;
+- artifact upload: PASS.
+
+Artifact:
+- `SolarEnergyMonitor-Build-644-win-x64.zip`;
+- artifact ID `11515810830`;
+- SHA-256 `ba33708e864219974fc9c390d02645e3125967027644369f516a9921e833edb4`.
+
+Downloaded artifact verification:
+- SHA matches GitHub digest;
+- 490 entries;
+- `portable.mode` present;
+- `SolarEnergyMonitor.exe` present;
+- no bundled `energy.db`;
+- no bundled Data directory.
+
+### Owner QA — Phase 10 closure gate
+
+Do not repeat Build-635 accepted stability/DATE_ONLY/Enel fallback QA unless a regression appears.
+
+Use the real reviewed 28-08-2026 -> 28-09-2026 bill.
+
+1. Open Audit and confirm previously accepted facts remain stable:
+   - actual CLP 26,854;
+   - Enel 97.000 kWh;
+   - observed inverter about 88.065 kWh;
+   - coverage about 99.33%;
+   - printed summary OK;
+   - detail residual -3 CLP / no printed adjustment.
+
+2. Inspect `Administración del servicio`:
+   - preferred PASS: reconstructed from an explicit basis containing fixed monthly + kWh × public-service charge and FET 0;
+   - acceptable conservative PASS: actual-only/preserved with a clear limitation if the official candidates do not establish a unique valid reconstruction;
+   - FAIL: guessed reconstruction, unexplained mapping, or public service attributed to Transport.
+
+3. Confirm:
+   - `Arriendo Medidor`, `Servicio Común`, and `Subsidio` are not falsely presented as independently reconstructed;
+   - Transport remains its own official transport reconstruction;
+   - reconstruction coverage changes only when additional money is genuinely reconstructed.
+
+4. Record the actual product estimate shown. Do not force Build-635 CLP 24,690 / +2,164 if the newly supported Administration reconstruction legitimately changes it.
+
+5. Export:
+   - Audit PDF;
+   - Technical annex + data ZIP.
+   Confirm both complete without error. In the PDF, modeled tariff wording must no longer claim all fixed charges are excluded. The annex economic CSV/provenance must expose fixed and variable supported components separately.
+
+If this owner gate passes, mark Phase 10 COMPLETED and begin Phase 11 SQL Usability / Documentation. Zero-click WebView2 tariff capture remains a non-blocking enhancement.
