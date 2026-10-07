@@ -4672,3 +4672,70 @@ Next owner action:
 6. return both generated artifacts.
 
 Do not repeat the HPVINV02 purchased-energy counter probe.
+
+
+## Build 533 returned QA hardening — Build 538 final-visual-QA handoff — 2026-10-06
+
+Returned artifacts:
+- `Auditoria-Boleta-Enel-20261006-2102.pdf`
+  - SHA-256 `152f32e14e5fc687c4ab4a15a24e66e144a177729a1925b518d0ebaaf02f1b76`;
+- `Anexo-Tecnico-Boleta-Enel-20261006-2105.zip`
+  - SHA-256 `99f23cd0240d79f2c98ebbf7f7eb731fcdd2e44c1f084530ccac2e91ba31f85f`.
+
+Canonical returned-QA report:
+- `research/bill_audit/BUILD_533_RETURNED_QA_CHECKPOINT_2026-10-06.md`.
+
+Build 533 content status:
+- energy values PASS;
+- provisional P95 semantics PASS;
+- tariff/economic scenario reconstruction PASS;
+- digital annex hashes/integrity PASS;
+- previous export crash PASS/fixed;
+- previous report gap overlap PASS/fixed.
+
+Additional defects found from the real returned files:
+1. printable 128-page annex footer overlaps the last data row on ordinary full pages;
+2. page-8 tariff summary incorrectly looks September-only even though the model correctly uses August retroactive + September;
+3. aggregated OtherCharges captured value has opposite sign from printed bill arithmetic; report must derive net other charges from TotalDue - GrossBill when possible;
+4. blank local tariff-plan capture must not visually imply the original bill omitted the printed tariff;
+5. P5=P50 should be explicitly explained;
+6. fixed/conditional charge treatment should be explicit on the economic decomposition page.
+
+Hardening commits:
+- `68d70f3866821bf2e7a186be13efd89ca8b6e8e8` — carry tariff URL/hash into bill evidence;
+- `9587da658cd26e5525137a70aa788b82a1c4a97c` — fix aggregate sign semantics and multi-period tariff provenance;
+- `4a926640a55f41804cab5e83c9581c2aa226468f` — reserve printable-annex footer space and include tariff source hashes;
+- `259df01c5f172411e9d4de7e25e6a4fab26e7ac0` — clarify P5=P50 and variable/non-variable scenario wording;
+- `c21e07a3f67f44c589ab5a076142f622e218517b` — add explicit fixed/conditional-charge treatment table.
+
+Build 538:
+- workflow run `37551188265`;
+- code HEAD `c21e07a3f67f44c589ab5a076142f622e218517b`;
+- artifact `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID `11453110906`;
+- digest `sha256:acb0854f6ba3ec06852b2869a38920705ae768699efb221d1cb6182e93bf6ba1`;
+- Build PASS;
+- SQLite smoke PASS;
+- portable publish/upload PASS.
+
+Build 538 is the final visual-target-QA handoff for this hardening tranche.
+
+Owner action:
+1. reuse/copy the same complete `Data\` folder;
+2. run Build 538;
+3. select the same current bill;
+4. export audit PDF;
+5. export technical annex ZIP;
+6. return both artifacts.
+
+Owner does not need to manually inspect/validate before returning them.
+
+Assistant acceptance checks on return:
+- audit report has no overlaps;
+- page 3 shows net other charges/credits with correct arithmetic sign;
+- page 3 includes explicit fixed/conditional charge treatment;
+- page 8 shows both August retroactive and September tariff periods;
+- source/provenance includes tariff hashes;
+- annex printable footer no longer overlaps last data row;
+- annex manifest lists tariff source URL/hash provenance;
+- canonical energy/economic numbers remain unchanged.
