@@ -1993,9 +1993,13 @@ public partial class MainWindow : Window
             .GetRequiredService<TariffPublicationRepository>()
             .GetAll();
 
+        var tariffRepository = _services
+            .GetRequiredService<TariffPublicationRepository>();
         var resolutions = _services
             .GetRequiredService<TariffPublicationVersionResolver>()
-            .Resolve(publications)
+            .Resolve(
+                publications,
+                tariffRepository.GetRelations())
             .ToDictionary(item => item.PublicationId);
 
         TariffPublicationsGrid.ItemsSource = publications
@@ -2307,6 +2311,24 @@ public partial class MainWindow : Window
             "VERSION_SINGLE" =>
                 _localization.GetString(
                     "GridUtility.TariffVersion.Single"),
+            "VERSION_PREFERRED_OFFICIAL_CORRECTION" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.OfficialCorrectionPreferred"),
+            "VERSION_SUPERSEDED_BY_OFFICIAL_CORRECTION" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.OfficialCorrectionSuperseded"),
+            "VERSION_PREFERRED_OFFICIAL_DATE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.OfficialDatePreferred"),
+            "VERSION_SUPERSEDED_BY_LATER_OFFICIAL_DATE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.OfficialDateSuperseded"),
+            "VERSION_PREFERRED_EQUIVALENT_FILE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.EquivalentPreferred"),
+            "VERSION_EQUIVALENT_DUPLICATE_FILE" =>
+                _localization.GetString(
+                    "GridUtility.TariffVersion.EquivalentDuplicate"),
             "VERSION_PREFERRED_RETROACTIVE" =>
                 _localization.GetString(
                     cne
