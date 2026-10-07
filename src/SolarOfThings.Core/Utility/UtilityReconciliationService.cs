@@ -1,4 +1,5 @@
 using SolarOfThings.Core.Statistics;
+using SolarOfThings.Core.SolarOfThings;
 
 namespace SolarOfThings.Core.Utility;
 
@@ -6,13 +7,16 @@ public sealed class UtilityReconciliationService
 {
     private readonly UtilityMeterRepository _repository;
     private readonly EnergyRangeStatisticsService _statistics;
+    private readonly UtilityBillGapStatisticalCompletionService _billObserved;
 
     public UtilityReconciliationService(
         UtilityMeterRepository repository,
-        EnergyRangeStatisticsService statistics)
+        EnergyRangeStatisticsService statistics,
+        UtilityBillGapStatisticalCompletionService billObserved)
     {
         _repository = repository;
         _statistics = statistics;
+        _billObserved = billObserved;
     }
 
     public IReadOnlyList<UtilityMeterReconciliation> GetMeterReconciliations(
@@ -114,14 +118,16 @@ public sealed class UtilityReconciliationService
     }
 
     public IReadOnlyList<UtilityBillReconciliation> GetBillReconciliations(
-        string deviceId) =>
+        string deviceId,
+        string timeZoneId) =>
         _repository.GetBills()
-            .Select(bill => ReconcileBill(deviceId, bill))
+            .Select(bill => ReconcileBill(deviceId, bill, timeZoneId))
             .ToArray();
 
     private UtilityBillReconciliation ReconcileBill(
         string deviceId,
-        UtilityBillRecord bill)
+        UtilityBillRecord bill,
+        string timeZoneId)
     {
         var fromUtc = bill.PeriodStartUtc;
         var toUtc = bill.PeriodEndUtc;
@@ -149,11 +155,49 @@ public sealed class UtilityReconciliationService
             }
         }
 
-        var grid = _statistics.GetMetric(
-            deviceId,
-            "grid_import_power_w",
-            fromUtc,
-            toUtc);
+        double inverterKwh;
+        double coveragePercent;
+        UtilitySensitivityRange? sensitivity = null;
+
+        if (bill.PeriodPrecision == UtilityTimePrecision.DateOnly)
+        {
+            var startLocalDate =
+                SolarApiTime.GetLocalDate(
+                    bill.PeriodStartUtc,
+                    timeZoneId);
+            var endLocalDateInclusive =
+                SolarApiTime.GetLocalDate(
+                    bill.PeriodEndUtc,
+                    timeZoneId);
+
+            var observed = _billObserved.AnalyzeObservedOnly(
+                deviceId,
+                startLocalDate,
+                endLocalDateInclusive,
+                timeZoneId);
+
+            inverterKwh = observed.ObservedKwh;
+            coveragePercent = observed.CoveragePercent;
+            timeBasis = "DATE_ONLY_INCLUSIVE";
+        }
+        else
+        {
+            var grid = _statistics.GetMetric(
+                deviceId,
+                "grid_import_power_w",
+                fromUtc,
+                toUtc);
+
+            inverterKwh = grid.PositiveEnergyKwh;
+            coveragePercent = grid.CoveragePercent;
+            sensitivity = BuildSensitivity(
+                deviceId,
+                fromUtc,
+                toUtc,
+                grid,
+                fromDateOnly,
+                toDateOnly);
+        }
 
         double? signed = null;
         double? absolute = null;
@@ -161,33 +205,27 @@ public sealed class UtilityReconciliationService
 
         if (bill.BilledConsumptionKwh.HasValue)
         {
-            signed = grid.PositiveEnergyKwh - bill.BilledConsumptionKwh.Value;
+            signed = inverterKwh - bill.BilledConsumptionKwh.Value;
             absolute = Math.Abs(signed.Value);
             if (bill.BilledConsumptionKwh.Value > 0)
                 percent = absolute.Value / bill.BilledConsumptionKwh.Value * 100.0;
         }
-
-        var sensitivity = BuildSensitivity(
-            deviceId,
-            fromUtc,
-            toUtc,
-            grid,
-            fromDateOnly,
-            toDateOnly);
 
         return new UtilityBillReconciliation(
             bill.BillId,
             fromUtc,
             toUtc,
             bill.BilledConsumptionKwh,
-            grid.PositiveEnergyKwh,
+            inverterKwh,
             signed,
             absolute,
             percent,
-            grid.CoveragePercent,
+            coveragePercent,
             timeBasis,
-            Quality(grid.CoveragePercent, timeBasis),
-            QualityDetail(grid.CoveragePercent, timeBasis))
+            Quality(coveragePercent, timeBasis),
+            bill.PeriodPrecision == UtilityTimePrecision.DateOnly
+                ? "Printed bill dates are treated as inclusive local calendar dates."
+                : QualityDetail(coveragePercent, timeBasis))
         {
             Sensitivity = sensitivity
         };
