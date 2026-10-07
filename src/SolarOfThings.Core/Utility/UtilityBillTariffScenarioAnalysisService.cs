@@ -94,10 +94,23 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 "TARIFF_PERIOD_ALLOCATION_FAILED");
         }
 
+        // A normalized Enel publication can contain thousands of candidates.
+        // Load each publication once for the entire bill analysis; repeatedly
+        // re-reading the same candidate set inside candidate matching caused
+        // minute-scale audits on real databases.
+        var candidateCache = periods
+            .Select(item => item.Publication.PublicationId)
+            .Distinct()
+            .ToDictionary(
+                publicationId => publicationId,
+                publicationId => _candidateRepository.GetForPublication(
+                    publicationId));
+
         var electricityMatch = MatchElectricity(
             electricity,
             billedKwh.Value,
-            periods);
+            periods,
+            candidateCache);
 
         if (electricityMatch is null)
         {
@@ -118,7 +131,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 transport,
                 billedKwh.Value,
                 electricityMatch,
-                periods);
+                periods,
+                candidateCache);
 
             if (transportMatch is not null)
                 components.Add(transportMatch);
@@ -243,12 +257,12 @@ public sealed class UtilityBillTariffScenarioAnalysisService
     private UtilityTariffComponentEvidence? MatchElectricity(
         UtilityBillLine line,
         double billedKwh,
-        IReadOnlyList<PublicationPeriod> periods)
+        IReadOnlyList<PublicationPeriod> periods,
+        IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
     {
         var first = periods[0];
-        var seeds = _candidateRepository
-            .GetForPublication(
-                first.Publication.PublicationId)
+        var seeds = candidateCache[
+                first.Publication.PublicationId]
             .Where(item =>
                 item.TariffPlan.Equals(
                     "BT1",
@@ -270,6 +284,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                         "ELECTRICITY_CONSUMED",
                         firstRate.Column,
                         periods,
+                        candidateCache,
                         billedKwh,
                         line.AmountClp);
 
@@ -361,12 +376,12 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         UtilityBillLine line,
         double billedKwh,
         UtilityTariffComponentEvidence electricity,
-        IReadOnlyList<PublicationPeriod> periods)
+        IReadOnlyList<PublicationPeriod> periods,
+        IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
     {
         var first = periods[0];
-        var firstCandidates = _candidateRepository
-            .GetForPublication(
-                first.Publication.PublicationId);
+        var firstCandidates = candidateCache[
+            first.Publication.PublicationId];
 
         var transportSeeds = firstCandidates
             .Where(item =>
@@ -408,6 +423,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                         null,
                         null,
                         periods,
+                        candidateCache,
                         billedKwh,
                         line.AmountClp);
 
@@ -427,6 +443,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                                 serviceSeed,
                                 serviceRate.Column,
                                 periods,
+                                candidateCache,
                                 billedKwh,
                                 line.AmountClp);
 
@@ -506,6 +523,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         string componentKey,
         string column,
         IReadOnlyList<PublicationPeriod> periods,
+        IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache,
         double billedKwh,
         double actualAmountClp)
     {
@@ -520,7 +538,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 FindSameCandidate(
                     period.Publication.PublicationId,
                     componentKey,
-                    seed);
+                    seed,
+                    candidateCache);
 
             if (candidate is null ||
                 !TryRate(
@@ -563,6 +582,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             TariffRateCandidate? serviceSeed,
             string? serviceColumn,
             IReadOnlyList<PublicationPeriod> periods,
+            IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache,
             double billedKwh,
             double actualAmountClp)
     {
@@ -578,7 +598,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 FindSameCandidate(
                     period.Publication.PublicationId,
                     "ELECTRICITY_TRANSPORT",
-                    transportSeed);
+                    transportSeed,
+                    candidateCache);
 
             if (transport is null ||
                 !TryRate(
@@ -599,7 +620,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     FindSameCandidate(
                         period.Publication.PublicationId,
                         "PUBLIC_SERVICE",
-                        serviceSeed);
+                        serviceSeed,
+                        candidateCache);
 
                 if (service is null ||
                     !TryRate(
@@ -643,14 +665,20 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             periodRates.ToArray());
     }
 
-    private TariffRateCandidate? FindSameCandidate(
+    private static TariffRateCandidate? FindSameCandidate(
         long publicationId,
         string componentKey,
-        TariffRateCandidate seed)
+        TariffRateCandidate seed,
+        IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
     {
-        var candidates = _candidateRepository
-            .GetForPublication(
-                publicationId)
+        if (!candidateCache.TryGetValue(
+                publicationId,
+                out var publicationCandidates))
+        {
+            return null;
+        }
+
+        var candidates = publicationCandidates
             .Where(item =>
                 item.TariffPlan.Equals(
                     "BT1",
