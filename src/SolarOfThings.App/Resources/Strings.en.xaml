@@ -288,16 +288,25 @@
     <sys:String x:Key="GridUtility.SensitivityNotConfidence">not a confidence interval</sys:String>
     <sys:String x:Key="GridUtility.Quality">Quality</sys:String>
     <sys:String x:Key="GridUtility.BillsHeading">Utility bills</sys:String>
-    <sys:String x:Key="GridUtility.BillsIntro">Import a bill PDF or enter it manually. Both paths produce the same canonical bill record: printed facts remain evidence, normalized classifications stay separate, and later calculations are never presented as if they were printed on the bill.</sys:String>
+    <sys:String x:Key="GridUtility.BillsIntro">Choose one way to start: importing the PDF fills this same review form; “New manual bill” leaves it blank. You do not need to use both methods. Either path creates the same bill record and preserves which facts were actually printed.</sys:String>
     <sys:String x:Key="GridUtility.BillEntryPdfTitle">Start from the PDF</sys:String>
-    <sys:String x:Key="GridUtility.BillEntryPdfIntro">The app preserves the original PDF, extracts only high-confidence facts and keeps everything reviewable before saving. Any detected field can be corrected.</sys:String>
+    <sys:String x:Key="GridUtility.BillEntryPdfIntro">Select the bill: the app preserves the original PDF and fills this same form with the facts it can read. You review everything before saving.</sys:String>
     <sys:String x:Key="GridUtility.BillEntryManualTitle">First-class manual entry</sys:String>
-    <sys:String x:Key="GridUtility.BillEntryManualIntro">Enter the same facts a PDF import would populate. Manual entry keeps full audit capability, is marked as user-entered evidence, and can later be linked to the real PDF.</sys:String>
+    <sys:String x:Key="GridUtility.BillEntryManualIntro">If you prefer to transcribe it, open a clean form and copy only what appears on the bill. You can attach its PDF later without duplicating the bill.</sys:String>
     <sys:String x:Key="GridUtility.NewManualBill">New manual bill</sys:String>
-    <sys:String x:Key="GridUtility.BillPrimaryDataHeading">1. Period, consumption and identity</sys:String>
-    <sys:String x:Key="GridUtility.BillPrimaryDataIntro">Use exactly what is printed on the bill. If the document only prints dates, keep “Printed date only”; do not invent times.</sys:String>
-    <sys:String x:Key="GridUtility.BillFinancialHeading">2. Printed totals and taxes</sys:String>
-    <sys:String x:Key="GridUtility.BillFinancialIntro">Enter amounts only when printed or explicitly available. The audit keeps those facts separate from later tariff reconstruction.</sys:String>
+    <sys:String x:Key="GridUtility.BillPrimaryDataHeading">1. Printed readings, period and consumption</sys:String>
+    <sys:String x:Key="GridUtility.BillPrimaryDataIntro">Copy what you see on the bill. You do not need to enter these readings in another tab first: the printed numbers and billing dates go directly here.</sys:String>
+    <sys:String x:Key="GridUtility.BillPrintedPreviousReading">Printed previous reading (kWh)</sys:String>
+    <sys:String x:Key="GridUtility.BillPrintedCurrentReading">Printed current reading (kWh)</sys:String>
+    <sys:String x:Key="GridUtility.BillConsumptionHint">If both readings are entered, the app calculates their difference. If the bill also prints total consumption, it is used as a cross-check.</sys:String>
+    <sys:String x:Key="GridUtility.BillTariffHint">Optional. Copy it only when printed; it is used to verify the applicable official tariff table, not to calculate consumption.</sys:String>
+    <sys:String x:Key="GridUtility.BillConsumptionCheckIdle">Readings and consumption: enter what is printed and the app will check consistency.</sys:String>
+
+    <sys:String x:Key="GridUtility.BillFinancialHeading">2. Billing summary exactly as printed</sys:String>
+    <sys:String x:Key="GridUtility.BillFinancialIntro">These labels follow the Enel bill summary. Enter amounts with the printed sign; the app checks the arithmetic and never invents an adjustment to force a match.</sys:String>
+    <sys:String x:Key="GridUtility.PreviousBalance">Previous balance</sys:String>
+    <sys:String x:Key="GridUtility.BillFinancialCheckIdle">Check: enter the printed amounts and the app will verify subtotal and total.</sys:String>
+
     <sys:String x:Key="GridUtility.BillIvaHint">Audit reference: Chilean standard VAT is 19%. The app reconstructs it only when a sufficient taxable base is available.</sys:String>
     <sys:String x:Key="GridUtility.BillPdfPreviewHeading">3. Review evidence detected in the PDF</sys:String>
     <sys:String x:Key="GridUtility.BillPdfPreviewIntro">These lines are not canonical until the review is saved. Confirm descriptions and amounts against the document.</sys:String>
@@ -312,7 +321,7 @@
     <sys:String x:Key="GridUtility.BillFromReading">Previous reading</sys:String>
     <sys:String x:Key="GridUtility.BillToReading">Current reading</sys:String>
     <sys:String x:Key="GridUtility.BillManualFallback">If both readings are selected, they define the interval and manual dates are ignored. Use manual dates only when the bill cannot be linked to saved readings.</sys:String>
-    <sys:String x:Key="GridUtility.TariffPlan">Tariff</sys:String>
+    <sys:String x:Key="GridUtility.TariffPlan">Contracted tariff type</sys:String>
     <sys:String x:Key="GridUtility.OfficialBoundary">Enel date boundary</sys:String>
     <sys:String x:Key="GridUtility.BillReadingsSuggested">Enel readings were suggested automatically from the bill dates. You can correct them if needed.</sys:String>
     <sys:String x:Key="GridUtility.BillSummaryHeading">Bill totals</sys:String>
@@ -331,9 +340,9 @@
     <sys:String x:Key="GridUtility.BillEvidence">Evidence</sys:String>
     <sys:String x:Key="GridUtility.TaxableAmount">Taxable amount</sys:String>
     <sys:String x:Key="GridUtility.IvaAmount">VAT</sys:String>
-    <sys:String x:Key="GridUtility.ExemptAmount">Exempt amount</sys:String>
+    <sys:String x:Key="GridUtility.ExemptAmount">Tax-exempt amount</sys:String>
     <sys:String x:Key="GridUtility.GrossBill">Gross bill</sys:String>
-    <sys:String x:Key="GridUtility.OtherCharges">Other charges (+/−)</sys:String>
+    <sys:String x:Key="GridUtility.OtherCharges">Other charges/credits</sys:String>
     <sys:String x:Key="GridUtility.TotalDue">Total due</sys:String>
     <sys:String x:Key="GridUtility.BillLinesHeading">Charge and credit detail</sys:String>
     <sys:String x:Key="GridUtility.BillLinesIntro">Select a saved bill and preserve each line as printed. For “Electricity consumed” and “Electricity transport”, use the specific charge type: the app automatically reuses the bill's billed kWh as the calculation basis when the official tariff confirms that basis. Do not repeat those kWh on the line. Description and amount are the minimum evidence; quantity, unit, unit price and tax treatment are entered only when printed.</sys:String>

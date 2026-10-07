@@ -288,16 +288,25 @@
     <sys:String x:Key="GridUtility.SensitivityNotConfidence">no es un intervalo de confianza</sys:String>
     <sys:String x:Key="GridUtility.Quality">Calidad</sys:String>
     <sys:String x:Key="GridUtility.BillsHeading">Boletas de Enel</sys:String>
-    <sys:String x:Key="GridUtility.BillsIntro">Importa una boleta PDF o ingrésala manualmente. Ambos caminos llegan al mismo registro canónico: lo impreso se conserva como evidencia, lo normalizado se clasifica por separado y los cálculos posteriores nunca se presentan como si hubieran venido de la boleta.</sys:String>
+    <sys:String x:Key="GridUtility.BillsIntro">Elige una forma de comenzar: importar el PDF completa este mismo formulario para revisión; “Nueva boleta manual” lo deja vacío. No necesitas usar ambos métodos. En los dos casos se guarda la misma clase de boleta y se conserva qué dato estaba realmente impreso.</sys:String>
     <sys:String x:Key="GridUtility.BillEntryPdfTitle">Partir desde el PDF</sys:String>
-    <sys:String x:Key="GridUtility.BillEntryPdfIntro">La app conserva el PDF original, extrae sólo datos de alta confianza y deja todo en revisión antes de guardar. Puedes corregir cualquier campo detectado.</sys:String>
+    <sys:String x:Key="GridUtility.BillEntryPdfIntro">Selecciona la cuenta: la app conserva el PDF original y completa este mismo formulario con lo que logra leer. Tú revisas antes de guardar.</sys:String>
     <sys:String x:Key="GridUtility.BillEntryManualTitle">Ingreso manual de primera clase</sys:String>
-    <sys:String x:Key="GridUtility.BillEntryManualIntro">Completa los mismos datos que usaría una importación PDF. Un ingreso manual no pierde capacidad de auditoría: queda marcado como ingresado por el usuario y puede vincularse después con el PDF real.</sys:String>
+    <sys:String x:Key="GridUtility.BillEntryManualIntro">Si prefieres transcribirla, abre un formulario limpio y copia sólo lo que aparece en la cuenta. Más adelante puedes adjuntar su PDF sin duplicar la boleta.</sys:String>
     <sys:String x:Key="GridUtility.NewManualBill">Nueva boleta manual</sys:String>
-    <sys:String x:Key="GridUtility.BillPrimaryDataHeading">1. Período, consumo e identificación</sys:String>
-    <sys:String x:Key="GridUtility.BillPrimaryDataIntro">Usa exactamente lo que aparece en la cuenta. Si sólo hay fechas impresas, mantén “Sólo fecha impresa”; no inventes horas.</sys:String>
-    <sys:String x:Key="GridUtility.BillFinancialHeading">2. Totales e impuestos impresos</sys:String>
-    <sys:String x:Key="GridUtility.BillFinancialIntro">Registra montos sólo cuando estén impresos o explícitamente disponibles. La auditoría separará estos hechos de cualquier reconstrucción tarifaria posterior.</sys:String>
+    <sys:String x:Key="GridUtility.BillPrimaryDataHeading">1. Lecturas, período y consumo impresos</sys:String>
+    <sys:String x:Key="GridUtility.BillPrimaryDataIntro">Copia lo que ves en la boleta. No necesitas haber ingresado antes estas lecturas en otra pestaña: aquí van directamente los números impresos y las fechas del período.</sys:String>
+    <sys:String x:Key="GridUtility.BillPrintedPreviousReading">Lectura anterior impresa (kWh)</sys:String>
+    <sys:String x:Key="GridUtility.BillPrintedCurrentReading">Lectura actual impresa (kWh)</sys:String>
+    <sys:String x:Key="GridUtility.BillConsumptionHint">Si ingresas ambas lecturas, la app calcula su diferencia. Si la boleta además imprime el consumo total, lo usa como control cruzado.</sys:String>
+    <sys:String x:Key="GridUtility.BillTariffHint">Opcional. Cópiala sólo si aparece impresa; sirve para verificar la tabla tarifaria oficial aplicable, no para calcular tu consumo.</sys:String>
+    <sys:String x:Key="GridUtility.BillConsumptionCheckIdle">Lecturas y consumo: completa lo que esté impreso; la app verificará su consistencia.</sys:String>
+
+    <sys:String x:Key="GridUtility.BillFinancialHeading">2. Resumen de cobro tal como aparece en la boleta</sys:String>
+    <sys:String x:Key="GridUtility.BillFinancialIntro">Estos nombres siguen el resumen de Enel. Ingresa los montos con el signo que aparece impreso; la app comprueba las sumas y no inventa ajustes para hacerlas cuadrar.</sys:String>
+    <sys:String x:Key="GridUtility.PreviousBalance">Saldo anterior</sys:String>
+    <sys:String x:Key="GridUtility.BillFinancialCheckIdle">Comprobación: completa los montos impresos y la app verificará subtotal y total.</sys:String>
+
     <sys:String x:Key="GridUtility.BillIvaHint">Referencia de auditoría: IVA estándar Chile 19%. La app lo recalcula sólo si existe una base afecta suficiente.</sys:String>
     <sys:String x:Key="GridUtility.BillPdfPreviewHeading">3. Revisión de evidencia detectada en el PDF</sys:String>
     <sys:String x:Key="GridUtility.BillPdfPreviewIntro">Estas líneas aún no son verdad canónica hasta guardar la revisión. Confirma descripciones y montos contra el documento.</sys:String>
@@ -312,7 +321,7 @@
     <sys:String x:Key="GridUtility.BillFromReading">Lectura anterior</sys:String>
     <sys:String x:Key="GridUtility.BillToReading">Lectura actual</sys:String>
     <sys:String x:Key="GridUtility.BillManualFallback">Si eliges ambas lecturas, ellas definen el intervalo y las fechas manuales se ignoran. Usa las fechas manuales sólo cuando la boleta no pueda vincularse a lecturas guardadas.</sys:String>
-    <sys:String x:Key="GridUtility.TariffPlan">Tarifa</sys:String>
+    <sys:String x:Key="GridUtility.TariffPlan">Tipo de tarifa contratada</sys:String>
     <sys:String x:Key="GridUtility.OfficialBoundary">límite de fecha Enel</sys:String>
     <sys:String x:Key="GridUtility.BillReadingsSuggested">Lecturas Enel sugeridas automáticamente según las fechas de la boleta. Puedes corregirlas si no corresponden.</sys:String>
     <sys:String x:Key="GridUtility.BillSummaryHeading">Acumulados de la boleta</sys:String>
@@ -329,11 +338,11 @@
     <sys:String x:Key="GridUtility.BillSource">Origen</sys:String>
     <sys:String x:Key="GridUtility.BillReviewState">Revisión</sys:String>
     <sys:String x:Key="GridUtility.BillEvidence">Evidencia</sys:String>
-    <sys:String x:Key="GridUtility.TaxableAmount">Monto afecto</sys:String>
+    <sys:String x:Key="GridUtility.TaxableAmount">Monto afecto a impuesto</sys:String>
     <sys:String x:Key="GridUtility.IvaAmount">IVA</sys:String>
-    <sys:String x:Key="GridUtility.ExemptAmount">Monto exento</sys:String>
+    <sys:String x:Key="GridUtility.ExemptAmount">Monto exento de impuesto</sys:String>
     <sys:String x:Key="GridUtility.GrossBill">Total boleta</sys:String>
-    <sys:String x:Key="GridUtility.OtherCharges">Otros cargos (+/−)</sys:String>
+    <sys:String x:Key="GridUtility.OtherCharges">Otros cargos/abonos</sys:String>
     <sys:String x:Key="GridUtility.TotalDue">Total a pagar</sys:String>
     <sys:String x:Key="GridUtility.BillLinesHeading">Detalle de cargos y créditos</sys:String>
     <sys:String x:Key="GridUtility.BillLinesIntro">Selecciona una boleta guardada y conserva cada línea tal como aparece. Para “Electricidad consumida” y “Transporte de electricidad” usa el tipo de cargo específico: la app reutiliza automáticamente el consumo kWh de la boleta como base de cálculo cuando el tarifario oficial confirma que corresponde. No repitas esos kWh en la línea. Descripción y monto son la evidencia mínima; cantidad, unidad, precio unitario y tratamiento tributario se ingresan sólo si están impresos.</sys:String>
