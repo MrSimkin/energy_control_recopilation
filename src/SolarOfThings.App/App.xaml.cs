@@ -108,6 +108,7 @@ public partial class App : Application
         builder.Services.AddSingleton<CneTariffEvidenceCaptureService>();
         builder.Services.AddSingleton<EnelTariffPdfImportService>();
         builder.Services.AddSingleton<EnelUtilityBillPdfImportService>();
+        builder.Services.AddSingleton<UtilityBillPdfReviewMergeService>();
         builder.Services.AddSingleton<TariffPublicationVersionResolver>();
         builder.Services.AddSingleton<TariffBillRateVerificationService>();
         builder.Services.AddSingleton<UtilityBillAuditV2Service>();
