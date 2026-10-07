@@ -140,6 +140,9 @@ public sealed class EnelTariffCaptureService
         var catalogCachePath = Path.Combine(
             providerRoot,
             $"catalog-{year}-last-valid.html");
+        var legacyCatalogPath = Path.Combine(
+            providerRoot,
+            $"catalog-{year}-last.html");
         var catalogDiagnosticPath = Path.Combine(
             providerRoot,
             $"catalog-{year}-last-response.html");
@@ -193,6 +196,38 @@ public sealed class EnelTariffCaptureService
                 $"Catálogo vivo no disponible: {ex.Message}");
             progress?.Report(
                 "Catálogo vivo no disponible; intentando evidencia local y assets oficiales directos...");
+        }
+
+        if (discovered.Count == 0 &&
+            !File.Exists(catalogCachePath) &&
+            File.Exists(legacyCatalogPath))
+        {
+            try
+            {
+                var legacyHtml =
+                    await File.ReadAllTextAsync(
+                        legacyCatalogPath,
+                        cancellationToken);
+                var legacy = DiscoverSupplyTariffs(
+                    legacyHtml,
+                    new Uri(OfficialArchiveUrl),
+                    year);
+
+                if (legacy.Count > 0)
+                {
+                    await File.WriteAllTextAsync(
+                        catalogCachePath,
+                        legacyHtml,
+                        cancellationToken);
+                    discoveryMessages.Add(
+                        $"Se migró un catálogo oficial cacheado previo con {legacy.Count} publicación(es).");
+                }
+            }
+            catch (Exception ex)
+            {
+                discoveryMessages.Add(
+                    $"Cache previo no reutilizable: {ex.Message}");
+            }
         }
 
         if (discovered.Count == 0 &&
