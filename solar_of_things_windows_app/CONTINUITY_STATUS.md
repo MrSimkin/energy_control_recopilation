@@ -4804,3 +4804,107 @@ Owner explicitly requested that, because chat termination may occur without warn
    - if no owner action is pending, state the next assistant-directed tranche instead.
 
 This handoff rule remains active until the owner explicitly revokes it.
+
+
+## Tariff precedence + acquisition tranche owner-QA handoff — 2026-10-06
+
+Canonical tranche report:
+- `research/bill_audit/TARIFF_PRECEDENCE_AND_ACQUISITION_TRANCHE_2026-10-06.md`.
+
+Accepted Build 538 current-bill evidence package remains frozen and unchanged.
+Do not regenerate or retune it merely because tariff infrastructure advanced.
+
+### Implemented
+
+Schema:
+- schema version 14;
+- official tariff document identity metadata;
+- explicit `tariff_publication_relation` graph;
+- in-place v13 -> v14 migration.
+
+Precedence:
+- explicit official correction/supersession graph is highest authority;
+- byte-identical duplicate evidence may collapse by SHA-256;
+- unique later official date may decide only for explicitly corrective/retroactive evidence;
+- unique retroactive remains fallback;
+- ambiguous/conflicting evidence stays ambiguous;
+- never select by SQLite ID, captured/updated time, CandidateIndex or filename recency alone.
+
+CNE:
+- stable official IDs such as `REX-380-2026`;
+- official publication date persisted;
+- `CORRECTS` relation persisted/resolved;
+- live validation PASS:
+  - 12 2026 VAD documents;
+  - 2 corrections;
+  - 0 failures in validated capture;
+  - 368 dated 2026-07-17;
+  - 380 dated 2026-07-24;
+  - 380 CORRECTS 368;
+  - resolver selects 380 and supersedes 368.
+- January correction chain 819 -> 816 is also captured by the same mechanism.
+
+Production:
+- bill verification and economic-scenario analysis both consume the relation graph;
+- Tariffs UI now consumes the same resolver;
+- UI labels explicit official correction/supersession states.
+
+Enel acquisition:
+1. live official catalog;
+2. last valid official catalog cache;
+3. migrate legacy cache only if it actually parses as valid;
+4. filename-family probing from already-known/manual-imported official Enel PDFs;
+5. opportunistic direct `content/dam` probing;
+6. PDF magic validation;
+7. declared-effective-month validation;
+8. manual browser/import remains last fallback.
+
+Important external limitation:
+- GitHub Actions live tests received Imperva/Reese HTML challenge for both catalog and direct `content/dam` PDF request;
+- direct asset probing is NOT a guaranteed bypass;
+- do not implement unsupported anti-bot circumvention;
+- CNE remains automatically accessible;
+- owner residential/target network must be classified by target QA.
+
+Validation:
+- Build 546: schema14 + synthetic correction graph PASS;
+- Build 558: v13 -> v14 in-place migration PASS;
+- Build 561: live CNE correction graph PASS;
+- Build 562: CNE live probe independent of Enel live outcome;
+- Build 566: current owner-QA code Build + SQLite smoke + portable PASS.
+
+Build 566:
+- workflow run `37555998081`;
+- app code HEAD `6f8128db814edfa0832eeb3cac991fdc6f041878`;
+- artifact `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID `11455095513`;
+- digest `sha256:885789f95e02759436b8d18e85d2b4ad4655b173dea095e94023d49bf3c3fe23`.
+
+### Next owner action
+
+Use a COPY of the existing Build-538-era complete `Data\`.
+
+Build 566:
+1. launch app; successful startup validates real target migration v13 -> v14;
+2. `Red eléctrica -> Tarifas oficiales`;
+3. select 2026;
+4. click `Descargar / actualizar año`;
+5. DO NOT manually import Enel PDFs yet if automatic Enel fails;
+6. return:
+   - screenshot with full tariff status line;
+   - screenshot of grid around August CNE rows showing 368/380 version states if possible;
+   - note whether UI remained responsive.
+
+Expected:
+- CNE automatic update works;
+- 380 shows as current official correction;
+- 368 shows superseded/corrected;
+- Enel may succeed via available target-network route OR may report Imperva; either outcome is valid diagnostic evidence.
+
+After owner QA:
+- if pass, freeze tranche;
+- do not regenerate accepted Build 538 bill evidence solely for this infrastructure update;
+- optional future enhancement: explicit Enel regulatory-basis parsing only if future multi-retroactive ambiguity makes it necessary.
+
+Mandatory owner handoff rule remains active:
+every substantial cycle ends with repo consolidation + self-contained new-chat continuation prompt.
