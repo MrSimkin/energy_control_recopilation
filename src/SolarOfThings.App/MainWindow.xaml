@@ -1686,6 +1686,16 @@
                                                                            TextWrapping="Wrap"/>
                                                                 <WrapPanel>
                                                                     <StackPanel Margin="0,0,10,10">
+                                                                        <TextBlock Text="{DynamicResource GridUtility.BillPeriodPrecision}" FontSize="12" Foreground="#6C757D"/>
+                                                                        <ComboBox x:Name="UtilityBillPeriodPrecisionSelector"
+                                                                                  Width="150"
+                                                                                  SelectedValuePath="Tag"
+                                                                                  SelectedIndex="0">
+                                                                            <ComboBoxItem Tag="DATE_ONLY" Content="{DynamicResource GridUtility.BillPeriodDateOnly}"/>
+                                                                            <ComboBoxItem Tag="EXACT" Content="{DynamicResource GridUtility.BillPeriodExact}"/>
+                                                                        </ComboBox>
+                                                                    </StackPanel>
+                                                                    <StackPanel Margin="0,0,10,10">
                                                                         <TextBlock Text="{DynamicResource GridUtility.BillStart}" FontSize="12" Foreground="#6C757D"/>
                                                                         <controls:QuickDatePicker x:Name="UtilityBillStartDatePicker"
                                                                   Width="150"
@@ -1747,6 +1757,11 @@
                                                                             Content="{DynamicResource GridUtility.AddBill}"
                                                                             Padding="12,6"
                                                                             Click="UtilityAddBill_Click"/>
+                                                                    <Button x:Name="UtilityImportBillPdfButton"
+                                                                            Content="{DynamicResource GridUtility.ImportBillPdf}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            Click="UtilityImportBillPdf_Click"/>
                                                                     <Button x:Name="UtilityDeleteBillButton"
                                                                             Content="{DynamicResource GridUtility.DeleteBill}"
                                                                             Padding="12,6"
@@ -1758,6 +1773,20 @@
                                                                            Foreground="#6C757D"
                                                                            Margin="0,0,0,8"
                                                                            TextWrapping="Wrap"/>
+
+                                                                <DataGrid x:Name="UtilityBillPdfPreviewGrid"
+                                                                          Height="120"
+                                                                          Margin="0,0,0,8"
+                                                                          AutoGenerateColumns="False"
+                                                                          IsReadOnly="True"
+                                                                          Visibility="Collapsed"
+                                                                          CanUserAddRows="False">
+                                                                    <DataGrid.Columns>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillDescription}" Binding="{Binding Description}" Width="*"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillLineAmount}" Binding="{Binding Amount}" Width="110"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillEvidence}" Binding="{Binding Evidence}" Width="180"/>
+                                                                    </DataGrid.Columns>
+                                                                </DataGrid>
 
                                                                 <DataGrid x:Name="UtilityBillsGrid"
                                                                           Height="240"
@@ -1773,6 +1802,8 @@
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.DifferenceKwh}" Binding="{Binding DifferenceKwh}" Width="100"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.Coverage}" Binding="{Binding Coverage}" Width="85"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TotalDue}" Binding="{Binding TotalDue}" Width="100"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillSource}" Binding="{Binding Source}" Width="105"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillReviewState}" Binding="{Binding ReviewState}" Width="115"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.Reference}" Binding="{Binding Reference}" Width="130"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.Quality}" Binding="{Binding Quality}" Width="*"/>
                                                                     </DataGrid.Columns>
@@ -1799,6 +1830,13 @@
                                                                             <ComboBoxItem Tag="CUSTOM" Content="{DynamicResource GridUtility.BillType.Custom}"/>
                                                                             <ComboBoxItem Tag="ELECTRICITY_CONSUMED" Content="{DynamicResource GridUtility.BillType.ElectricityConsumed}"/>
                                                                             <ComboBoxItem Tag="ELECTRICITY_TRANSPORT" Content="{DynamicResource GridUtility.BillType.ElectricityTransport}"/>
+                                                                            <ComboBoxItem Tag="FIXED_MONTHLY" Content="{DynamicResource GridUtility.BillType.FixedMonthly}"/>
+                                                                            <ComboBoxItem Tag="SUBSIDY" Content="{DynamicResource GridUtility.BillType.Subsidy}"/>
+                                                                            <ComboBoxItem Tag="SERVICE_ADMINISTRATION" Content="{DynamicResource GridUtility.BillType.ServiceAdministration}"/>
+                                                                            <ComboBoxItem Tag="METER_RENTAL" Content="{DynamicResource GridUtility.BillType.MeterRental}"/>
+                                                                            <ComboBoxItem Tag="COMMON_SERVICE" Content="{DynamicResource GridUtility.BillType.CommonService}"/>
+                                                                            <ComboBoxItem Tag="VAT_19" Content="{DynamicResource GridUtility.BillType.Vat19}"/>
+                                                                            <ComboBoxItem Tag="SIMPLE_ADJUSTMENT" Content="{DynamicResource GridUtility.BillType.SimpleAdjustment}"/>
                                                                         </ComboBox>
                                                                     </StackPanel>
                                                                     <StackPanel Margin="0,0,10,10">
@@ -1866,6 +1904,8 @@
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.BillUnitRate}" Binding="{Binding UnitRate}" Width="95"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.BillLineAmount}" Binding="{Binding Amount}" Width="105"/>
                                                                         <DataGridTextColumn Header="{DynamicResource GridUtility.TaxTreatment}" Binding="{Binding TaxTreatment}" Width="110"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillSource}" Binding="{Binding Source}" Width="100"/>
+                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillEvidence}" Binding="{Binding Evidence}" Width="135"/>
                                                                     </DataGrid.Columns>
                                                                 </DataGrid>
                                                             </StackPanel>

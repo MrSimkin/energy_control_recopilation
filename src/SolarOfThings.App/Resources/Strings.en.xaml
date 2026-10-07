@@ -293,6 +293,13 @@
     <sys:String x:Key="GridUtility.OfficialBoundary">Enel date boundary</sys:String>
     <sys:String x:Key="GridUtility.BillReadingsSuggested">Enel readings were suggested automatically from the bill dates. You can correct them if needed.</sys:String>
     <sys:String x:Key="GridUtility.BillSummaryHeading">Bill totals</sys:String>
+    <sys:String x:Key="GridUtility.BillPeriodPrecision">Period precision</sys:String>
+    <sys:String x:Key="GridUtility.BillPeriodDateOnly">Printed date only</sys:String>
+    <sys:String x:Key="GridUtility.BillPeriodExact">Exact date and time</sys:String>
+    <sys:String x:Key="GridUtility.ImportBillPdf">Import bill PDF…</sys:String>
+    <sys:String x:Key="GridUtility.BillSource">Source</sys:String>
+    <sys:String x:Key="GridUtility.BillReviewState">Review</sys:String>
+    <sys:String x:Key="GridUtility.BillEvidence">Evidence</sys:String>
     <sys:String x:Key="GridUtility.TaxableAmount">Taxable amount</sys:String>
     <sys:String x:Key="GridUtility.IvaAmount">VAT</sys:String>
     <sys:String x:Key="GridUtility.ExemptAmount">Exempt amount</sys:String>
@@ -305,6 +312,13 @@
     <sys:String x:Key="GridUtility.BillType.Custom">Other / free text</sys:String>
     <sys:String x:Key="GridUtility.BillType.ElectricityConsumed">Electricity consumed</sys:String>
     <sys:String x:Key="GridUtility.BillType.ElectricityTransport">Electricity transport</sys:String>
+    <sys:String x:Key="GridUtility.BillType.FixedMonthly">Monthly fixed charge</sys:String>
+    <sys:String x:Key="GridUtility.BillType.Subsidy">Subsidy / credit</sys:String>
+    <sys:String x:Key="GridUtility.BillType.ServiceAdministration">Service administration</sys:String>
+    <sys:String x:Key="GridUtility.BillType.MeterRental">Meter rental</sys:String>
+    <sys:String x:Key="GridUtility.BillType.CommonService">Common service</sys:String>
+    <sys:String x:Key="GridUtility.BillType.Vat19">VAT 19%</sys:String>
+    <sys:String x:Key="GridUtility.BillType.SimpleAdjustment">Simple / rounding adjustment</sys:String>
     <sys:String x:Key="GridUtility.BillSection">Section</sys:String>
     <sys:String x:Key="GridUtility.BillSection.Service">Electric service</sys:String>
     <sys:String x:Key="GridUtility.BillSection.OtherCharges">Other charges</sys:String>
