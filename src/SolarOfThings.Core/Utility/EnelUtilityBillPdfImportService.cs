@@ -185,12 +185,12 @@ public sealed partial class EnelUtilityBillPdfImportService
                     line.Contains(label, StringComparison.OrdinalIgnoreCase)))
                 continue;
 
-            var matches = MoneyRegex().Matches(line);
-            foreach (Match match in matches.Reverse())
+            if (TryExtractPrintedMoney(
+                    line,
+                    out var value) &&
+                value >= 0)
             {
-                if (TryParseChileNumber(match.Groups["value"].Value, out var value) &&
-                    value >= 0)
-                    return value;
+                return value;
             }
         }
         return null;
@@ -232,15 +232,12 @@ public sealed partial class EnelUtilityBillPdfImportService
                             StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    var matches = MoneyRegex().Matches(line);
-                    if (matches.Count == 0)
-                        continue;
-
-                    var amountMatch = matches[^1];
-                    if (!TryParseChileNumber(
-                            amountMatch.Groups["value"].Value,
+                    if (!TryExtractPrintedMoney(
+                            line,
                             out var amount))
+                    {
                         continue;
+                    }
 
                     if (line.Contains("-", StringComparison.Ordinal) ||
                         line.Contains("descuento", StringComparison.OrdinalIgnoreCase) ||
@@ -266,6 +263,37 @@ public sealed partial class EnelUtilityBillPdfImportService
         }
 
         return result;
+    }
+
+    private static bool TryExtractPrintedMoney(
+        string line,
+        out double amount)
+    {
+        amount = 0;
+
+        // Prefer an explicit currency marker. This is the safest shape in
+        // extracted bill text and prevents counters such as "(4/6)" from
+        // being mistaken for pesos.
+        var currencyMatches =
+            CurrencyMoneyRegex().Matches(line);
+        if (currencyMatches.Count > 0)
+        {
+            return TryParseChileNumber(
+                currencyMatches[^1]
+                    .Groups["value"].Value,
+                out amount);
+        }
+
+        // Some PDF text extractors detach the "$" glyph. Accept only a
+        // plausible CLP amount at the physical end of the line: at least
+        // three digits, or a dotted-thousands representation. One/two-digit
+        // counters and installment markers are deliberately rejected.
+        var trailing =
+            TrailingMoneyRegex().Match(line);
+        return trailing.Success &&
+               TryParseChileNumber(
+                   trailing.Groups["value"].Value,
+                   out amount);
     }
 
     private static IEnumerable<string> SplitLines(string text) =>
@@ -330,9 +358,14 @@ public sealed partial class EnelUtilityBillPdfImportService
     private static partial Regex NumberRegex();
 
     [GeneratedRegex(
-        @"\$?\s*(?<value>[-+]?\d{1,3}(?:\.\d{3})*(?:,\d+)?|[-+]?\d+)",
+        @"\$\s*(?<value>[-+]?\s*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)",
         RegexOptions.CultureInvariant)]
-    private static partial Regex MoneyRegex();
+    private static partial Regex CurrencyMoneyRegex();
+
+    [GeneratedRegex(
+        @"(?<value>[-+]?\s*(?:\d{1,3}(?:\.\d{3})+|\d{3,})(?:,\d+)?)\s*$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex TrailingMoneyRegex();
 
     [GeneratedRegex(
         @"\bBT1(?:[-\s][A-Z0-9]+)?\b",
