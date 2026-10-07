@@ -3755,10 +3755,24 @@ public partial class MainWindow : Window
             ClearUtilityBillEditor();
             UtilityBillStatusText.Text =
                 wasReview
-                    ? "Boleta revisada y actualizada en el mismo registro."
+                    ? (_localization.CurrentLanguage.StartsWith(
+                            "es",
+                            StringComparison.OrdinalIgnoreCase)
+                        ? "Boleta revisada y actualizada en el mismo registro."
+                        : "Bill reviewed and updated in the same record.")
                     : _localization.GetString(
                         "GridUtility.BillSaved");
             RefreshGridUtilityView();
+
+            if (UtilityBillsGrid.ItemsSource is
+                    IEnumerable<UtilityBillViewRow> refreshedBills)
+            {
+                UtilityBillsGrid.SelectedItem =
+                    refreshedBills.FirstOrDefault(item =>
+                        item.BillId == billId);
+                UtilityBillsGrid.ScrollIntoView(
+                    UtilityBillsGrid.SelectedItem);
+            }
         }
         catch (Exception ex)
         {
@@ -4563,6 +4577,11 @@ public partial class MainWindow : Window
             .GetRequiredService<UtilityMeterRepository>()
             .DeleteBill(selected.BillId);
 
+        if (_editingUtilityBillId == selected.BillId)
+        {
+            ClearUtilityBillEditor();
+        }
+
         UtilityBillStatusText.Text =
             _localization.GetString(
                 "GridUtility.BillDeleted");
@@ -4895,6 +4914,11 @@ public partial class MainWindow : Window
         _services
             .GetRequiredService<UtilityMeterRepository>()
             .DeleteBillLine(line.BillLineId);
+
+        if (_editingUtilityBillLineId == line.BillLineId)
+        {
+            ClearUtilityBillLineEditor();
+        }
 
         UtilityBillLineStatusText.Text =
             _localization.GetString(
