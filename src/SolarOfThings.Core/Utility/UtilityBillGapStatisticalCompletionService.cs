@@ -99,7 +99,8 @@ public sealed class UtilityBillGapStatisticalCompletionService
                 all,
                 startUtc,
                 endUtcExclusive,
-                threshold);
+                threshold,
+                timeZoneId);
 
         var denominator =
             interval.CoveredHours +
