@@ -114,6 +114,7 @@ public partial class App : Application
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();
+        builder.Services.AddTransient<EnelTariffBrowserWindow>();
         builder.Services.AddTransient<DeveloperDiagnosticsWindow>();
 
         _host = builder.Build();
