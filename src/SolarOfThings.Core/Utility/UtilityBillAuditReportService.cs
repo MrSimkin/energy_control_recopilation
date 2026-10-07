@@ -603,9 +603,12 @@ public sealed class UtilityBillAuditReportService
         var intro = section.AddParagraph(
             string.Format(
                 L(
-                    "Subtotal variable respaldado: {0:N3} CLP/kWh. Las mismas tasas oficiales se aplican a todos los escenarios para que la comparación sea equivalente.",
-                    "Supported variable subtotal: {0:N3} CLP/kWh. The same official rates are applied to every scenario for an equivalent comparison."),
-                analysis.SupportedVariableRateClpPerKwh.Value));
+                    "Componentes respaldados: tasa variable {0:N3} CLP/kWh; cargo fijo reconstruido {1}. La misma base oficial se aplica a todos los escenarios para que la comparación sea equivalente.",
+                    "Supported components: variable rate {0:N3} CLP/kWh; reconstructed fixed charge {1}. The same official basis is applied to every scenario for an equivalent comparison."),
+                analysis.SupportedVariableRateClpPerKwh.Value,
+                Money(
+                    analysis.SupportedFixedAmountClp ??
+                    0)));
         intro.Format.Font.Size = 8.5;
         intro.Format.Font.Color = Colors.DimGray;
         intro.Format.SpaceAfter = Unit.FromPoint(5);
@@ -679,8 +682,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("ALCANCE DEL MONTO", "AMOUNT SCOPE"),
             L(
-                "Son subtotales comparables de componentes tarifarios conciliados con evidencia oficial. Subsidios, cargos fijos, FET u otros ajustes no forman parte de este subtotal variable; cuando corresponde, se preservan sin cambios en el total comparable mostrado más abajo.",
-                "These are comparable subtotals for tariff components reconciled with official evidence. Subsidies, fixed charges, FET or other adjustments are not part of this variable subtotal; where applicable, they are preserved unchanged in the comparable total shown below."),
+                "Son subtotales comparables de componentes conciliados con evidencia oficial. Incluyen el cargo fijo cuando éste puede reconstruirse independientemente. Subsidios, servicios asociados, FET no determinable u otros ajustes permanecen preservados como monto real y no se presentan como reconstruidos.",
+                "These are comparable subtotals for components reconciled with official evidence. They include the fixed charge when it can be independently reconstructed. Subsidies, associated services, indeterminate FET, and other adjustments remain preserved as actual amounts and are not presented as reconstructed."),
             Colors.WhiteSmoke);
     }
 
@@ -757,7 +760,9 @@ public sealed class UtilityBillAuditReportService
             var r = table.AddRow();
             r.Cells[0].AddParagraph(item.BillLineDescription);
             r.Cells[1].AddParagraph(
-                $"$ {item.RateClpPerKwh:N3}/kWh");
+                item.FixedAmountClp > 0.0001
+                    ? $"$ {item.FixedAmountClp:N0} fijo + $ {item.RateClpPerKwh:N3}/kWh"
+                    : $"$ {item.RateClpPerKwh:N3}/kWh");
             r.Cells[2].AddParagraph(
                 Money(item.ActualLineAmountClp));
             r.Cells[3].AddParagraph(
@@ -970,13 +975,13 @@ public sealed class UtilityBillAuditReportService
 
         AddAuditMetricCard(
             row.Cells[2],
-            L("TASA VARIABLE MODELADA", "MODELED VARIABLE RATE"),
+            L("BASE TARIFARIA MODELADA", "MODELED TARIFF BASIS"),
             analysis.SupportedVariableRateClpPerKwh.HasValue
-                ? $"$ {analysis.SupportedVariableRateClpPerKwh.Value:N3}/kWh"
+                ? $"$ {analysis.SupportedVariableRateClpPerKwh.Value:N3}/kWh + fijo {Money(analysis.SupportedFixedAmountClp ?? 0)}"
                 : "—",
             L(
-                "Suma de componentes que conciliaron con evidencia oficial.",
-                "Sum of components reconciled with official evidence."),
+                "Suma de componentes variables y fijos que conciliaron con evidencia oficial.",
+                "Sum of variable and fixed components reconciled with official evidence."),
             Colors.Honeydew,
             11.5);
 

@@ -25,7 +25,7 @@ namespace SolarOfThings.Core.Utility;
 public sealed class UtilityBillAuditAnnexExportService
 {
     public const string ExportVersion =
-        "bill-audit-evidence-annex.v1";
+        "bill-audit-evidence-annex.v2";
 
     private readonly SqliteDatabase _database;
     private readonly UtilityMeterRepository _repository;
@@ -613,7 +613,7 @@ public sealed class UtilityBillAuditAnnexExportService
         var sb =
             new StringBuilder();
         sb.AppendLine(
-            "scenario,energy_kwh,difference_vs_enel_kwh,difference_vs_enel_pct,supported_variable_subtotal_clp,comparable_total_clp,difference_vs_printed_total_clp");
+            "scenario,energy_kwh,difference_vs_enel_kwh,difference_vs_enel_pct,supported_variable_rate_clp_per_kwh,supported_fixed_amount_clp,supported_modeled_subtotal_clp,comparable_total_clp,difference_vs_printed_total_clp");
 
         var printed =
             bill.TotalDueClp ??
@@ -656,6 +656,16 @@ public sealed class UtilityBillAuditAnnexExportService
                             CultureInfo.InvariantCulture)),
                     Csv(
                         row.DifferenceVsEnelPercent?
+                            .ToString(
+                                "0.######",
+                                CultureInfo.InvariantCulture)),
+                    Csv(
+                        analysis.SupportedVariableRateClpPerKwh?
+                            .ToString(
+                                "0.######",
+                                CultureInfo.InvariantCulture)),
+                    Csv(
+                        analysis.SupportedFixedAmountClp?
                             .ToString(
                                 "0.######",
                                 CultureInfo.InvariantCulture)),
@@ -725,6 +735,18 @@ public sealed class UtilityBillAuditAnnexExportService
             $"Enel value used in construction: {analysis.EnelValueUsedInConstruction}");
         sb.AppendLine(
             $"Tariff model status: {tariff.Status}");
+        sb.AppendLine(
+            $"Supported variable rate: {tariff.SupportedVariableRateClpPerKwh?.ToString("0.######", CultureInfo.InvariantCulture) ?? "-"} CLP/kWh");
+        sb.AppendLine(
+            $"Supported fixed amount: {tariff.SupportedFixedAmountClp?.ToString("0.######", CultureInfo.InvariantCulture) ?? "-"} CLP");
+        foreach (var component in tariff.Components)
+        {
+            sb.AppendLine(
+                $"Modeled component: {component.BillLineDescription} | key={component.ComponentKey} | " +
+                $"fixed={component.FixedAmountClp.ToString("0.######", CultureInfo.InvariantCulture)} | " +
+                $"variableRate={component.RateClpPerKwh.ToString("0.######", CultureInfo.InvariantCulture)} | " +
+                $"basis={component.CalculationBasis ?? component.RateBasis ?? "-"}");
+        }
         foreach (var period in tariff.PublicationPeriods)
         {
             sb.AppendLine(
