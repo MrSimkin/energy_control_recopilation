@@ -47,7 +47,9 @@ public sealed class EnelTariffCaptureService
         RegexOptions.Compiled);
 
     private static readonly Regex DeclaredEffectiveDateRegex = new(
-        @"a\s+partir\s+del\s+0?1[-\s]+(?<month>enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)[-\s]+(?<year>20\d{2})",
+        @"a\s+partir\s+del\s+0?1(?:\s+de)?\s+" +
+        @"(?<month>enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)" +
+        @"(?:\s+de)?\s+(?<year>20\d{2})",
         RegexOptions.IgnoreCase |
         RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
@@ -135,9 +137,12 @@ public sealed class EnelTariffCaptureService
             "Enel");
         Directory.CreateDirectory(providerRoot);
 
+        var catalogCachePath = Path.Combine(
+            providerRoot,
+            $"catalog-{year}-last-valid.html");
         var catalogDiagnosticPath = Path.Combine(
             providerRoot,
-            $"catalog-{year}-last.html");
+            $"catalog-{year}-last-response.html");
 
         var discoveryMessages = new List<string>();
         IReadOnlyList<TariffPublicationDiscovery> discovered = [];
@@ -147,11 +152,6 @@ public sealed class EnelTariffCaptureService
         {
             var catalog = await FetchCatalogAsync(
                 client,
-                cancellationToken);
-
-            await File.WriteAllTextAsync(
-                catalogDiagnosticPath,
-                catalog.Html,
                 cancellationToken);
 
             discovered = DiscoverSupplyTariffs(
@@ -165,8 +165,22 @@ public sealed class EnelTariffCaptureService
                 $"{catalog.PdfHrefCount} enlace(s) PDF detectado(s) · " +
                 $"{discovered.Count} publicación(es) para {year}.");
 
-            if (discovered.Count == 0)
+            if (discovered.Count > 0)
             {
+                // Only a catalog that actually exposes official tariff links
+                // may become the reusable cache. Never replace a good cache
+                // with an Imperva/challenge page that happens to return 200.
+                await File.WriteAllTextAsync(
+                    catalogCachePath,
+                    catalog.Html,
+                    cancellationToken);
+            }
+            else
+            {
+                await File.WriteAllTextAsync(
+                    catalogDiagnosticPath,
+                    catalog.Html,
+                    cancellationToken);
                 discoveryMessages.Add(
                     $"Catálogo vivo sin publicaciones detectables. " +
                     DetectCatalogBlockPage(catalog.Html));
@@ -182,13 +196,13 @@ public sealed class EnelTariffCaptureService
         }
 
         if (discovered.Count == 0 &&
-            File.Exists(catalogDiagnosticPath))
+            File.Exists(catalogCachePath))
         {
             try
             {
                 var cachedHtml =
                     await File.ReadAllTextAsync(
-                        catalogDiagnosticPath,
+                        catalogCachePath,
                         cancellationToken);
                 var cached = DiscoverSupplyTariffs(
                     cachedHtml,
