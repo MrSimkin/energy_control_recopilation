@@ -242,6 +242,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
 
         var unresolved =
             new List<string>();
+        var notes =
+            new List<string>();
 
         if (transport is not null &&
             transportMatch is null)
@@ -261,7 +263,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
 
         if (periods.Count > 1)
         {
-            unresolved.Add(
+            notes.Add(
                 "The bill crosses multiple tariff-effective periods. Variable components are allocated by local calendar days; a fixed monthly component is reconstructed only when its consumer rate is unchanged across all selected periods.");
         }
 
@@ -274,10 +276,14 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                     ? "PARTIAL_MULTI_PERIOD_COMPONENT_MODEL"
                     : "PARTIAL_COMPONENT_MODEL";
 
+        var limitationParts =
+            unresolved
+                .Concat(notes)
+                .ToArray();
         var limitation =
-            unresolved.Count == 0
+            limitationParts.Length == 0
                 ? null
-                : string.Join(" ", unresolved);
+                : string.Join(" ", limitationParts);
 
         return new UtilityBillTariffScenarioAnalysis(
             true,
