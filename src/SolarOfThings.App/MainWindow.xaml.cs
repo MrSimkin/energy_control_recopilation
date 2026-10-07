@@ -4308,6 +4308,20 @@ public partial class MainWindow : Window
                 b.Contains(a, StringComparison.Ordinal));
     }
 
+    private void UtilityNewManualBill_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ClearUtilityBillEditor();
+
+        UtilityBillStatusText.Text =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase)
+                ? "Nueva boleta manual. Completa sólo los datos que puedas respaldar con la cuenta; los campos vacíos quedarán registrados como sin dato ingresado."
+                : "New manual bill. Enter only facts supported by the bill; blank optional fields will be recorded as no value entered.";
+    }
+
     private void UtilityReviewBill_Click(
         object sender,
         RoutedEventArgs e)
@@ -4426,6 +4440,12 @@ public partial class MainWindow : Window
         UtilityBillNotesTextBox.Clear();
         UtilityBillFromReadingSelector.SelectedIndex = -1;
         UtilityBillToReadingSelector.SelectedIndex = -1;
+        UtilityBillStartDatePicker.SelectedDate = null;
+        UtilityBillEndDatePicker.SelectedDate = null;
+        UtilityBillStartTimeTextBox.Text = "00:00";
+        UtilityBillEndTimeTextBox.Text = "00:00";
+        UtilityBillPeriodPrecisionSelector.SelectedValue =
+            UtilityTimePrecision.DateOnly;
         UtilityAddBillButton.Content =
             _localization.GetString(
                 "GridUtility.AddBill");

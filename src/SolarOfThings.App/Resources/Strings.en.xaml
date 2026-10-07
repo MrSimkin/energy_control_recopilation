@@ -293,6 +293,7 @@
     <sys:String x:Key="GridUtility.BillEntryPdfIntro">The app preserves the original PDF, extracts only high-confidence facts and keeps everything reviewable before saving. Any detected field can be corrected.</sys:String>
     <sys:String x:Key="GridUtility.BillEntryManualTitle">First-class manual entry</sys:String>
     <sys:String x:Key="GridUtility.BillEntryManualIntro">Enter the same facts a PDF import would populate. Manual entry keeps full audit capability, is marked as user-entered evidence, and can later be linked to the real PDF.</sys:String>
+    <sys:String x:Key="GridUtility.NewManualBill">New manual bill</sys:String>
     <sys:String x:Key="GridUtility.BillPrimaryDataHeading">1. Period, consumption and identity</sys:String>
     <sys:String x:Key="GridUtility.BillPrimaryDataIntro">Use exactly what is printed on the bill. If the document only prints dates, keep “Printed date only”; do not invent times.</sys:String>
     <sys:String x:Key="GridUtility.BillFinancialHeading">2. Printed totals and taxes</sys:String>

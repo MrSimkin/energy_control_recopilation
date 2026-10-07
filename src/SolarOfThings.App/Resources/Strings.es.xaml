@@ -293,6 +293,7 @@
     <sys:String x:Key="GridUtility.BillEntryPdfIntro">La app conserva el PDF original, extrae sólo datos de alta confianza y deja todo en revisión antes de guardar. Puedes corregir cualquier campo detectado.</sys:String>
     <sys:String x:Key="GridUtility.BillEntryManualTitle">Ingreso manual de primera clase</sys:String>
     <sys:String x:Key="GridUtility.BillEntryManualIntro">Completa los mismos datos que usaría una importación PDF. Un ingreso manual no pierde capacidad de auditoría: queda marcado como ingresado por el usuario y puede vincularse después con el PDF real.</sys:String>
+    <sys:String x:Key="GridUtility.NewManualBill">Nueva boleta manual</sys:String>
     <sys:String x:Key="GridUtility.BillPrimaryDataHeading">1. Período, consumo e identificación</sys:String>
     <sys:String x:Key="GridUtility.BillPrimaryDataIntro">Usa exactamente lo que aparece en la cuenta. Si sólo hay fechas impresas, mantén “Sólo fecha impresa”; no inventes horas.</sys:String>
     <sys:String x:Key="GridUtility.BillFinancialHeading">2. Totales e impuestos impresos</sys:String>

@@ -1718,7 +1718,11 @@
                                                                Foreground="#343A40"/>
                                                     <TextBlock Text="{DynamicResource GridUtility.BillEntryManualIntro}"
                                                                Style="{StaticResource HelperTextStyle}"
-                                                               Margin="0,5,0,0"/>
+                                                               Margin="0,5,0,10"/>
+                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}"
+                                                            Content="{DynamicResource GridUtility.NewManualBill}"
+                                                            HorizontalAlignment="Left"
+                                                            Click="UtilityNewManualBill_Click"/>
                                                 </StackPanel>
                                             </Border>
                                         </Grid>
