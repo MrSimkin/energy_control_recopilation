@@ -1265,13 +1265,13 @@ try
             liveCnePublications.SingleOrDefault(item =>
                 string.Equals(
                     item.OfficialDocumentNumber,
-                    "REX-9380-2026",
+                    "REX-380-2026",
                     StringComparison.OrdinalIgnoreCase));
         var live368 =
             liveCnePublications.SingleOrDefault(item =>
                 string.Equals(
                     item.OfficialDocumentNumber,
-                    "REX-9368-2026",
+                    "REX-368-2026",
                     StringComparison.OrdinalIgnoreCase));
 
         var liveAugustResolution =
@@ -1298,7 +1298,7 @@ try
                 relation.RelationType == "CORRECTS" &&
                 string.Equals(
                     relation.TargetOfficialDocumentNumber,
-                    "REX-9368-2026",
+                    "REX-368-2026",
                     StringComparison.OrdinalIgnoreCase)) ||
             !liveAugustResolution.Any(item =>
                 item.PublicationId ==
