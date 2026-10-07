@@ -2142,13 +2142,6 @@ try
         (multiElectricityRate +
          multiServiceRate);
 
-    Console.WriteLine(
-        "Phase 10 multi-period diagnostic: " +
-        $"hasModel={multiAnalysis.HasTariffModel}; status={multiAnalysis.Status}; " +
-        $"periods={string.Join("|", multiAnalysis.PublicationPeriods.Select(p => $"{p.PublicationId}:{p.AppliedFrom:yyyy-MM-dd}..{p.AppliedTo:yyyy-MM-dd}:{p.Days}"))}; " +
-        $"admin={(multiAdmin is null ? "null" : $"fixed={multiAdmin.FixedAmountClp:0.######};rate={multiAdmin.RateClpPerKwh:0.######};pubs={string.Join("+", multiAdmin.PublicationIds)};basis={multiAdmin.RateBasis}")}; " +
-        $"observed={multiObserved.SupportedTariffSubtotalClp:0.######}; expected={expectedMultiObserved:0.######}");
-
     if (!multiAnalysis.HasTariffModel ||
         multiAnalysis.Status !=
             "SUPPORTED_MULTI_PERIOD_COMPONENT_MODEL" ||
