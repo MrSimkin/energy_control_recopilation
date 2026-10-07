@@ -1983,6 +1983,13 @@
                                                                             Padding="12,6"
                                                                             VerticalAlignment="Bottom"
                                                                             Click="TariffCaptureButton_Click"/>
+                                                                    <Button x:Name="TariffBrowserEnelButton"
+                                                                            Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                            Content="{DynamicResource GridUtility.TariffBrowserEnel}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            VerticalAlignment="Bottom"
+                                                                            Click="TariffBrowserEnelButton_Click"/>
                                                                     <Button x:Name="TariffOpenEnelButton"
                                                                             Style="{StaticResource SecondaryActionButtonStyle}"
                                                                             Content="{DynamicResource GridUtility.TariffOpenEnel}"
