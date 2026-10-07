@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
     <PackageVersion Include="ScottPlot" Version="5.1.59" />
     <PackageVersion Include="ScottPlot.WPF" Version="5.1.59" />
