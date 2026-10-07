@@ -430,3 +430,43 @@ Only remaining owner action:
 
 Do not repeat any already-passed migration/CNE/precedence/Imperva/navigation gate.
 Do not infer Gate B from an unchanged grid row.
+
+
+## 20. Final owner acceptance — Build 578 Gate B PASS
+
+Owner QA on Build 578 conclusively closed the remaining browser-assisted import gate.
+
+The integrated receipt displayed:
+
+`CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO`
+
+Validated receipt:
+- official filename preserved:
+  `Enel Distribución Chile SA._Tarifas Suministro Eléctrico 8T_ VAD 5T Septiembre de 2026.pdf`;
+- outcome:
+  `existente · reimportación byte-idéntica`;
+- SHA-256:
+  `27b65928d47c34d46da4afa25c094734432be860750dac31e1deddb6a4d3ab17`;
+- publication ID: `29`;
+- page count: `18`;
+- normalized candidates: `7786`;
+- completed UTC: `2026-10-07 02:42:31`.
+
+The transient imported filename carried the browser duplicate suffix `(1)`, but the
+canonical receipt and importer identity correctly removed that suffix and preserved the
+official publication filename.
+
+Final tranche gates:
+1. schema v13 -> v14 migration — PASS;
+2. CNE corrections — PASS;
+3. tariff precedence — PASS;
+4. browser-assisted navigation to official Enel PDF — PASS;
+5. integrated viewer download — PASS;
+6. PDF routed through `EnelTariffPdfImportService` — PASS;
+7. SHA/provenance preserved — PASS;
+8. candidates normalized — PASS;
+9. application remained responsive — PASS.
+
+**Tariff precedence + acquisition tranche is CLOSED / FROZEN.**
+
+Accepted Build-538 bill evidence remains frozen; no regeneration is required.

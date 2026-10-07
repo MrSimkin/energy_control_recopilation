@@ -5162,3 +5162,46 @@ classified as incompatible, that single screenshot is sufficient diagnostic evid
 the next fix. Do not repeat the broader QA.
 
 Accepted Build-538 bill evidence remains frozen and must not be regenerated.
+
+
+## Build 578 owner QA — Gate B PASS / tariff acquisition tranche CLOSED — 2026-10-07
+
+Owner returned the Build-578 target-PC screenshot after one click on the integrated
+WebView2 PDF viewer download action.
+
+Direct visible receipt proved the full browser-assisted path:
+
+`CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO`
+
+Receipt evidence:
+- official file:
+  `Enel Distribución Chile SA._Tarifas Suministro Eléctrico 8T_ VAD 5T Septiembre de 2026.pdf`;
+- result:
+  `existente · reimportación byte-idéntica`;
+- SHA-256:
+  `27b65928d47c34d46da4afa25c094734432be860750dac31e1deddb6a4d3ab17`;
+- publication id: `29`;
+- pages: `18`;
+- normalized candidates: `7786`;
+- UTC completion time: `2026-10-07 02:42:31`.
+
+The transient status line showed the browser download name with `(1).pdf`, which is the
+normal browser duplicate-download suffix. The canonical receipt correctly normalized that
+suffix away and retained the official filename, so provenance is preserved.
+
+Therefore:
+- Gate browser-assisted PDF import: **PASS**;
+- SHA/provenance preservation: **PASS**;
+- candidate normalization: **PASS**;
+- idempotent re-import classification: **PASS**;
+- application responsiveness during this QA: visually maintained;
+- tariff precedence/acquisition tranche: **CLOSED / FROZEN**.
+
+No further owner QA is required for this tranche unless a new defect appears.
+
+Already accepted Build-538 bill evidence remains frozen and unchanged.
+
+Owner instruction update:
+- do not emit new-chat continuity prompts until the owner explicitly re-enables them;
+- canonical user-facing QA build download filename remains:
+  `SolarEnergyMonitor-Build-XXX-win-x64.zip`.
