@@ -235,7 +235,8 @@ public sealed class CneTariffEvidenceCaptureService
                 var publicationId = _repository.UpsertDiscovery(
                     publication);
 
-                if (correctedIdentity is not null)
+                if (correctedIdentity is
+                    { DocumentNumber: not null })
                 {
                     _repository.UpsertRelation(
                         new TariffPublicationRelationUpsert(
