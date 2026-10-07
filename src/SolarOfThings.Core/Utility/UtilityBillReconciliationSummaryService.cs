@@ -84,9 +84,9 @@ public sealed class UtilityBillReconciliationSummaryService
                     item.BillId == billId);
 
             observedKwh =
-                observedKwh;
+                comparison.InverterGridImportKwh;
             coveragePercent =
-                coveragePercent;
+                comparison.CoveragePercent;
             uncoveredHours =
                 comparison.Sensitivity
                     ?.UncoveredHours ??
