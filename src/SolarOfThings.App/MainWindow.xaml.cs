@@ -2886,6 +2886,7 @@ public partial class MainWindow : Window
                             AuditVerificationStatusLabel(item.Status),
                             item.Source,
                             item.Evidence,
+                            $"$ {item.ActualAmountClp:+#,##0;-#,##0;0}",
                             item.ReconstructedAmountClp.HasValue
                                 ? $"$ {item.ReconstructedAmountClp.Value:N0}"
                                 : "—",
@@ -2927,16 +2928,43 @@ public partial class MainWindow : Window
                     }
                     : " · total insuficiente para cuadratura";
 
+            UtilityAuditReconstructionCoverageText.Text =
+                $"{audit.ReconstructionCoveragePercent:N1}%";
+
+            UtilityAuditVatCheckText.Text =
+                audit.TaxStatus switch
+                {
+                    "IVA_MATCH_19" =>
+                        $"OK · $ {audit.PrintedIvaClp.GetValueOrDefault():N0} = 19% de la base afecta",
+                    "IVA_DIFFERENCE" =>
+                        $"Revisar · impreso $ {audit.PrintedIvaClp.GetValueOrDefault():N0} vs calculado $ {audit.ExpectedIvaClp.GetValueOrDefault():N0}",
+                    "IVA_BASE_MISSING" =>
+                        "Falta base afecta para reconstruir el 19%",
+                    _ =>
+                        "IVA no registrado en la boleta"
+                };
+
+            UtilityAuditBalanceText.Text =
+                audit.BalanceStatus switch
+                {
+                    "BALANCED" =>
+                        Math.Abs(audit.SimpleAdjustmentClp) > 0.0001
+                            ? $"Cuadra · ajuste impreso $ {audit.SimpleAdjustmentClp:+0;-0;0}"
+                            : "Cuadra sin residuo",
+                    "SMALL_UNEXPLAINED_RESIDUAL" =>
+                        $"Revisar residuo pequeño $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
+                    "MATERIAL_UNEXPLAINED_DIFFERENCE" =>
+                        $"Diferencia no explicada $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
+                    _ =>
+                        "Total insuficiente para cuadratura"
+                };
+
             UtilityAuditStatusText.Text =
                 string.Format(
                     _localization.GetString(
                         "GridUtility.AuditPreviewSummary"),
                     verified,
-                    audit.Lines.Count - verified) +
-                $" · reconstrucción monetaria explícita {audit.ReconstructionCoveragePercent:N1}%" +
-                taxDetail +
-                adjustmentDetail +
-                balanceDetail;
+                    audit.Lines.Count - verified);
         }
         catch (Exception ex)
         {
@@ -2957,6 +2985,13 @@ public partial class MainWindow : Window
         UtilityBillSummaryDifferenceText.Text = "—";
         UtilityBillSummaryDetailText.Text = string.Empty;
         UtilityBillSummarySourceText.Text = string.Empty;
+
+        if (UtilityAuditReconstructionCoverageText is not null)
+            UtilityAuditReconstructionCoverageText.Text = "—";
+        if (UtilityAuditVatCheckText is not null)
+            UtilityAuditVatCheckText.Text = "—";
+        if (UtilityAuditBalanceText is not null)
+            UtilityAuditBalanceText.Text = "—";
     }
 
     private async Task RefreshUtilityBillSummaryAsync(
@@ -5061,6 +5096,7 @@ public partial class MainWindow : Window
         string Status,
         string Source,
         string Evidence,
+        string ActualAmount,
         string Reconstructed,
         string Difference);
 
