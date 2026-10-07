@@ -6522,3 +6522,28 @@ Only re-check the previously failing bill-review integrity path:
    - header verified-line count must no longer incorrectly say zero when reconciled lines are present.
 
 If these checks pass, no repeat Enel-browser test is required; Build-632 already accepted the no-Save-As Download fallback and established zero-click as an open enhancement.
+
+
+## Build 635 — OWNER QA ACCEPTED — 2026-10-07
+
+Owner confirmed that all focused Build-635 QA checks passed.
+
+Accepted baseline:
+- application stability/responsiveness PASS; Build-612 intermittent hangs not reproduced;
+- DATE_ONLY real-bill reconciliation PASS: about 97.000 kWh billed, 88.065 kWh observed, 99.3% coverage; old 80.907-kWh path is superseded;
+- explicit PDF review PASS: printed Otros cargos/abonos +2,206 is applied to the review draft and saved only on Save review;
+- duplicate legacy/PDF subsidy cleanup PASS: one canonical PDF-backed subsidy line remains;
+- Audit coherence PASS: printed summary OK, detail residual -3 CLP without synthetic adjustment, IVA 19% valid, verified-line count coherent;
+- economic output remains about CLP 26,854 actual, CLP 24,690 estimated, +CLP 2,164 difference;
+- Enel browser fallback PASS: one viewer Download click, no native Save-As dialog, app-controlled import completes;
+- zero-click Enel capture remains an open non-blocking enhancement.
+
+Accepted build:
+- Build 635
+- source: b57f63134127055f52b3124b4225bd0add6fbd6d
+- workflow: 37692009734
+- artifact: SolarEnergyMonitor-Build-635-win-x64.zip
+- artifact ID: 11513837477
+- SHA-256: 2f386ceb6ad97e6251e843df926a17acc4f842c05fd29e2d3b00c5a9a06e192d
+
+Build 635 is the accepted product baseline for the current Phase-10 bill-ingestion / reconciliation tranche. Do not reopen the accepted DATE_ONLY, +2,206 sign, single-subsidy-row, -3 CLP residual, IVA 19%, responsiveness, or Enel Download fallback behavior without new defect evidence.
