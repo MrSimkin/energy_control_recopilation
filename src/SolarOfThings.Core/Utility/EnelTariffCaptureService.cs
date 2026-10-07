@@ -531,7 +531,12 @@ public sealed class EnelTariffCaptureService
         if (families.Length == 0)
             return [];
 
-        var existingUrls = known
+        var capturedUrls = known
+            .Where(item =>
+                string.Equals(
+                    item.CaptureStatus,
+                    "CAPTURED",
+                    StringComparison.Ordinal))
             .Select(item => item.SourceUrl)
             .ToHashSet(
                 StringComparer.OrdinalIgnoreCase);
@@ -597,7 +602,7 @@ public sealed class EnelTariffCaptureService
                             year,
                             title);
 
-                    if (existingUrls.Contains(url) ||
+                    if (capturedUrls.Contains(url) ||
                         output.ContainsKey(url))
                     {
                         continue;
