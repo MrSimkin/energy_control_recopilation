@@ -41,6 +41,10 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _syncCancellation;
     private bool _currentStateRefreshInProgress;
     private int _utilityAuditRefreshGeneration;
+    private (string DeviceId, long BillId, string TimeZoneId)?
+        _utilityBillSummaryInFlightKey;
+    private Task<UtilityBillReconciliationSummary>?
+        _utilityBillSummaryInFlight;
     private bool _dashboardVisible;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
@@ -2938,11 +2942,36 @@ public partial class MainWindow : Window
             var summaryService = _services
                 .GetRequiredService<
                     UtilityBillReconciliationSummaryService>();
-            var summary = await Task.Run(
-                () => summaryService.Analyze(
-                    deviceId,
-                    billId,
-                    timeZoneId));
+            var key =
+                (deviceId, billId, timeZoneId);
+
+            Task<UtilityBillReconciliationSummary> summaryTask;
+            if (_utilityBillSummaryInFlight is
+                    { IsCompleted: false } currentTask &&
+                _utilityBillSummaryInFlightKey == key)
+            {
+                summaryTask = currentTask;
+            }
+            else
+            {
+                summaryTask = Task.Run(
+                    () => summaryService.Analyze(
+                        deviceId,
+                        billId,
+                        timeZoneId));
+                _utilityBillSummaryInFlightKey = key;
+                _utilityBillSummaryInFlight = summaryTask;
+            }
+
+            var summary = await summaryTask;
+
+            if (ReferenceEquals(
+                    _utilityBillSummaryInFlight,
+                    summaryTask))
+            {
+                _utilityBillSummaryInFlight = null;
+                _utilityBillSummaryInFlightKey = null;
+            }
 
             if (refreshGeneration !=
                     _utilityAuditRefreshGeneration ||

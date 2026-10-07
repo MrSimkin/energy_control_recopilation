@@ -55,7 +55,21 @@ public sealed class UtilityBillGapStatisticalCompletionService
                 (endLocalDateInclusive, startLocalDate);
         }
 
-        var all = LoadAllSamples(deviceId);
+        var startUtc =
+            LocalInstant(
+                startLocalDate,
+                TimeOnly.MinValue,
+                timeZoneId);
+        var endUtcExclusive =
+            LocalInstant(
+                endLocalDateInclusive.AddDays(1),
+                TimeOnly.MinValue,
+                timeZoneId);
+
+        var all = LoadIntervalSamples(
+            deviceId,
+            startUtc,
+            endUtcExclusive);
         if (all.Count < 2)
         {
             return new UtilityGridImportStatisticalCompletion(
@@ -83,17 +97,6 @@ public sealed class UtilityBillGapStatisticalCompletionService
                 Math.Max(
                     10.0,
                     medianCadenceMinutes * 3.0));
-        var startUtc =
-            LocalInstant(
-                startLocalDate,
-                TimeOnly.MinValue,
-                timeZoneId);
-        var endUtcExclusive =
-            LocalInstant(
-                endLocalDateInclusive.AddDays(1),
-                TimeOnly.MinValue,
-                timeZoneId);
-
         var interval =
             BuildIntervalTruth(
                 all,
@@ -549,6 +552,94 @@ public sealed class UtilityBillGapStatisticalCompletionService
             null,
             status,
             false);
+    }
+
+    private IReadOnlyList<StatSample> LoadIntervalSamples(
+        string deviceId,
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtcExclusive)
+    {
+        using var connection =
+            _database.OpenConnection();
+        using var command =
+            connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT recorded_at_utc,
+                   normalized_value
+            FROM normalized_metric_sample
+            WHERE device_id = $deviceId
+              AND metric_key = 'grid_import_power_w'
+              AND normalized_value IS NOT NULL
+              AND confidence <> 'UNRESOLVED'
+              AND recorded_at_utc >= $startUtc
+              AND recorded_at_utc <= $endUtc
+            ORDER BY recorded_at_utc;
+            """;
+        command.Parameters.AddWithValue(
+            "$deviceId",
+            deviceId);
+        command.Parameters.AddWithValue(
+            "$startUtc",
+            startUtc.ToUniversalTime().ToString("O"));
+        command.Parameters.AddWithValue(
+            "$endUtc",
+            endUtcExclusive.ToUniversalTime().ToString("O"));
+
+        using var reader =
+            command.ExecuteReader();
+
+        var rows =
+            new List<StatSample>();
+
+        DateTimeOffset? previous = null;
+        while (reader.Read())
+        {
+            if (!DateTimeOffset.TryParse(
+                    reader.GetString(0),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var timestamp))
+            {
+                continue;
+            }
+
+            if (!double.TryParse(
+                    Convert.ToString(
+                        reader.GetValue(1),
+                        CultureInfo.InvariantCulture),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out var watts) ||
+                !double.IsFinite(watts))
+            {
+                continue;
+            }
+
+            timestamp =
+                timestamp.ToUniversalTime();
+
+            if (previous.HasValue &&
+                timestamp == previous.Value &&
+                rows.Count > 0)
+            {
+                rows[^1] =
+                    new StatSample(
+                        timestamp,
+                        watts);
+            }
+            else
+            {
+                rows.Add(
+                    new StatSample(
+                        timestamp,
+                        watts));
+            }
+
+            previous = timestamp;
+        }
+
+        return rows;
     }
 
     private IReadOnlyList<StatSample> LoadAllSamples(
