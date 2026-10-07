@@ -183,6 +183,36 @@ public sealed class UtilityBillAuditAnnexExportService
                     analysis.Status,
                 enel_value_used_in_construction =
                     analysis.EnelValueUsedInConstruction,
+                tariff_sources =
+                    tariff.PublicationPeriods
+                        .Select(item =>
+                            new
+                            {
+                                publication_id =
+                                    item.PublicationId,
+                                effective_from =
+                                    item.EffectiveFrom?
+                                        .ToString("yyyy-MM-dd"),
+                                is_retroactive =
+                                    item.IsRetroactive,
+                                applied_from =
+                                    item.AppliedFrom
+                                        .ToString("yyyy-MM-dd"),
+                                applied_to =
+                                    item.AppliedTo
+                                        .ToString("yyyy-MM-dd"),
+                                days =
+                                    item.Days,
+                                weight =
+                                    item.Weight,
+                                title =
+                                    item.PublicationTitle,
+                                source_url =
+                                    item.SourceUrl,
+                                sha256 =
+                                    item.ContentSha256
+                            })
+                        .ToArray(),
                 files =
                     entries
                         .OrderBy(item => item.Key)
@@ -695,6 +725,13 @@ public sealed class UtilityBillAuditAnnexExportService
             $"Enel value used in construction: {analysis.EnelValueUsedInConstruction}");
         sb.AppendLine(
             $"Tariff model status: {tariff.Status}");
+        foreach (var period in tariff.PublicationPeriods)
+        {
+            sb.AppendLine(
+                $"Tariff source: {period.AppliedFrom:yyyy-MM-dd}..{period.AppliedTo:yyyy-MM-dd} | " +
+                $"{period.PublicationTitle} | retroactive={period.IsRetroactive} | " +
+                $"sha256={period.ContentSha256 ?? "-"} | {period.SourceUrl}");
+        }
         sb.AppendLine();
         sb.AppendLine(
             spanish
@@ -740,7 +777,9 @@ public sealed class UtilityBillAuditAnnexExportService
         section.PageSetup.TopMargin =
             Unit.FromCentimeter(0.9);
         section.PageSetup.BottomMargin =
-            Unit.FromCentimeter(1.0);
+            Unit.FromCentimeter(1.7);
+        section.PageSetup.FooterDistance =
+            Unit.FromCentimeter(0.35);
         section.PageSetup.LeftMargin =
             Unit.FromCentimeter(0.8);
         section.PageSetup.RightMargin =
