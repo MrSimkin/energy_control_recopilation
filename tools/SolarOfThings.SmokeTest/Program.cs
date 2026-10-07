@@ -2253,8 +2253,12 @@ try
                 "17,218 20,489 17,218 20,489",
                 StringComparison.Ordinal)
             .Replace(
+                "BT_AA T1 19,212 22,862 19,212 22,862",
+                "BT_AA T1 19,212 33,237 19,212 33,237",
+                StringComparison.Ordinal)
+            .Replace(
                 "176,2788 209,772 176,2788 209,772",
-                "220,147 220,147 220,147 220,147",
+                "176,280 220,147 176,280 220,147",
                 StringComparison.Ordinal);
 
     var sepRealFixture =
@@ -2268,8 +2272,12 @@ try
                 "17,218 20,489 17,218 20,489",
                 StringComparison.Ordinal)
             .Replace(
+                "BT_AA T1 19,212 22,862 19,212 22,862",
+                "BT_AA T1 19,212 33,629 19,212 33,629",
+                StringComparison.Ordinal)
+            .Replace(
                 "176,2788 209,772 176,2788 209,772",
-                "220,539 220,539 220,539 220,539",
+                "176,280 220,539 176,280 220,539",
                 StringComparison.Ordinal);
 
     var augRealId =
