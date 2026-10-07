@@ -272,3 +272,113 @@ Use a COPY of the accepted Build-538-era `Data\`.
 
 This QA does not require regenerating the accepted Build 538 bill-audit PDF
 or technical annex.
+
+
+## 17. Build 575 target QA result and Build 577 browser-window fix
+
+Owner returned target-PC screenshots from Build 575.
+
+### Build 575 target results
+
+PASS:
+- app started successfully with a copied Build-538-era `Data\` folder;
+- target v13 -> v14 migration therefore passed the real-PC startup gate;
+- `Descargar / actualizar año` remained responsive;
+- CNE 2026 capture status showed:
+  - 12 VAD documents captured;
+  - 2 corrections;
+  - 0 failures;
+- tariff grid showed:
+  - REX 380 / August 2026 as `Corrección oficial vigente`;
+  - REX 368 / August 2026 as `Rectificada por corrección`;
+- Enel automated HTTP was correctly classified as blocked by web protection;
+- browser-assisted WebView2 could navigate through the official Enel archive to the official September 2026 tariff PDF.
+
+Observed defect:
+- clicking Enel's ordinary `DESCARGAR` action opened the official PDF in an **external Edge window**, not inside the integrated WebView2;
+- owner then used the external Edge PDF viewer download/save action;
+- the file downloaded successfully, but the Solar app did not react/import because the download belonged to external Edge;
+- therefore the Build-575 `CoreWebView2.DownloadStarting` interception was never reached.
+
+This is a browser-window ownership defect, not an Enel protection failure and not a tariff parser/importer failure.
+
+Decision:
+- do NOT bypass Imperva/Reese;
+- do NOT add anti-bot circumvention;
+- keep official Enel navigation within the normal WebView2 session whenever Enel opens a tariff link with `target=_blank` / a new-window request.
+
+### Fix
+
+`EnelTariffBrowserWindow` now:
+- subscribes to `CoreWebView2.NewWindowRequested`;
+- for official `enel.cl` HTTP/HTTPS URLs:
+  - marks the new-window request handled;
+  - navigates the same integrated WebView2 to that official URL;
+- detects when the resulting URL is an official `Tarifas Suministro Eléctrico` PDF;
+- keeps a clear instruction visible:
+  `Usa el icono Descargar del visor PDF; la app interceptará esa descarga y la importará automáticamente.`;
+- adds an `Atrás` navigation action for returning from the PDF to the archive.
+
+Security/operational boundary:
+- only official Enel navigation is retained internally;
+- unrelated external navigation is not forcibly captured;
+- no web-protection bypass is attempted.
+
+Code commits:
+- `5f754bd2d00551085db2524e93824a5ba4bbbef9`
+  — keep Enel tariff PDF new windows inside integrated browser;
+- `0d66e6147c641ca42578cf0ba17ae0df626ee4e3`
+  — keep PDF import guidance visible after integrated navigation.
+
+### Build 577
+
+Workflow run:
+- `37558525946`.
+
+Code HEAD:
+- `0d66e6147c641ca42578cf0ba17ae0df626ee4e3`.
+
+Artifact:
+- `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID:
+  `11455624411`;
+- digest:
+  `sha256:07f08bc4416187fae4d36d1ad5c90309161ae523cc1283e2a1f006045cd43d99`.
+
+CI:
+- Build PASS;
+- SQLite smoke PASS;
+- portable publish/upload PASS;
+- live-source probes intentionally skipped because this commit did not request live-source revalidation; prior CNE live PASS / Enel HTTP-protected classification remain authoritative.
+
+Build 577 **supersedes Build 575** for the remaining browser-assisted Enel QA.
+
+## 18. Owner QA requested for Build 577
+
+Use the same copied `Data\` QA folder; no need to repeat the CNE/migration checks already passed on Build 575 unless the app fails to start.
+
+Steps:
+
+1. Launch Build 577 with the copied QA `Data\`.
+2. Open:
+   `Red eléctrica -> Tarifas oficiales -> Capturar Enel en navegador…`.
+3. Navigate to the same September 2026 tariff publication and press Enel's ordinary `DESCARGAR` button.
+4. Gate A:
+   - expected: the PDF remains **inside the integrated Solar app browser window**;
+   - unexpected: a separate external Edge window opens.
+5. If Gate A passes, use the PDF viewer's download icon once.
+6. Gate B:
+   - expected status inside the integrated window:
+     downloaded/imported official PDF and normalized candidates;
+   - after import, tariff grid refreshes;
+   - app remains responsive.
+7. Return:
+   - screenshot showing the PDF inside the integrated browser before the viewer-download click;
+   - screenshot of the integrated-window status after import;
+   - screenshot of tariff grid after import if it changes;
+   - exact text of any error.
+
+Because September 2026 already exists in the QA database, a successful re-import may be idempotent and the visible grid row/hash may remain unchanged. The browser-window import status is therefore the primary Gate-B evidence.
+
+Do not regenerate the accepted Build 538 bill audit/annex.
+Do not use anti-bot circumvention.
