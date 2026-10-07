@@ -3776,42 +3776,160 @@ public partial class MainWindow : Window
     private void PopulateUtilityBillFormFromPdfDraft(
         UtilityBillPdfDraft draft)
     {
-        UtilityBillPeriodPrecisionSelector.SelectedValue =
-            UtilityTimePrecision.DateOnly;
+        var reviewingExisting =
+            _editingUtilityBillId.HasValue;
+        var conflicts =
+            new List<string>();
 
-        if (draft.PeriodStart.HasValue)
-            UtilityBillStartDatePicker.SelectedDate =
-                draft.PeriodStart.Value.ToDateTime(TimeOnly.MinValue);
-        if (draft.PeriodEndInclusive.HasValue)
-            UtilityBillEndDatePicker.SelectedDate =
-                draft.PeriodEndInclusive.Value.ToDateTime(TimeOnly.MinValue);
+        void ApplyDate(
+            QuickDatePicker picker,
+            DateOnly? proposed,
+            string label)
+        {
+            if (!proposed.HasValue)
+                return;
 
-        UtilityBillStartTimeTextBox.Text = "00:00";
-        UtilityBillEndTimeTextBox.Text = "00:00";
+            var proposedDate =
+                proposed.Value.ToDateTime(
+                    TimeOnly.MinValue);
 
-        if (draft.BilledConsumptionKwh.HasValue)
-            UtilityBillKwhTextBox.Text =
-                draft.BilledConsumptionKwh.Value
-                    .ToString("0.###", CultureInfo.CurrentCulture);
-        if (draft.TaxableAmountClp.HasValue)
-            UtilityBillTaxableTextBox.Text =
-                draft.TaxableAmountClp.Value
-                    .ToString("0", CultureInfo.CurrentCulture);
-        if (draft.IvaClp.HasValue)
-            UtilityBillIvaTextBox.Text =
-                draft.IvaClp.Value
-                    .ToString("0", CultureInfo.CurrentCulture);
-        if (draft.ExemptAmountClp.HasValue)
-            UtilityBillExemptTextBox.Text =
-                draft.ExemptAmountClp.Value
-                    .ToString("0", CultureInfo.CurrentCulture);
-        if (draft.TotalDueClp.HasValue)
-            UtilityBillTotalDueTextBox.Text =
-                draft.TotalDueClp.Value
-                    .ToString("0", CultureInfo.CurrentCulture);
-        if (!string.IsNullOrWhiteSpace(draft.TariffPlan))
-            UtilityBillTariffPlanTextBox.Text =
-                draft.TariffPlan;
+            if (!reviewingExisting ||
+                !picker.SelectedDate.HasValue)
+            {
+                picker.SelectedDate =
+                    proposedDate;
+                return;
+            }
+
+            if (DateOnly.FromDateTime(
+                    picker.SelectedDate.Value) !=
+                proposed.Value)
+            {
+                conflicts.Add(
+                    $"{label}: guardado " +
+                    $"{picker.SelectedDate.Value:dd-MM-yyyy} " +
+                    $"vs PDF {proposed.Value:dd-MM-yyyy}");
+            }
+        }
+
+        void ApplyNumber(
+            TextBox box,
+            double? proposed,
+            string format,
+            double tolerance,
+            string label)
+        {
+            if (!proposed.HasValue)
+                return;
+
+            if (!reviewingExisting ||
+                string.IsNullOrWhiteSpace(
+                    box.Text))
+            {
+                box.Text =
+                    proposed.Value.ToString(
+                        format,
+                        CultureInfo.CurrentCulture);
+                return;
+            }
+
+            if (!TryParseNumber(
+                    box.Text,
+                    out var current) ||
+                Math.Abs(
+                    current -
+                    proposed.Value) >
+                tolerance)
+            {
+                conflicts.Add(
+                    $"{label}: guardado " +
+                    $"{box.Text} vs PDF " +
+                    $"{proposed.Value.ToString(format, CultureInfo.CurrentCulture)}");
+            }
+        }
+
+        if (!reviewingExisting)
+        {
+            UtilityBillPeriodPrecisionSelector.SelectedValue =
+                UtilityTimePrecision.DateOnly;
+        }
+        else if (!string.Equals(
+                     UtilityBillPeriodPrecisionSelector
+                         .SelectedValue?
+                         .ToString(),
+                     UtilityTimePrecision.DateOnly,
+                     StringComparison.Ordinal))
+        {
+            conflicts.Add(
+                "precisión del período: el PDF sólo respalda fechas impresas, no una hora exacta");
+        }
+
+        ApplyDate(
+            UtilityBillStartDatePicker,
+            draft.PeriodStart,
+            "inicio");
+        ApplyDate(
+            UtilityBillEndDatePicker,
+            draft.PeriodEndInclusive,
+            "fin");
+
+        if (!reviewingExisting)
+        {
+            UtilityBillStartTimeTextBox.Text = "00:00";
+            UtilityBillEndTimeTextBox.Text = "00:00";
+        }
+
+        ApplyNumber(
+            UtilityBillKwhTextBox,
+            draft.BilledConsumptionKwh,
+            "0.###",
+            0.0005,
+            "consumo kWh");
+        ApplyNumber(
+            UtilityBillTaxableTextBox,
+            draft.TaxableAmountClp,
+            "0",
+            0.5,
+            "monto afecto");
+        ApplyNumber(
+            UtilityBillIvaTextBox,
+            draft.IvaClp,
+            "0",
+            0.5,
+            "IVA");
+        ApplyNumber(
+            UtilityBillExemptTextBox,
+            draft.ExemptAmountClp,
+            "0",
+            0.5,
+            "monto exento");
+        ApplyNumber(
+            UtilityBillTotalDueTextBox,
+            draft.TotalDueClp,
+            "0",
+            0.5,
+            "total");
+
+        if (!string.IsNullOrWhiteSpace(
+                draft.TariffPlan))
+        {
+            if (!reviewingExisting ||
+                string.IsNullOrWhiteSpace(
+                    UtilityBillTariffPlanTextBox.Text))
+            {
+                UtilityBillTariffPlanTextBox.Text =
+                    draft.TariffPlan;
+            }
+            else if (!string.Equals(
+                         UtilityBillTariffPlanTextBox.Text.Trim(),
+                         draft.TariffPlan,
+                         StringComparison.OrdinalIgnoreCase))
+            {
+                conflicts.Add(
+                    $"tarifa: guardado {UtilityBillTariffPlanTextBox.Text.Trim()} " +
+                    $"vs PDF {draft.TariffPlan}");
+            }
+        }
 
         UtilityBillPdfPreviewGrid.ItemsSource =
             draft.Lines
@@ -3846,18 +3964,34 @@ public partial class MainWindow : Window
             detected.Add("monto exento");
         if (draft.TotalDueClp.HasValue)
             detected.Add("total");
-        if (!string.IsNullOrWhiteSpace(draft.TariffPlan))
+        if (!string.IsNullOrWhiteSpace(
+                draft.TariffPlan))
             detected.Add("tarifa");
         if (draft.Lines.Count > 0)
-            detected.Add($"{draft.Lines.Count} línea(s)");
+            detected.Add(
+                $"{draft.Lines.Count} línea(s)");
 
-        var warning = draft.Warnings.Count == 0
-            ? string.Empty
-            : " " + string.Join(" ", draft.Warnings);
+        var warning =
+            draft.Warnings.Count == 0
+                ? string.Empty
+                : " " +
+                  string.Join(
+                      " ",
+                      draft.Warnings);
+        var conflictText =
+            conflicts.Count == 0
+                ? string.Empty
+                : " CONFLICTOS PARA REVISAR: " +
+                  string.Join(
+                      " | ",
+                      conflicts);
 
         UtilityBillStatusText.Text =
             $"PDF preparado ({string.Join(", ", detected)}). " +
-            "Revisa/corrige los campos y las líneas detectadas antes de guardar." +
+            (reviewingExisting
+                ? "Los valores guardados no fueron sobreescritos cuando discrepan del PDF."
+                : "Revisa/corrige los campos antes de guardar.") +
+            conflictText +
             warning;
     }
 
