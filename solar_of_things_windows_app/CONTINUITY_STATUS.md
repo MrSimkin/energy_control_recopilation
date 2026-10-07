@@ -5574,3 +5574,106 @@ Minimum owner QA:
 
 Do not reopen Build-538 evidence, P5/P50/P95 calibration, HPVINV02, CNE 380->368,
 schema migration, tariff precedence, or Imperva classification.
+
+
+## Build 587 owner QA findings -> Build 589 combined corrective candidate — 2026-10-07
+
+Owner completed enough Build-587 target-PC QA to separate correctness from performance.
+
+### Build 587 bill reconciliation
+
+Real target-PC result for bill 28-08-2026 -> 28-09-2026:
+- actual bill: $26,854;
+- billed Enel energy: 97.000 kWh;
+- observed inverter energy: 88.065 kWh;
+- coverage: 99.33%;
+- estimated observed total: $24,690;
+- actual minus estimated: +$2,164.
+
+This confirms the DATE_ONLY inclusive-end correction is materially correct and remains in the
+accepted economic neighborhood. The product summary did not promote P5/P50/P95.
+
+However Build 587 is **NOT ACCEPTED** for usability:
+- reconciliation remained on “Calculando conciliación observada...” for roughly 1-2 minutes;
+- the UI no longer entered Windows “No responde”, proving the Dispatcher-blocking regression
+  was mitigated;
+- but the latency is still unacceptable for normal bill selection.
+
+Root cause of residual latency:
+- the observed-only helper still called `LoadAllSamples(deviceId)`, loading/parsing the
+  complete `grid_import_power_w` history before filtering to the selected bill month;
+- refresh could also trigger duplicate identical summary tasks.
+
+Build 588 optimization:
+- commit `f224db809c39033892afbd8bf6b260194ff8dfd7`;
+- workflow `37651036708`, run/build **588**;
+- Build PASS;
+- SQLite smoke PASS including DATE_ONLY regression;
+- portable PASS;
+- observed-only query is now SQL-bounded to the selected bill interval;
+- duplicate identical in-flight summary calculations are deduplicated;
+- Build 588 was not handed to owner because Enel Save As defect was diagnosed immediately
+  afterward and batched into the next candidate.
+
+### Build 587 Enel browser-assisted finding
+
+Owner evidence:
+- opening the September-2026 official PDF still did not complete automatic
+  WebResourceResponseReceived capture;
+- pressing the integrated PDF-viewer Download action opened a native Windows “Guardar como”
+  dialog pointed at the user's Downloads folder;
+- after resolving that dialog, the existing `CoreWebView2.DownloadStarting` route completed
+  successfully:
+  - official filename normalized correctly;
+  - existing byte-identical re-import detected;
+  - SHA-256 preserved:
+    `27b65928d47c34d46da4afa25c094734432be860750dac31e1deddb6a4d3ab17`;
+  - publication id 29;
+  - 18 pages;
+  - 7,786 normalized candidates.
+
+Therefore provenance/import integrity remains PASS; the remaining defect is Save As UX/routing.
+
+Microsoft WebView2 distinguishes Save As UI from DownloadStarting UI. The PDF viewer invokes
+Save As before DownloadStarting, so `DownloadStarting.Handled=true` is too late to suppress
+that native picker.
+
+Build 589 correction:
+- commit `9b5edf9d54d3e6c58faf427bfaa72bbf114db74b`;
+- subscribes to `CoreWebView2.SaveAsUIShowing`;
+- for the official Enel tariff PDF:
+  - sets `SuppressDefaultDialog=true`;
+  - sets `SaveAsFilePath` to app-controlled `Data/Tariffs/Enel/_incoming`;
+  - uses `CoreWebView2SaveAsKind.Default`;
+  - keeps the already validated DownloadStarting import path as downstream fallback;
+- no Imperva/Reese bypass.
+
+Build 589 CI:
+- workflow `37651835979`;
+- run/build **589**;
+- Build PASS;
+- SQLite smoke PASS;
+- portable publish PASS;
+- portable marker PASS;
+- artifact upload PASS;
+- artifact ID `11496569011`;
+- digest:
+  `sha256:faa6e8ca76bbe015fa5c94b85d18919482fa8d4d3022e9ed6d0407e2c909f147`;
+- user-facing filename:
+  `SolarEnergyMonitor-Build-589-win-x64.zip`.
+
+Build 589 is the current **QA candidate, not yet accepted**.
+
+Minimum owner QA for Build 589:
+1. launch without copying Data; confirm shared database path remains
+   `D:\\SolarEnergyMonitorTest\\Data\\energy.db`;
+2. open the same bill and observe practical calculation latency; expected values remain the
+   Build-587 values/neighborhood above;
+3. open the same September-2026 Enel PDF;
+4. first observe whether automatic WebResourceResponseReceived capture completes;
+5. if not, click Download once;
+6. PASS for Save As UX requires **no native Guardar como dialog** and a successful
+   SaveAsUIShowing/DownloadStarting/import receipt using app-controlled storage.
+
+Do not repeat Build-538 evidence, statistical recalibration, CNE, migration, precedence,
+Imperva classification, or SHA/provenance proof unless a new defect appears.
