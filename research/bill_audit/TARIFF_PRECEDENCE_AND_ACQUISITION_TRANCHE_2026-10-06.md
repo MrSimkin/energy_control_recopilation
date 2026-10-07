@@ -206,3 +206,69 @@ If target QA passes:
 
 Potential later enhancement, only if justified:
 - parse/persist explicit Enel regulatory-basis references (decree / CNE basis) to resolve future cases with multiple distinct Enel retroactive publications.
+
+
+## 13. Build 575 supersedes Build 566
+
+Build 575 is now the preferred owner QA handoff because it contains the
+browser-assisted Enel fallback in addition to the schema/preference work
+already present in Build 566.
+
+Workflow run:
+- `37556413195`.
+
+Code HEAD:
+- `1bda3f73a647c9cc6b5d02f73cd5d968f19570fb`.
+
+Artifact:
+- `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID `11454832323`;
+- digest:
+  `sha256:fca91116ea603e786dee7aead5a1fab3c6107d66c5a273dcf85931cdcda26aa4`.
+
+CI:
+- Build PASS;
+- SQLite smoke PASS;
+- portable publish/upload PASS.
+
+Browser-assisted Enel fallback:
+- uses Microsoft Edge WebView2;
+- opens the official Enel tariff archive in a normal browser session;
+- does not attempt to bypass or automate around Imperva;
+- intercepts only downloads whose filenames look like official
+  `Tarifas Suministro Eléctrico` PDFs;
+- saves the browser download to a temporary file;
+- routes it through the existing controlled Enel PDF import pipeline;
+- the canonical imported copy remains under `Data/Tariffs`;
+- import preserves/normalizes the PDF and refreshes the tariff grid;
+- manual PDF import remains available if WebView2 cannot start or the
+  browser-assisted path cannot complete.
+
+The browser-assisted action is mutually exclusive with year refresh/manual
+import while those operations are active.
+
+### Revised owner QA
+
+Use a COPY of the accepted Build-538-era `Data\`.
+
+1. Launch Build 575.
+   - Successful startup is the target v13 -> v14 migration gate.
+2. Open `Red eléctrica -> Tarifas oficiales`.
+3. Select 2026.
+4. Click `Descargar / actualizar año`.
+5. Return a screenshot of:
+   - the complete status text;
+   - the August CNE 368/380 rows/version labels if visible.
+6. Confirm whether the app remained responsive.
+7. If automatic Enel succeeds, stop there.
+8. If automatic Enel reports web protection:
+   - click `Capturar Enel en navegador…`;
+   - allow the official Enel page to load normally;
+   - download ONE already-known official tariff PDF (September 2026 is sufficient);
+   - the app should automatically import/normalize it;
+   - return a screenshot of the browser-assisted status/result.
+9. Do not use manual `Importar PDFs oficiales Enel…` during this QA unless
+   explicitly requested after reviewing the browser-assisted result.
+
+This QA does not require regenerating the accepted Build 538 bill-audit PDF
+or technical annex.
