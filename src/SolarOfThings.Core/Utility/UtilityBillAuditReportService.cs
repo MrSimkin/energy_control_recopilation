@@ -430,8 +430,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("¿QUÉ SIGNIFICAN P5, P50 Y P95?", "WHAT DO P5, P50 AND P95 MEAN?"),
             L(
-                "Como existen períodos sin telemetría, no sería correcto inventar un único valor exacto. P5 es un valor hacia el extremo inferior; P50 es la mediana y estimación central; P95 es un valor hacia el extremo superior. El intervalo P5–P95 contiene el 90% central de los resultados producidos por el método estadístico aplicado.",
-                "Because some periods lack telemetry, it would not be correct to invent one exact value. P5 is a lower-side value; P50 is the median and central estimate; P95 is an upper-side value. The P5–P95 interval contains the central 90% of the results produced by the statistical method."),
+                "Como existen períodos sin telemetría, no sería correcto inventar un único valor exacto. P5 es un valor hacia el extremo inferior; P50 es la mediana y estimación central; P95 es un valor hacia el extremo superior. El intervalo P5–P95 contiene el 90% central de los resultados producidos por el método estadístico aplicado. En este período P5 y P50 coinciden porque la mediana empírica del aporte de cada gap interno es 0 kWh.",
+                "Because some periods lack telemetry, it would not be correct to invent one exact value. P5 is a lower-side value; P50 is the median and central estimate; P95 is an upper-side value. The P5–P95 interval contains the central 90% of the results produced by the statistical method. In this period P5 and P50 coincide because the empirical median contribution of each internal gap is 0 kWh."),
             Colors.WhiteSmoke);
 
         if (enel.HasValue &&
@@ -675,8 +675,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("ALCANCE DEL MONTO", "AMOUNT SCOPE"),
             L(
-                "Son subtotales comparables de componentes tarifarios conciliados con evidencia oficial. Subsidios, cargos fijos, FET u otros ajustes sin regla reconstruida permanecen fuera del escenario.",
-                "These are comparable subtotals for tariff components reconciled with official evidence. Subsidies, fixed charges, FET or other adjustments without a reconstructed rule remain outside the scenario."),
+                "Son subtotales comparables de componentes tarifarios conciliados con evidencia oficial. Subsidios, cargos fijos, FET u otros ajustes no forman parte de este subtotal variable; cuando corresponde, se preservan sin cambios en el total comparable mostrado más abajo.",
+                "These are comparable subtotals for tariff components reconciled with official evidence. Subsidies, fixed charges, FET or other adjustments are not part of this variable subtotal; where applicable, they are preserved unchanged in the comparable total shown below."),
             Colors.WhiteSmoke);
     }
 
@@ -2126,8 +2126,8 @@ public sealed class UtilityBillAuditReportService
                 "H03",
                 string.Format(
                     L(
-                        "Con los mismos cargos no variables preservados, el escenario P50 produce {0} frente a {1} impresos: diferencia {2}.",
-                        "With the same non-variable charges preserved, the P50 scenario produces {0} versus printed {1}: difference {2}."),
+                        "Con los mismos cargos no variables preservados, el escenario P50 produce {0} frente a {1} impresos. Enel − P50 = {2}.",
+                        "With the same non-variable charges preserved, the P50 scenario produces {0} versus printed {1}. Utility − P50 = {2}."),
                     Money(centralTotal),
                     Money(printedTotal),
                     MoneySigned(diff)),
