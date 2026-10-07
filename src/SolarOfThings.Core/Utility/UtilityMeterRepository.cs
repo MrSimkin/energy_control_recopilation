@@ -161,7 +161,8 @@ public sealed class UtilityMeterRepository
                    from_reading_id, to_reading_id,
                    meter_start_kwh, meter_end_kwh, tariff_plan,
                    taxable_amount_clp, iva_clp, exempt_amount_clp,
-                   gross_bill_amount_clp, other_charges_clp, total_due_clp,
+                   gross_bill_amount_clp, other_charges_clp,
+                   previous_balance_clp, total_due_clp,
                    period_precision,
                    source_kind, source_document_id, review_state, iva_rate,
                    created_utc, updated_utc
@@ -175,8 +176,8 @@ public sealed class UtilityMeterRepository
         {
             if (!TryReadInstant(reader.GetString(1), out var start) ||
                 !TryReadInstant(reader.GetString(2), out var end) ||
-                !TryReadInstant(reader.GetString(23), out var createdAt) ||
-                !TryReadInstant(reader.GetString(24), out var updatedAt))
+                !TryReadInstant(reader.GetString(24), out var createdAt) ||
+                !TryReadInstant(reader.GetString(25), out var updatedAt))
             {
                 continue;
             }
@@ -200,11 +201,12 @@ public sealed class UtilityMeterRepository
                 ReadNullableDouble(reader, 15),
                 ReadNullableDouble(reader, 16),
                 ReadNullableDouble(reader, 17),
-                reader.GetString(18),
+                ReadNullableDouble(reader, 18),
                 reader.GetString(19),
-                ReadNullableInt64(reader, 20),
-                reader.GetString(21),
-                ReadNullableDouble(reader, 22),
+                reader.GetString(20),
+                ReadNullableInt64(reader, 21),
+                reader.GetString(22),
+                ReadNullableDouble(reader, 23),
                 createdAt,
                 updatedAt));
         }
@@ -234,7 +236,8 @@ public sealed class UtilityMeterRepository
         string sourceKind = UtilityBillSourceKind.Manual,
         long? sourceDocumentId = null,
         string reviewState = UtilityBillReviewState.Reviewed,
-        double? ivaRate = null)
+        double? ivaRate = null,
+        double? previousBalanceClp = null)
     {
         periodStartUtc = periodStartUtc.ToUniversalTime();
         periodEndUtc = periodEndUtc.ToUniversalTime();
@@ -259,6 +262,8 @@ public sealed class UtilityMeterRepository
 
         if (otherChargesClp.HasValue && !double.IsFinite(otherChargesClp.Value))
             throw new ArgumentOutOfRangeException(nameof(otherChargesClp));
+        if (previousBalanceClp.HasValue && !double.IsFinite(previousBalanceClp.Value))
+            throw new ArgumentOutOfRangeException(nameof(previousBalanceClp));
 
         var now = DateTimeOffset.UtcNow;
         using var connection = _database.OpenConnection();
@@ -271,7 +276,8 @@ public sealed class UtilityMeterRepository
                 from_reading_id, to_reading_id,
                 meter_start_kwh, meter_end_kwh, tariff_plan,
                 taxable_amount_clp, iva_clp, exempt_amount_clp,
-                gross_bill_amount_clp, other_charges_clp, total_due_clp,
+                gross_bill_amount_clp, other_charges_clp,
+                previous_balance_clp, total_due_clp,
                 period_precision,
                 source_kind, source_document_id, review_state, iva_rate,
                 created_utc, updated_utc
@@ -283,7 +289,7 @@ public sealed class UtilityMeterRepository
                 $fromReadingId, $toReadingId,
                 $meterStart, $meterEnd, $tariffPlan,
                 $taxable, $iva, $exempt,
-                $gross, $otherCharges, $totalDue,
+                $gross, $otherCharges, $previousBalance, $totalDue,
                 $periodPrecision,
                 $sourceKind, $sourceDocumentId, $reviewState, $ivaRate,
                 $createdUtc, $updatedUtc
@@ -306,6 +312,7 @@ public sealed class UtilityMeterRepository
         command.Parameters.AddWithValue("$exempt", exemptAmountClp.HasValue ? exemptAmountClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$gross", grossBillAmountClp.HasValue ? grossBillAmountClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$otherCharges", otherChargesClp.HasValue ? otherChargesClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$previousBalance", previousBalanceClp.HasValue ? previousBalanceClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$totalDue", totalDueClp.HasValue ? totalDueClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$periodPrecision", periodPrecision);
         command.Parameters.AddWithValue("$sourceKind", sourceKind);
@@ -340,7 +347,8 @@ public sealed class UtilityMeterRepository
         string sourceKind = UtilityBillSourceKind.Manual,
         long? sourceDocumentId = null,
         string reviewState = UtilityBillReviewState.Reviewed,
-        double? ivaRate = null)
+        double? ivaRate = null,
+        double? previousBalanceClp = null)
     {
         periodStartUtc = periodStartUtc.ToUniversalTime();
         periodEndUtc = periodEndUtc.ToUniversalTime();
@@ -366,6 +374,9 @@ public sealed class UtilityMeterRepository
         if (otherChargesClp.HasValue &&
             !double.IsFinite(otherChargesClp.Value))
             throw new ArgumentOutOfRangeException(nameof(otherChargesClp));
+        if (previousBalanceClp.HasValue &&
+            !double.IsFinite(previousBalanceClp.Value))
+            throw new ArgumentOutOfRangeException(nameof(previousBalanceClp));
 
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
@@ -387,6 +398,7 @@ public sealed class UtilityMeterRepository
                 exempt_amount_clp = $exempt,
                 gross_bill_amount_clp = $gross,
                 other_charges_clp = $otherCharges,
+                previous_balance_clp = $previousBalance,
                 total_due_clp = $totalDue,
                 period_precision = $periodPrecision,
                 source_kind = $sourceKind,
@@ -413,6 +425,7 @@ public sealed class UtilityMeterRepository
         command.Parameters.AddWithValue("$exempt", exemptAmountClp.HasValue ? exemptAmountClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$gross", grossBillAmountClp.HasValue ? grossBillAmountClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$otherCharges", otherChargesClp.HasValue ? otherChargesClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$previousBalance", previousBalanceClp.HasValue ? previousBalanceClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$totalDue", totalDueClp.HasValue ? totalDueClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$periodPrecision", periodPrecision);
         command.Parameters.AddWithValue("$sourceKind", sourceKind);
