@@ -5901,3 +5901,251 @@ The QA should intentionally cover several pieces in one pass:
 
 Do not regenerate Build-538 evidence or reopen frozen CNE/380-368/migration/precedence/Imperva
 work unless a genuinely new defect appears.
+
+
+## Owner QA procedure — Build 612 — verbatim chat handoff — 2026-10-07
+
+The following block is preserved **verbatim** from the assistant message sent to the owner after Build 612 was consolidated. It is the operative QA script for this candidate.
+
+Sí. Hagamos un **QA único, ordenado y con puntos de decisión claros**, para no mezclar síntomas ni repetir pruebas.
+
+1. **Preparar Build 612**
+   - Descomprime `SolarEnergyMonitor-Build-612-win-x64.zip` en una carpeta nueva.
+   - **No copies ninguna carpeta `Data`** desde builds anteriores.
+   - Ejecuta `SolarEnergyMonitor.exe`.
+   - Confirma abajo que la base usada sea:
+     `D:\SolarEnergyMonitorTest\Data\energy.db`
+   - Confirma que aparezca **Build 612**.
+   - Navega un poco por la app durante 20–30 segundos.
+   - **PASS:** responde normalmente, sin `(No responde)`.
+   - **STOP:** si se congela, dime exactamente qué estabas haciendo y no continúes el resto del QA.
+
+2. **Primera revisión visual de la nueva UI de Boletas Enel**
+   - Ve a **Red eléctrica → Boletas Enel**.
+   - Antes de tocar nada, mira la pantalla completa.
+   - Quiero tu impresión de:
+     - si entiendes dónde importar PDF;
+     - dónde crear una boleta manual;
+     - dónde están los datos principales;
+     - dónde están totales/IVA;
+     - dónde aparecen las boletas guardadas;
+     - dónde se manejan los cargos.
+   - Si algo se ve cortado, demasiado apretado, confuso o feo, **captura pantalla**.
+   - Aquí no buscamos sólo que “funcione”: éste es el primer QA donde **UI/UX también puede reprobar el build**.
+
+3. **Probar el flujo manual limpio, sin guardar basura**
+   - Pulsa **Nueva boleta manual**.
+   - No necesitas guardar nada.
+   - Comprueba que:
+     - el formulario quede limpio;
+     - no conserve fechas de la boleta anterior;
+     - las horas queden razonablemente inicializadas;
+     - puedas distinguir claramente período, consumo, tarifa, referencia, montos e IVA.
+   - **PASS:** parece un ingreso nuevo independiente.
+   - Luego puedes cancelar/no guardar.
+
+4. **Seleccionar nuestra boleta real ya existente**
+   - En **Boletas guardadas**, selecciona la correspondiente a:
+     `28-08-2026 → 28-09-2026`
+   - Debiera mostrar aproximadamente:
+     - `97 kWh`;
+     - total `$26.854`.
+   - Pulsa **Revisar seleccionada**.
+   - **Muy importante:** estamos revisando la boleta existente, **no creando una segunda copia**.
+
+5. **Importar el PDF original de esa misma boleta**
+   - Mientras estás revisando esa boleta, pulsa **Importar PDF de boleta…**
+   - Selecciona el PDF original que me habías enviado/que tienes guardado.
+   - Espera a que termine la lectura.
+   - La app debería rellenar sólo lo que detecta con suficiente confianza y mostrar las líneas detectadas para revisión.
+   - **No corrijas todavía posibles discrepancias.**
+   - Si aparece un mensaje de conflicto como:
+     `guardado X vs PDF Y`
+     o cualquier cosa inesperada, **sácale captura**.
+
+6. **Comparar el PDF con los datos principales**
+   Comprueba explícitamente:
+   - inicio: `28-08-2026`;
+   - fin impreso: `28-09-2026`;
+   - consumo: `97 kWh`;
+   - total a pagar: `$26.854`;
+   - tarifa/plan si el PDF realmente lo muestra;
+   - IVA/monto afecto/exento sólo si efectivamente aparecen en la boleta.
+   
+   Aquí la regla es:
+   - si el PDF lo imprime, queremos conservarlo;
+   - si no lo imprime, **no rellenarlo por imaginación**;
+   - si el parser obtiene algo distinto de lo que tú lees en el PDF, dime ambas cosas.
+
+7. **Revisar las líneas detectadas**
+   Mira especialmente si aparecen correctamente cosas como:
+   - `Electricidad consumida`;
+   - `Transporte de electricidad`;
+   - `Subsidio Eléctrico Ley 21677 (4/6)` si aparece así;
+   - `Administración del servicio`;
+   - `Arriendo Medidor`;
+   - `Servicio Común`;
+   - cualquier IVA o ajuste que realmente esté impreso.
+   
+   Para cada línea importante verifica:
+   - descripción;
+   - signo positivo/negativo;
+   - monto;
+   - que un subsidio/crédito no haya quedado positivo;
+   - que una descripción impresa detallada no haya sido reemplazada por algo excesivamente genérico.
+   
+   **Captura esta zona antes de guardar.**
+
+8. **Guardar la revisión**
+   - Deja activada la incorporación de las líneas detectadas si se ven razonables.
+   - Pulsa **Guardar revisión**.
+   - **PASS importante:** debe actualizarse **la misma boleta**, no aparecer una segunda boleta duplicada.
+   - Después de guardar:
+     - esa boleta debería quedar seleccionada;
+     - el origen debería verse en lenguaje humano, algo como `PDF + revisión`;
+     - no debería mostrar códigos técnicos crudos tipo `PDF_REVIEWED`.
+
+9. **Abrir el PDF original desde la boleta guardada**
+   - Con esa boleta seleccionada, pulsa **Abrir PDF original**.
+   - **PASS:** abre el PDF que acabas de vincular.
+   - Esto comprueba que no sólo leímos el documento: quedó guardada correctamente su procedencia.
+
+10. **Revisar el detalle de cargos después de guardar**
+    - Mira la tabla inferior de cargos/créditos.
+    - Quiero comprobar que se vean claramente:
+      - descripción;
+      - monto;
+      - cantidad/unidad sólo cuando correspondan;
+      - origen;
+      - evidencia.
+    - Idealmente aparecerán etiquetas humanas como:
+      - `PDF confirmado`;
+      - `Ingresado manualmente`;
+      - `PDF confirmado · p.X`.
+    - Si ves códigos internos, toma captura.
+
+11. **Ir a Auditoría de boleta — prueba de rendimiento**
+    - Ve a **Auditoría**.
+    - Selecciona esa misma boleta.
+    - Desde que la seleccionas, fíjate aproximadamente cuánto tarda en terminar.
+    - No necesito cronómetro milimétrico; basta:
+      - `< 2 s`;
+      - `2–5 s`;
+      - `5–10 s`;
+      - `>10 s`;
+      - `minutos`.
+    - **PASS esperado:** segundos, no uno o dos minutos.
+    - **STOP técnico:** si vuelve a quedarse mucho tiempo en `Calculando conciliación observada…`, dime cuánto tardó.
+
+12. **Verificar la conciliación energética**
+    Cuando termine, comprueba:
+    - **Boleta real:** `$26.854`;
+    - **Energía Enel:** `97,000 kWh`;
+    - **Inversor observado:** aproximadamente `88,065 kWh`;
+    - **Cobertura:** aproximadamente `99,33%`;
+    - diferencia energética alrededor de `+8,935 kWh / +9,21%`.
+   
+    Esos valores sí son nuestra regresión fuerte.
+
+13. **No fijarnos ciegamente en `$24.690`**
+    Mira el nuevo **Estimado según observado** y **Real − estimado**.
+   
+    Si sigue alrededor de:
+    - `$24.690`;
+    - `+$2.164`;
+   
+    perfecto.
+
+    Pero si ahora cambia un poco porque la boleta revisada entrega mejor información de IVA/cargos/ajustes, **no lo consideres automáticamente error**. En ese caso necesito captura de:
+    - las cinco tarjetas superiores;
+    - el texto explicativo debajo;
+    - la tabla de auditoría.
+
+14. **Revisar las tres nuevas tarjetas de auditoría**
+    Deben aparecer explícitamente:
+    - **Monto con reconstrucción explícita** → un porcentaje;
+    - **IVA 19%** → por ejemplo OK, diferencia o falta de base;
+    - **Cuadratura y ajustes** → cuadra, ajuste impreso, residuo pequeño, etc.
+   
+    Aquí quiero especialmente ver qué dice nuestra boleta real.
+
+15. **Revisar auditoría línea por línea**
+    En la tabla verifica que ahora puedas distinguir:
+    - línea/concepto;
+    - tasa;
+    - base de cálculo;
+    - verificación;
+    - fuente;
+    - evidencia;
+    - **monto real**;
+    - **reconstruido**;
+    - **diferencia**.
+   
+    Lo más importante es que no parezca que todo lo que no puede reconstruirse es un “error”. Algunas líneas legítimamente deben decir algo equivalente a **Sólo evidencia real**.
+
+16. **Revisar IVA y ajuste con criterio documental**
+    Si la boleta tiene IVA explícito:
+    - la app debería usar **19%**;
+    - debería comparar monto impreso contra `base afecta × 19%`.
+   
+    Si la boleta tiene una línea explícita de ajuste/redondeo:
+    - debe aparecer como ajuste real.
+   
+    Si hay una diferencia pequeña pero **no existe línea de ajuste impresa**:
+    - queremos algo como `residuo pequeño no explicado`;
+    - **no** una línea artificial creada por la aplicación.
+
+17. **Prueba rápida de edición manual de una línea**
+    Sólo si la interfaz se entiende bien:
+    - selecciona una línea;
+    - pulsa **Editar línea**;
+    - confirma que carga sus datos;
+    - **no necesitas modificarla**;
+    - cancela.
+   
+    Comprueba que cancelar no altere nada.
+   
+    Esto es principalmente QA de UX.
+
+18. **Probar nuevamente Enel Browser-assisted**
+    Ve a la sección de tarifas Enel y abre el navegador integrado.
+    - Navega al mismo PDF oficial de septiembre 2026 que ya usamos.
+    - Al abrir el PDF, primero **no hagas nada durante unos segundos**.
+   
+    Posibilidad A:
+    - la app lo captura/importa automáticamente sin intervención.
+    - Excelente: captura cero-clic PASS.
+   
+    Posibilidad B:
+    - no ocurre nada automáticamente.
+    - Eso sigue siendo una limitación conocida; continúa al paso siguiente.
+
+19. **Probar el fallback de descarga Enel**
+    - Pulsa una vez el icono **Descargar** del visor PDF.
+    - **Resultado esperado en Build 612: NO debe aparecer el cuadro nativo `Guardar como`.**
+    - La aplicación debería interceptarlo y continuar con almacenamiento/importación controlados.
+   
+    **PASS del arreglo 589/612:**
+    - no aparece selector de carpeta;
+    - no necesitas elegir Downloads;
+    - termina la importación;
+    - ves el recibo de importación.
+   
+    Si aparece nuevamente `Guardar como`, **captura inmediatamente** y dime que falló este punto.
+
+20. **Cerrar QA y mandarme evidencia**
+    Al terminar, mándame idealmente:
+    - captura de **Boletas Enel** con la nueva UI;
+    - captura de la revisión PDF antes o después de guardar;
+    - captura de **Auditoría** completa;
+    - captura del resultado Enel Browser-assisted;
+    - y dime aproximadamente cuánto tardó la conciliación.
+   
+    Con eso yo evaluaré por separado:
+    **UI/UX · ingreso PDF · ingreso manual · integridad de boleta · auditoría · rendimiento · Enel fallback · captura cero-clic**.
+
+### Cuándo detenerte
+
+No sigas haciendo pruebas si ocurre cualquiera de estas tres cosas: **la app vuelve a `(No responde)`, importar el PDF modifica datos de forma claramente incorrecta, o aparece un error/crash**. En esos casos es mejor que me mandes inmediatamente el punto exacto + captura, porque continuar podría mezclar defectos.
+
+Y para este QA **no necesitas volver a probar Build 538, P5/P50/P95, HPVINV02, CNE 380→368 ni la migración antigua**. Todo eso sigue congelado.
