@@ -79,7 +79,9 @@ public sealed class UtilityBillReconciliationSummaryService
         else
         {
             var comparison = _reconciliation
-                .GetBillReconciliations(deviceId)
+                .GetBillReconciliations(
+                    deviceId,
+                    timeZoneId)
                 .Single(item =>
                     item.BillId == billId);
 
