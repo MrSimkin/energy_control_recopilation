@@ -5031,3 +5031,43 @@ Do NOT bypass Imperva/Reese.
 
 Mandatory owner handoff rule remains active:
 end every substantial cycle with repo consolidation + self-contained new-chat continuation prompt.
+
+## Build 577 owner QA — integrated PDF/download reached; import status still unproven — 2026-10-06
+
+Owner returned screenshots from Build 577.
+
+Evidence observed:
+
+PASS / strongly demonstrated:
+- Build 577 starts and runs on the copied QA Data folder;
+- previously validated CNE/migration gates remain intact;
+- official September-2026 Enel tariff PDF is now opened within the browser-assisted flow rather than being handed off to a separate external Edge workflow;
+- the PDF viewer's own download action was used;
+- the browser download flyout shows the official file:
+  Enel Distribución Chile SA._Tarifas Suministro Eléctrico 8T_ VAD 5T Septiembre de 2026.pdf;
+- the main tariff grid remains responsive and still contains the September Enel row with SHA prefix 27b65928d47c.
+
+Important limitation:
+- the returned screenshots do NOT show the integrated-window status text after the viewer-download action;
+- because September 2026 already existed in the QA database and re-import is idempotent, the unchanged grid row/hash cannot by itself prove that CoreWebView2.DownloadStarting routed the file through EnelTariffPdfImportService;
+- therefore Gate A (integrated navigation / viewer download) is effectively PASS;
+- Gate B (automatic import + normalization triggered by the viewer download) remains NOT YET CONCLUSIVELY PROVEN.
+
+Do not ask the owner to repeat:
+- schema v13 -> v14 migration;
+- CNE 12-doc / 2-correction capture;
+- 380 -> 368 precedence;
+- Enel HTTP-protection classification;
+- proof that integrated WebView2 can open the official September PDF.
+
+Next safe action in a new chat:
+1. recover repo authority first;
+2. inspect current browser-assisted code and Build-577 handoff;
+3. decide the least-cost way to prove Gate B:
+   - ideally obtain/observe the integrated status after one viewer download;
+   - or add a deterministic visible/auditable import receipt in UI (filename, SHA prefix, candidates count, timestamp) so idempotent re-import can still be proven;
+   - do not infer success from an unchanged grid row;
+4. if Gate B is proven, freeze the tariff precedence/acquisition tranche;
+5. if not, fix only the WebView2 viewer-download -> import handoff; do not revisit CNE, schema migration or tariff precedence.
+
+Accepted Build-538 bill evidence remains frozen and must not be regenerated for this infrastructure gate.
