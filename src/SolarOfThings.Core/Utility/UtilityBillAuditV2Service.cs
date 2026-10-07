@@ -139,6 +139,15 @@ public sealed class UtilityBillAuditV2Service
                 continue;
             }
 
+            var categoryIsUnique =
+                !string.IsNullOrWhiteSpace(
+                    line.CategoryKey) &&
+                lines.Count(other =>
+                    string.Equals(
+                        other.CategoryKey,
+                        line.CategoryKey,
+                        StringComparison.OrdinalIgnoreCase)) == 1;
+
             var reconciledComponent =
                 reconciledTariff?
                     .Components
@@ -147,8 +156,7 @@ public sealed class UtilityBillAuditV2Service
                             item.BillLineDescription,
                             line.Description,
                             StringComparison.OrdinalIgnoreCase) ||
-                        (!string.IsNullOrWhiteSpace(
-                             line.CategoryKey) &&
+                        (categoryIsUnique &&
                          (
                              string.Equals(
                                  item.ComponentKey,
