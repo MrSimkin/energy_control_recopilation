@@ -1237,6 +1237,30 @@ try
         var liveCneRelations =
             liveCneRepository.GetRelations();
 
+        foreach (var item in liveCnePublications
+                     .Where(item =>
+                         item.EffectiveFrom ==
+                         new DateOnly(2026, 8, 1))
+                     .OrderBy(item => item.PublicationId))
+        {
+            Console.WriteLine(
+                $"Live CNE August metadata: id={item.PublicationId}; " +
+                $"official={item.OfficialDocumentNumber ?? "-"}; " +
+                $"officialDate={item.OfficialPublicationDate?.ToString("yyyy-MM-dd") ?? "-"}; " +
+                $"corrects={item.CorrectsOfficialDocumentNumber ?? "-"}; " +
+                $"retroactive={item.IsRetroactive}; title={item.Title}");
+        }
+
+        foreach (var relation in liveCneRelations)
+        {
+            Console.WriteLine(
+                $"Live CNE relation: source={relation.SourcePublicationId}; " +
+                $"type={relation.RelationType}; " +
+                $"targetOfficial={relation.TargetOfficialDocumentNumber}; " +
+                $"targetId={relation.TargetPublicationId?.ToString() ?? "-"}; " +
+                $"evidence={relation.EvidenceText}");
+        }
+
         var live380 =
             liveCnePublications.SingleOrDefault(item =>
                 string.Equals(
