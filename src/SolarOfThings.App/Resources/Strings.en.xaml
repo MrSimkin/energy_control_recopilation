@@ -322,7 +322,7 @@
     <sys:String x:Key="GridUtility.TariffOpenEnel">Open official Enel page</sys:String>
     <sys:String x:Key="GridUtility.TariffAuthority">Source</sys:String>
     <sys:String x:Key="GridUtility.TariffAutoCaptureResult">Update {0}: CNE {1} VAD document(s) captured, {2} correction(s), {3} failure(s). Automatic Enel: {4}</sys:String>
-    <sys:String x:Key="GridUtility.TariffEnelBlocked">unavailable due to web protection; use “Open official Enel page” + “Import official Enel PDFs”</sys:String>
+    <sys:String x:Key="GridUtility.TariffEnelBlocked">unavailable through live catalog, cache and direct assets; use “Open official Enel page” + “Import official Enel PDFs”</sys:String>
     <sys:String x:Key="GridUtility.TariffEnelOk">{0}/{1} Enel publication(s) captured; {2} normalized candidate(s)</sys:String>
     <sys:String x:Key="GridUtility.TariffImportResult">Enel import: {0} PDF(s) imported, {1} normalized candidate(s), {2} failure(s).</sys:String>
     <sys:String x:Key="GridUtility.TariffCorrection">Correction</sys:String>
