@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
+using SolarOfThings.Core.Infrastructure;
 using SolarOfThings.Core.Utility;
 
 namespace SolarOfThings.App;
