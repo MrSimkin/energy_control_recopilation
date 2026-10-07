@@ -5071,3 +5071,94 @@ Next safe action in a new chat:
 5. if not, fix only the WebView2 viewer-download -> import handoff; do not revisit CNE, schema migration or tariff precedence.
 
 Accepted Build-538 bill evidence remains frozen and must not be regenerated for this infrastructure gate.
+
+
+## Build 578 — auditable browser-import receipt candidate — 2026-10-06 / 2026-10-07
+
+Gate B remains the only open owner gate, but the code path is now instrumented so one
+viewer-download click can prove or disprove it without relying on an idempotent grid row.
+
+During source inspection a provenance defect was found in the Build-577 browser path:
+the temporary download filename was prefixed with a GUID before being passed to
+`EnelTariffPdfImportService`. Because that service derives the canonical official title
+from the source filename, a successful browser import could have persisted the temporary
+GUID-prefixed name rather than the original official Enel filename.
+
+Build 578 fixes that defect by:
+- putting uniqueness in a GUID-named temporary directory;
+- preserving the downloaded official PDF filename unchanged;
+- deleting the temporary file/directory after the canonical copy is created.
+
+Build 578 also adds an explicit, persistent in-window receipt:
+- any `CoreWebView2.DownloadStarting` event is visibly recorded;
+- a compatible download records that interception is active;
+- successful `EnelTariffPdfImportService` completion records:
+  - official filename;
+  - publication id;
+  - full SHA-256;
+  - page count;
+  - normalized-candidate count;
+  - outcome:
+    `NEW_PUBLICATION`,
+    `EXISTING_IDENTICAL_REIMPORT`,
+    `CAPTURED_EXISTING_DISCOVERY`, or
+    `UPDATED_EXISTING_PUBLICATION`;
+  - UTC completion timestamp;
+- the receipt remains separate from transient navigation/status text.
+
+Microsoft WebView2 documentation confirms that `DownloadStarting` is raised when a
+WebView2 download begins and that setting `Handled=true` hides the default download UI
+while allowing the download to continue. Therefore the Build-577 download flyout alone
+was not sufficient proof that the host handler ran; the Build-578 receipt is the direct
+gate evidence.
+
+Implementation commit:
+- `53a7fa184c7d90e8242ec32b762060f2a9f1c108`
+  — `Add auditable Enel browser import receipt`.
+
+Windows Build:
+- run ID: `37561379685`;
+- run number / build: **578**;
+- Build: **PASS**;
+- SQLite smoke: **PASS**;
+- portable publish: **PASS**;
+- live Enel/CNE probes: intentionally skipped because this change does not alter
+  HTTP acquisition, CNE capture, tariff precedence, or the already accepted live-source
+  classifications.
+
+Portable artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11457196560`;
+- digest:
+  `sha256:db76026303a07256a034e5ed5aa9dce415ba9ab3e7ecd4f6c8354bd602fce676`.
+
+### Minimum owner QA for Build 578
+
+Do not repeat migration, CNE, 380/368, HTTP-protection, annual refresh, or the proof that
+the official PDF can open inside integrated WebView2.
+
+Use the same copied QA `Data\` folder and:
+1. run Build 578;
+2. open `Red eléctrica -> Tarifas oficiales -> Capturar Enel en navegador…`;
+3. navigate to the same September-2026 official PDF;
+4. click the integrated PDF viewer download icon **once**;
+5. return one screenshot containing the persistent receipt text.
+
+Gate B PASS requires the receipt to show:
+- `CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO`;
+- the official Enel filename without a GUID prefix;
+- SHA-256;
+- page count;
+- normalized-candidate count;
+- an import outcome;
+- UTC timestamp.
+
+For the already-present September file, the ideal expected outcome is
+`existente · reimportación byte-idéntica`; an unchanged tariff-grid row is not required
+and is not gate evidence.
+
+If no `DownloadStarting` receipt appears, or a receipt appears but the filename is
+classified as incompatible, that single screenshot is sufficient diagnostic evidence for
+the next fix. Do not repeat the broader QA.
+
+Accepted Build-538 bill evidence remains frozen and must not be regenerated.

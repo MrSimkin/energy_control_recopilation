@@ -382,3 +382,51 @@ Because September 2026 already exists in the QA database, a successful re-import
 
 Do not regenerate the accepted Build 538 bill audit/annex.
 Do not use anti-bot circumvention.
+
+
+## 19. Build 578 — deterministic evidence for remaining Gate B
+
+Source inspection after Build 577 found that the browser-assisted temporary path used
+`GUID-<official filename>`. Since `EnelTariffPdfImportService` derives the canonical
+title from `Path.GetFileName(sourcePath)`, that construction could contaminate provenance
+with a temporary GUID prefix if the import actually ran.
+
+Build 578 corrects the handoff:
+- temporary uniqueness is now a GUID directory;
+- the PDF filename passed to the importer remains the exact downloaded official filename;
+- temporary cleanup remains best-effort after the canonical `Data/Tariffs` copy exists.
+
+The import result now includes a per-file receipt with:
+- official filename;
+- publication id;
+- SHA-256;
+- page count;
+- normalized-candidate count;
+- idempotency/update outcome;
+- UTC completion timestamp.
+
+`EnelTariffBrowserWindow` keeps a dedicated visible receipt independent from navigation
+status. It records any `CoreWebView2.DownloadStarting` event and, on success, explicitly
+shows the path:
+`CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO`.
+
+Build 578:
+- code commit: `53a7fa184c7d90e8242ec32b762060f2a9f1c108`;
+- workflow run: `37561379685`;
+- Build PASS;
+- SQLite smoke PASS;
+- portable PASS;
+- artifact: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11457196560`;
+- digest:
+  `sha256:db76026303a07256a034e5ed5aa9dce415ba9ab3e7ecd4f6c8354bd602fce676`.
+
+Only remaining owner action:
+- use the same QA Data copy;
+- Build 578;
+- open the same September 2026 PDF in the integrated browser;
+- click the viewer download icon once;
+- return one screenshot of the persistent receipt.
+
+Do not repeat any already-passed migration/CNE/precedence/Imperva/navigation gate.
+Do not infer Gate B from an unchanged grid row.
