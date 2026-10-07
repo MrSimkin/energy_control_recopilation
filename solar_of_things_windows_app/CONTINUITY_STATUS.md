@@ -5345,3 +5345,103 @@ B. Enel browser-assisted automatic capture:
      resulting Build-578-style receipt; that confirms fallback remains intact.
 
 No migration/CNE/380-368/Imperva/bill-report regeneration QA is required.
+
+
+## Build 583 owner QA findings -> Build 585 corrective candidate — 2026-10-07
+
+Owner returned the combined Build-583 QA.
+
+### Phase 10 reconciliation finding
+
+Build 583 displayed for the accepted 28-08-2026 -> 28-09-2026 bill:
+- actual bill: $26,854;
+- billed Enel energy: 97.000 kWh;
+- observed inverter energy: 80.907 kWh;
+- estimated observed total: $22,959;
+- actual minus estimated: +$3,895;
+- coverage: 99.32%.
+
+This was **not accepted** because the frozen Build-538 observed energy for the same bill
+period is 88.065413 kWh.
+
+Root cause:
+- the normal product reconciliation used the stored DATE_ONLY end instant directly;
+- that interpreted 28-09 as 28-09 00:00 instead of the accepted complete-local-day bill
+  semantics [28-08 00:00, 29-09 00:00);
+- the frozen bill audit method already uses the correct inclusive printed end date.
+
+Build 585 correction:
+- DATE_ONLY product summaries now use the same complete-local-day interval truth as the
+  accepted bill-gap analysis for observed energy + coverage;
+- the normal summary still exposes observed-only product semantics: no P5/P50/P95 value is
+  promoted into the product estimate;
+- exact-timestamp bills continue to use exact reconciliation;
+- a dedicated smoke regression verifies inclusive DATE_ONLY end semantics.
+
+### Enel browser finding
+
+Build 583:
+- opening the official September-2026 PDF did not produce automatic
+  `WebResourceResponseReceived -> EnelTariffPdfImportService` completion;
+- clicking the PDF viewer download icon did fire `CoreWebView2.DownloadStarting`;
+- the owner observed a native Save As dialog whose default location was the Downloads folder.
+
+Build 585 correction/diagnostics:
+- automatic response capture now accepts both HTTP 200 and PDF range HTTP 206 responses;
+- 206 Content-Range fragments are accumulated and auto-imported only if they form the full
+  PDF byte sequence;
+- challenge/non-PDF content is never promoted;
+- the viewer-download fallback remains;
+- compatible DownloadStarting handling now derives the clean official filename from the URI
+  first and sets `Handled=true` before assigning app-controlled incoming storage, to suppress
+  default download UI as early as WebView2 allows;
+- browser duplicate suffixes such as `(1)` are normalized away for the app-controlled file.
+
+### Shared QA Data path — owner decision
+
+Starting with the next owner QA build, all persistent QA state defaults to:
+
+`D:\SolarEnergyMonitorTest\Data`
+
+This is intentionally independent of the executable/build folder.
+
+Resolution precedence:
+1. explicit AppPaths data override;
+2. environment variable `SOLAR_ENERGY_MONITOR_DATA_DIR`;
+3. optional `data-path.txt` beside the executable;
+4. QA default `D:\SolarEnergyMonitorTest\Data`.
+
+For default QA layout, database, tariffs, logs and backups all live below the shared Data
+directory.
+
+First-run bootstrap:
+- if the shared target has no `energy.db`, the app scans sibling
+  `SolarEnergyMonitor-Build-XXX-win-x64` folders and copies the highest available prior
+  build Data tree into the shared target;
+- once the shared database exists, future builds reuse it directly and no per-build Data
+  copying is required.
+
+Constructor root overrides used by smoke tests retain the legacy isolated test layout.
+
+### Build 585
+
+Code HEAD:
+- `4eafed811851605b32588371c2b4988607d05600`.
+
+Workflow:
+- run `37569074353`;
+- build number **585**;
+- Build PASS;
+- SQLite smoke PASS, including DATE_ONLY inclusive-end regression;
+- portable PASS;
+- artifact ID `11460086995`;
+- artifact digest
+  `sha256:35f6cbf8bd821d26c3ad414465a570bf3d9a64e4e644d41199cb245f69863e49`.
+
+Owner QA should verify:
+1. app opens without copying Data into the Build-585 folder;
+2. footer/database path is `D:\SolarEnergyMonitorTest\Data\energy.db`;
+3. accepted bill summary returns approximately 88.065 kWh observed and the accepted economic
+   neighborhood (~$24.693 observed estimate, ~+$2.161 actual-minus-estimate);
+4. browser PDF open attempts automatic 200/206 capture before manual fallback;
+5. if fallback click is needed, report whether the native Save As dialog still appears.

@@ -51,3 +51,27 @@ For Build 310:
 - SHA-256: `0975d5ccdcae0e65a1f85c4fd88ed69043f3a5c69b20a9f1750ab5ddeb49661c`.
 
 The chat handoff must include the downloadable ZIP first, followed by the test steps.
+
+
+## Shared QA data path
+
+During the current multi-build QA stage, portable Windows builds must use one shared
+persistent data location by default:
+
+`D:\SolarEnergyMonitorTest\Data`
+
+The executable/build folder must not define the active database location during this stage.
+
+Expected behavior:
+- owner can unzip a new build and run the EXE without manually copying a `Data` folder;
+- database path: `D:\SolarEnergyMonitorTest\Data\energy.db`;
+- tariffs, logs and backups remain under the same shared Data tree;
+- first build using this rule may bootstrap from the highest sibling
+  `SolarEnergyMonitor-Build-XXX-win-x64\Data` if the shared database does not yet exist.
+
+The runtime path remains configurable through:
+- `SOLAR_ENERGY_MONITOR_DATA_DIR`;
+- `data-path.txt` beside the EXE;
+- explicit application/test override.
+
+This QA default remains active until the owner changes it.
