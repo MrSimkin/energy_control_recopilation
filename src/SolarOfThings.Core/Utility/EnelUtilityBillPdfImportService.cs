@@ -262,6 +262,8 @@ public sealed partial class EnelUtilityBillPdfImportService
             ("Arriendo Medidor", "OTROS_CARGOS", UtilityBillLineCategory.MeterRental),
             ("Servicio Común", "OTROS_CARGOS", UtilityBillLineCategory.CommonService),
             ("Servicio Comun", "OTROS_CARGOS", UtilityBillLineCategory.CommonService),
+            ("IVA 19%", "ACUMULADO", UtilityBillLineCategory.Vat19),
+            ("I.V.A. 19%", "ACUMULADO", UtilityBillLineCategory.Vat19),
             ("Ajuste", "ACUMULADO", UtilityBillLineCategory.SimpleAdjustment)
         };
 
@@ -304,7 +306,9 @@ public sealed partial class EnelUtilityBillPdfImportService
                     result.Add(new UtilityBillPdfDraftLine(
                         definition.Item2,
                         definition.Item3,
-                        definition.Item1,
+                        ExtractPrintedDescription(
+                            line,
+                            definition.Item1),
                         amount,
                         page.Page,
                         line));
@@ -314,6 +318,46 @@ public sealed partial class EnelUtilityBillPdfImportService
         }
 
         return result;
+    }
+
+    private static string ExtractPrintedDescription(
+        string line,
+        string fallback)
+    {
+        var end = line.Length;
+
+        var currencyMatches =
+            CurrencyMoneyRegex().Matches(line);
+        if (currencyMatches.Count > 0)
+        {
+            end = currencyMatches[^1].Index;
+        }
+        else
+        {
+            var trailing =
+                TrailingMoneyRegex().Match(line);
+            if (trailing.Success)
+                end = trailing.Index;
+        }
+
+        if (end <= 0)
+            return fallback;
+
+        var description = Regex.Replace(
+                line[..end],
+                @"\s+",
+                " ")
+            .Trim()
+            .TrimEnd(
+                ':',
+                '-',
+                '–',
+                '—',
+                '$');
+
+        return string.IsNullOrWhiteSpace(description)
+            ? fallback
+            : description;
     }
 
     private static bool TryExtractPrintedMoney(
