@@ -195,7 +195,11 @@ public sealed class UtilityBillAuditV2Service
                     reconciledComponent.DifferenceClp,
                     reconciledComponent.EvidenceStatus,
                     source,
-                    evidence));
+                    evidence)
+                {
+                    CalculationDetail =
+                        reconciledComponent.CalculationBasis
+                });
                 continue;
             }
 
@@ -390,4 +394,7 @@ public sealed record UtilityBillLineAuditV2(
     double? AmountDifferenceClp,
     string Status,
     string Source,
-    string Evidence);
+    string Evidence)
+{
+    public string? CalculationDetail { get; init; }
+}
