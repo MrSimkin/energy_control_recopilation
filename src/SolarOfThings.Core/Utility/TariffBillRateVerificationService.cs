@@ -282,7 +282,9 @@ public sealed class TariffBillRateVerificationService
                 "No captured Enel regulated-supply publication has a parsed effective date.");
         }
 
-        var resolutions = _versionResolver.Resolve(publications)
+        var resolutions = _versionResolver.Resolve(
+                publications,
+                _publicationRepository.GetRelations())
             .ToDictionary(item => item.PublicationId);
 
         var groups = publications
@@ -407,8 +409,12 @@ public sealed class TariffBillRateVerificationService
         if (publications.Count == 1)
         {
             var only = publications[0];
-            if (resolutions.TryGetValue(only.PublicationId, out var resolution) &&
-                resolution.Status == "VERSION_SINGLE")
+            if (resolutions.TryGetValue(
+                    only.PublicationId,
+                    out var resolution) &&
+                TariffPublicationVersionResolver
+                    .IsAuthoritativeStatus(
+                        resolution.Status))
             {
                 return only;
             }
@@ -416,9 +422,19 @@ public sealed class TariffBillRateVerificationService
             return null;
         }
 
-        return publications.SingleOrDefault(item =>
-            resolutions.TryGetValue(item.PublicationId, out var resolution) &&
-            resolution.Status == "VERSION_PREFERRED_RETROACTIVE");
+        var preferred = publications
+            .Where(item =>
+                resolutions.TryGetValue(
+                    item.PublicationId,
+                    out var resolution) &&
+                TariffPublicationVersionResolver
+                    .IsAuthoritativeStatus(
+                        resolution.Status))
+            .ToArray();
+
+        return preferred.Length == 1
+            ? preferred[0]
+            : null;
     }
 
     private static bool CanUseBillConsumptionAsQuantity(
