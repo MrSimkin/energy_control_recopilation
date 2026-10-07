@@ -14,7 +14,7 @@ namespace SolarOfThings.Core.Utility;
 /// </summary>
 public sealed partial class EnelUtilityBillPdfImportService
 {
-    public const string ParserVersion = "enel-utility-bill.v1";
+    public const string ParserVersion = "enel-utility-bill.v2";
 
     private readonly AppPaths _paths;
 
@@ -142,20 +142,54 @@ public sealed partial class EnelUtilityBillPdfImportService
             }
         }
 
-        var dates = DateRegex().Matches(text)
-            .Select(match => match.Value)
-            .Select(raw => TryDate(raw, out var date) ? date : (DateOnly?)null)
-            .Where(date => date.HasValue)
-            .Select(date => date!.Value)
-            .Distinct()
-            .OrderBy(date => date)
-            .ToArray();
-
-        for (var i = 0; i < dates.Length - 1; i++)
+        foreach (var rawLine in SplitLines(text))
         {
-            var days = dates[i + 1].DayNumber - dates[i].DayNumber;
-            if (days is >= 20 and <= 45)
-                return (dates[i], dates[i + 1]);
+            var line = rawLine.Trim();
+            if (!line.Contains(
+                    "period",
+                    StringComparison.OrdinalIgnoreCase) &&
+                !line.Contains(
+                    "lectura",
+                    StringComparison.OrdinalIgnoreCase) &&
+                !line.Contains(
+                    "consumo",
+                    StringComparison.OrdinalIgnoreCase) &&
+                !line.Contains(
+                    "desde",
+                    StringComparison.OrdinalIgnoreCase) &&
+                !line.Contains(
+                    "hasta",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var dates = DateRegex().Matches(line)
+                .Select(match => match.Value)
+                .Select(raw =>
+                    TryDate(
+                        raw,
+                        out var date)
+                        ? date
+                        : (DateOnly?)null)
+                .Where(date => date.HasValue)
+                .Select(date => date!.Value)
+                .Distinct()
+                .OrderBy(date => date)
+                .ToArray();
+
+            for (var i = 0;
+                 i < dates.Length - 1;
+                 i++)
+            {
+                var days =
+                    dates[i + 1].DayNumber -
+                    dates[i].DayNumber;
+                if (days is >= 20 and <= 45)
+                    return (
+                        dates[i],
+                        dates[i + 1]);
+            }
         }
 
         return (null, null);
@@ -174,13 +208,18 @@ public sealed partial class EnelUtilityBillPdfImportService
                 !line.Contains(unit, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var matches = NumberRegex().Matches(line);
+            var matches =
+                KwhValueRegex().Matches(line);
             foreach (Match match in matches.Reverse())
             {
-                if (TryParseChileNumber(match.Value, out var value) &&
+                if (TryParseChileNumber(
+                        match.Groups["value"].Value,
+                        out var value) &&
                     value >= 0 &&
                     value < 100000)
+                {
                     return value;
+                }
             }
         }
         return null;
@@ -365,9 +404,9 @@ public sealed partial class EnelUtilityBillPdfImportService
     private static partial Regex DateRegex();
 
     [GeneratedRegex(
-        @"[-+]?\d{1,3}(?:\.\d{3})*(?:,\d+)?|[-+]?\d+(?:[.,]\d+)?",
-        RegexOptions.CultureInvariant)]
-    private static partial Regex NumberRegex();
+        @"(?<value>\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+(?:[.,]\d+)?)\s*kWh\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex KwhValueRegex();
 
     [GeneratedRegex(
         @"\$\s*(?<value>[-+]?\s*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)",
