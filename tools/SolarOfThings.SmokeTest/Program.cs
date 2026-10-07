@@ -1743,7 +1743,6 @@ try
         "Cargo preservado smoke",
         smokePreservedCharges,
         categoryKey: "CUSTOM_PRESERVED",
-        amountClp: smokePreservedCharges,
         sortOrder: 30);
 
     var productBillSummary =
