@@ -138,7 +138,7 @@ public sealed class UtilityBillAuditReportService
             identity,
             L("Tarifa impresa", "Printed tariff"),
             string.IsNullOrWhiteSpace(bill.TariffPlan)
-                ? "—"
+                ? L("No capturada en el registro local", "Not captured in local record")
                 : bill.TariffPlan);
         AddDefinitionRow(
             identity,
@@ -919,17 +919,40 @@ public sealed class UtilityBillAuditReportService
         summary.AddColumn(Unit.FromCentimeter(5.43));
         var row = summary.AddRow();
 
+        var effectiveLabel =
+            analysis.PublicationPeriods.Count > 1
+                ? string.Join(
+                    " + ",
+                    analysis.PublicationPeriods.Select(
+                        item =>
+                            item.EffectiveFrom.HasValue
+                                ? $"{item.EffectiveFrom.Value:yyyy-MM}" +
+                                  (item.IsRetroactive
+                                      ? L(" R", " R")
+                                      : string.Empty)
+                                : "—"))
+                : analysis.EffectiveFrom.HasValue
+                    ? $"{analysis.EffectiveFrom.Value:yyyy-MM}"
+                    : "—";
+
+        var effectiveDetail =
+            analysis.PublicationPeriods.Count > 1
+                ? string.Join(
+                    " · ",
+                    analysis.PublicationPeriods.Select(
+                        item =>
+                            $"{item.Days} d / {item.Weight * 100.0:N2}%"))
+                : analysis.IsRetroactive
+                    ? L("Versión retroactiva preferida.", "Preferred retroactive version.")
+                    : L("Versión vigente capturada.", "Captured effective version.");
+
         AddAuditMetricCard(
             row.Cells[0],
-            L("VIGENCIA OFICIAL", "OFFICIAL EFFECTIVE PERIOD"),
-            analysis.EffectiveFrom.HasValue
-                ? $"{analysis.EffectiveFrom.Value:yyyy-MM}"
-                : "—",
-            analysis.IsRetroactive
-                ? L("Versión retroactiva preferida.", "Preferred retroactive version.")
-                : L("Versión vigente capturada.", "Captured effective version."),
+            L("VIGENCIAS OFICIALES", "OFFICIAL EFFECTIVE PERIODS"),
+            effectiveLabel,
+            effectiveDetail,
             Colors.AliceBlue,
-            12);
+            11.5);
 
         AddAuditMetricCard(
             row.Cells[1],
@@ -953,17 +976,28 @@ public sealed class UtilityBillAuditReportService
             Colors.Honeydew,
             11.5);
 
+        var sourceSummary =
+            analysis.PublicationPeriods.Count > 0
+                ? string.Join(
+                    " | ",
+                    analysis.PublicationPeriods.Select(
+                        item =>
+                            item.EffectiveFrom.HasValue
+                                ? $"{item.EffectiveFrom.Value:yyyy-MM}" +
+                                  (item.IsRetroactive
+                                      ? L(" retroactiva", " retroactive")
+                                      : string.Empty)
+                                : item.PublicationTitle))
+                : analysis.EffectiveFrom.HasValue
+                    ? analysis.EffectiveFrom.Value.ToString("yyyy-MM")
+                    : L("vigencia no identificada", "unidentified effective period");
+
         var source = section.AddParagraph(
             string.Format(
                 L(
-                    "Fuente: Enel Distribución Chile · tarifas de suministro eléctrico · {0}{1}.",
-                    "Source: Enel Distribución Chile · electricity supply tariffs · {0}{1}."),
-                analysis.EffectiveFrom.HasValue
-                    ? analysis.EffectiveFrom.Value.ToString("MMMM yyyy")
-                    : L("vigencia no identificada", "unidentified effective period"),
-                analysis.IsRetroactive
-                    ? L(" · publicación retroactiva", " · retroactive publication")
-                    : string.Empty));
+                    "Fuentes: Enel Distribución Chile · publicaciones oficiales aplicadas: {0}.",
+                    "Sources: Enel Distribución Chile · official publications applied: {0}."),
+                sourceSummary));
         source.Format.Font.Size = 8;
         source.Format.Font.Color = Colors.DimGray;
         source.Format.SpaceBefore = Unit.FromPoint(4);
@@ -1330,8 +1364,46 @@ public sealed class UtilityBillAuditReportService
         AddDefinitionRow(summary, "IVA", Money(bill.IvaClp));
         AddDefinitionRow(summary, L("Exento informado", "Reported exempt"), Money(bill.ExemptAmountClp));
         AddDefinitionRow(summary, L("Total boleta", "Gross bill"), Money(bill.GrossBillAmountClp));
-        AddDefinitionRow(summary, L("Otros cargos/ajustes", "Other charges/adjustments"), MoneySigned(bill.OtherChargesClp));
+
+        double? derivedOtherCharges = null;
+        if (bill.GrossBillAmountClp.HasValue &&
+            (bill.TotalDueClp ?? bill.AmountClp).HasValue)
+        {
+            derivedOtherCharges =
+                (bill.TotalDueClp ?? bill.AmountClp)!.Value -
+                bill.GrossBillAmountClp.Value;
+        }
+
+        AddDefinitionRow(
+            summary,
+            L("Otros cargos/abonos netos", "Net other charges/credits"),
+            MoneySigned(
+                derivedOtherCharges ??
+                bill.OtherChargesClp));
         AddDefinitionRow(summary, L("Total a pagar", "Total due"), Money(bill.TotalDueClp ?? bill.AmountClp));
+
+        if (derivedOtherCharges.HasValue &&
+            bill.OtherChargesClp.HasValue &&
+            Math.Abs(
+                derivedOtherCharges.Value -
+                bill.OtherChargesClp.Value) >
+            0.5)
+        {
+            var reconciliationNote = section.AddParagraph(
+                string.Format(
+                    L(
+                        "Nota de conciliación: el neto mostrado ({0}) se deriva de Total a pagar − Total boleta. El valor agregado capturado manualmente ({1}) no concilia con esos totales y no se usa como autoridad del informe.",
+                        "Reconciliation note: the displayed net amount ({0}) is derived from Total due − Gross bill. The manually captured aggregate value ({1}) does not reconcile with those totals and is not used as report authority."),
+                    MoneySigned(
+                        derivedOtherCharges.Value),
+                    MoneySigned(
+                        bill.OtherChargesClp.Value)));
+            reconciliationNote.Format.Font.Size = 7.5;
+            reconciliationNote.Format.Font.Color =
+                Colors.DimGray;
+            reconciliationNote.Format.SpaceAfter =
+                Unit.FromPoint(3);
+        }
 
         if (lines.Count == 0)
         {
@@ -2159,7 +2231,10 @@ public sealed class UtilityBillAuditReportService
                     " | ",
                     tariff.PublicationPeriods.Select(
                         item =>
-                            $"{item.AppliedFrom:yyyy-MM-dd}..{item.AppliedTo:yyyy-MM-dd} · {item.Days} d · {item.PublicationTitle}"))
+                            $"{item.AppliedFrom:yyyy-MM-dd}..{item.AppliedTo:yyyy-MM-dd} · {item.Days} d · {item.PublicationTitle}" +
+                            (string.IsNullOrWhiteSpace(item.ContentSha256)
+                                ? string.Empty
+                                : $" · SHA256 {item.ContentSha256[..Math.Min(12, item.ContentSha256.Length)]}…")))
                 : L("Sin publicación resuelta.", "No publication resolved."));
         AddSourceRow(
             sources,
