@@ -1686,6 +1686,39 @@ try
     }
 
 
+    var productBillSummary =
+        new UtilityBillReconciliationSummaryService(
+            utilityRepository,
+            utilityReconciliation,
+            new UtilityBillTariffScenarioAnalysisService(
+                utilityRepository,
+                tariffRepository,
+                candidateRepository,
+                versionResolver))
+        .Analyze(
+            familySmokeDeviceId,
+            billId,
+            "America/Santiago");
+
+    if (!productBillSummary.HasObservedEconomicEstimate ||
+        productBillSummary.ActualBillTotalClp != 12000 ||
+        productBillSummary.BilledMinusObservedKwh is null ||
+        Math.Abs(
+            productBillSummary.BilledMinusObservedKwh.Value) > 0.000001 ||
+        productBillSummary.EstimatedObservedTotalClp is null ||
+        Math.Abs(
+            productBillSummary.EstimatedObservedTotalClp.Value -
+            12000) > 0.01 ||
+        productBillSummary.ActualMinusEstimatedObservedClp is null ||
+        Math.Abs(
+            productBillSummary.ActualMinusEstimatedObservedClp.Value) > 0.01 ||
+        productBillSummary.CoveragePercent < 95)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 observed bill-reconciliation summary smoke test failed.");
+    }
+
+
     var cneFebruaryId = tariffRepository.UpsertDiscovery(
         new TariffPublicationDiscovery(
             "CNE_CHILE",

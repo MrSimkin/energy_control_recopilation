@@ -2794,6 +2794,7 @@ public partial class MainWindow : Window
         if (UtilityAuditBillSelector.SelectedValue is not long billId)
         {
             UtilityAuditVerificationGrid.ItemsSource = null;
+            ClearUtilityBillSummary();
             UtilityAuditStatusText.Text =
                 _localization.GetString(
                     "GridUtility.AuditEvidencePending");
@@ -2804,6 +2805,7 @@ public partial class MainWindow : Window
         if (profile is null)
         {
             UtilityAuditVerificationGrid.ItemsSource = null;
+            ClearUtilityBillSummary();
             UtilityAuditStatusText.Text =
                 _localization.GetString("GridUtility.NoProfile");
             return;
@@ -2815,6 +2817,11 @@ public partial class MainWindow : Window
                     profile.StationTimeZone)
                 ? "America/Santiago"
                 : profile.StationTimeZone;
+
+            RefreshUtilityBillSummary(
+                profile.DeviceId,
+                billId,
+                timeZone);
 
             var repository =
                 _services.GetRequiredService<UtilityMeterRepository>();
@@ -2877,6 +2884,129 @@ public partial class MainWindow : Window
         {
             UtilityAuditVerificationGrid.ItemsSource = null;
             UtilityAuditStatusText.Text = ex.Message;
+        }
+    }
+
+    private void ClearUtilityBillSummary()
+    {
+        if (UtilityBillSummaryActualTotalText is null)
+            return;
+
+        UtilityBillSummaryActualTotalText.Text = "—";
+        UtilityBillSummaryBilledKwhText.Text = "—";
+        UtilityBillSummaryObservedKwhText.Text = "—";
+        UtilityBillSummaryEstimatedTotalText.Text = "—";
+        UtilityBillSummaryDifferenceText.Text = "—";
+        UtilityBillSummaryDetailText.Text = string.Empty;
+        UtilityBillSummarySourceText.Text = string.Empty;
+    }
+
+    private void RefreshUtilityBillSummary(
+        string deviceId,
+        long billId,
+        string timeZoneId)
+    {
+        if (UtilityBillSummaryActualTotalText is null)
+            return;
+
+        try
+        {
+            var summary = _services
+                .GetRequiredService<
+                    UtilityBillReconciliationSummaryService>()
+                .Analyze(
+                    deviceId,
+                    billId,
+                    timeZoneId);
+
+            UtilityBillSummaryActualTotalText.Text =
+                summary.ActualBillTotalClp.HasValue
+                    ? $"$ {summary.ActualBillTotalClp.Value:N0}"
+                    : "—";
+
+            UtilityBillSummaryBilledKwhText.Text =
+                summary.BilledKwh.HasValue
+                    ? $"{summary.BilledKwh.Value:N3} kWh"
+                    : "—";
+
+            UtilityBillSummaryObservedKwhText.Text =
+                $"{summary.ObservedInverterKwh:N3} kWh";
+
+            UtilityBillSummaryEstimatedTotalText.Text =
+                summary.EstimatedObservedTotalClp.HasValue
+                    ? $"$ {summary.EstimatedObservedTotalClp.Value:N0}"
+                    : "—";
+
+            UtilityBillSummaryDifferenceText.Text =
+                summary.ActualMinusEstimatedObservedClp.HasValue
+                    ? $"$ {summary.ActualMinusEstimatedObservedClp.Value:+#,##0;-#,##0;0}"
+                    : "—";
+
+            var spanish =
+                _localization.CurrentLanguage.StartsWith(
+                    "es",
+                    StringComparison.OrdinalIgnoreCase);
+
+            var energyDifference =
+                summary.BilledMinusObservedKwh.HasValue
+                    ? $"{summary.BilledMinusObservedKwh.Value:+0.000;-0.000;0.000} kWh"
+                    : "—";
+            var energyPercent =
+                summary.BilledMinusObservedPercent.HasValue
+                    ? $"{summary.BilledMinusObservedPercent.Value:+0.00;-0.00;0.00}%"
+                    : "—";
+            var rate =
+                summary.SupportedVariableRateClpPerKwh.HasValue
+                    ? $"$ {summary.SupportedVariableRateClpPerKwh.Value:N3}/kWh"
+                    : "—";
+
+            UtilityBillSummaryDetailText.Text =
+                spanish
+                    ? $"Enel − inversor observado: {energyDifference} ({energyPercent}) · cobertura {summary.CoveragePercent:N2}% · tasa variable oficial soportada {rate}. La estimación monetaria recalcula sólo componentes variables sustentados y preserva los demás cargos/créditos reales."
+                    : $"Utility − observed inverter: {energyDifference} ({energyPercent}) · coverage {summary.CoveragePercent:N2}% · supported official variable rate {rate}. The monetary estimate recalculates only supported variable components and preserves all other actual charges/credits.";
+
+            if (!summary.TariffAnalysis.HasTariffModel)
+            {
+                UtilityBillSummarySourceText.Text =
+                    spanish
+                        ? "Estimación monetaria no disponible: falta un modelo tarifario oficial reconciliado para esta boleta."
+                        : "Monetary estimate unavailable: no reconciled official tariff model is available for this bill.";
+                return;
+            }
+
+            var sources = summary.TariffAnalysis.PublicationPeriods
+                .Select(item =>
+                {
+                    var hash = string.IsNullOrWhiteSpace(
+                            item.ContentSha256)
+                        ? "SHA —"
+                        : $"SHA {item.ContentSha256[..Math.Min(12, item.ContentSha256.Length)]}…";
+                    return
+                        $"{item.AppliedFrom:dd-MM-yyyy}→{item.AppliedTo:dd-MM-yyyy} · {item.PublicationTitle} · {hash}";
+                })
+                .ToArray();
+
+            UtilityBillSummarySourceText.Text =
+                (spanish
+                    ? "Fuente tarifaria: "
+                    : "Tariff source: ") +
+                string.Join(" | ", sources);
+
+            if (!string.IsNullOrWhiteSpace(
+                    summary.Limitation))
+            {
+                UtilityBillSummarySourceText.Text +=
+                    (spanish
+                        ? " · Limitación: "
+                        : " · Limitation: ") +
+                    summary.Limitation;
+            }
+        }
+        catch (Exception ex)
+        {
+            ClearUtilityBillSummary();
+            UtilityBillSummaryDetailText.Text =
+                ex.Message;
         }
     }
 

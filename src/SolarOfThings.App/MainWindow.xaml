@@ -1919,6 +1919,71 @@
                                                TextWrapping="Wrap"
                                                Margin="0,0,0,10"/>
 
+                                    <Border BorderBrush="#DEE2E6"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="12"
+                                            Margin="0,0,0,12"
+                                            Background="#F8F9FA">
+                                        <StackPanel>
+                                            <TextBlock Text="{DynamicResource GridUtility.ReconciliationSummaryHeading}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#343A40"
+                                                       Margin="0,0,0,8"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="0,0,8,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource GridUtility.ReconciliationActualTotal}" FontSize="11" Foreground="#6C757D" TextWrapping="Wrap"/>
+                                                        <TextBlock x:Name="UtilityBillSummaryActualTotalText" Text="—" FontSize="18" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="0,0,8,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource GridUtility.ReconciliationBilledEnergy}" FontSize="11" Foreground="#6C757D" TextWrapping="Wrap"/>
+                                                        <TextBlock x:Name="UtilityBillSummaryBilledKwhText" Text="—" FontSize="18" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Grid.Column="2" Style="{StaticResource CardStyle}" Margin="0,0,8,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource GridUtility.ReconciliationObservedEnergy}" FontSize="11" Foreground="#6C757D" TextWrapping="Wrap"/>
+                                                        <TextBlock x:Name="UtilityBillSummaryObservedKwhText" Text="—" FontSize="18" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Grid.Column="3" Style="{StaticResource CardStyle}" Margin="0,0,8,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource GridUtility.ReconciliationEstimatedTotal}" FontSize="11" Foreground="#6C757D" TextWrapping="Wrap"/>
+                                                        <TextBlock x:Name="UtilityBillSummaryEstimatedTotalText" Text="—" FontSize="18" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Grid.Column="4" Style="{StaticResource CardStyle}" Margin="0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource GridUtility.ReconciliationAmountDifference}" FontSize="11" Foreground="#6C757D" TextWrapping="Wrap"/>
+                                                        <TextBlock x:Name="UtilityBillSummaryDifferenceText" Text="—" FontSize="18" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock x:Name="UtilityBillSummaryDetailText"
+                                                       FontSize="11"
+                                                       Foreground="#495057"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,9,0,0"/>
+                                            <TextBlock x:Name="UtilityBillSummarySourceText"
+                                                       FontSize="10"
+                                                       Foreground="#6C757D"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
                                     <DataGrid x:Name="UtilityAuditVerificationGrid"
                                               AutoGenerateColumns="False"
                                               IsReadOnly="True"

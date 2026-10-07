@@ -20,19 +20,24 @@ namespace SolarOfThings.App;
 public sealed class EnelTariffBrowserWindow : Window
 {
     private readonly EnelTariffPdfImportService _importService;
+    private readonly AppPaths _paths;
     private readonly TextBlock _statusText;
     private readonly TextBlock _receiptText;
     private readonly ProgressBar _busyBar;
     private readonly WebView2 _browser;
     private readonly HashSet<string> _activeDownloads =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _autoCapturedResponseUris =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public event EventHandler? TariffImported;
 
     public EnelTariffBrowserWindow(
-        EnelTariffPdfImportService importService)
+        EnelTariffPdfImportService importService,
+        AppPaths paths)
     {
         _importService = importService;
+        _paths = paths;
 
         Title = "Enel · captura asistida de tarifas oficiales";
         Width = 1180;
@@ -232,6 +237,8 @@ public sealed class EnelTariffBrowserWindow : Window
                 .AreDevToolsEnabled = false;
             _browser.CoreWebView2.DownloadStarting +=
                 CoreWebView2_DownloadStarting;
+            _browser.CoreWebView2.WebResourceResponseReceived +=
+                CoreWebView2_WebResourceResponseReceived;
             _browser.CoreWebView2.NewWindowRequested +=
                 CoreWebView2_NewWindowRequested;
             _browser.CoreWebView2.NavigationStarting +=
@@ -346,6 +353,128 @@ public sealed class EnelTariffBrowserWindow : Window
         }
     }
 
+    private async void CoreWebView2_WebResourceResponseReceived(
+        object? sender,
+        CoreWebView2WebResourceResponseReceivedEventArgs e)
+    {
+        if (!Uri.TryCreate(
+                e.Request.Uri,
+                UriKind.Absolute,
+                out var uri) ||
+            !IsOfficialTariffPdfUri(uri) ||
+            e.Response.StatusCode != 200)
+        {
+            return;
+        }
+
+        var responseKey = uri.AbsoluteUri;
+        if (!_autoCapturedResponseUris.Add(
+                responseKey))
+        {
+            return;
+        }
+
+        var fileName =
+            Uri.UnescapeDataString(
+                Path.GetFileName(
+                    uri.AbsolutePath));
+
+        string? targetPath = null;
+        try
+        {
+            using var content =
+                await e.Response.GetContentAsync();
+
+            if (content is null)
+            {
+                _autoCapturedResponseUris.Remove(
+                    responseKey);
+                return;
+            }
+
+            using var memory =
+                new MemoryStream();
+            await content.CopyToAsync(
+                memory);
+            var bytes = memory.ToArray();
+
+            if (!LooksLikePdf(
+                    bytes))
+            {
+                _autoCapturedResponseUris.Remove(
+                    responseKey);
+                return;
+            }
+
+            var sessionDir = Path.Combine(
+                _paths.TariffEnelIncomingDirectory,
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(
+                sessionDir);
+
+            targetPath = Path.Combine(
+                sessionDir,
+                fileName);
+
+            await File.WriteAllBytesAsync(
+                targetPath,
+                bytes);
+
+            _busyBar.Visibility =
+                Visibility.Visible;
+            _statusText.Text =
+                $"PDF oficial recibido automáticamente: {fileName}. Importando…";
+            _receiptText.Text =
+                "CoreWebView2.WebResourceResponseReceived capturado.\n" +
+                $"Archivo oficial: {fileName}\n" +
+                "Resultado: respuesta PDF completa recibida en la sesión WebView2; importando automáticamente.";
+
+            await ImportDownloadedPdfAsync(
+                targetPath,
+                fileName,
+                "CoreWebView2.WebResourceResponseReceived");
+        }
+        catch (Exception ex)
+        {
+            _autoCapturedResponseUris.Remove(
+                responseKey);
+            _statusText.Text =
+                "La captura automática del PDF no pudo completarse. " +
+                "Puedes usar el icono Descargar del visor como fallback. " +
+                ex.Message;
+            _receiptText.Text =
+                "Captura automática WebView2 no completada.\n" +
+                "Fallback disponible: icono Descargar del visor PDF.";
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(
+                    targetPath))
+            {
+                TryDelete(
+                    targetPath);
+                TryDeleteDirectory(
+                    Path.GetDirectoryName(
+                        targetPath));
+            }
+
+            if (_activeDownloads.Count == 0)
+            {
+                _busyBar.Visibility =
+                    Visibility.Collapsed;
+            }
+        }
+    }
+
+    private static bool LooksLikePdf(
+        byte[] bytes) =>
+        bytes.Length >= 5 &&
+        bytes[0] == (byte)'%' &&
+        bytes[1] == (byte)'P' &&
+        bytes[2] == (byte)'D' &&
+        bytes[3] == (byte)'F' &&
+        bytes[4] == (byte)'-';
+
     private void CoreWebView2_DownloadStarting(
         object? sender,
         CoreWebView2DownloadStartingEventArgs e)
@@ -393,9 +522,7 @@ public sealed class EnelTariffBrowserWindow : Window
         // Keep the official filename intact. Uniqueness belongs in the temp
         // directory, not in the filename consumed by the provenance importer.
         var tempDir = Path.Combine(
-            Path.GetTempPath(),
-            "SolarEnergyMonitor",
-            "EnelTariffBrowser",
+            _paths.TariffEnelIncomingDirectory,
             Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(
             tempDir);
@@ -473,7 +600,8 @@ public sealed class EnelTariffBrowserWindow : Window
 
     private async Task ImportDownloadedPdfAsync(
         string path,
-        string displayName)
+        string displayName,
+        string route = "CoreWebView2.DownloadStarting")
     {
         var progress =
             new Progress<string>(
@@ -500,12 +628,13 @@ public sealed class EnelTariffBrowserWindow : Window
             {
                 _receiptText.Text =
                     FormatReceipt(
-                        receipt);
+                        receipt,
+                        route);
             }
             else
             {
                 _receiptText.Text =
-                    "CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO.\n" +
+                    $"{route} → EnelTariffPdfImportService: COMPLETADO.\n" +
                     $"Archivo: {displayName}\n" +
                     $"Candidatos normalizados: {result.NormalizedCandidates}";
             }
@@ -569,7 +698,8 @@ public sealed class EnelTariffBrowserWindow : Window
             StringComparison.OrdinalIgnoreCase);
 
     private static string FormatReceipt(
-        EnelTariffPdfImportReceipt receipt)
+        EnelTariffPdfImportReceipt receipt,
+        string route)
     {
         var outcome = receipt.Outcome switch
         {
@@ -585,7 +715,7 @@ public sealed class EnelTariffBrowserWindow : Window
         };
 
         return
-            "CoreWebView2.DownloadStarting → EnelTariffPdfImportService: COMPLETADO.\n" +
+            $"{route} → EnelTariffPdfImportService: COMPLETADO.\n" +
             $"Archivo oficial: {receipt.OfficialFileName}\n" +
             $"Resultado: {outcome}\n" +
             $"SHA-256: {receipt.Sha256}\n" +

@@ -137,8 +137,7 @@ public sealed class EnelTariffPdfImportService
                             isRetroactive));
 
                 var targetDir = Path.Combine(
-                    _paths.TariffDirectory,
-                    "Enel",
+                    _paths.TariffEnelDirectory,
                     year.ToString());
                 Directory.CreateDirectory(targetDir);
 

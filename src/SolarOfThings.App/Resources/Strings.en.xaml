@@ -197,6 +197,12 @@
     <sys:String x:Key="GridUtility.ExportBillAuditTitle">Export Enel bill audit</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditSaved">Audit saved: {0}</sys:String>
     <sys:String x:Key="GridUtility.AuditPreviewSummary">{0} line(s) are verified; {1} line(s) remain pending, ambiguous or actual-only. Fields not printed on the bill must not be filled by assumption.</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationSummaryHeading">Consumption and amount reconciliation</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationActualTotal">Actual bill</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationBilledEnergy">Utility energy</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationObservedEnergy">Observed inverter</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationEstimatedTotal">Estimated from observed</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationAmountDifference">Actual − estimated</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Line">Line</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Rate">Rate on bill</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.QuantityBasis">Calculation basis</sys:String>

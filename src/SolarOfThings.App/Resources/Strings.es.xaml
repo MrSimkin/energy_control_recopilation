@@ -197,6 +197,12 @@
     <sys:String x:Key="GridUtility.ExportBillAuditTitle">Exportar auditoría de boleta Enel</sys:String>
     <sys:String x:Key="GridUtility.ExportBillAuditSaved">Auditoría guardada: {0}</sys:String>
     <sys:String x:Key="GridUtility.AuditPreviewSummary">{0} línea(s) verificadas; {1} línea(s) pendientes, ambiguas o sólo como evidencia real. Los campos no impresos en la boleta no deben completarse por suposición.</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationSummaryHeading">Conciliación de consumo y monto</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationActualTotal">Boleta real</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationBilledEnergy">Energía Enel</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationObservedEnergy">Inversor observado</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationEstimatedTotal">Estimado según observado</sys:String>
+    <sys:String x:Key="GridUtility.ReconciliationAmountDifference">Real − estimado</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Line">Línea</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Rate">Tasa en boleta</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.QuantityBasis">Base de cálculo</sys:String>
