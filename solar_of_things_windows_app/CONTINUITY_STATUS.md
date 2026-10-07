@@ -4960,3 +4960,74 @@ Owner QA now:
 Do NOT regenerate the accepted Build 538 bill audit/annex for this infrastructure QA.
 
 Canonical tranche report has been updated with Build 575 handoff.
+
+
+## Build 575 target QA partial PASS; Build 577 is current browser-assisted QA — 2026-10-06
+
+Owner evidence from Build 575 established:
+
+PASS:
+- real target app startup with copied Build-538-era `Data\`;
+- schema v13 -> v14 target migration;
+- CNE 2026 automatic capture:
+  - 12 VAD documents;
+  - 2 corrections;
+  - 0 failures;
+- REX 380 / August = `Corrección oficial vigente`;
+- REX 368 / August = `Rectificada por corrección`;
+- UI remained responsive;
+- Enel automated HTTP correctly reported web-protection blocking;
+- integrated browser could reach the official September-2026 Enel tariff PDF.
+
+FAIL/DEFECT:
+- Enel's ordinary `DESCARGAR` action opened the official PDF in external Edge;
+- the subsequent PDF-viewer download belonged to external Edge;
+- Solar therefore received no `CoreWebView2.DownloadStarting`;
+- no automatic import/normalization occurred after owner saved the PDF.
+
+Owner asked whether to bypass the web protection.
+
+Decision:
+- NO anti-bot circumvention;
+- retain official/browser-normal flow;
+- fix browser-window ownership instead.
+
+Fix:
+- official Enel `NewWindowRequested` requests are now handled inside the same WebView2;
+- official tariff-PDF navigation stays inside the integrated browser;
+- PDF-specific download/import guidance remains visible;
+- `Atrás` action added.
+
+Build 577 is current QA handoff and supersedes Build 575 for this final gate.
+
+Build 577:
+- workflow `37558525946`;
+- code HEAD `0d66e6147c641ca42578cf0ba17ae0df626ee4e3`;
+- artifact `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID `11455624411`;
+- digest `sha256:07f08bc4416187fae4d36d1ad5c90309161ae523cc1283e2a1f006045cd43d99`;
+- Build PASS;
+- SQLite smoke PASS;
+- portable PASS.
+
+Next owner QA:
+1. reuse same copied QA `Data\`;
+2. Build 577;
+3. `Red eléctrica -> Tarifas oficiales -> Capturar Enel en navegador…`;
+4. press same September-2026 `DESCARGAR` action;
+5. expected Gate A: PDF remains inside integrated Solar browser, not external Edge;
+6. click integrated PDF viewer download icon once;
+7. expected Gate B: app reports import/normalization; remains responsive;
+8. return screenshots/status/error verbatim.
+
+No need to repeat:
+- CNE capture;
+- 380/368 precedence proof;
+- migration v13->v14 proof;
+unless Build 577 fails to start.
+
+Do NOT regenerate accepted Build 538 bill evidence.
+Do NOT bypass Imperva/Reese.
+
+Mandatory owner handoff rule remains active:
+end every substantial cycle with repo consolidation + self-contained new-chat continuation prompt.
