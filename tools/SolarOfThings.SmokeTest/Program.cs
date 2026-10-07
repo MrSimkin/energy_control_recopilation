@@ -30,14 +30,15 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 15)
+        SqliteDatabase.CurrentSchemaVersion != 16)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
 
     // Regression: a real owner Data\ folder is currently schema v13.
-    // Verify the in-place v13 -> v15 migration preserves existing tariff
-    // evidence and creates the regulatory relation graph metadata.
+    // Verify the in-place v13 -> v16 migration preserves existing tariff
+    // evidence, creates the regulatory relation graph metadata and extends
+    // canonical bill summary storage without losing legacy rows.
     var migration13Root = Path.Combine(
         root,
         "schema13-upgrade");
@@ -158,10 +159,10 @@ try
             migration13Paths);
     migration13Database.Initialize();
 
-    if (migration13Database.GetSchemaVersion() != 15)
+    if (migration13Database.GetSchemaVersion() != 16)
     {
         throw new InvalidOperationException(
-            "Schema v13 -> v15 migration did not reach version 15.");
+            "Schema v13 -> v16 migration did not reach version 16.");
     }
 
     var migratedTariffRepository =
@@ -177,7 +178,7 @@ try
         migratedTariffRepository.GetRelations().Count != 0)
     {
         throw new InvalidOperationException(
-            "Schema v13 -> v15 migration did not preserve prior tariff evidence cleanly.");
+            "Schema v13 -> v16 migration did not preserve prior tariff evidence cleanly.");
     }
 
     var settings = new AppSettingsRepository(database);
