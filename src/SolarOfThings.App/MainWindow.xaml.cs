@@ -2904,6 +2904,11 @@ public partial class MainWindow : Window
                     StringComparison.Ordinal) ||
                 item.Status == "VAT_RECONSTRUCTED_19");
 
+            var spanish =
+                _localization.CurrentLanguage.StartsWith(
+                    "es",
+                    StringComparison.OrdinalIgnoreCase);
+
             UtilityAuditReconstructionCoverageText.Text =
                 $"{audit.ReconstructionCoveragePercent:N1}%";
 
