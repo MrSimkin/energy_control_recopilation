@@ -1055,7 +1055,9 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             return [];
 
         var resolutions = _versionResolver
-            .Resolve(publications)
+            .Resolve(
+                publications,
+                _publicationRepository.GetRelations())
             .ToDictionary(item =>
                 item.PublicationId);
 
@@ -1098,8 +1100,9 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                 if (resolutions.TryGetValue(
                         only.PublicationId,
                         out var resolution) &&
-                    resolution.Status ==
-                        "VERSION_SINGLE")
+                    TariffPublicationVersionResolver
+                        .IsAuthoritativeStatus(
+                            resolution.Status))
                 {
                     chosen = only;
                 }
@@ -1111,8 +1114,9 @@ public sealed class UtilityBillTariffScenarioAnalysisService
                         resolutions.TryGetValue(
                             item.PublicationId,
                             out var resolution) &&
-                        resolution.Status ==
-                            "VERSION_PREFERRED_RETROACTIVE")
+                        TariffPublicationVersionResolver
+                            .IsAuthoritativeStatus(
+                                resolution.Status))
                     .ToArray();
 
                 if (preferred.Length == 1)
