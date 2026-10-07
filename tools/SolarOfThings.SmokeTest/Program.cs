@@ -2475,6 +2475,55 @@ try
             "Phase 10 anonymous real-bill audit reconstruction regression failed.");
     }
 
+    // Keep this exact Aug/Sep fixture isolated from later smoke scenarios
+    // that intentionally create their own publications on the same effective
+    // dates. The production engine is not changed to accommodate test-only
+    // duplicate catalogs.
+    using (var cleanupConnection = database.OpenConnection())
+    using (var cleanupTransaction = cleanupConnection.BeginTransaction())
+    {
+        foreach (var publicationId in new[]
+                 {
+                     augRealId,
+                     sepRealId
+                 })
+        {
+            foreach (var table in new[]
+                     {
+                         "tariff_rate_candidate",
+                         "tariff_publication_page_text"
+                     })
+            {
+                using var deleteChild =
+                    cleanupConnection.CreateCommand();
+                deleteChild.Transaction =
+                    cleanupTransaction;
+                deleteChild.CommandText =
+                    $"DELETE FROM {table} WHERE publication_id = $publicationId;";
+                deleteChild.Parameters.AddWithValue(
+                    "$publicationId",
+                    publicationId);
+                deleteChild.ExecuteNonQuery();
+            }
+
+            using var deletePublication =
+                cleanupConnection.CreateCommand();
+            deletePublication.Transaction =
+                cleanupTransaction;
+            deletePublication.CommandText =
+                """
+                DELETE FROM tariff_publication
+                WHERE publication_id = $publicationId;
+                """;
+            deletePublication.Parameters.AddWithValue(
+                "$publicationId",
+                publicationId);
+            deletePublication.ExecuteNonQuery();
+        }
+
+        cleanupTransaction.Commit();
+    }
+
     // Phase 10 closure: when two normalized Enel versions share an effective
     // date, a retroactive replacement must be the publication used by the
     // product reconstruction rather than the superseded original.
