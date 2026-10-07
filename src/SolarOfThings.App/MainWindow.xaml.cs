@@ -3990,6 +3990,24 @@ public partial class MainWindow : Window
     {
         var reviewingExisting =
             _editingUtilityBillId.HasValue;
+
+        var existingBill =
+            reviewingExisting
+                ? _services
+                    .GetRequiredService<UtilityMeterRepository>()
+                    .GetBills()
+                    .SingleOrDefault(item =>
+                        item.BillId ==
+                        _editingUtilityBillId!.Value)
+                : null;
+
+        var reviewingLegacy =
+            existingBill is not null &&
+            string.Equals(
+                existingBill.ReviewState,
+                UtilityBillReviewState.LegacyUnreviewed,
+                StringComparison.Ordinal);
+
         var conflicts =
             new List<string>();
 
@@ -4013,15 +4031,19 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (DateOnly.FromDateTime(
-                    picker.SelectedDate.Value) !=
-                proposed.Value)
-            {
-                conflicts.Add(
-                    $"{label}: guardado " +
-                    $"{picker.SelectedDate.Value:dd-MM-yyyy} " +
-                    $"vs PDF {proposed.Value:dd-MM-yyyy}");
-            }
+            var stored =
+                DateOnly.FromDateTime(
+                    picker.SelectedDate.Value);
+            if (stored == proposed.Value)
+                return;
+
+            conflicts.Add(
+                reviewingLegacy
+                    ? $"{label}: legacy {stored:dd-MM-yyyy} → PDF {proposed.Value:dd-MM-yyyy} (borrador actualizado)"
+                    : $"{label}: guardado {stored:dd-MM-yyyy} vs PDF {proposed.Value:dd-MM-yyyy}");
+
+            if (reviewingLegacy)
+                picker.SelectedDate = proposedDate;
         }
 
         void ApplyNumber(
@@ -4034,30 +4056,37 @@ public partial class MainWindow : Window
             if (!proposed.HasValue)
                 return;
 
+            var formatted =
+                proposed.Value.ToString(
+                    format,
+                    CultureInfo.CurrentCulture);
+
             if (!reviewingExisting ||
                 string.IsNullOrWhiteSpace(
                     box.Text))
             {
-                box.Text =
-                    proposed.Value.ToString(
-                        format,
-                        CultureInfo.CurrentCulture);
+                box.Text = formatted;
                 return;
             }
 
-            if (!TryParseNumber(
+            if (TryParseNumber(
                     box.Text,
-                    out var current) ||
+                    out var current) &&
                 Math.Abs(
                     current -
-                    proposed.Value) >
+                    proposed.Value) <=
                 tolerance)
             {
-                conflicts.Add(
-                    $"{label}: guardado " +
-                    $"{box.Text} vs PDF " +
-                    $"{proposed.Value.ToString(format, CultureInfo.CurrentCulture)}");
+                return;
             }
+
+            conflicts.Add(
+                reviewingLegacy
+                    ? $"{label}: legacy {box.Text} → PDF {formatted} (borrador actualizado)"
+                    : $"{label}: guardado {box.Text} vs PDF {formatted}");
+
+            if (reviewingLegacy)
+                box.Text = formatted;
         }
 
         if (!reviewingExisting)
@@ -4073,7 +4102,13 @@ public partial class MainWindow : Window
                      StringComparison.Ordinal))
         {
             conflicts.Add(
-                "precisión del período: el PDF sólo respalda fechas impresas, no una hora exacta");
+                "precisión del período: el PDF respalda fechas impresas, no una hora exacta");
+
+            if (reviewingLegacy)
+            {
+                UtilityBillPeriodPrecisionSelector.SelectedValue =
+                    UtilityTimePrecision.DateOnly;
+            }
         }
 
         ApplyDate(
@@ -4085,12 +4120,25 @@ public partial class MainWindow : Window
             draft.PeriodEndInclusive,
             "fin");
 
-        if (!reviewingExisting)
+        if (!reviewingExisting ||
+            reviewingLegacy)
         {
             UtilityBillStartTimeTextBox.Text = "00:00";
             UtilityBillEndTimeTextBox.Text = "00:00";
         }
 
+        ApplyNumber(
+            UtilityBillMeterStartTextBox,
+            draft.MeterStartKwh,
+            "0.###",
+            0.0005,
+            "lectura anterior");
+        ApplyNumber(
+            UtilityBillMeterEndTextBox,
+            draft.MeterEndKwh,
+            "0.###",
+            0.0005,
+            "lectura actual");
         ApplyNumber(
             UtilityBillKwhTextBox,
             draft.BilledConsumptionKwh,
@@ -4116,11 +4164,29 @@ public partial class MainWindow : Window
             0.5,
             "monto exento");
         ApplyNumber(
+            UtilityBillGrossTextBox,
+            draft.GrossBillAmountClp,
+            "0",
+            0.5,
+            "total boleta");
+        ApplyNumber(
+            UtilityBillOtherChargesTextBox,
+            draft.OtherChargesClp,
+            "0",
+            0.5,
+            "otros cargos/abonos");
+        ApplyNumber(
+            UtilityBillPreviousBalanceTextBox,
+            draft.PreviousBalanceClp,
+            "0",
+            0.5,
+            "saldo anterior");
+        ApplyNumber(
             UtilityBillTotalDueTextBox,
             draft.TotalDueClp,
             "0",
             0.5,
-            "total");
+            "total a pagar");
 
         if (!string.IsNullOrWhiteSpace(
                 draft.TariffPlan))
@@ -4138,8 +4204,15 @@ public partial class MainWindow : Window
                          StringComparison.OrdinalIgnoreCase))
             {
                 conflicts.Add(
-                    $"tarifa: guardado {UtilityBillTariffPlanTextBox.Text.Trim()} " +
-                    $"vs PDF {draft.TariffPlan}");
+                    reviewingLegacy
+                        ? $"tarifa: legacy {UtilityBillTariffPlanTextBox.Text.Trim()} → PDF {draft.TariffPlan} (borrador actualizado)"
+                        : $"tarifa: guardado {UtilityBillTariffPlanTextBox.Text.Trim()} vs PDF {draft.TariffPlan}");
+
+                if (reviewingLegacy)
+                {
+                    UtilityBillTariffPlanTextBox.Text =
+                        draft.TariffPlan;
+                }
             }
         }
 
@@ -4161,11 +4234,16 @@ public partial class MainWindow : Window
                 : Visibility.Collapsed;
         UtilityBillPdfApplyLinesCheckBox.IsChecked = true;
 
+        RefreshUtilityBillPrintedFactsChecks();
+
         var detected =
             new List<string>();
         if (draft.PeriodStart.HasValue &&
             draft.PeriodEndInclusive.HasValue)
             detected.Add("período");
+        if (draft.MeterStartKwh.HasValue &&
+            draft.MeterEndKwh.HasValue)
+            detected.Add("lecturas");
         if (draft.BilledConsumptionKwh.HasValue)
             detected.Add("kWh");
         if (draft.TaxableAmountClp.HasValue)
@@ -4174,8 +4252,14 @@ public partial class MainWindow : Window
             detected.Add("IVA");
         if (draft.ExemptAmountClp.HasValue)
             detected.Add("monto exento");
+        if (draft.GrossBillAmountClp.HasValue)
+            detected.Add("total boleta");
+        if (draft.OtherChargesClp.HasValue)
+            detected.Add("otros cargos/abonos");
+        if (draft.PreviousBalanceClp.HasValue)
+            detected.Add("saldo anterior");
         if (draft.TotalDueClp.HasValue)
-            detected.Add("total");
+            detected.Add("total a pagar");
         if (!string.IsNullOrWhiteSpace(
                 draft.TariffPlan))
             detected.Add("tarifa");
@@ -4193,7 +4277,7 @@ public partial class MainWindow : Window
         var conflictText =
             conflicts.Count == 0
                 ? string.Empty
-                : " CONFLICTOS PARA REVISAR: " +
+                : " DIFERENCIAS PARA REVISAR: " +
                   string.Join(
                       " | ",
                       conflicts);
@@ -4201,7 +4285,9 @@ public partial class MainWindow : Window
         UtilityBillStatusText.Text =
             $"PDF preparado ({string.Join(", ", detected)}). " +
             (reviewingExisting
-                ? "Los valores guardados no fueron sobreescritos cuando discrepan del PDF."
+                ? reviewingLegacy
+                    ? "Los valores legacy distintos quedaron corregidos sólo en este borrador; nada cambia en la base hasta que pulses Guardar revisión."
+                    : "Los valores ya revisados no fueron sobreescritos cuando discrepan del PDF."
                 : "Revisa/corrige los campos antes de guardar.") +
             conflictText +
             warning;
@@ -4232,12 +4318,15 @@ public partial class MainWindow : Window
         DateTimeOffset startUtc,
         DateTimeOffset endUtc,
         string periodPrecision,
+        double? meterStart,
+        double? meterEnd,
         double? billedKwh,
         double? taxable,
         double? iva,
         double? exempt,
         double? gross,
         double? otherCharges,
+        double? previousBalance,
         double? totalDue,
         string? tariffPlan)
     {
@@ -4316,12 +4405,12 @@ public partial class MainWindow : Window
                 Math.Abs(
                     pdfValue.Value -
                     value.Value) <= tolerance;
-            var evidence = Evidence(matched);
+            var evidenceState = Evidence(matched);
             repository.UpsertBillFieldEvidence(
                 billId,
                 key,
-                evidence.Source,
-                evidence.State,
+                evidenceState.Source,
+                evidenceState.State,
                 value.Value.ToString(
                     "0.###",
                     CultureInfo.InvariantCulture),
@@ -4330,6 +4419,14 @@ public partial class MainWindow : Window
                     CultureInfo.InvariantCulture));
         }
 
+        Numeric(
+            "meter_start_kwh",
+            meterStart,
+            draft?.MeterStartKwh);
+        Numeric(
+            "meter_end_kwh",
+            meterEnd,
+            draft?.MeterEndKwh);
         Numeric(
             "billed_consumption_kwh",
             billedKwh,
@@ -4351,10 +4448,19 @@ public partial class MainWindow : Window
             0.5);
         Numeric(
             "gross_bill_amount_clp",
-            gross);
+            gross,
+            draft?.GrossBillAmountClp,
+            0.5);
         Numeric(
             "other_charges_clp",
-            otherCharges);
+            otherCharges,
+            draft?.OtherChargesClp,
+            0.5);
+        Numeric(
+            "previous_balance_clp",
+            previousBalance,
+            draft?.PreviousBalanceClp,
+            0.5);
         Numeric(
             "total_due_clp",
             totalDue,
@@ -4369,12 +4475,12 @@ public partial class MainWindow : Window
                     draft!.TariffPlan,
                     tariffPlan.Trim(),
                     StringComparison.OrdinalIgnoreCase);
-            var evidence = Evidence(matched);
+            var evidenceState = Evidence(matched);
             repository.UpsertBillFieldEvidence(
                 billId,
                 "tariff_plan",
-                evidence.Source,
-                evidence.State,
+                evidenceState.Source,
+                evidenceState.State,
                 tariffPlan.Trim(),
                 tariffPlan.Trim().ToUpperInvariant());
         }
