@@ -54,6 +54,15 @@ public sealed partial class EnelUtilityBillPdfImportService
 
         var period = ParsePeriod(joined);
         var kwh = ParseContextNumber(joined, ["consumo", "energía", "energia"], "kwh");
+        var taxable = ParseMoneyAfterLabels(
+            joined,
+            ["monto afecto", "total afecto", "subtotal afecto"]);
+        var iva = ParseMoneyAfterLabels(
+            joined,
+            ["iva 19%", "i.v.a. 19%", "iva"]);
+        var exempt = ParseMoneyAfterLabels(
+            joined,
+            ["monto exento", "total exento", "subtotal exento"]);
         var total = ParseMoneyAfterLabels(
             joined,
             ["total a pagar", "total cuenta", "total boleta"]);
@@ -98,6 +107,9 @@ public sealed partial class EnelUtilityBillPdfImportService
             period.Start,
             period.End,
             kwh,
+            taxable,
+            iva,
+            exempt,
             total,
             tariff,
             lines,

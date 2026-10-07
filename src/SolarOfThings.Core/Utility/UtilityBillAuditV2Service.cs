@@ -8,6 +8,7 @@ namespace SolarOfThings.Core.Utility;
 public sealed class UtilityBillAuditV2Service
 {
     public const double ChileStandardIvaRate = 0.19;
+    public const double SimpleAdjustmentToleranceClp = 10.0;
 
     private readonly UtilityMeterRepository _repository;
     private readonly TariffBillRateVerificationService _rateVerification;
@@ -168,6 +169,25 @@ public sealed class UtilityBillAuditV2Service
                         ? "IVA_MATCH_19"
                         : "IVA_DIFFERENCE";
 
+        var totalDue =
+            bill.TotalDueClp ??
+            bill.AmountClp;
+        var lineTotal =
+            lines.Sum(item => item.AmountClp);
+        var unexplainedResidual =
+            totalDue.HasValue
+                ? totalDue.Value - lineTotal
+                : (double?)null;
+        var balanceStatus =
+            !totalDue.HasValue
+                ? "TOTAL_MISSING"
+                : Math.Abs(unexplainedResidual!.Value) <= 0.5
+                    ? "BALANCED"
+                    : Math.Abs(unexplainedResidual.Value) <=
+                        SimpleAdjustmentToleranceClp
+                        ? "SMALL_UNEXPLAINED_RESIDUAL"
+                        : "MATERIAL_UNEXPLAINED_DIFFERENCE";
+
         var totalAbsolute =
             lines.Sum(item => Math.Abs(item.AmountClp));
         var reconstructedAbsolute =
@@ -193,6 +213,10 @@ public sealed class UtilityBillAuditV2Service
             ivaDifference,
             taxStatus,
             simpleAdjustment,
+            totalDue,
+            lineTotal,
+            unexplainedResidual,
+            balanceStatus,
             reconstructionCoverage,
             audited);
     }
@@ -209,6 +233,10 @@ public sealed record UtilityBillAuditV2(
     double? IvaDifferenceClp,
     string TaxStatus,
     double SimpleAdjustmentClp,
+    double? TotalDueClp,
+    double LineTotalClp,
+    double? UnexplainedResidualClp,
+    string BalanceStatus,
     double ReconstructionCoveragePercent,
     IReadOnlyList<UtilityBillLineAuditV2> Lines);
 

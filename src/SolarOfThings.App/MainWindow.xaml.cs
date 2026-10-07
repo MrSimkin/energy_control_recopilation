@@ -2914,6 +2914,18 @@ public partial class MainWindow : Window
                 Math.Abs(audit.SimpleAdjustmentClp) > 0.0001
                     ? $" · ajuste sencillo registrado $ {audit.SimpleAdjustmentClp:+0;-0;0}"
                     : string.Empty;
+            var balanceDetail =
+                audit.UnexplainedResidualClp.HasValue
+                    ? audit.BalanceStatus switch
+                    {
+                        "BALANCED" =>
+                            " · cuadratura de líneas: OK",
+                        "SMALL_UNEXPLAINED_RESIDUAL" =>
+                            $" · residuo pequeño no explicado $ {audit.UnexplainedResidualClp.Value:+0;-0;0} (revisar si la boleta imprime ajuste)",
+                        _ =>
+                            $" · diferencia no explicada de cuadratura $ {audit.UnexplainedResidualClp.Value:+0;-0;0}"
+                    }
+                    : " · total insuficiente para cuadratura";
 
             UtilityAuditStatusText.Text =
                 string.Format(
@@ -2923,7 +2935,8 @@ public partial class MainWindow : Window
                     audit.Lines.Count - verified) +
                 $" · reconstrucción monetaria explícita {audit.ReconstructionCoveragePercent:N1}%" +
                 taxDetail +
-                adjustmentDetail;
+                adjustmentDetail +
+                balanceDetail;
         }
         catch (Exception ex)
         {
@@ -3762,6 +3775,18 @@ public partial class MainWindow : Window
             UtilityBillKwhTextBox.Text =
                 draft.BilledConsumptionKwh.Value
                     .ToString("0.###", CultureInfo.CurrentCulture);
+        if (draft.TaxableAmountClp.HasValue)
+            UtilityBillTaxableTextBox.Text =
+                draft.TaxableAmountClp.Value
+                    .ToString("0", CultureInfo.CurrentCulture);
+        if (draft.IvaClp.HasValue)
+            UtilityBillIvaTextBox.Text =
+                draft.IvaClp.Value
+                    .ToString("0", CultureInfo.CurrentCulture);
+        if (draft.ExemptAmountClp.HasValue)
+            UtilityBillExemptTextBox.Text =
+                draft.ExemptAmountClp.Value
+                    .ToString("0", CultureInfo.CurrentCulture);
         if (draft.TotalDueClp.HasValue)
             UtilityBillTotalDueTextBox.Text =
                 draft.TotalDueClp.Value
@@ -3795,6 +3820,12 @@ public partial class MainWindow : Window
             detected.Add("período");
         if (draft.BilledConsumptionKwh.HasValue)
             detected.Add("kWh");
+        if (draft.TaxableAmountClp.HasValue)
+            detected.Add("monto afecto");
+        if (draft.IvaClp.HasValue)
+            detected.Add("IVA");
+        if (draft.ExemptAmountClp.HasValue)
+            detected.Add("monto exento");
         if (draft.TotalDueClp.HasValue)
             detected.Add("total");
         if (!string.IsNullOrWhiteSpace(draft.TariffPlan))
@@ -3932,13 +3963,19 @@ public partial class MainWindow : Window
             draft?.BilledConsumptionKwh);
         Numeric(
             "taxable_amount_clp",
-            taxable);
+            taxable,
+            draft?.TaxableAmountClp,
+            0.5);
         Numeric(
             "iva_clp",
-            iva);
+            iva,
+            draft?.IvaClp,
+            0.5);
         Numeric(
             "exempt_amount_clp",
-            exempt);
+            exempt,
+            draft?.ExemptAmountClp,
+            0.5);
         Numeric(
             "gross_bill_amount_clp",
             gross);

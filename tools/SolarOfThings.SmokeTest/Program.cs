@@ -2017,6 +2017,9 @@ try
         v15Audit.IvaDifferenceClp != 0 ||
         v15Audit.TaxStatus != "IVA_MATCH_19" ||
         Math.Abs(v15Audit.SimpleAdjustmentClp - 2) > 0.001 ||
+        v15Audit.BalanceStatus != "MATERIAL_UNEXPLAINED_DIFFERENCE" ||
+        !v15Audit.UnexplainedResidualClp.HasValue ||
+        Math.Abs(v15Audit.UnexplainedResidualClp.Value - 10000) > 0.001 ||
         !v15Audit.Lines.Any(item =>
             item.Status == "VAT_RECONSTRUCTED_19") ||
         !v15Audit.Lines.Any(item =>
