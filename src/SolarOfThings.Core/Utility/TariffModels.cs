@@ -17,7 +17,11 @@ public sealed record TariffPublication(
     DateTimeOffset UpdatedUtc,
     string NormalizationStatus,
     string? NormalizationParserVersion,
-    DateTimeOffset? NormalizedUtc);
+    DateTimeOffset? NormalizedUtc,
+    string? OfficialDocumentNumber,
+    DateOnly? OfficialPublicationDate,
+    string? CorrectsOfficialDocumentNumber,
+    string? RegulatoryMetadataSource);
 
 public sealed record TariffPublicationDiscovery(
     string Provider,
@@ -25,7 +29,11 @@ public sealed record TariffPublicationDiscovery(
     string Title,
     string SourceUrl,
     DateOnly? EffectiveFrom,
-    bool IsRetroactive);
+    bool IsRetroactive,
+    string? OfficialDocumentNumber = null,
+    DateOnly? OfficialPublicationDate = null,
+    string? CorrectsOfficialDocumentNumber = null,
+    string? RegulatoryMetadataSource = null);
 
 public sealed record TariffCaptureResult(
     int Discovered,
@@ -76,6 +84,28 @@ public sealed record TariffNormalizationResult(
     int PagesWithCandidates,
     string ParserVersion);
 
+
+public sealed record TariffPublicationRelation(
+    long RelationId,
+    long SourcePublicationId,
+    string RelationType,
+    string TargetProvider,
+    string TargetCategory,
+    string TargetOfficialDocumentNumber,
+    long? TargetPublicationId,
+    string? EvidenceSourceUrl,
+    string EvidenceText,
+    DateTimeOffset CreatedUtc,
+    DateTimeOffset UpdatedUtc);
+
+public sealed record TariffPublicationRelationUpsert(
+    long SourcePublicationId,
+    string RelationType,
+    string TargetProvider,
+    string TargetCategory,
+    string TargetOfficialDocumentNumber,
+    string? EvidenceSourceUrl,
+    string EvidenceText);
 
 public sealed record TariffPublicationVersionResolution(
     long PublicationId,
