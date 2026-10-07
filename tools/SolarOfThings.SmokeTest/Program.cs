@@ -1265,13 +1265,13 @@ try
             liveCnePublications.SingleOrDefault(item =>
                 string.Equals(
                     item.OfficialDocumentNumber,
-                    "REX-380-2026",
+                    "REX-9380-2026",
                     StringComparison.OrdinalIgnoreCase));
         var live368 =
             liveCnePublications.SingleOrDefault(item =>
                 string.Equals(
                     item.OfficialDocumentNumber,
-                    "REX-368-2026",
+                    "REX-9368-2026",
                     StringComparison.OrdinalIgnoreCase));
 
         var liveAugustResolution =
@@ -1298,7 +1298,7 @@ try
                 relation.RelationType == "CORRECTS" &&
                 string.Equals(
                     relation.TargetOfficialDocumentNumber,
-                    "REX-368-2026",
+                    "REX-9368-2026",
                     StringComparison.OrdinalIgnoreCase)) ||
             !liveAugustResolution.Any(item =>
                 item.PublicationId ==
@@ -1399,11 +1399,11 @@ try
             new TariffPublicationDiscovery(
                 "CNE_CHILE",
                 "VAD_INDEX",
-                "Resolución Exenta CNE N° 368 · índices VAD 2026-08",
-                "https://www.cne.cl/smoke/rex-368-2026.pdf",
+                "Resolución Exenta CNE N° 9368 · índices VAD 2026-08",
+                "https://www.cne.cl/smoke/rex-9368-2026.pdf",
                 new DateOnly(2026, 8, 1),
                 false,
-                "REX-368-2026",
+                "REX-9368-2026",
                 new DateOnly(2026, 7, 17),
                 null,
                 "SMOKE"));
@@ -1413,13 +1413,13 @@ try
             new TariffPublicationDiscovery(
                 "CNE_CHILE",
                 "VAD_INDEX",
-                "Resolución Exenta CNE N° 380 · índices VAD 2026-08 · rectificación",
-                "https://www.cne.cl/smoke/rex-380-2026.pdf",
+                "Resolución Exenta CNE N° 9380 · índices VAD 2026-08 · rectificación",
+                "https://www.cne.cl/smoke/rex-9380-2026.pdf",
                 new DateOnly(2026, 8, 1),
                 true,
-                "REX-380-2026",
+                "REX-9380-2026",
                 new DateOnly(2026, 7, 24),
-                "REX-368-2026",
+                "REX-9368-2026",
                 "SMOKE"));
 
     tariffRepository.UpsertRelation(
@@ -1428,9 +1428,9 @@ try
             "CORRECTS",
             "CNE_CHILE",
             "VAD_INDEX",
-            "REX-368-2026",
-            "https://www.cne.cl/smoke/rex-380-2026.pdf",
-            "REX-380-2026 CORRECTS REX-368-2026"));
+            "REX-9368-2026",
+            "https://www.cne.cl/smoke/rex-9380-2026.pdf",
+            "REX-9380-2026 CORRECTS REX-9368-2026"));
     tariffRepository.ResolveRelationTargets();
 
     var cnePublications = tariffRepository
@@ -1441,7 +1441,7 @@ try
             item.EffectiveFrom ==
                 new DateOnly(2026, 8, 1) &&
             item.OfficialDocumentNumber is
-                "REX-368-2026" or "REX-380-2026")
+                "REX-9368-2026" or "REX-9380-2026")
         .ToArray();
 
     var cneVersionResolutions =
