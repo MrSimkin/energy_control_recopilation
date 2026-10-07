@@ -12,13 +12,16 @@ public sealed class UtilityBillAuditV2Service
 
     private readonly UtilityMeterRepository _repository;
     private readonly TariffBillRateVerificationService _rateVerification;
+    private readonly UtilityBillTariffScenarioAnalysisService _tariffAnalysis;
 
     public UtilityBillAuditV2Service(
         UtilityMeterRepository repository,
-        TariffBillRateVerificationService rateVerification)
+        TariffBillRateVerificationService rateVerification,
+        UtilityBillTariffScenarioAnalysisService tariffAnalysis)
     {
         _repository = repository;
         _rateVerification = rateVerification;
+        _tariffAnalysis = tariffAnalysis;
     }
 
     public UtilityBillAuditV2 Analyze(
@@ -33,6 +36,23 @@ public sealed class UtilityBillAuditV2Service
         var verifications = _rateVerification
             .VerifyBill(billId, timeZoneId)
             .ToDictionary(item => item.BillLineId);
+
+        UtilityBillTariffScenarioAnalysis? reconciledTariff = null;
+        if (bill.BilledConsumptionKwh is > 0)
+        {
+            var billedTruth =
+                UtilityGridImportStatisticalCompletion.Insufficient(
+                    bill.BilledConsumptionKwh.Value,
+                    100.0,
+                    0,
+                    0,
+                    "BILL_AUDIT_V2_BILLED_TRUTH");
+            reconciledTariff =
+                _tariffAnalysis.Analyze(
+                    billId,
+                    timeZoneId,
+                    billedTruth);
+        }
 
         var ivaRate =
             bill.IvaRate ??
@@ -115,6 +135,58 @@ public sealed class UtilityBillAuditV2Service
                     null,
                     "PRINTED_SIMPLE_ADJUSTMENT",
                     "Ajuste final preservado explícitamente desde la boleta",
+                    evidence));
+                continue;
+            }
+
+            var reconciledComponent =
+                reconciledTariff?
+                    .Components
+                    .FirstOrDefault(item =>
+                        string.Equals(
+                            item.BillLineDescription,
+                            line.Description,
+                            StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrWhiteSpace(
+                             line.CategoryKey) &&
+                         (
+                             string.Equals(
+                                 item.ComponentKey,
+                                 line.CategoryKey,
+                                 StringComparison.OrdinalIgnoreCase) ||
+                             (string.Equals(
+                                  line.CategoryKey,
+                                  UtilityBillLineCategory.ElectricityTransport,
+                                  StringComparison.OrdinalIgnoreCase) &&
+                              item.ComponentKey.StartsWith(
+                                  "ELECTRICITY_TRANSPORT",
+                                  StringComparison.OrdinalIgnoreCase))
+                         )));
+
+            if (reconciledComponent is not null)
+            {
+                var source =
+                    reconciledComponent.PublicationTitle;
+                if (!string.IsNullOrWhiteSpace(
+                        reconciledComponent.RateBasis))
+                {
+                    source +=
+                        " · " +
+                        reconciledComponent.RateBasis;
+                }
+
+                audited.Add(new UtilityBillLineAuditV2(
+                    line.BillLineId,
+                    line.Description,
+                    line.UnitRateClp,
+                    reconciledComponent.QuantityKwh,
+                    "kWh",
+                    "BILL_BILLED_KWH",
+                    line.AmountClp,
+                    reconciledComponent.ReconstructedAmountClp,
+                    reconciledComponent.DifferenceClp,
+                    reconciledComponent.EvidenceStatus,
+                    source,
                     evidence));
                 continue;
             }

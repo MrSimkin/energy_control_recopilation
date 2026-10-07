@@ -3219,6 +3219,24 @@ public partial class MainWindow : Window
             "VERIFIED_RECONSTRUCTED_SOURCE_UNIQUE" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.Reconstructed"),
+            "BILL_AMOUNT_RECONCILED" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.Reconstructed"),
+            "BILL_AMOUNT_RECONCILED_MULTI_PERIOD" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.Reconstructed"),
+            "BILL_AMOUNT_RECONCILED_COMPOSITE" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.Reconstructed"),
+            "BILL_AMOUNT_RECONCILED_MULTI_PERIOD_COMPOSITE" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.Reconstructed"),
+            "BILL_AMOUNT_RECONCILED_RATE_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ReconstructedAmbiguous"),
+            "BILL_AMOUNT_RECONCILED_MULTI_PERIOD_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ReconstructedAmbiguous"),
             "VERIFIED_RECONSTRUCTED_APPLICABILITY_AMBIGUOUS" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.ReconstructedAmbiguous"),

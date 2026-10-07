@@ -1885,6 +1885,30 @@ try
     }
 
 
+    var bridgeAudit = new UtilityBillAuditV2Service(
+        utilityRepository,
+        rateVerification,
+        new UtilityBillTariffScenarioAnalysisService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver))
+        .Analyze(
+            billId,
+            "America/Santiago");
+
+    if (!bridgeAudit.Lines.Any(item =>
+            item.BillLineId == electricityAuditLineId &&
+            item.ReconstructedAmountClp.HasValue) ||
+        !bridgeAudit.Lines.Any(item =>
+            item.BillLineId == noPrintedRateAuditLineId &&
+            item.Status ==
+                "OFFICIAL_RATE_DERIVATION_PENDING"))
+    {
+        throw new InvalidOperationException(
+            "Phase 10 audit-v2 tariff-model bridge smoke test failed.");
+    }
+
     var provenanceBillId = utilityRepository.AddBill(
         utilityFromUtc,
         utilityToUtc,
@@ -2008,7 +2032,12 @@ try
 
     var v15Audit = new UtilityBillAuditV2Service(
         utilityRepository,
-        rateVerification)
+        rateVerification,
+        new UtilityBillTariffScenarioAnalysisService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver))
         .Analyze(
             provenanceBillId,
             "America/Santiago");
