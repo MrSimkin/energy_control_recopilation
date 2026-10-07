@@ -629,7 +629,7 @@ Exit criterion:
 
 # Phase 10 — Estimated Bill / Actual Bill Reconciliation
 
-Status: **IN PROGRESS — CLOSURE CANDIDATE BUILD 644 AWAITING OWNER QA**
+Status: **IN PROGRESS — CORRECTED CLOSURE CANDIDATE BUILD 652 AWAITING OWNER QA**
 
 Goal: calculate a transparent estimated bill according to published rules and compare it with the actual bill.
 

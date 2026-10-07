@@ -6695,3 +6695,119 @@ Use the real reviewed 28-08-2026 -> 28-09-2026 bill.
    Confirm both complete without error. In the PDF, modeled tariff wording must no longer claim all fixed charges are excluded. The annex economic CSV/provenance must expose fixed and variable supported components separately.
 
 If this owner gate passes, mark Phase 10 COMPLETED and begin Phase 11 SQL Usability / Documentation. Zero-click WebView2 tariff capture remains a non-blocking enhancement.
+
+
+## Build 644 owner evidence -> corrected Phase-10 closure candidate Build 652 — 2026-10-07
+
+Build 644 is **not** accepted as Phase-10 closure. Owner screenshots plus exported audit PDF and technical annex proved that Build 644 preserved all Build-635 stability/DATE_ONLY results but allocated official tariff components too conservatively:
+- Electricity consumed remained reconstructed;
+- Transport lost its accepted reconstruction;
+- Administration remained actual-only;
+- supported fixed amount stayed 0;
+- reconstruction coverage fell to 62.2%.
+
+The owner-supplied Build-644 report confirmed the real printed structure:
+- 97.000 kWh;
+- taxable CLP 20,643;
+- IVA CLP 3,922;
+- exempt CLP 83;
+- gross bill CLP 24,648;
+- other charges/credits +CLP 2,206;
+- total due CLP 26,854;
+- Electricity CLP 21,389;
+- Transport CLP 2,072;
+- Administration CLP 727.
+
+### Corrected official component grouping
+
+Review of the captured official Enel August-2026 retroactive and September-2026 tariff tables established the grouping used by the real bill:
+- `Administración del servicio` corresponds to the monthly fixed charge;
+- `Cargo por servicio público` is consumption-proportional and tax-exempt;
+- the bill's Transport line is reconciled by official Transport + Public Service;
+- for 97 kWh, Public Service 0.855 CLP/kWh = 82.935 CLP, independently cross-checking the printed exempt subtotal of CLP 83;
+- Transport 20.489 + Public Service 0.855 = 21.344 CLP/kWh; 97 kWh => CLP 2,070.368 versus printed CLP 2,072;
+- August fixed gross 726.600 CLP/month and September fixed gross 727.230 CLP/month both resolve to the printed whole-peso Administration amount of CLP 727.
+
+The Phase-10 model was rebuilt accordingly:
+- Transport composite logic from the accepted Build-635 behavior is restored, with an explicit split between transport and public-service rates;
+- Transport audit calculation basis now cross-checks the calculated public-service amount against the printed exempt subtotal;
+- Administration is fixed-monthly only;
+- a fixed amount is charged once per bill;
+- for a multi-period bill, no unproven fixed-charge prorating rule is introduced: reconstruction is allowed only when every applicable official fixed rate resolves to the same whole-peso printed charge;
+- Meter rental, Common Service and Subsidy remain preserved actual-only unless independently reconstructible.
+
+### Regression coverage
+
+The generic closure smoke continues to prove:
+- fixed + variable scenario accounting;
+- two tariff-effective periods inside one bill;
+- day-weighted variable rates;
+- retroactive publication precedence.
+
+A new isolated anonymous Aug/Sep-2026 real-structure regression additionally proves:
+- Electricity modeled weighted rate 220.490 CLP/kWh;
+- Electricity reconstructed CLP 21,387.53 vs printed CLP 21,389;
+- Transport + Public Service rate 21.344 CLP/kWh;
+- Transport reconstructed CLP 2,070.368 vs printed CLP 2,072;
+- public-service calculation CLP 82.935 cross-checks printed exempt CLP 83;
+- Administration fixed reconstructed CLP 727;
+- Aug retroactive + Sep normal publication periods are both selected;
+- Audit presents reconstructed Transport and Administration.
+
+The fixture is cleaned after its assertions so it cannot contaminate later same-date smoke scenarios.
+
+### Audit/report alignment
+
+- fixed-only Administration renders as a fixed charge rather than "$fixed + $0/kWh";
+- reconstructed Administration is removed from the "non-reconstructed charges" table;
+- unresolved Administration is explicitly labeled fixed/not reconstructed;
+- Audit verified-line count includes fixed reconciliations;
+- technical report source wording distinguishes reconstructed fixed charges from preserved non-reconstructible charges.
+
+### Build 652
+
+Source commit:
+- `b5ba15f2273f5194fba2e6b52080774c759b0e69`.
+
+Workflow:
+- run `37704097570`;
+- run/build **652**;
+- Build: PASS;
+- SQLite smoke: PASS, including the isolated anonymous Aug/Sep-2026 real-structure regression;
+- live Enel/CNE probes: skipped by workflow conditions, not failures;
+- portable publish: PASS;
+- portable marker: PASS;
+- artifact upload: PASS.
+
+Artifact:
+- `SolarEnergyMonitor-Build-652-win-x64.zip`;
+- artifact ID `11518902792`;
+- SHA-256 `0c8425aca681e4e6ffec1dedfeeacc8f8ddd295b499e779779b3b28254cc9bf0`.
+
+Downloaded artifact verification:
+- SHA equals GitHub digest;
+- 490 entries;
+- `portable.mode` present;
+- `SolarEnergyMonitor.exe` present;
+- no bundled `energy.db`;
+- no bundled Data directory.
+
+Build 652 is the current **Phase-10 closure candidate awaiting focused owner QA**.
+
+### Focused owner gate for Build 652
+
+Do not repeat stability, DATE_ONLY, bill entry/review, or Enel-browser fallback QA already accepted in Build 635.
+
+Only:
+1. open Audit for the real 28-08-2026 -> 28-09-2026 bill;
+2. send one full Audit screenshot;
+3. expected structural result:
+   - Electricity reconstructed;
+   - Transport reconstructed again, with basis showing Transport + Public Service;
+   - Administration reconstructed as a fixed charge around CLP 727;
+   - public-service basis should cross-check approximately CLP 82.935 against printed exempt CLP 83;
+   - Meter rental, Common Service and Subsidy remain actual-only;
+   - printed summary OK and detail residual -3 CLP remain unchanged;
+4. if screen is correct, export Audit PDF + technical annex ZIP and attach them. Assistant performs the export review; owner does not need to inspect CSV/TXT manually.
+
+If this gate passes, mark Phase 10 COMPLETED and begin Phase 11 SQL Usability / Documentation.
