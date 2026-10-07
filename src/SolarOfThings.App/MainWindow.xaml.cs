@@ -3021,8 +3021,13 @@ public partial class MainWindow : Window
                 item.Status.StartsWith(
                     "VERIFIED_",
                     StringComparison.Ordinal) ||
+                item.Status ==
+                    "RATE_VERIFIED_SOURCE_UNIQUE" ||
                 item.Status.StartsWith(
-                    "RATE_VERIFIED_",
+                    "BILL_AMOUNT_RECONCILED",
+                    StringComparison.Ordinal) &&
+                !item.Status.Contains(
+                    "AMBIGUOUS",
                     StringComparison.Ordinal) ||
                 item.Status == "VAT_RECONSTRUCTED_19");
 
@@ -4068,10 +4073,9 @@ public partial class MainWindow : Window
             conflicts.Add(
                 reviewingLegacy
                     ? $"{label}: legacy {stored:dd-MM-yyyy} → PDF {proposed.Value:dd-MM-yyyy} (borrador actualizado)"
-                    : $"{label}: guardado {stored:dd-MM-yyyy} vs PDF {proposed.Value:dd-MM-yyyy}");
+                    : $"{label}: guardado {stored:dd-MM-yyyy} → PDF {proposed.Value:dd-MM-yyyy} (borrador actualizado; base sin cambios hasta guardar)");
 
-            if (reviewingLegacy)
-                picker.SelectedDate = proposedDate;
+            picker.SelectedDate = proposedDate;
         }
 
         void ApplyNumber(
@@ -4111,10 +4115,9 @@ public partial class MainWindow : Window
             conflicts.Add(
                 reviewingLegacy
                     ? $"{label}: legacy {box.Text} → PDF {formatted} (borrador actualizado)"
-                    : $"{label}: guardado {box.Text} vs PDF {formatted}");
+                    : $"{label}: guardado {box.Text} → PDF {formatted} (borrador actualizado; base sin cambios hasta guardar)");
 
-            if (reviewingLegacy)
-                box.Text = formatted;
+            box.Text = formatted;
         }
 
         if (!reviewingExisting)
@@ -4130,13 +4133,10 @@ public partial class MainWindow : Window
                      StringComparison.Ordinal))
         {
             conflicts.Add(
-                "precisión del período: el PDF respalda fechas impresas, no una hora exacta");
+                "precisión del período: el PDF respalda fechas impresas; el borrador se cambió a fecha inclusiva y la base no cambia hasta guardar");
 
-            if (reviewingLegacy)
-            {
-                UtilityBillPeriodPrecisionSelector.SelectedValue =
-                    UtilityTimePrecision.DateOnly;
-            }
+            UtilityBillPeriodPrecisionSelector.SelectedValue =
+                UtilityTimePrecision.DateOnly;
         }
 
         ApplyDate(
@@ -4234,13 +4234,10 @@ public partial class MainWindow : Window
                 conflicts.Add(
                     reviewingLegacy
                         ? $"tarifa: legacy {UtilityBillTariffPlanTextBox.Text.Trim()} → PDF {draft.TariffPlan} (borrador actualizado)"
-                        : $"tarifa: guardado {UtilityBillTariffPlanTextBox.Text.Trim()} vs PDF {draft.TariffPlan}");
+                        : $"tarifa: guardado {UtilityBillTariffPlanTextBox.Text.Trim()} → PDF {draft.TariffPlan} (borrador actualizado; base sin cambios hasta guardar)");
 
-                if (reviewingLegacy)
-                {
-                    UtilityBillTariffPlanTextBox.Text =
-                        draft.TariffPlan;
-                }
+                UtilityBillTariffPlanTextBox.Text =
+                    draft.TariffPlan;
             }
         }
 
@@ -4313,9 +4310,7 @@ public partial class MainWindow : Window
         UtilityBillStatusText.Text =
             $"PDF preparado ({string.Join(", ", detected)}). " +
             (reviewingExisting
-                ? reviewingLegacy
-                    ? "Los valores legacy distintos quedaron corregidos sólo en este borrador; nada cambia en la base hasta que pulses Guardar revisión."
-                    : "Los valores ya revisados no fueron sobreescritos cuando discrepan del PDF."
+                ? "Las diferencias detectadas quedaron aplicadas sólo al borrador de revisión; la base no cambia hasta que pulses Guardar revisión."
                 : "Revisa/corrige los campos antes de guardar.") +
             conflictText +
             warning;
@@ -4547,26 +4542,105 @@ public partial class MainWindow : Window
 
         foreach (var draftLine in draft.Lines)
         {
-            var match = existing.FirstOrDefault(item =>
-                Math.Abs(
-                    item.AmountClp -
-                    draftLine.AmountClp) <= 0.5 &&
-                (
+            var draftCategory =
+                CanonicalBillLineCategory(
+                    draftLine.CategoryKey,
+                    draftLine.Description);
+
+            var candidates = existing
+                .Where(item =>
+                {
+                    var existingCategory =
+                        CanonicalBillLineCategory(
+                            item.CategoryKey,
+                            item.Description);
+
+                    var sameCanonicalCategory =
+                        !string.IsNullOrWhiteSpace(
+                            draftCategory) &&
+                        string.Equals(
+                            existingCategory,
+                            draftCategory,
+                            StringComparison.OrdinalIgnoreCase);
+
+                    return sameCanonicalCategory ||
+                           DescriptionsLikelySame(
+                               item.Description,
+                               draftLine.Description);
+                })
+                .OrderByDescending(item =>
+                    Math.Abs(
+                        item.AmountClp -
+                        draftLine.AmountClp) <= 0.5)
+                .ThenByDescending(item =>
                     string.Equals(
-                        item.CategoryKey,
-                        draftLine.CategoryKey,
-                        StringComparison.OrdinalIgnoreCase) ||
-                    DescriptionsLikelySame(
-                        item.Description,
-                        draftLine.Description)));
+                        item.SourceKind,
+                        UtilityBillSourceKind.PdfReviewed,
+                        StringComparison.Ordinal))
+                .ToArray();
+
+            var match =
+                candidates.FirstOrDefault();
 
             if (match is not null)
             {
-                repository.ConfirmBillLinePdfEvidence(
+                repository.UpdateBillLine(
                     match.BillLineId,
-                    draftLine.CategoryKey,
-                    draftLine.SourcePage,
-                    draftLine.SourceText);
+                    draftLine.SectionKey,
+                    draftLine.Description,
+                    draftLine.AmountClp,
+                    categoryKey:
+                        draftCategory ??
+                        draftLine.CategoryKey,
+                    quantity: match.Quantity,
+                    unit: match.Unit,
+                    unitRateClp: match.UnitRateClp,
+                    taxTreatment: match.TaxTreatment,
+                    sourceKind:
+                        UtilityBillSourceKind.PdfReviewed,
+                    evidenceState:
+                        UtilityBillEvidenceState.PdfExtractedConfirmed,
+                    sourcePage: draftLine.SourcePage,
+                    sourceText: draftLine.SourceText);
+
+                foreach (var duplicate in candidates
+                    .Skip(1)
+                    .Where(item =>
+                        Math.Abs(
+                            item.AmountClp -
+                            draftLine.AmountClp) <= 0.5))
+                {
+                    repository.DeleteBillLine(
+                        duplicate.BillLineId);
+                    existing.RemoveAll(item =>
+                        item.BillLineId ==
+                        duplicate.BillLineId);
+                }
+
+                existing.RemoveAll(item =>
+                    item.BillLineId ==
+                    match.BillLineId);
+                existing.Add(
+                    match with
+                    {
+                        SectionKey =
+                            draftLine.SectionKey,
+                        CategoryKey =
+                            draftCategory ??
+                            draftLine.CategoryKey,
+                        Description =
+                            draftLine.Description,
+                        AmountClp =
+                            draftLine.AmountClp,
+                        SourceKind =
+                            UtilityBillSourceKind.PdfReviewed,
+                        EvidenceState =
+                            UtilityBillEvidenceState.PdfExtractedConfirmed,
+                        SourcePage =
+                            draftLine.SourcePage,
+                        SourceText =
+                            draftLine.SourceText
+                    });
                 continue;
             }
 
@@ -4575,7 +4649,9 @@ public partial class MainWindow : Window
                 draftLine.SectionKey,
                 draftLine.Description,
                 draftLine.AmountClp,
-                categoryKey: draftLine.CategoryKey,
+                categoryKey:
+                    draftCategory ??
+                    draftLine.CategoryKey,
                 sortOrder: nextSortOrder,
                 sourceKind:
                     UtilityBillSourceKind.PdfReviewed,
@@ -4592,27 +4668,82 @@ public partial class MainWindow : Window
         }
     }
 
+    private static string? CanonicalBillLineCategory(
+        string? categoryKey,
+        string description)
+    {
+        if (!string.IsNullOrWhiteSpace(
+                categoryKey) &&
+            !string.Equals(
+                categoryKey,
+                "CUSTOM",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return categoryKey.Trim();
+        }
+
+        var normalized =
+            NormalizeBillLineText(description);
+
+        if (normalized.Contains(
+                "ELECTRICIDADCONSUM",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.ElectricityConsumed;
+        if (normalized.Contains(
+                "TRANSPORTEDEELECTRICIDAD",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.ElectricityTransport;
+        if (normalized.Contains(
+                "SUBSIDIO",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.Subsidy;
+        if (normalized.Contains(
+                "ADMINISTRACIONDELSERVICIO",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.ServiceAdministration;
+        if (normalized.Contains(
+                "ARRIENDOMEDIDOR",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.MeterRental;
+        if (normalized.Contains(
+                "SERVICIOCOMUN",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.CommonService;
+        if (normalized.Contains(
+                "IVA19",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.Vat19;
+        if (normalized.Contains(
+                "AJUSTE",
+                StringComparison.Ordinal))
+            return UtilityBillLineCategory.SimpleAdjustment;
+
+        return null;
+    }
+
+    private static string NormalizeBillLineText(
+        string value)
+    {
+        var form = value.Normalize(
+            System.Text.NormalizationForm.FormD);
+        var chars = form
+            .Where(character =>
+                CharUnicodeInfo.GetUnicodeCategory(
+                    character) !=
+                UnicodeCategory.NonSpacingMark)
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToUpperInvariant)
+            .ToArray();
+
+        return new string(chars);
+    }
+
     private static bool DescriptionsLikelySame(
         string left,
         string right)
     {
-        static string Normalize(string value)
-        {
-            var form = value.Normalize(
-                System.Text.NormalizationForm.FormD);
-            var chars = form
-                .Where(character =>
-                    CharUnicodeInfo.GetUnicodeCategory(
-                        character) !=
-                    UnicodeCategory.NonSpacingMark)
-                .Where(char.IsLetterOrDigit)
-                .Select(char.ToUpperInvariant)
-                .ToArray();
-            return new string(chars);
-        }
-
-        var a = Normalize(left);
-        var b = Normalize(right);
+        var a = NormalizeBillLineText(left);
+        var b = NormalizeBillLineText(right);
         return a.Length >= 5 &&
                b.Length >= 5 &&
                (a.Contains(b, StringComparison.Ordinal) ||
