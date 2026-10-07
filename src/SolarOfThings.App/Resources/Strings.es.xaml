@@ -329,6 +329,12 @@
     <sys:String x:Key="GridUtility.TariffStandard">Normal</sys:String>
     <sys:String x:Key="GridUtility.TariffVersion.CneCorrection">Corrección vigente</sys:String>
     <sys:String x:Key="GridUtility.TariffVersion.CneSuperseded">Rectificada</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.OfficialCorrectionPreferred">Corrección oficial vigente</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.OfficialCorrectionSuperseded">Rectificada por corrección oficial</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.OfficialDatePreferred">Versión oficial posterior</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.OfficialDateSuperseded">Reemplazada por versión oficial posterior</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.EquivalentPreferred">Fuente vigente · duplicados idénticos</sys:String>
+    <sys:String x:Key="GridUtility.TariffVersion.EquivalentDuplicate">Duplicado idéntico</sys:String>
     <sys:String x:Key="GridUtility.TariffNotCaptured">Aún no se han capturado publicaciones tarifarias oficiales.</sys:String>
     <sys:String x:Key="GridUtility.TariffCaptureResult">Captura terminada: {0}/{1} publicaciones; {2} fallos; {3} retroactivas; {4} períodos con múltiples versiones; {5} candidatos extraídos; {6} fallos de normalización.</sys:String>
     <sys:String x:Key="GridUtility.TariffEffective">Vigencia</sys:String>
