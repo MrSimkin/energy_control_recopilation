@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 13;
+    public const int CurrentSchemaVersion = 14;
 
     private readonly AppPaths _paths;
 
@@ -109,6 +109,12 @@ public sealed class SqliteDatabase
         if (current < 13)
         {
             ApplyMigration13(connection);
+            current = 13;
+        }
+
+        if (current < 14)
+        {
+            ApplyMigration14(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -662,6 +668,72 @@ public sealed class SqliteDatabase
             transaction,
             13,
             "Allow distinct utility-reading evidence sources to share the same timestamp; identity remains reading_id/source based.");
+
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration14(
+        SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            ALTER TABLE tariff_publication
+                ADD COLUMN official_document_number TEXT NULL;
+            ALTER TABLE tariff_publication
+                ADD COLUMN official_publication_date TEXT NULL;
+            ALTER TABLE tariff_publication
+                ADD COLUMN corrects_official_document_number TEXT NULL;
+            ALTER TABLE tariff_publication
+                ADD COLUMN regulatory_metadata_source TEXT NULL;
+
+            CREATE INDEX ix_tariff_publication_official_document
+                ON tariff_publication(
+                    provider,
+                    category,
+                    official_document_number
+                );
+
+            CREATE TABLE tariff_publication_relation (
+                relation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_publication_id INTEGER NOT NULL,
+                relation_type TEXT NOT NULL,
+                target_provider TEXT NOT NULL,
+                target_category TEXT NOT NULL,
+                target_official_document_number TEXT NOT NULL,
+                target_publication_id INTEGER NULL,
+                evidence_source_url TEXT NULL,
+                evidence_text TEXT NOT NULL,
+                created_utc TEXT NOT NULL,
+                updated_utc TEXT NOT NULL,
+                FOREIGN KEY(source_publication_id)
+                    REFERENCES tariff_publication(publication_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY(target_publication_id)
+                    REFERENCES tariff_publication(publication_id)
+                    ON DELETE SET NULL,
+                UNIQUE(
+                    source_publication_id,
+                    relation_type,
+                    target_provider,
+                    target_category,
+                    target_official_document_number
+                )
+            );
+
+            CREATE INDEX ix_tariff_publication_relation_target
+                ON tariff_publication_relation(
+                    target_provider,
+                    target_category,
+                    target_official_document_number
+                );
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            14,
+            "Official tariff document identity and explicit correction/supersession relation graph.");
 
         transaction.Commit();
     }
