@@ -2058,6 +2058,131 @@ try
             "Phase 10 v15 VAT/simple-adjustment audit smoke test failed.");
     }
 
+    // A printed small adjustment must be explicit evidence, never a
+    // synthetic line inserted merely to force the bill to balance.
+    var balancedAdjustmentBillId = utilityRepository.AddBill(
+        utilityFromUtc,
+        utilityToUtc,
+        expectedGridImport,
+        11902,
+        "PHASE10-ADJUSTMENT-BALANCED",
+        "Explicit $2 printed adjustment",
+        taxableAmountClp: 10000,
+        ivaClp: 1900,
+        totalDueClp: 11902,
+        sourceKind: UtilityBillSourceKind.Manual,
+        reviewState: UtilityBillReviewState.Reviewed,
+        ivaRate: 0.19);
+
+    utilityRepository.AddBillLine(
+        balancedAdjustmentBillId,
+        "SERVICIO_ELECTRICO",
+        "Base afecta smoke",
+        10000,
+        categoryKey: "CUSTOM_TAXABLE_BASE",
+        taxTreatment: "AFECTO",
+        sortOrder: 10);
+    utilityRepository.AddBillLine(
+        balancedAdjustmentBillId,
+        "ACUMULADO",
+        "IVA 19%",
+        1900,
+        categoryKey: UtilityBillLineCategory.Vat19,
+        taxTreatment: "IVA",
+        sortOrder: 20);
+    utilityRepository.AddBillLine(
+        balancedAdjustmentBillId,
+        "ACUMULADO",
+        "Ajuste sencillo",
+        2,
+        categoryKey: UtilityBillLineCategory.SimpleAdjustment,
+        sortOrder: 30);
+
+    var balancedAdjustmentAudit =
+        new UtilityBillAuditV2Service(
+            utilityRepository,
+            rateVerification,
+            new UtilityBillTariffScenarioAnalysisService(
+                utilityRepository,
+                tariffRepository,
+                candidateRepository,
+                versionResolver))
+        .Analyze(
+            balancedAdjustmentBillId,
+            "America/Santiago");
+
+    if (balancedAdjustmentAudit.TaxStatus != "IVA_MATCH_19" ||
+        balancedAdjustmentAudit.BalanceStatus != "BALANCED" ||
+        !balancedAdjustmentAudit.UnexplainedResidualClp.HasValue ||
+        Math.Abs(
+            balancedAdjustmentAudit.UnexplainedResidualClp.Value) >
+            0.001 ||
+        Math.Abs(
+            balancedAdjustmentAudit.SimpleAdjustmentClp - 2) >
+            0.001)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 explicit printed-adjustment balance smoke test failed.");
+    }
+
+    var missingAdjustmentBillId = utilityRepository.AddBill(
+        utilityFromUtc,
+        utilityToUtc,
+        expectedGridImport,
+        11902,
+        "PHASE10-ADJUSTMENT-MISSING",
+        "Small residual must remain unexplained",
+        taxableAmountClp: 10000,
+        ivaClp: 1900,
+        totalDueClp: 11902,
+        sourceKind: UtilityBillSourceKind.Manual,
+        reviewState: UtilityBillReviewState.Reviewed,
+        ivaRate: 0.19);
+
+    utilityRepository.AddBillLine(
+        missingAdjustmentBillId,
+        "SERVICIO_ELECTRICO",
+        "Base afecta smoke",
+        10000,
+        categoryKey: "CUSTOM_TAXABLE_BASE",
+        taxTreatment: "AFECTO",
+        sortOrder: 10);
+    utilityRepository.AddBillLine(
+        missingAdjustmentBillId,
+        "ACUMULADO",
+        "IVA 19%",
+        1900,
+        categoryKey: UtilityBillLineCategory.Vat19,
+        taxTreatment: "IVA",
+        sortOrder: 20);
+
+    var missingAdjustmentAudit =
+        new UtilityBillAuditV2Service(
+            utilityRepository,
+            rateVerification,
+            new UtilityBillTariffScenarioAnalysisService(
+                utilityRepository,
+                tariffRepository,
+                candidateRepository,
+                versionResolver))
+        .Analyze(
+            missingAdjustmentBillId,
+            "America/Santiago");
+
+    if (missingAdjustmentAudit.BalanceStatus !=
+            "SMALL_UNEXPLAINED_RESIDUAL" ||
+        !missingAdjustmentAudit.UnexplainedResidualClp.HasValue ||
+        Math.Abs(
+            missingAdjustmentAudit.UnexplainedResidualClp.Value - 2) >
+            0.001 ||
+        Math.Abs(
+            missingAdjustmentAudit.SimpleAdjustmentClp) >
+            0.001)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 small unexplained residual smoke test failed.");
+    }
+
 
     var cneFebruaryId = tariffRepository.UpsertDiscovery(
         new TariffPublicationDiscovery(
