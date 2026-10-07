@@ -1232,7 +1232,11 @@ try
                 .GetAll()
                 .Where(item =>
                     item.Provider == "CNE_CHILE" &&
-                    item.Category == "VAD_INDEX")
+                    item.Category == "VAD_INDEX" &&
+                    !string.Equals(
+                        item.RegulatoryMetadataSource,
+                        "SMOKE",
+                        StringComparison.Ordinal))
                 .ToArray();
         var liveCneRelations =
             liveCneRepository.GetRelations();
