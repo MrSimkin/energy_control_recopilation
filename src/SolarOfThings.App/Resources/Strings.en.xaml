@@ -211,6 +211,7 @@
     <sys:String x:Key="GridUtility.AuditQuantitySource.Derived">derived</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Status">Verification</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Source">Source</sys:String>
+    <sys:String x:Key="GridUtility.AuditColumn.Evidence">Input evidence</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Reconstructed">Reconstructed</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Difference">Amount diff.</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.Reconstructed">Rate verified · reconstructed</sys:String>
@@ -218,6 +219,9 @@
     <sys:String x:Key="GridUtility.AuditStatus.RateVerified">Rate verified</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.RateVerifiedAmbiguous">Rate verified · applicability ambiguous</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.ActualOnly">Actual-only evidence</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.Vat19">VAT 19% reconstructed</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.VatBaseMissing">VAT: taxable base missing</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.SimpleAdjustment">Simple adjustment preserved</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.NoRate">No rate on bill</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.DerivationPending">Official source available · calculation pending</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.DerivationMultiPeriod">Official source available · split tariff period</sys:String>

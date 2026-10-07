@@ -30,13 +30,13 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 14)
+        SqliteDatabase.CurrentSchemaVersion != 15)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
 
     // Regression: a real owner Data\ folder is currently schema v13.
-    // Verify the in-place v13 -> v14 migration preserves existing tariff
+    // Verify the in-place v13 -> v15 migration preserves existing tariff
     // evidence and creates the regulatory relation graph metadata.
     var migration13Root = Path.Combine(
         root,
@@ -92,6 +92,46 @@ try
                 normalized_utc TEXT NULL
             );
 
+            CREATE TABLE utility_bill (
+                bill_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                period_start_utc TEXT NOT NULL,
+                period_end_utc TEXT NOT NULL,
+                billed_consumption_kwh REAL NULL,
+                amount_clp REAL NULL,
+                invoice_reference TEXT NULL,
+                notes TEXT NULL,
+                created_utc TEXT NOT NULL,
+                updated_utc TEXT NOT NULL,
+                from_reading_id INTEGER NULL,
+                to_reading_id INTEGER NULL,
+                meter_start_kwh REAL NULL,
+                meter_end_kwh REAL NULL,
+                tariff_plan TEXT NULL,
+                taxable_amount_clp REAL NULL,
+                iva_clp REAL NULL,
+                exempt_amount_clp REAL NULL,
+                gross_bill_amount_clp REAL NULL,
+                other_charges_clp REAL NULL,
+                total_due_clp REAL NULL,
+                period_precision TEXT NOT NULL DEFAULT 'EXACT'
+            );
+
+            CREATE TABLE utility_bill_line (
+                bill_line_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bill_id INTEGER NOT NULL,
+                section_key TEXT NOT NULL,
+                category_key TEXT NULL,
+                description TEXT NOT NULL,
+                quantity REAL NULL,
+                unit TEXT NULL,
+                unit_rate_clp REAL NULL,
+                amount_clp REAL NOT NULL,
+                tax_treatment TEXT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_utc TEXT NOT NULL,
+                updated_utc TEXT NOT NULL
+            );
+
             INSERT INTO tariff_publication(
                 provider, category, title, source_url,
                 effective_from, is_retroactive,
@@ -118,10 +158,10 @@ try
             migration13Paths);
     migration13Database.Initialize();
 
-    if (migration13Database.GetSchemaVersion() != 14)
+    if (migration13Database.GetSchemaVersion() != 15)
     {
         throw new InvalidOperationException(
-            "Schema v13 -> v14 migration did not reach version 14.");
+            "Schema v13 -> v15 migration did not reach version 15.");
     }
 
     var migratedTariffRepository =
@@ -137,7 +177,7 @@ try
         migratedTariffRepository.GetRelations().Count != 0)
     {
         throw new InvalidOperationException(
-            "Schema v13 -> v14 migration did not preserve prior tariff evidence cleanly.");
+            "Schema v13 -> v15 migration did not preserve prior tariff evidence cleanly.");
     }
 
     var settings = new AppSettingsRepository(database);
@@ -1842,6 +1882,95 @@ try
     {
         throw new InvalidOperationException(
             "Phase 10 date-only inclusive-end reconciliation regression failed.");
+    }
+
+
+    var provenanceBillId = utilityRepository.AddBill(
+        utilityFromUtc,
+        utilityToUtc,
+        expectedGridImport,
+        11902,
+        "PHASE10-V15-PROVENANCE",
+        "VAT and simple-adjustment smoke",
+        tariffPlan: "BT1-SMOKE",
+        taxableAmountClp: 10000,
+        ivaClp: 1900,
+        grossBillAmountClp: 11900,
+        totalDueClp: 11902,
+        periodPrecision: UtilityTimePrecision.Exact,
+        sourceKind: UtilityBillSourceKind.Manual,
+        reviewState: UtilityBillReviewState.Reviewed,
+        ivaRate: 0.19);
+
+    utilityRepository.AddBillLine(
+        provenanceBillId,
+        "ACUMULADO",
+        "IVA 19%",
+        1900,
+        categoryKey: UtilityBillLineCategory.Vat19,
+        taxTreatment: "IVA",
+        sortOrder: 80);
+
+    utilityRepository.AddBillLine(
+        provenanceBillId,
+        "ACUMULADO",
+        "Ajuste sencillo",
+        2,
+        categoryKey: UtilityBillLineCategory.SimpleAdjustment,
+        sortOrder: 90);
+
+    utilityRepository.UpsertBillFieldEvidence(
+        provenanceBillId,
+        "total_due_clp",
+        UtilityBillSourceKind.Manual,
+        UtilityBillEvidenceState.UserEntered,
+        "11902",
+        "11902");
+
+    var documentId = utilityRepository.AddBillDocument(
+        "ENEL_DISTRIBUCION_CHILE",
+        "smoke-bill.pdf",
+        Path.Combine(paths.UtilityBillEnelDirectory, "smoke-bill.pdf"),
+        "0123456789abcdef",
+        1234,
+        2,
+        EnelUtilityBillPdfImportService.ParserVersion,
+        "smoke extracted bill text");
+
+    var storedDocument =
+        utilityRepository.GetBillDocument(documentId);
+    var fieldEvidence =
+        utilityRepository.GetBillFieldEvidence(
+            provenanceBillId);
+
+    if (storedDocument is null ||
+        storedDocument.ContentSha256 != "0123456789abcdef" ||
+        fieldEvidence.Count != 1 ||
+        fieldEvidence[0].EvidenceState !=
+            UtilityBillEvidenceState.UserEntered)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 v15 bill provenance repository smoke test failed.");
+    }
+
+    var v15Audit = new UtilityBillAuditV2Service(
+        utilityRepository,
+        rateVerification)
+        .Analyze(
+            provenanceBillId,
+            "America/Santiago");
+
+    if (v15Audit.ExpectedIvaClp != 1900 ||
+        v15Audit.IvaDifferenceClp != 0 ||
+        v15Audit.TaxStatus != "IVA_MATCH_19" ||
+        Math.Abs(v15Audit.SimpleAdjustmentClp - 2) > 0.001 ||
+        !v15Audit.Lines.Any(item =>
+            item.Status == "VAT_RECONSTRUCTED_19") ||
+        !v15Audit.Lines.Any(item =>
+            item.Status == "PRINTED_SIMPLE_ADJUSTMENT"))
+    {
+        throw new InvalidOperationException(
+            "Phase 10 v15 VAT/simple-adjustment audit smoke test failed.");
     }
 
 

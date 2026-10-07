@@ -118,6 +118,33 @@ public sealed class UtilityBillReconciliationSummaryService
             bill.TotalDueClp ??
             bill.AmountClp;
 
+        var billLines =
+            _repository.GetBillLines(billId);
+        var ivaRate =
+            bill.IvaRate ??
+            UtilityBillAuditV2Service.ChileStandardIvaRate;
+        var expectedIva =
+            bill.TaxableAmountClp.HasValue
+                ? Math.Round(
+                    bill.TaxableAmountClp.Value * ivaRate,
+                    0,
+                    MidpointRounding.AwayFromZero)
+                : (double?)null;
+        var ivaDifference =
+            bill.IvaClp.HasValue &&
+            expectedIva.HasValue
+                ? bill.IvaClp.Value -
+                  expectedIva.Value
+                : (double?)null;
+        var simpleAdjustment =
+            billLines
+                .Where(item =>
+                    string.Equals(
+                        item.CategoryKey,
+                        UtilityBillLineCategory.SimpleAdjustment,
+                        StringComparison.OrdinalIgnoreCase))
+                .Sum(item => item.AmountClp);
+
         var observedScenario = tariff.Scenarios
             .FirstOrDefault(item =>
                 string.Equals(
@@ -198,6 +225,22 @@ public sealed class UtilityBillReconciliationSummaryService
                 tariff.Limitation);
         }
 
+        if (string.Equals(
+                bill.ReviewState,
+                UtilityBillReviewState.LegacyUnreviewed,
+                StringComparison.Ordinal))
+        {
+            limitations.Add(
+                "This bill predates bill-ingestion v2 and has not yet been reviewed against a canonical source document.");
+        }
+
+        if (bill.IvaClp.HasValue &&
+            !expectedIva.HasValue)
+        {
+            limitations.Add(
+                "Printed VAT is stored, but the taxable base is not available for an independent 19% check.");
+        }
+
         return new UtilityBillReconciliationSummary(
             billId,
             status,
@@ -214,6 +257,13 @@ public sealed class UtilityBillReconciliationSummaryService
             estimatedObservedTotal,
             actualMinusObservedEstimate,
             tariff,
+            ivaRate,
+            bill.IvaClp,
+            expectedIva,
+            ivaDifference,
+            simpleAdjustment,
+            bill.SourceKind,
+            bill.ReviewState,
             limitations.Count == 0
                 ? null
                 : string.Join(" ", limitations));
@@ -236,6 +286,13 @@ public sealed record UtilityBillReconciliationSummary(
     double? EstimatedObservedTotalClp,
     double? ActualMinusEstimatedObservedClp,
     UtilityBillTariffScenarioAnalysis TariffAnalysis,
+    double IvaRate,
+    double? PrintedIvaClp,
+    double? ExpectedIvaClp,
+    double? IvaDifferenceClp,
+    double SimpleAdjustmentClp,
+    string BillSourceKind,
+    string ReviewState,
     string? Limitation)
 {
     public bool HasObservedEconomicEstimate =>

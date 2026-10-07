@@ -2047,6 +2047,9 @@
                                             <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Source}"
                                                                 Binding="{Binding Source}"
                                                                 Width="2*"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Evidence}"
+                                                                Binding="{Binding Evidence}"
+                                                                Width="150"/>
                                             <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Reconstructed}"
                                                                 Binding="{Binding Reconstructed}"
                                                                 Width="130"/>

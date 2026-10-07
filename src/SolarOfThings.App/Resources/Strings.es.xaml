@@ -211,6 +211,7 @@
     <sys:String x:Key="GridUtility.AuditQuantitySource.Derived">derivada</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Status">Verificación</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Source">Fuente</sys:String>
+    <sys:String x:Key="GridUtility.AuditColumn.Evidence">Evidencia de ingreso</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Reconstructed">Reconstruido</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.Difference">Dif. monto</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.Reconstructed">Tasa verificada · reconstruida</sys:String>
@@ -218,6 +219,9 @@
     <sys:String x:Key="GridUtility.AuditStatus.RateVerified">Tasa verificada</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.RateVerifiedAmbiguous">Tasa verificada · aplicabilidad ambigua</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.ActualOnly">Sólo evidencia real</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.Vat19">IVA 19% reconstruido</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.VatBaseMissing">IVA: falta base afecta</sys:String>
+    <sys:String x:Key="GridUtility.AuditStatus.SimpleAdjustment">Ajuste sencillo preservado</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.NoRate">Sin tasa en boleta</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.DerivationPending">Fuente oficial disponible · cálculo pendiente</sys:String>
     <sys:String x:Key="GridUtility.AuditStatus.DerivationMultiPeriod">Fuente oficial disponible · dividir período tarifario</sys:String>

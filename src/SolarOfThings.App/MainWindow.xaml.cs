@@ -2866,14 +2866,14 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var verifications = _services
-                .GetRequiredService<TariffBillRateVerificationService>()
-                .VerifyBill(
+            var audit = _services
+                .GetRequiredService<UtilityBillAuditV2Service>()
+                .Analyze(
                     billId,
                     timeZone);
 
             UtilityAuditVerificationGrid.ItemsSource =
-                verifications
+                audit.Lines
                     .Select(item =>
                         new UtilityAuditVerificationViewRow(
                             item.Description,
@@ -2882,12 +2882,8 @@ public partial class MainWindow : Window
                                 : "—",
                             FormatAuditCalculationBasis(item),
                             AuditVerificationStatusLabel(item.Status),
-                            item.Publications.Count == 0
-                                ? "—"
-                                : string.Join(
-                                    " · ",
-                                    item.Publications.Select(
-                                        FormatAuditTariffPublication)),
+                            item.Source,
+                            item.Evidence,
                             item.ReconstructedAmountClp.HasValue
                                 ? $"$ {item.ReconstructedAmountClp.Value:N0}"
                                 : "—",
@@ -2896,19 +2892,36 @@ public partial class MainWindow : Window
                                 : "—"))
                     .ToArray();
 
-            var verified = verifications.Count(item =>
+            var verified = audit.Lines.Count(item =>
                 item.Status.StartsWith(
                     "VERIFIED_",
                     StringComparison.Ordinal) ||
                 item.Status.StartsWith(
                     "RATE_VERIFIED_",
-                    StringComparison.Ordinal));
+                    StringComparison.Ordinal) ||
+                item.Status == "VAT_RECONSTRUCTED_19");
 
-            UtilityAuditStatusText.Text = string.Format(
-                _localization.GetString(
-                    "GridUtility.AuditPreviewSummary"),
-                verified,
-                verifications.Count - verified);
+            var taxDetail =
+                audit.ExpectedIvaClp.HasValue &&
+                audit.PrintedIvaClp.HasValue
+                    ? $" · IVA: impreso $ {audit.PrintedIvaClp.Value:N0}, 19% reconstruido $ {audit.ExpectedIvaClp.Value:N0}, dif. $ {audit.IvaDifferenceClp.GetValueOrDefault():+0;-0;0}"
+                    : audit.PrintedIvaClp.HasValue
+                        ? " · IVA impreso disponible, base afecta insuficiente para reconstruir 19%"
+                        : string.Empty;
+            var adjustmentDetail =
+                Math.Abs(audit.SimpleAdjustmentClp) > 0.0001
+                    ? $" · ajuste sencillo registrado $ {audit.SimpleAdjustmentClp:+0;-0;0}"
+                    : string.Empty;
+
+            UtilityAuditStatusText.Text =
+                string.Format(
+                    _localization.GetString(
+                        "GridUtility.AuditPreviewSummary"),
+                    verified,
+                    audit.Lines.Count - verified) +
+                $" · reconstrucción monetaria explícita {audit.ReconstructionCoveragePercent:N1}%" +
+                taxDetail +
+                adjustmentDetail;
         }
         catch (Exception ex)
         {
@@ -3026,10 +3039,24 @@ public partial class MainWindow : Window
                     ? $"$ {summary.SupportedVariableRateClpPerKwh.Value:N3}/kWh"
                     : "—";
 
+            var ivaDetail =
+                summary.PrintedIvaClp.HasValue &&
+                summary.ExpectedIvaClp.HasValue
+                    ? (spanish
+                        ? $" · IVA impreso $ {summary.PrintedIvaClp.Value:N0} vs 19% reconstruido $ {summary.ExpectedIvaClp.Value:N0} (dif. $ {summary.IvaDifferenceClp.GetValueOrDefault():+0;-0;0})"
+                        : $" · printed VAT $ {summary.PrintedIvaClp.Value:N0} vs reconstructed 19% $ {summary.ExpectedIvaClp.Value:N0} (diff. $ {summary.IvaDifferenceClp.GetValueOrDefault():+0;-0;0})")
+                    : string.Empty;
+            var adjustmentDetail =
+                Math.Abs(summary.SimpleAdjustmentClp) > 0.0001
+                    ? (spanish
+                        ? $" · ajuste sencillo $ {summary.SimpleAdjustmentClp:+0;-0;0}"
+                        : $" · simple adjustment $ {summary.SimpleAdjustmentClp:+0;-0;0}")
+                    : string.Empty;
+
             UtilityBillSummaryDetailText.Text =
                 spanish
-                    ? $"Enel − inversor observado: {energyDifference} ({energyPercent}) · cobertura {summary.CoveragePercent:N2}% · tasa variable oficial soportada {rate}. La estimación monetaria recalcula sólo componentes variables sustentados y preserva los demás cargos/créditos reales."
-                    : $"Utility − observed inverter: {energyDifference} ({energyPercent}) · coverage {summary.CoveragePercent:N2}% · supported official variable rate {rate}. The monetary estimate recalculates only supported variable components and preserves all other actual charges/credits.";
+                    ? $"Enel − inversor observado: {energyDifference} ({energyPercent}) · cobertura {summary.CoveragePercent:N2}% · tasa variable oficial soportada {rate}. La estimación monetaria recalcula componentes tarifarios sustentados y preserva explícitamente los no reconstruibles; origen {summary.BillSourceKind}, revisión {summary.ReviewState}.{ivaDetail}{adjustmentDetail}"
+                    : $"Utility − observed inverter: {energyDifference} ({energyPercent}) · coverage {summary.CoveragePercent:N2}% · supported official variable rate {rate}. The monetary estimate reconstructs supported tariff components and explicitly preserves non-reconstructable items; source {summary.BillSourceKind}, review {summary.ReviewState}.{ivaDetail}{adjustmentDetail}";
 
             if (!summary.TariffAnalysis.HasTariffModel)
             {
@@ -3083,7 +3110,7 @@ public partial class MainWindow : Window
     }
 
     private string FormatAuditCalculationBasis(
-        BillLineTariffVerification item)
+        UtilityBillLineAuditV2 item)
     {
         if (!item.CalculationQuantity.HasValue)
         {
@@ -3189,6 +3216,15 @@ public partial class MainWindow : Window
             "ACTUAL_ONLY_UNMAPPED" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.ActualOnly"),
+            "VAT_RECONSTRUCTED_19" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.Vat19"),
+            "VAT_BASE_MISSING" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.VatBaseMissing"),
+            "PRINTED_SIMPLE_ADJUSTMENT" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.SimpleAdjustment"),
             "ACTUAL_ONLY_NO_UNIT_RATE" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.NoRate"),
@@ -4411,6 +4447,7 @@ public partial class MainWindow : Window
         string CalculationBasis,
         string Status,
         string Source,
+        string Evidence,
         string Reconstructed,
         string Difference);
 
