@@ -1831,6 +1831,494 @@ try
     }
 
 
+    // Phase 10 closure: mixed fixed + variable Administration service.
+    // Official BT1 structure represented by the normalized fixture:
+    // fixed monthly charge + public-service rate × kWh; FET is zero <=350 kWh.
+    const double smokeAdminBilledKwh = 10.0;
+    const double smokeAdminObservedKwh = 8.0;
+    const double smokeAdminFixedConsumer = 709.540;
+    const double smokeAdminPublicServiceRate = 0.855;
+    const double smokeAdminElectricityRate = 176.2788;
+
+    var adminBillStart =
+        new DateTimeOffset(
+            2026, 1, 10, 0, 0, 0,
+            TimeSpan.FromHours(-3))
+        .ToUniversalTime();
+    var adminBillEnd =
+        new DateTimeOffset(
+            2026, 1, 20, 0, 0, 0,
+            TimeSpan.FromHours(-3))
+        .ToUniversalTime();
+
+    var adminActualAmount =
+        smokeAdminFixedConsumer +
+        smokeAdminBilledKwh *
+        smokeAdminPublicServiceRate;
+    var adminElectricityAmount =
+        smokeAdminBilledKwh *
+        smokeAdminElectricityRate;
+
+    var adminBillId = utilityRepository.AddBill(
+        adminBillStart,
+        adminBillEnd,
+        smokeAdminBilledKwh,
+        adminActualAmount + adminElectricityAmount,
+        "PHASE10-ADMIN-SMOKE",
+        "Fixed plus public-service reconstruction",
+        tariffPlan: "BT1-T1",
+        totalDueClp:
+            adminActualAmount +
+            adminElectricityAmount,
+        periodPrecision:
+            UtilityTimePrecision.DateOnly);
+
+    utilityRepository.AddBillLine(
+        adminBillId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad consumida",
+        adminElectricityAmount,
+        categoryKey:
+            UtilityBillLineCategory.ElectricityConsumed,
+        sortOrder: 10);
+
+    var adminLineId = utilityRepository.AddBillLine(
+        adminBillId,
+        "SERVICIO_ELECTRICO",
+        "Administración del servicio",
+        adminActualAmount,
+        categoryKey:
+            UtilityBillLineCategory.ServiceAdministration,
+        sortOrder: 20);
+
+    var adminAnalysis =
+        new UtilityBillTariffScenarioAnalysisService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver)
+        .Analyze(
+            adminBillId,
+            "America/Santiago",
+            UtilityGridImportStatisticalCompletion
+                .Insufficient(
+                    smokeAdminObservedKwh,
+                    100.0,
+                    0,
+                    0,
+                    "PHASE10-ADMIN-SMOKE"));
+
+    var adminComponent =
+        adminAnalysis.Components.SingleOrDefault(item =>
+            item.ComponentKey ==
+            UtilityBillLineCategory.ServiceAdministration);
+    var adminObservedScenario =
+        adminAnalysis.Scenarios.Single(item =>
+            item.Key == "SOLAR_OBSERVED");
+
+    var expectedAdminObservedSubtotal =
+        smokeAdminFixedConsumer +
+        smokeAdminObservedKwh *
+        (smokeAdminElectricityRate +
+         smokeAdminPublicServiceRate);
+
+    if (!adminAnalysis.HasTariffModel ||
+        adminComponent is null ||
+        Math.Abs(
+            adminComponent.FixedAmountClp -
+            smokeAdminFixedConsumer) > 0.0001 ||
+        Math.Abs(
+            adminComponent.RateClpPerKwh -
+            smokeAdminPublicServiceRate) > 0.000001 ||
+        Math.Abs(
+            adminComponent.ReconstructedAmountClp -
+            adminActualAmount) > 0.001 ||
+        string.IsNullOrWhiteSpace(
+            adminComponent.CalculationBasis) ||
+        !adminComponent.CalculationBasis.Contains(
+            "FET 0",
+            StringComparison.Ordinal) ||
+        adminAnalysis.SupportedFixedAmountClp is null ||
+        Math.Abs(
+            adminAnalysis.SupportedFixedAmountClp.Value -
+            smokeAdminFixedConsumer) > 0.0001 ||
+        Math.Abs(
+            adminObservedScenario.SupportedTariffSubtotalClp -
+            expectedAdminObservedSubtotal) > 0.001)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 administration-service reconstruction smoke test failed.");
+    }
+
+    var adminAudit =
+        new UtilityBillAuditV2Service(
+            utilityRepository,
+            rateVerification,
+            new UtilityBillTariffScenarioAnalysisService(
+                utilityRepository,
+                tariffRepository,
+                candidateRepository,
+                versionResolver))
+        .Analyze(
+            adminBillId,
+            "America/Santiago");
+
+    var adminAuditLine =
+        adminAudit.Lines.Single(item =>
+            item.BillLineId == adminLineId);
+
+    if (!adminAuditLine.ReconstructedAmountClp.HasValue ||
+        Math.Abs(
+            adminAuditLine.ReconstructedAmountClp.Value -
+            adminActualAmount) > 0.001 ||
+        string.IsNullOrWhiteSpace(
+            adminAuditLine.CalculationDetail) ||
+        !adminAuditLine.CalculationDetail.Contains(
+            "fijo",
+            StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException(
+            "Phase 10 administration audit-basis smoke test failed.");
+    }
+
+    // Phase 10 closure: a single bill crosses two effective tariff
+    // publications with genuinely different electricity/public-service rates.
+    var mayFixture =
+        tariffPageFixture;
+    var juneFixture =
+        tariffPageFixture
+            .Replace(
+                "0,855 0,000 0,855 0,000",
+                "0,955 0,000 0,955 0,000",
+                StringComparison.Ordinal)
+            .Replace(
+                "131,039 155,936 131,039 155,936",
+                "141,039 155,936 141,039 155,936",
+                StringComparison.Ordinal)
+            .Replace(
+                "176,2788 209,772 176,2788 209,772",
+                "186,2788 209,772 186,2788 209,772",
+                StringComparison.Ordinal);
+
+    var mayPublicationId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "ENEL_DISTRIBUCION_CHILE",
+                "SUPPLY_REGULATED",
+                "Smoke Tarifas Mayo 2026",
+                "https://example.invalid/enel-may-2026.pdf",
+                new DateOnly(2026, 5, 1),
+                false));
+    tariffRepository.MarkCaptured(
+        mayPublicationId,
+        Path.Combine(
+            paths.TariffDirectory,
+            "smoke-may.pdf"),
+        "may-phase10",
+        1234,
+        1,
+        [mayFixture]);
+    tariffNormalizer.NormalizePublication(
+        mayPublicationId,
+        tariffRepository.GetPageTexts(
+            mayPublicationId));
+
+    var junePublicationId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "ENEL_DISTRIBUCION_CHILE",
+                "SUPPLY_REGULATED",
+                "Smoke Tarifas Junio 2026",
+                "https://example.invalid/enel-june-2026.pdf",
+                new DateOnly(2026, 6, 1),
+                false));
+    tariffRepository.MarkCaptured(
+        junePublicationId,
+        Path.Combine(
+            paths.TariffDirectory,
+            "smoke-june.pdf"),
+        "june-phase10",
+        1234,
+        1,
+        [juneFixture]);
+    tariffNormalizer.NormalizePublication(
+        junePublicationId,
+        tariffRepository.GetPageTexts(
+            junePublicationId));
+
+    const double multiBilledKwh = 100.0;
+    const double multiObservedKwh = 80.0;
+    const double mayElectricityRate = 176.2788;
+    const double juneElectricityRate = 186.2788;
+    const double mayServiceRate = 0.855;
+    const double juneServiceRate = 0.955;
+    const int mayDays = 12;
+    const int juneDays = 10;
+    const int multiDays = mayDays + juneDays;
+
+    var multiElectricityRate =
+        (mayElectricityRate * mayDays +
+         juneElectricityRate * juneDays) /
+        multiDays;
+    var multiServiceRate =
+        (mayServiceRate * mayDays +
+         juneServiceRate * juneDays) /
+        multiDays;
+
+    var multiElectricityAmount =
+        multiBilledKwh *
+        multiElectricityRate;
+    var multiAdminAmount =
+        smokeAdminFixedConsumer +
+        multiBilledKwh *
+        multiServiceRate;
+
+    var multiBillId =
+        utilityRepository.AddBill(
+            new DateTimeOffset(
+                2026, 5, 20, 0, 0, 0,
+                TimeSpan.FromHours(-4))
+                .ToUniversalTime(),
+            new DateTimeOffset(
+                2026, 6, 10, 0, 0, 0,
+                TimeSpan.FromHours(-4))
+                .ToUniversalTime(),
+            multiBilledKwh,
+            multiElectricityAmount +
+            multiAdminAmount,
+            "PHASE10-MULTI-PERIOD",
+            "Two tariff periods in one bill",
+            tariffPlan: "BT1-T1",
+            totalDueClp:
+                multiElectricityAmount +
+                multiAdminAmount,
+            periodPrecision:
+                UtilityTimePrecision.DateOnly);
+
+    utilityRepository.AddBillLine(
+        multiBillId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad consumida",
+        multiElectricityAmount,
+        categoryKey:
+            UtilityBillLineCategory.ElectricityConsumed,
+        sortOrder: 10);
+    utilityRepository.AddBillLine(
+        multiBillId,
+        "SERVICIO_ELECTRICO",
+        "Administración del servicio",
+        multiAdminAmount,
+        categoryKey:
+            UtilityBillLineCategory.ServiceAdministration,
+        sortOrder: 20);
+
+    var multiAnalysis =
+        new UtilityBillTariffScenarioAnalysisService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver)
+        .Analyze(
+            multiBillId,
+            "America/Santiago",
+            UtilityGridImportStatisticalCompletion
+                .Insufficient(
+                    multiObservedKwh,
+                    100.0,
+                    0,
+                    0,
+                    "PHASE10-MULTI-PERIOD"));
+
+    var multiAdmin =
+        multiAnalysis.Components.SingleOrDefault(item =>
+            item.ComponentKey ==
+            UtilityBillLineCategory.ServiceAdministration);
+    var multiObserved =
+        multiAnalysis.Scenarios.Single(item =>
+            item.Key == "SOLAR_OBSERVED");
+    var expectedMultiObserved =
+        smokeAdminFixedConsumer +
+        multiObservedKwh *
+        (multiElectricityRate +
+         multiServiceRate);
+
+    if (!multiAnalysis.HasTariffModel ||
+        multiAnalysis.Status !=
+            "SUPPORTED_MULTI_PERIOD_COMPONENT_MODEL" ||
+        multiAnalysis.PublicationPeriods.Count != 2 ||
+        multiAnalysis.PublicationPeriods[0].PublicationId !=
+            mayPublicationId ||
+        multiAnalysis.PublicationPeriods[1].PublicationId !=
+            junePublicationId ||
+        multiAdmin is null ||
+        Math.Abs(
+            multiAdmin.FixedAmountClp -
+            smokeAdminFixedConsumer) > 0.0001 ||
+        Math.Abs(
+            multiAdmin.RateClpPerKwh -
+            multiServiceRate) > 0.000001 ||
+        multiAdmin.PublicationIds.Count != 2 ||
+        string.IsNullOrWhiteSpace(
+            multiAdmin.RateBasis) ||
+        !multiAdmin.RateBasis.Contains(
+            "2026-06-01",
+            StringComparison.Ordinal) ||
+        Math.Abs(
+            multiObserved.SupportedTariffSubtotalClp -
+            expectedMultiObserved) > 0.001)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 multi-period tariff reconstruction smoke test failed.");
+    }
+
+    // Phase 10 closure: when two normalized Enel versions share an effective
+    // date, a retroactive replacement must be the publication used by the
+    // product reconstruction rather than the superseded original.
+    var julyOriginalFixture =
+        tariffPageFixture
+            .Replace(
+                "131,039 155,936 131,039 155,936",
+                "151,039 155,936 151,039 155,936",
+                StringComparison.Ordinal)
+            .Replace(
+                "176,2788 209,772 176,2788 209,772",
+                "196,2788 209,772 196,2788 209,772",
+                StringComparison.Ordinal);
+    var julyRetroFixture =
+        tariffPageFixture
+            .Replace(
+                "131,039 155,936 131,039 155,936",
+                "161,039 155,936 161,039 155,936",
+                StringComparison.Ordinal)
+            .Replace(
+                "176,2788 209,772 176,2788 209,772",
+                "206,2788 209,772 206,2788 209,772",
+                StringComparison.Ordinal);
+
+    var julyOriginalId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "ENEL_DISTRIBUCION_CHILE",
+                "SUPPLY_REGULATED",
+                "Smoke Julio 2026 original",
+                "https://example.invalid/enel-july-original.pdf",
+                new DateOnly(2026, 7, 1),
+                false));
+    tariffRepository.MarkCaptured(
+        julyOriginalId,
+        Path.Combine(
+            paths.TariffDirectory,
+            "smoke-july-original.pdf"),
+        "july-original",
+        1234,
+        1,
+        [julyOriginalFixture]);
+    tariffNormalizer.NormalizePublication(
+        julyOriginalId,
+        tariffRepository.GetPageTexts(
+            julyOriginalId));
+
+    var julyRetroId =
+        tariffRepository.UpsertDiscovery(
+            new TariffPublicationDiscovery(
+                "ENEL_DISTRIBUCION_CHILE",
+                "SUPPLY_REGULATED",
+                "Smoke Julio 2026 retroactivo",
+                "https://example.invalid/enel-july-retro.pdf",
+                new DateOnly(2026, 7, 1),
+                true));
+    tariffRepository.MarkCaptured(
+        julyRetroId,
+        Path.Combine(
+            paths.TariffDirectory,
+            "smoke-july-retro.pdf"),
+        "july-retro",
+        1234,
+        1,
+        [julyRetroFixture]);
+    tariffNormalizer.NormalizePublication(
+        julyRetroId,
+        tariffRepository.GetPageTexts(
+            julyRetroId));
+
+    const double retroBilledKwh = 50.0;
+    const double retroObservedKwh = 40.0;
+    const double retroElectricityRate = 206.2788;
+    var retroElectricityAmount =
+        retroBilledKwh *
+        retroElectricityRate;
+
+    var retroBillId =
+        utilityRepository.AddBill(
+            new DateTimeOffset(
+                2026, 7, 10, 0, 0, 0,
+                TimeSpan.FromHours(-4))
+                .ToUniversalTime(),
+            new DateTimeOffset(
+                2026, 7, 20, 0, 0, 0,
+                TimeSpan.FromHours(-4))
+                .ToUniversalTime(),
+            retroBilledKwh,
+            retroElectricityAmount,
+            "PHASE10-RETROACTIVE",
+            "Retroactive tariff version precedence",
+            tariffPlan: "BT1-T1",
+            totalDueClp:
+                retroElectricityAmount,
+            periodPrecision:
+                UtilityTimePrecision.DateOnly);
+
+    utilityRepository.AddBillLine(
+        retroBillId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad consumida",
+        retroElectricityAmount,
+        categoryKey:
+            UtilityBillLineCategory.ElectricityConsumed,
+        sortOrder: 10);
+
+    var retroAnalysis =
+        new UtilityBillTariffScenarioAnalysisService(
+            utilityRepository,
+            tariffRepository,
+            candidateRepository,
+            versionResolver)
+        .Analyze(
+            retroBillId,
+            "America/Santiago",
+            UtilityGridImportStatisticalCompletion
+                .Insufficient(
+                    retroObservedKwh,
+                    100.0,
+                    0,
+                    0,
+                    "PHASE10-RETROACTIVE"));
+
+    var retroElectricity =
+        retroAnalysis.Components.Single(item =>
+            item.ComponentKey ==
+            UtilityBillLineCategory.ElectricityConsumed);
+
+    if (!retroAnalysis.HasTariffModel ||
+        retroAnalysis.PublicationPeriods.Count != 1 ||
+        retroAnalysis.PublicationPeriods[0].PublicationId !=
+            julyRetroId ||
+        !retroAnalysis.PublicationPeriods[0].IsRetroactive ||
+        retroElectricity.PublicationId !=
+            julyRetroId ||
+        !retroElectricity.IsRetroactive ||
+        Math.Abs(
+            retroElectricity.RateClpPerKwh -
+            retroElectricityRate) > 0.000001 ||
+        retroAnalysis.PublicationPeriods.Any(item =>
+            item.PublicationId ==
+            julyOriginalId))
+    {
+        throw new InvalidOperationException(
+            "Phase 10 retroactive tariff reconstruction smoke test failed.");
+    }
+
+
     var dateOnlyGap =
         new UtilityBillGapStatisticalCompletionService(
             database)
