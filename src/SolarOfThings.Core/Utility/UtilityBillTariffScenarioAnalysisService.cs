@@ -57,16 +57,14 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         var lines = _utilityRepository.GetBillLines(
             billId);
 
-        var electricity = lines.FirstOrDefault(item =>
-            IsComponent(
-                item,
-                "ELECTRICITY_CONSUMED",
-                "ELECTRICIDAD CONSUMIDA"));
-        var transport = lines.FirstOrDefault(item =>
-            IsComponent(
-                item,
-                "ELECTRICITY_TRANSPORT",
-                "TRANSPORTE"));
+        var electricity = FindComponent(
+            lines,
+            "ELECTRICITY_CONSUMED",
+            "ELECTRICIDAD CONSUMIDA");
+        var transport = FindComponent(
+            lines,
+            "ELECTRICITY_TRANSPORT",
+            "TRANSPORTE");
 
         if (electricity is null)
         {
@@ -1155,6 +1153,25 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         }
 
         return selected;
+    }
+
+    private static UtilityBillLine? FindComponent(
+        IReadOnlyList<UtilityBillLine> lines,
+        string categoryKey,
+        string descriptionToken)
+    {
+        var explicitMatch = lines.FirstOrDefault(item =>
+            string.Equals(
+                item.CategoryKey,
+                categoryKey,
+                StringComparison.OrdinalIgnoreCase));
+
+        return explicitMatch ??
+               lines.FirstOrDefault(item =>
+                   IsComponent(
+                       item,
+                       categoryKey,
+                       descriptionToken));
     }
 
     private static bool IsComponent(
