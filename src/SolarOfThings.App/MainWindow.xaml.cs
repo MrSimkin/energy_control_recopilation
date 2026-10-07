@@ -3055,30 +3055,58 @@ public partial class MainWindow : Window
                             : "VAT not recorded on the bill"
                 };
 
-            UtilityAuditBalanceText.Text =
+            var summaryBalance =
+                audit.SummaryBalanceStatus switch
+                {
+                    "SUMMARY_BALANCED" =>
+                        spanish
+                            ? "Resumen impreso: OK"
+                            : "Printed summary: OK",
+                    "SUMMARY_GROSS_DIFFERENCE" =>
+                        spanish
+                            ? $"Resumen: Total boleta difiere $ {audit.GrossBillDifferenceClp.GetValueOrDefault():+0;-0;0}"
+                            : $"Summary: gross bill differs $ {audit.GrossBillDifferenceClp.GetValueOrDefault():+0;-0;0}",
+                    "SUMMARY_TOTAL_DIFFERENCE" =>
+                        spanish
+                            ? $"Resumen: Total a pagar difiere $ {audit.SummaryTotalDifferenceClp.GetValueOrDefault():+0;-0;0}"
+                            : $"Summary: total due differs $ {audit.SummaryTotalDifferenceClp.GetValueOrDefault():+0;-0;0}",
+                    _ =>
+                        spanish
+                            ? "Resumen impreso: datos incompletos"
+                            : "Printed summary: incomplete data"
+                };
+
+            var detailBalance =
                 audit.BalanceStatus switch
                 {
                     "BALANCED" =>
                         Math.Abs(audit.SimpleAdjustmentClp) > 0.0001
                             ? spanish
-                                ? $"Cuadra · ajuste impreso $ {audit.SimpleAdjustmentClp:+0;-0;0}"
-                                : $"Balanced · printed adjustment $ {audit.SimpleAdjustmentClp:+0;-0;0}"
+                                ? $"Detalle: cuadra · ajuste impreso $ {audit.SimpleAdjustmentClp:+0;-0;0}"
+                                : $"Detail: balanced · printed adjustment $ {audit.SimpleAdjustmentClp:+0;-0;0}"
                             : spanish
-                                ? "Cuadra sin residuo"
-                                : "Balanced with no residual",
+                                ? "Detalle: cuadra sin residuo"
+                                : "Detail: balanced with no residual",
                     "SMALL_UNEXPLAINED_RESIDUAL" =>
-                        spanish
-                            ? $"Revisar residuo pequeño $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}"
-                            : $"Review small residual $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
+                        audit.UnexplainedResidualClp.GetValueOrDefault() < 0
+                            ? spanish
+                                ? $"Detalle: excede el total por $ {Math.Abs(audit.UnexplainedResidualClp.GetValueOrDefault()):N0} · sin ajuste impreso"
+                                : $"Detail: exceeds total by $ {Math.Abs(audit.UnexplainedResidualClp.GetValueOrDefault()):N0} · no printed adjustment"
+                            : spanish
+                                ? $"Detalle: faltan $ {audit.UnexplainedResidualClp.GetValueOrDefault():N0} · sin ajuste impreso"
+                                : $"Detail: short by $ {audit.UnexplainedResidualClp.GetValueOrDefault():N0} · no printed adjustment",
                     "MATERIAL_UNEXPLAINED_DIFFERENCE" =>
                         spanish
-                            ? $"Diferencia no explicada $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}"
-                            : $"Unexplained difference $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
+                            ? $"Detalle: diferencia no explicada $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}"
+                            : $"Detail: unexplained difference $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
                     _ =>
                         spanish
-                            ? "Total insuficiente para cuadratura"
-                            : "Insufficient total for balance check"
+                            ? "Detalle: total insuficiente para cuadratura"
+                            : "Detail: insufficient total for balance check"
                 };
+
+            UtilityAuditBalanceText.Text =
+                $"{summaryBalance} · {detailBalance}";
 
             UtilityAuditStatusText.Text =
                 string.Format(
