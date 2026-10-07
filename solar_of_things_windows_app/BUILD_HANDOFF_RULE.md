@@ -12,6 +12,11 @@ When a build is ready for the user to test, the assistant must provide, in this 
    - Attach or expose the downloadable build artifact directly in the conversation whenever the available tools allow it.
    - Do not make the user navigate to the GitHub repository, Actions page, run page or artifact list just to obtain a build that the assistant has asked them to test.
    - The build number, artifact ID, commit and checksum may also be shown for traceability, but they do not replace the direct download.
+   - The user-facing download link/file name must follow the canonical convention:
+     `SolarEnergyMonitor-Build-XXX-win-x64.zip`
+     where `XXX` is the Windows Build number.
+   - This naming convention remains active until the owner explicitly changes it or there is a documented technical reason to adopt a new convention.
+   - If the underlying GitHub Actions artifact has a different internal name, the handoff must still expose/download it to the user using the canonical filename whenever tooling permits.
 
 2. **Short identification**
    - Build number.
