@@ -4117,7 +4117,16 @@ public partial class MainWindow : Window
             double tolerance = 0.0005)
         {
             if (!value.HasValue)
+            {
+                repository.UpsertBillFieldEvidence(
+                    billId,
+                    key,
+                    UtilityBillSourceKind.Manual,
+                    UtilityBillEvidenceState.NotProvided,
+                    null,
+                    null);
                 return;
+            }
 
             var matched =
                 pdfValue.HasValue &&
@@ -4186,6 +4195,16 @@ public partial class MainWindow : Window
                 tariffPlan.Trim(),
                 tariffPlan.Trim().ToUpperInvariant());
         }
+        else
+        {
+            repository.UpsertBillFieldEvidence(
+                billId,
+                "tariff_plan",
+                UtilityBillSourceKind.Manual,
+                UtilityBillEvidenceState.NotProvided,
+                null,
+                null);
+        }
 
         repository.UpsertBillFieldEvidence(
             billId,
@@ -4244,7 +4263,7 @@ public partial class MainWindow : Window
                 sourceKind:
                     UtilityBillSourceKind.PdfReviewed,
                 evidenceState:
-                    UtilityBillEvidenceState.PdfExtractedReviewRequired,
+                    UtilityBillEvidenceState.PdfExtractedConfirmed,
                 sourcePage: draftLine.SourcePage,
                 sourceText: draftLine.SourceText);
             nextSortOrder += 10;
@@ -4850,6 +4869,8 @@ public partial class MainWindow : Window
                 spanish ? "No impreso" : "Not printed",
             UtilityBillEvidenceState.Derived =>
                 spanish ? "Derivado" : "Derived",
+            UtilityBillEvidenceState.NotProvided =>
+                spanish ? "Sin dato ingresado" : "No value entered",
             UtilityBillEvidenceState.LegacyUnreviewed =>
                 spanish ? "Legacy · revisar" : "Legacy · review",
             _ => evidenceState + page
@@ -4888,6 +4909,10 @@ public partial class MainWindow : Window
             .Replace(
                 UtilityBillEvidenceState.UserEntered,
                 spanish ? "Ingresado por usuario" : "User entered",
+                StringComparison.Ordinal)
+            .Replace(
+                UtilityBillEvidenceState.NotProvided,
+                spanish ? "Sin dato ingresado" : "No value entered",
                 StringComparison.Ordinal)
             .Replace(
                 UtilityBillEvidenceState.LegacyUnreviewed,

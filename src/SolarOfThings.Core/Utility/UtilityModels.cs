@@ -41,6 +41,7 @@ public static class UtilityBillEvidenceState
     public const string PdfExtractedReviewRequired = "PDF_EXTRACTED_REVIEW_REQUIRED";
     public const string NotPrinted = "NOT_PRINTED";
     public const string Derived = "DERIVED";
+    public const string NotProvided = "NOT_PROVIDED";
     public const string LegacyUnreviewed = "LEGACY_UNREVIEWED";
 }
 
