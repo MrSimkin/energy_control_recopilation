@@ -4591,6 +4591,246 @@ public partial class MainWindow : Window
                 b.Contains(a, StringComparison.Ordinal));
     }
 
+    private void UtilityBillPrintedFacts_TextChanged(
+        object sender,
+        TextChangedEventArgs e)
+    {
+        if (!IsInitialized ||
+            UtilityBillConsumptionCheckText is null ||
+            UtilityBillFinancialCheckText is null)
+        {
+            return;
+        }
+
+        RefreshUtilityBillPrintedFactsChecks();
+    }
+
+    private void RefreshUtilityBillPrintedFactsChecks()
+    {
+        if (UtilityBillConsumptionCheckText is null ||
+            UtilityBillFinancialCheckText is null)
+        {
+            return;
+        }
+
+        var spanish =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase);
+
+        static double? ReadValue(TextBox box)
+        {
+            if (string.IsNullOrWhiteSpace(box.Text))
+                return null;
+
+            return TryParseNumber(
+                    box.Text,
+                    out var value) &&
+                   double.IsFinite(value)
+                ? value
+                : double.NaN;
+        }
+
+        var meterStart =
+            ReadValue(UtilityBillMeterStartTextBox);
+        var meterEnd =
+            ReadValue(UtilityBillMeterEndTextBox);
+        var billedKwh =
+            ReadValue(UtilityBillKwhTextBox);
+
+        if ((meterStart.HasValue && double.IsNaN(meterStart.Value)) ||
+            (meterEnd.HasValue && double.IsNaN(meterEnd.Value)) ||
+            (billedKwh.HasValue && double.IsNaN(billedKwh.Value)))
+        {
+            UtilityBillConsumptionCheckText.Text =
+                spanish
+                    ? "Revisa las lecturas o el consumo: hay un valor numérico no válido."
+                    : "Review readings or consumption: a numeric value is invalid.";
+        }
+        else if (meterStart.HasValue &&
+                 meterEnd.HasValue)
+        {
+            var derived =
+                meterEnd.Value -
+                meterStart.Value;
+
+            if (derived < -0.0005)
+            {
+                UtilityBillConsumptionCheckText.Text =
+                    spanish
+                        ? "Revisar: la lectura actual es menor que la lectura anterior."
+                        : "Review: current reading is lower than previous reading.";
+            }
+            else if (billedKwh.HasValue)
+            {
+                var difference =
+                    billedKwh.Value -
+                    derived;
+                UtilityBillConsumptionCheckText.Text =
+                    Math.Abs(difference) <= 0.01
+                        ? (spanish
+                            ? $"OK · {meterStart.Value:N3} → {meterEnd.Value:N3} = {derived:N3} kWh; coincide con el consumo impreso."
+                            : $"OK · {meterStart.Value:N3} → {meterEnd.Value:N3} = {derived:N3} kWh; matches printed consumption.")
+                        : (spanish
+                            ? $"Revisar · lecturas = {derived:N3} kWh; consumo impreso = {billedKwh.Value:N3} kWh; diferencia {difference:+0.###;-0.###;0} kWh."
+                            : $"Review · readings = {derived:N3} kWh; printed consumption = {billedKwh.Value:N3} kWh; difference {difference:+0.###;-0.###;0} kWh.");
+            }
+            else
+            {
+                UtilityBillConsumptionCheckText.Text =
+                    spanish
+                        ? $"Las lecturas implican {derived:N3} kWh. Si la boleta no imprime otro consumo, éste se usará al guardar."
+                        : $"The readings imply {derived:N3} kWh. If the bill prints no separate consumption, this value will be used when saving.";
+            }
+        }
+        else if (billedKwh.HasValue)
+        {
+            UtilityBillConsumptionCheckText.Text =
+                spanish
+                    ? $"Consumo impreso: {billedKwh.Value:N3} kWh. Sin ambas lecturas no hay control cruzado."
+                    : $"Printed consumption: {billedKwh.Value:N3} kWh. Both readings are needed for a cross-check.";
+        }
+        else
+        {
+            UtilityBillConsumptionCheckText.Text =
+                _localization.GetString(
+                    "GridUtility.BillConsumptionCheckIdle");
+        }
+
+        var taxable =
+            ReadValue(UtilityBillTaxableTextBox);
+        var iva =
+            ReadValue(UtilityBillIvaTextBox);
+        var exempt =
+            ReadValue(UtilityBillExemptTextBox);
+        var gross =
+            ReadValue(UtilityBillGrossTextBox);
+        var other =
+            ReadValue(UtilityBillOtherChargesTextBox);
+        var previous =
+            ReadValue(UtilityBillPreviousBalanceTextBox);
+        var total =
+            ReadValue(UtilityBillTotalDueTextBox);
+
+        var financialValues =
+            new[]
+            {
+                taxable,
+                iva,
+                exempt,
+                gross,
+                other,
+                previous,
+                total
+            };
+
+        if (financialValues.Any(value =>
+                value.HasValue &&
+                double.IsNaN(value.Value)))
+        {
+            UtilityBillFinancialCheckText.Text =
+                spanish
+                    ? "Revisa el resumen: hay un monto no válido."
+                    : "Review the summary: an amount is invalid.";
+            return;
+        }
+
+        var parts =
+            new List<string>();
+
+        if (taxable.HasValue &&
+            iva.HasValue)
+        {
+            var expectedIva =
+                Math.Round(
+                    taxable.Value * 0.19,
+                    0,
+                    MidpointRounding.AwayFromZero);
+            var ivaDifference =
+                iva.Value -
+                expectedIva;
+
+            parts.Add(
+                Math.Abs(ivaDifference) <= 1
+                    ? (spanish
+                        ? $"IVA OK: 19% de $ {taxable.Value:N0} ≈ $ {expectedIva:N0}"
+                        : $"VAT OK: 19% of $ {taxable.Value:N0} ≈ $ {expectedIva:N0}")
+                    : (spanish
+                        ? $"IVA a revisar: impreso $ {iva.Value:N0}, 19% calculado $ {expectedIva:N0}"
+                        : $"VAT review: printed $ {iva.Value:N0}, calculated 19% $ {expectedIva:N0}"));
+        }
+
+        if (taxable.HasValue &&
+            iva.HasValue &&
+            exempt.HasValue)
+        {
+            var expectedGross =
+                taxable.Value +
+                iva.Value +
+                exempt.Value;
+
+            if (gross.HasValue)
+            {
+                var grossDifference =
+                    gross.Value -
+                    expectedGross;
+                parts.Add(
+                    Math.Abs(grossDifference) <= 0.5
+                        ? (spanish
+                            ? $"Total boleta OK: $ {expectedGross:N0}"
+                            : $"Gross bill OK: $ {expectedGross:N0}")
+                        : (spanish
+                            ? $"Total boleta difiere {grossDifference:+0;-0;0}: esperado $ {expectedGross:N0}, impreso $ {gross.Value:N0}"
+                            : $"Gross bill differs {grossDifference:+0;-0;0}: expected $ {expectedGross:N0}, printed $ {gross.Value:N0}"));
+            }
+            else
+            {
+                parts.Add(
+                    spanish
+                        ? $"Afecto + IVA + exento = $ {expectedGross:N0}"
+                        : $"Taxable + VAT + exempt = $ {expectedGross:N0}");
+            }
+        }
+
+        if (gross.HasValue &&
+            other.HasValue &&
+            previous.HasValue)
+        {
+            var expectedTotal =
+                gross.Value +
+                other.Value +
+                previous.Value;
+
+            if (total.HasValue)
+            {
+                var totalDifference =
+                    total.Value -
+                    expectedTotal;
+                parts.Add(
+                    Math.Abs(totalDifference) <= 0.5
+                        ? (spanish
+                            ? $"Total a pagar OK: $ {expectedTotal:N0}"
+                            : $"Total due OK: $ {expectedTotal:N0}")
+                        : (spanish
+                            ? $"Total a pagar difiere {totalDifference:+0;-0;0}: suma $ {expectedTotal:N0}, impreso $ {total.Value:N0}"
+                            : $"Total due differs {totalDifference:+0;-0;0}: sum $ {expectedTotal:N0}, printed $ {total.Value:N0}"));
+            }
+            else
+            {
+                parts.Add(
+                    spanish
+                        ? $"Total boleta + otros cargos/abonos + saldo anterior = $ {expectedTotal:N0}"
+                        : $"Gross bill + other charges/credits + previous balance = $ {expectedTotal:N0}");
+            }
+        }
+
+        UtilityBillFinancialCheckText.Text =
+            parts.Count > 0
+                ? string.Join(" · ", parts)
+                : _localization.GetString(
+                    "GridUtility.BillFinancialCheckIdle");
+    }
+
     private void UtilityNewManualBill_Click(
         object sender,
         RoutedEventArgs e)
@@ -4658,6 +4898,12 @@ public partial class MainWindow : Window
             bill.FromReadingId;
         UtilityBillToReadingSelector.SelectedValue =
             bill.ToReadingId;
+        UtilityBillMeterStartTextBox.Text =
+            FormatEditableNumber(
+                bill.MeterStartKwh);
+        UtilityBillMeterEndTextBox.Text =
+            FormatEditableNumber(
+                bill.MeterEndKwh);
         UtilityBillKwhTextBox.Text =
             FormatEditableNumber(
                 bill.BilledConsumptionKwh);
@@ -4678,6 +4924,9 @@ public partial class MainWindow : Window
         UtilityBillOtherChargesTextBox.Text =
             FormatEditableNumber(
                 bill.OtherChargesClp);
+        UtilityBillPreviousBalanceTextBox.Text =
+            FormatEditableNumber(
+                bill.PreviousBalanceClp);
         UtilityBillTotalDueTextBox.Text =
             FormatEditableNumber(
                 bill.TotalDueClp ??
@@ -4691,9 +4940,14 @@ public partial class MainWindow : Window
             "Guardar revisión";
         UtilityCancelBillReviewButton.Visibility =
             Visibility.Visible;
+        RefreshUtilityBillPrintedFactsChecks();
+
         UtilityBillStatusText.Text =
-            $"Revisando boleta #{bill.BillId} · origen {bill.SourceKind} · estado {bill.ReviewState}. " +
-            "Puedes corregirla manualmente y/o importar el PDF para contrastar y vincular evidencia.";
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase)
+                ? $"Revisando boleta #{bill.BillId}. Puedes corregir lo transcrito o importar su PDF; ambos trabajan sobre este mismo registro."
+                : $"Reviewing bill #{bill.BillId}. You can correct the transcription or import its PDF; both work on this same record.";
     }
 
     private void UtilityCancelBillReview_Click(
@@ -4711,12 +4965,15 @@ public partial class MainWindow : Window
         _editingUtilityBillLineId = null;
         ClearPendingUtilityBillPdfDraft();
 
+        UtilityBillMeterStartTextBox.Clear();
+        UtilityBillMeterEndTextBox.Clear();
         UtilityBillKwhTextBox.Clear();
         UtilityBillTaxableTextBox.Clear();
         UtilityBillIvaTextBox.Clear();
         UtilityBillExemptTextBox.Clear();
         UtilityBillGrossTextBox.Clear();
         UtilityBillOtherChargesTextBox.Clear();
+        UtilityBillPreviousBalanceTextBox.Clear();
         UtilityBillTotalDueTextBox.Clear();
         UtilityBillTariffPlanTextBox.Clear();
         UtilityBillReferenceTextBox.Clear();
@@ -4734,6 +4991,20 @@ public partial class MainWindow : Window
                 "GridUtility.AddBill");
         UtilityCancelBillReviewButton.Visibility =
             Visibility.Collapsed;
+
+        if (UtilityBillConsumptionCheckText is not null)
+        {
+            UtilityBillConsumptionCheckText.Text =
+                _localization.GetString(
+                    "GridUtility.BillConsumptionCheckIdle");
+        }
+        if (UtilityBillFinancialCheckText is not null)
+        {
+            UtilityBillFinancialCheckText.Text =
+                _localization.GetString(
+                    "GridUtility.BillFinancialCheckIdle");
+        }
+
         ClearUtilityBillLineEditor();
     }
 
@@ -4951,7 +5222,7 @@ public partial class MainWindow : Window
 
             case "SERVICE_ADMINISTRATION":
                 UtilityBillLineSectionSelector.SelectedValue =
-                    "OTROS_CARGOS";
+                    "SERVICIO_ELECTRICO";
                 UtilityBillLineDescriptionTextBox.Text =
                     _localization.GetString(
                         "GridUtility.BillType.ServiceAdministration");
@@ -4959,7 +5230,7 @@ public partial class MainWindow : Window
 
             case "METER_RENTAL":
                 UtilityBillLineSectionSelector.SelectedValue =
-                    "OTROS_CARGOS";
+                    "SERVICIO_ELECTRICO";
                 UtilityBillLineDescriptionTextBox.Text =
                     _localization.GetString(
                         "GridUtility.BillType.MeterRental");
@@ -4967,7 +5238,7 @@ public partial class MainWindow : Window
 
             case "COMMON_SERVICE":
                 UtilityBillLineSectionSelector.SelectedValue =
-                    "OTROS_CARGOS";
+                    "SERVICIO_ELECTRICO";
                 UtilityBillLineDescriptionTextBox.Text =
                     _localization.GetString(
                         "GridUtility.BillType.CommonService");
@@ -5078,7 +5349,10 @@ public partial class MainWindow : Window
 
             ClearUtilityBillLineEditor();
             RefreshSelectedBillLines();
-            RefreshUtilityAuditPreview();
+            if (UtilityAuditVerificationGrid?.IsVisible == true)
+            {
+                RefreshUtilityAuditPreview();
+            }
         }
         catch (Exception ex)
         {
