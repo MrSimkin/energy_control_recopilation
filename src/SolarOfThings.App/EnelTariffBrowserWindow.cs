@@ -128,7 +128,20 @@ public sealed class EnelTariffBrowserWindow : Window
         refreshButton.Click += (_, _) =>
             _browser.Reload();
 
+        var backButton = new Button
+        {
+            Content = "Atrás",
+            Padding = new Thickness(12, 6, 12, 6),
+            Margin = new Thickness(8, 0, 0, 0)
+        };
+        backButton.Click += (_, _) =>
+        {
+            if (_browser.CanGoBack)
+                _browser.GoBack();
+        };
+
         buttonPanel.Children.Add(homeButton);
+        buttonPanel.Children.Add(backButton);
         buttonPanel.Children.Add(refreshButton);
         DockPanel.SetDock(buttonPanel, Dock.Left);
         actions.Children.Add(buttonPanel);
@@ -203,6 +216,10 @@ public sealed class EnelTariffBrowserWindow : Window
                 .AreDevToolsEnabled = false;
             _browser.CoreWebView2.DownloadStarting +=
                 CoreWebView2_DownloadStarting;
+            _browser.CoreWebView2.NewWindowRequested +=
+                CoreWebView2_NewWindowRequested;
+            _browser.CoreWebView2.NavigationStarting +=
+                CoreWebView2_NavigationStarting;
             _browser.CoreWebView2.NavigationCompleted +=
                 (_, args) =>
                 {
@@ -244,6 +261,51 @@ public sealed class EnelTariffBrowserWindow : Window
         _browser.CoreWebView2.Navigate(
             EnelTariffCaptureService
                 .OfficialArchiveUrl);
+    }
+
+    private void CoreWebView2_NewWindowRequested(
+        object? sender,
+        CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        if (!Uri.TryCreate(
+                e.Uri,
+                UriKind.Absolute,
+                out var uri) ||
+            !IsOfficialEnelNavigation(uri))
+        {
+            return;
+        }
+
+        // Enel often opens tariff PDFs with target=_blank. If that request is
+        // allowed to escape to external Edge, the subsequent PDF-viewer
+        // download belongs to Edge and this app can no longer observe/import
+        // it. Keep official Enel navigation inside this WebView2 session.
+        e.Handled = true;
+        _statusText.Text =
+            "Abriendo publicación oficial dentro del navegador integrado…";
+        _browser.CoreWebView2.Navigate(
+            uri.AbsoluteUri);
+    }
+
+    private void CoreWebView2_NavigationStarting(
+        object? sender,
+        CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (!Uri.TryCreate(
+                e.Uri,
+                UriKind.Absolute,
+                out var uri))
+        {
+            return;
+        }
+
+        if (IsOfficialTariffPdfUri(uri))
+        {
+            _statusText.Text =
+                "PDF oficial abierto dentro del navegador integrado. " +
+                "Usa el icono Descargar del visor PDF; la app interceptará " +
+                "esa descarga y la importará automáticamente.";
+        }
     }
 
     private void CoreWebView2_DownloadStarting(
@@ -381,6 +443,36 @@ public sealed class EnelTariffBrowserWindow : Window
                     " | ",
                     result.Messages)
                 : "La descarga terminó, pero el PDF no pudo importarse.";
+    }
+
+    private static bool IsOfficialEnelNavigation(
+        Uri uri) =>
+        (uri.Scheme.Equals(
+             Uri.UriSchemeHttps,
+             StringComparison.OrdinalIgnoreCase) ||
+         uri.Scheme.Equals(
+             Uri.UriSchemeHttp,
+             StringComparison.OrdinalIgnoreCase)) &&
+        (uri.Host.Equals(
+             "enel.cl",
+             StringComparison.OrdinalIgnoreCase) ||
+         uri.Host.EndsWith(
+             ".enel.cl",
+             StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsOfficialTariffPdfUri(
+        Uri uri)
+    {
+        if (!IsOfficialEnelNavigation(uri))
+            return false;
+
+        var fileName =
+            Uri.UnescapeDataString(
+                Path.GetFileName(
+                    uri.AbsolutePath));
+
+        return IsSupportedTariffPdf(
+            fileName);
     }
 
     private static bool IsSupportedTariffPdf(
