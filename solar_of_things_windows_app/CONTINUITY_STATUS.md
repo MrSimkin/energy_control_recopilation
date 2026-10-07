@@ -4739,3 +4739,68 @@ Assistant acceptance checks on return:
 - annex printable footer no longer overlaps last data row;
 - annex manifest lists tariff source URL/hash provenance;
 - canonical energy/economic numbers remain unchanged.
+
+
+## Build 538 returned acceptance + mandatory chat-handoff rule — 2026-10-06
+
+Returned owner artifacts:
+- `Auditoria-Boleta-Enel-20261006-2123.pdf`;
+- `Anexo-Tecnico-Boleta-Enel-20261006-2130.zip`.
+
+Canonical acceptance report:
+- `research/bill_audit/BUILD_538_FINAL_RETURNED_ACCEPTANCE_2026-10-06.md`.
+
+Returned artifact hashes:
+- audit PDF:
+  `0030557b15821ba6ec2c489f2a93dc3fb1d5a9fa39f8dc065c683df84fa35f40`;
+- annex ZIP:
+  `633e65bf897a60a8c6183761510432a321c362fbf7007540ed158c3fa73f3844`.
+
+Decision:
+- Build 538 returned PDF + ZIP are **ACCEPTED FOR CURRENT ENEL EVIDENCE PACKAGE**;
+- no further statistical retuning is authorized merely to widen/narrow the discrepancy;
+- current method remains provisional/research-only;
+- current bill evidence package is usable independently of future R3 validation.
+
+Acceptance highlights:
+- main PDF visual QA PASS;
+- canonical energy numbers unchanged;
+- P95 semantics PASS;
+- multi-period economic reconstruction PASS;
+- fixed/conditional charge treatment explicit;
+- August retroactive + September tariff provenance explicit;
+- tariff hashes present;
+- annex manifest integrity PASS;
+- 132-page printable annex footer no longer overlaps rows on sampled beginning/middle/end pages;
+- telemetry/daily/economic CSVs reconcile with report.
+
+Separate future technical tranche (not required for current evidence package):
+1. explicit official tariff supersession/correction graph;
+2. semantic duplicate resolution;
+3. direct Enel catalog -> static `content/dam` PDF acquisition;
+4. CNE regulatory correction graph/cross-check;
+5. browser-assisted import only as fallback.
+
+### Mandatory owner handoff rule for future assistant turns
+
+Owner explicitly requested that, because chat termination may occur without warning, every substantial future work cycle must end with BOTH:
+
+1. **Repository consolidation**
+   - update canonical continuity/status with:
+     - exact phase/state;
+     - relevant branch/HEAD or immutable commits;
+     - owner decisions/observations;
+     - completed work;
+     - pending gates;
+     - next authorized step;
+     - hashes/build IDs when relevant.
+
+2. **Copy/paste continuation prompt in the user-facing response**
+   - provide one clearly boxed/code-block prompt suitable for a brand-new chat;
+   - it must be self-contained and instruct the new chat to recover canonical references from repo rather than trusting chat memory;
+   - include current work objective, accepted evidence, active constraints, pending work and next safe action;
+   - explicitly warn against repeating already closed probes/builds/statistical retuning;
+   - if a build/artifact is awaiting owner QA, include exact build/run/artifact details;
+   - if no owner action is pending, state the next assistant-directed tranche instead.
+
+This handoff rule remains active until the owner explicitly revokes it.
