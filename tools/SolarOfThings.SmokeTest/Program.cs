@@ -1937,6 +1937,59 @@ try
         EnelUtilityBillPdfImportService.ParserVersion,
         "smoke extracted bill text");
 
+    utilityRepository.UpdateBill(
+        provenanceBillId,
+        utilityFromUtc,
+        utilityToUtc,
+        expectedGridImport,
+        11902,
+        "PHASE10-V15-PROVENANCE-REVIEWED",
+        "Reviewed in place",
+        tariffPlan: "BT1-SMOKE",
+        taxableAmountClp: 10000,
+        ivaClp: 1900,
+        grossBillAmountClp: 11900,
+        totalDueClp: 11902,
+        periodPrecision: UtilityTimePrecision.Exact,
+        sourceKind: UtilityBillSourceKind.PdfReviewed,
+        sourceDocumentId: documentId,
+        reviewState: UtilityBillReviewState.Reviewed,
+        ivaRate: 0.19);
+
+    var adjustmentLine = utilityRepository.GetBillLines(
+            provenanceBillId)
+        .Single(item =>
+            item.CategoryKey ==
+            UtilityBillLineCategory.SimpleAdjustment);
+    utilityRepository.ConfirmBillLinePdfEvidence(
+        adjustmentLine.BillLineId,
+        UtilityBillLineCategory.SimpleAdjustment,
+        2,
+        "Ajuste sencillo $2");
+
+    var reviewedBill = utilityRepository.GetBills()
+        .Single(item =>
+            item.BillId == provenanceBillId);
+    var reviewedAdjustment = utilityRepository.GetBillLines(
+            provenanceBillId)
+        .Single(item =>
+            item.BillLineId ==
+            adjustmentLine.BillLineId);
+
+    if (reviewedBill.SourceKind !=
+            UtilityBillSourceKind.PdfReviewed ||
+        reviewedBill.SourceDocumentId !=
+            documentId ||
+        reviewedBill.ReviewState !=
+            UtilityBillReviewState.Reviewed ||
+        reviewedAdjustment.EvidenceState !=
+            UtilityBillEvidenceState.PdfExtractedConfirmed ||
+        reviewedAdjustment.SourcePage != 2)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 v15 in-place bill review smoke test failed.");
+    }
+
     var storedDocument =
         utilityRepository.GetBillDocument(documentId);
     var fieldEvidence =

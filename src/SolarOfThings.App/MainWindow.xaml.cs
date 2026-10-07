@@ -46,6 +46,8 @@ public partial class MainWindow : Window
     private Task<UtilityBillReconciliationSummary>?
         _utilityBillSummaryInFlight;
     private UtilityBillPdfDraft? _pendingUtilityBillPdfDraft;
+    private long? _editingUtilityBillId;
+    private long? _editingUtilityBillLineId;
     private bool _dashboardVisible;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
@@ -3499,46 +3501,43 @@ public partial class MainWindow : Window
                 periodPrecision = UtilityTimePrecision.DateOnly;
             }
         }
-        else
+        else if (string.Equals(
+                     periodPrecision,
+                     UtilityTimePrecision.DateOnly,
+                     StringComparison.Ordinal))
         {
-            if (string.Equals(
-                    periodPrecision,
-                    UtilityTimePrecision.DateOnly,
-                    StringComparison.Ordinal))
-            {
-                if (!TryParseUtilityLocalDateBoundary(
-                        UtilityBillStartDatePicker,
-                        timeZone,
-                        out startUtc) ||
-                    !TryParseUtilityLocalDateBoundary(
-                        UtilityBillEndDatePicker,
-                        timeZone,
-                        out endUtc) ||
-                    endUtc <= startUtc)
-                {
-                    UtilityBillStatusText.Text =
-                        _localization.GetString(
-                            "GridUtility.InvalidDateTime");
-                    return;
-                }
-            }
-            else if (!TryParseUtilityLocalInstant(
-                         UtilityBillStartDatePicker,
-                         UtilityBillStartTimeTextBox,
-                         timeZone,
-                         out startUtc) ||
-                     !TryParseUtilityLocalInstant(
-                         UtilityBillEndDatePicker,
-                         UtilityBillEndTimeTextBox,
-                         timeZone,
-                         out endUtc) ||
-                     endUtc <= startUtc)
+            if (!TryParseUtilityLocalDateBoundary(
+                    UtilityBillStartDatePicker,
+                    timeZone,
+                    out startUtc) ||
+                !TryParseUtilityLocalDateBoundary(
+                    UtilityBillEndDatePicker,
+                    timeZone,
+                    out endUtc) ||
+                endUtc <= startUtc)
             {
                 UtilityBillStatusText.Text =
                     _localization.GetString(
                         "GridUtility.InvalidDateTime");
                 return;
             }
+        }
+        else if (!TryParseUtilityLocalInstant(
+                     UtilityBillStartDatePicker,
+                     UtilityBillStartTimeTextBox,
+                     timeZone,
+                     out startUtc) ||
+                 !TryParseUtilityLocalInstant(
+                     UtilityBillEndDatePicker,
+                     UtilityBillEndTimeTextBox,
+                     timeZone,
+                     out endUtc) ||
+                 endUtc <= startUtc)
+        {
+            UtilityBillStatusText.Text =
+                _localization.GetString(
+                    "GridUtility.InvalidDateTime");
+            return;
         }
 
         if (!TryParseOptionalNonNegative(
@@ -3555,11 +3554,11 @@ public partial class MainWindow : Window
             fromReading is not null &&
             toReading is not null)
         {
-            var derived = toReading.ReadingKwh - fromReading.ReadingKwh;
+            var derived =
+                toReading.ReadingKwh -
+                fromReading.ReadingKwh;
             if (derived >= 0)
-            {
                 billedKwh = derived;
-            }
         }
 
         if (!TryParseOptionalNonNegative(UtilityBillTaxableTextBox.Text, out var taxable) ||
@@ -3577,7 +3576,13 @@ public partial class MainWindow : Window
 
         try
         {
-            long? sourceDocumentId = null;
+            var existingBill = _editingUtilityBillId.HasValue
+                ? repository.GetBills().SingleOrDefault(item =>
+                    item.BillId == _editingUtilityBillId.Value)
+                : null;
+
+            long? sourceDocumentId =
+                existingBill?.SourceDocumentId;
             if (_pendingUtilityBillPdfDraft is not null)
             {
                 sourceDocumentId = repository.AddBillDocument(
@@ -3591,75 +3596,102 @@ public partial class MainWindow : Window
                     _pendingUtilityBillPdfDraft.ExtractedText);
             }
 
-            var billId = repository.AddBill(
+            var sourceKind =
+                _pendingUtilityBillPdfDraft is not null ||
+                existingBill?.SourceKind ==
+                    UtilityBillSourceKind.PdfReviewed
+                    ? UtilityBillSourceKind.PdfReviewed
+                    : UtilityBillSourceKind.Manual;
+
+            long billId;
+            if (_editingUtilityBillId.HasValue)
+            {
+                billId = _editingUtilityBillId.Value;
+                repository.UpdateBill(
+                    billId,
+                    startUtc,
+                    endUtc,
+                    billedKwh,
+                    totalDue,
+                    UtilityBillReferenceTextBox.Text,
+                    UtilityBillNotesTextBox.Text,
+                    fromReading?.ReadingId,
+                    toReading?.ReadingId,
+                    fromReading?.ReadingKwh,
+                    toReading?.ReadingKwh,
+                    UtilityBillTariffPlanTextBox.Text,
+                    taxable,
+                    iva,
+                    exempt,
+                    gross,
+                    otherCharges,
+                    totalDue,
+                    periodPrecision,
+                    sourceKind,
+                    sourceDocumentId,
+                    UtilityBillReviewState.Reviewed,
+                    0.19);
+            }
+            else
+            {
+                billId = repository.AddBill(
+                    startUtc,
+                    endUtc,
+                    billedKwh,
+                    totalDue,
+                    UtilityBillReferenceTextBox.Text,
+                    UtilityBillNotesTextBox.Text,
+                    fromReading?.ReadingId,
+                    toReading?.ReadingId,
+                    fromReading?.ReadingKwh,
+                    toReading?.ReadingKwh,
+                    UtilityBillTariffPlanTextBox.Text,
+                    taxable,
+                    iva,
+                    exempt,
+                    gross,
+                    otherCharges,
+                    totalDue,
+                    periodPrecision,
+                    sourceKind: sourceKind,
+                    sourceDocumentId: sourceDocumentId,
+                    reviewState: UtilityBillReviewState.Reviewed,
+                    ivaRate: 0.19);
+            }
+
+            SaveUtilityBillFieldEvidence(
+                repository,
+                billId,
+                timeZone,
                 startUtc,
                 endUtc,
+                periodPrecision,
                 billedKwh,
-                totalDue,
-                UtilityBillReferenceTextBox.Text,
-                UtilityBillNotesTextBox.Text,
-                fromReading?.ReadingId,
-                toReading?.ReadingId,
-                fromReading?.ReadingKwh,
-                toReading?.ReadingKwh,
-                UtilityBillTariffPlanTextBox.Text,
                 taxable,
                 iva,
                 exempt,
                 gross,
                 otherCharges,
                 totalDue,
-                periodPrecision,
-                sourceKind: _pendingUtilityBillPdfDraft is null
-                    ? UtilityBillSourceKind.Manual
-                    : UtilityBillSourceKind.PdfReviewed,
-                sourceDocumentId: sourceDocumentId,
-                reviewState: UtilityBillReviewState.Reviewed,
-                ivaRate: 0.19);
-
-            SaveUtilityBillFieldEvidence(
-                repository,
-                billId,
-                periodPrecision,
-                billedKwh,
-                totalDue,
                 UtilityBillTariffPlanTextBox.Text);
 
-            if (_pendingUtilityBillPdfDraft is not null)
+            if (_pendingUtilityBillPdfDraft is not null &&
+                UtilityBillPdfApplyLinesCheckBox.IsChecked == true)
             {
-                var sortOrder = 10;
-                foreach (var line in _pendingUtilityBillPdfDraft.Lines)
-                {
-                    repository.AddBillLine(
-                        billId,
-                        line.SectionKey,
-                        line.Description,
-                        line.AmountClp,
-                        categoryKey: line.CategoryKey,
-                        sortOrder: sortOrder,
-                        sourceKind: UtilityBillSourceKind.PdfReviewed,
-                        evidenceState:
-                            UtilityBillEvidenceState.PdfExtractedReviewRequired,
-                        sourcePage: line.SourcePage,
-                        sourceText: line.SourceText);
-                    sortOrder += 10;
-                }
+                MergeUtilityBillPdfLines(
+                    repository,
+                    billId,
+                    _pendingUtilityBillPdfDraft);
             }
 
-            UtilityBillKwhTextBox.Clear();
-            UtilityBillTaxableTextBox.Clear();
-            UtilityBillIvaTextBox.Clear();
-            UtilityBillExemptTextBox.Clear();
-            UtilityBillGrossTextBox.Clear();
-            UtilityBillOtherChargesTextBox.Clear();
-            UtilityBillTotalDueTextBox.Clear();
-            UtilityBillTariffPlanTextBox.Clear();
-            UtilityBillReferenceTextBox.Clear();
-            UtilityBillNotesTextBox.Clear();
-            ClearPendingUtilityBillPdfDraft();
+            var wasReview =
+                _editingUtilityBillId.HasValue;
+            ClearUtilityBillEditor();
             UtilityBillStatusText.Text =
-                _localization.GetString(
-                    "GridUtility.BillSaved");
+                wasReview
+                    ? "Boleta revisada y actualizada en el mismo registro."
+                    : _localization.GetString(
+                        "GridUtility.BillSaved");
             RefreshGridUtilityView();
         }
         catch (Exception ex)
@@ -3750,6 +3782,11 @@ public partial class MainWindow : Window
             draft.Lines.Count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        UtilityBillPdfApplyLinesCheckBox.Visibility =
+            draft.Lines.Count > 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        UtilityBillPdfApplyLinesCheckBox.IsChecked = true;
 
         var detected =
             new List<string>();
@@ -3784,69 +3821,135 @@ public partial class MainWindow : Window
             UtilityBillPdfPreviewGrid.Visibility =
                 Visibility.Collapsed;
         }
+
+        if (UtilityBillPdfApplyLinesCheckBox is not null)
+        {
+            UtilityBillPdfApplyLinesCheckBox.Visibility =
+                Visibility.Collapsed;
+            UtilityBillPdfApplyLinesCheckBox.IsChecked = true;
+        }
     }
 
     private void SaveUtilityBillFieldEvidence(
         UtilityMeterRepository repository,
         long billId,
+        string timeZoneId,
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
         string periodPrecision,
         double? billedKwh,
+        double? taxable,
+        double? iva,
+        double? exempt,
+        double? gross,
+        double? otherCharges,
         double? totalDue,
         string? tariffPlan)
     {
         var draft = _pendingUtilityBillPdfDraft;
-        var sourceKind = draft is null
-            ? UtilityBillSourceKind.Manual
-            : UtilityBillSourceKind.PdfReviewed;
 
-        string State(bool fromPdf) =>
-            fromPdf
-                ? UtilityBillEvidenceState.PdfExtractedConfirmed
-                : UtilityBillEvidenceState.UserEntered;
+        (string Source, string State) Evidence(
+            bool pdfMatch) =>
+            pdfMatch
+                ? (
+                    UtilityBillSourceKind.PdfReviewed,
+                    UtilityBillEvidenceState.PdfExtractedConfirmed)
+                : (
+                    UtilityBillSourceKind.Manual,
+                    UtilityBillEvidenceState.UserEntered);
+
+        var startDate =
+            SolarApiTime.GetLocalDate(
+                startUtc,
+                timeZoneId);
+        var endDate =
+            SolarApiTime.GetLocalDate(
+                endUtc,
+                timeZoneId);
+
+        var periodMatched =
+            draft?.PeriodStart == startDate &&
+            draft?.PeriodEndInclusive == endDate &&
+            string.Equals(
+                periodPrecision,
+                UtilityTimePrecision.DateOnly,
+                StringComparison.Ordinal);
+        var periodEvidence = Evidence(periodMatched);
 
         repository.UpsertBillFieldEvidence(
             billId,
+            "period_start",
+            periodEvidence.Source,
+            periodEvidence.State,
+            startDate.ToString("dd-MM-yyyy"),
+            startUtc.ToUniversalTime().ToString("O"));
+        repository.UpsertBillFieldEvidence(
+            billId,
+            "period_end",
+            periodEvidence.Source,
+            periodEvidence.State,
+            endDate.ToString("dd-MM-yyyy"),
+            endUtc.ToUniversalTime().ToString("O"));
+        repository.UpsertBillFieldEvidence(
+            billId,
             "period_precision",
-            sourceKind,
-            State(draft is not null),
+            periodEvidence.Source,
+            periodEvidence.State,
             periodPrecision,
             periodPrecision);
 
-        if (billedKwh.HasValue)
+        void Numeric(
+            string key,
+            double? value,
+            double? pdfValue = null,
+            double tolerance = 0.0005)
         {
+            if (!value.HasValue)
+                return;
+
             var matched =
-                draft?.BilledConsumptionKwh is double pdfKwh &&
-                Math.Abs(pdfKwh - billedKwh.Value) < 0.0005;
+                pdfValue.HasValue &&
+                Math.Abs(
+                    pdfValue.Value -
+                    value.Value) <= tolerance;
+            var evidence = Evidence(matched);
             repository.UpsertBillFieldEvidence(
                 billId,
-                "billed_consumption_kwh",
-                sourceKind,
-                State(matched),
-                billedKwh.Value.ToString(
+                key,
+                evidence.Source,
+                evidence.State,
+                value.Value.ToString(
                     "0.###",
                     CultureInfo.InvariantCulture),
-                billedKwh.Value.ToString(
+                value.Value.ToString(
                     "R",
                     CultureInfo.InvariantCulture));
         }
 
-        if (totalDue.HasValue)
-        {
-            var matched =
-                draft?.TotalDueClp is double pdfTotal &&
-                Math.Abs(pdfTotal - totalDue.Value) < 0.5;
-            repository.UpsertBillFieldEvidence(
-                billId,
-                "total_due_clp",
-                sourceKind,
-                State(matched),
-                totalDue.Value.ToString(
-                    "0",
-                    CultureInfo.InvariantCulture),
-                totalDue.Value.ToString(
-                    "R",
-                    CultureInfo.InvariantCulture));
-        }
+        Numeric(
+            "billed_consumption_kwh",
+            billedKwh,
+            draft?.BilledConsumptionKwh);
+        Numeric(
+            "taxable_amount_clp",
+            taxable);
+        Numeric(
+            "iva_clp",
+            iva);
+        Numeric(
+            "exempt_amount_clp",
+            exempt);
+        Numeric(
+            "gross_bill_amount_clp",
+            gross);
+        Numeric(
+            "other_charges_clp",
+            otherCharges);
+        Numeric(
+            "total_due_clp",
+            totalDue,
+            draft?.TotalDueClp,
+            0.5);
 
         if (!string.IsNullOrWhiteSpace(tariffPlan))
         {
@@ -3856,11 +3959,12 @@ public partial class MainWindow : Window
                     draft!.TariffPlan,
                     tariffPlan.Trim(),
                     StringComparison.OrdinalIgnoreCase);
+            var evidence = Evidence(matched);
             repository.UpsertBillFieldEvidence(
                 billId,
                 "tariff_plan",
-                sourceKind,
-                State(matched),
+                evidence.Source,
+                evidence.State,
                 tariffPlan.Trim(),
                 tariffPlan.Trim().ToUpperInvariant());
         }
@@ -3868,11 +3972,232 @@ public partial class MainWindow : Window
         repository.UpsertBillFieldEvidence(
             billId,
             "iva_rate",
-            sourceKind,
+            UtilityBillSourceKind.Manual,
             UtilityBillEvidenceState.Derived,
             "19%",
             "0.19");
     }
+
+    private void MergeUtilityBillPdfLines(
+        UtilityMeterRepository repository,
+        long billId,
+        UtilityBillPdfDraft draft)
+    {
+        var existing =
+            repository.GetBillLines(billId)
+                .ToList();
+        var nextSortOrder =
+            existing.Count == 0
+                ? 10
+                : existing.Max(item => item.SortOrder) + 10;
+
+        foreach (var draftLine in draft.Lines)
+        {
+            var match = existing.FirstOrDefault(item =>
+                Math.Abs(
+                    item.AmountClp -
+                    draftLine.AmountClp) <= 0.5 &&
+                (
+                    string.Equals(
+                        item.CategoryKey,
+                        draftLine.CategoryKey,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    DescriptionsLikelySame(
+                        item.Description,
+                        draftLine.Description)));
+
+            if (match is not null)
+            {
+                repository.ConfirmBillLinePdfEvidence(
+                    match.BillLineId,
+                    draftLine.CategoryKey,
+                    draftLine.SourcePage,
+                    draftLine.SourceText);
+                continue;
+            }
+
+            var newId = repository.AddBillLine(
+                billId,
+                draftLine.SectionKey,
+                draftLine.Description,
+                draftLine.AmountClp,
+                categoryKey: draftLine.CategoryKey,
+                sortOrder: nextSortOrder,
+                sourceKind:
+                    UtilityBillSourceKind.PdfReviewed,
+                evidenceState:
+                    UtilityBillEvidenceState.PdfExtractedReviewRequired,
+                sourcePage: draftLine.SourcePage,
+                sourceText: draftLine.SourceText);
+            nextSortOrder += 10;
+
+            existing.Add(
+                repository.GetBillLines(billId)
+                    .Single(item =>
+                        item.BillLineId == newId));
+        }
+    }
+
+    private static bool DescriptionsLikelySame(
+        string left,
+        string right)
+    {
+        static string Normalize(string value)
+        {
+            var form = value.Normalize(
+                System.Text.NormalizationForm.FormD);
+            var chars = form
+                .Where(character =>
+                    CharUnicodeInfo.GetUnicodeCategory(
+                        character) !=
+                    UnicodeCategory.NonSpacingMark)
+                .Where(char.IsLetterOrDigit)
+                .Select(char.ToUpperInvariant)
+                .ToArray();
+            return new string(chars);
+        }
+
+        var a = Normalize(left);
+        var b = Normalize(right);
+        return a.Length >= 5 &&
+               b.Length >= 5 &&
+               (a.Contains(b, StringComparison.Ordinal) ||
+                b.Contains(a, StringComparison.Ordinal));
+    }
+
+    private void UtilityReviewBill_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (UtilityBillsGrid.SelectedItem
+            is not UtilityBillViewRow selected)
+        {
+            UtilityBillStatusText.Text =
+                "Selecciona una boleta para revisarla.";
+            return;
+        }
+
+        var profile = _profiles.Get();
+        if (profile is null)
+            return;
+
+        var repository =
+            _services.GetRequiredService<UtilityMeterRepository>();
+        var bill = repository.GetBills()
+            .Single(item =>
+                item.BillId == selected.BillId);
+        var timeZone =
+            string.IsNullOrWhiteSpace(
+                profile.StationTimeZone)
+                ? "America/Santiago"
+                : profile.StationTimeZone;
+
+        _editingUtilityBillId = bill.BillId;
+        ClearPendingUtilityBillPdfDraft();
+
+        UtilityBillPeriodPrecisionSelector.SelectedValue =
+            bill.PeriodPrecision;
+        var startLocal =
+            SolarApiTime.ConvertToLocalTime(
+                bill.PeriodStartUtc,
+                timeZone);
+        var endLocal =
+            SolarApiTime.ConvertToLocalTime(
+                bill.PeriodEndUtc,
+                timeZone);
+        UtilityBillStartDatePicker.SelectedDate =
+            startLocal.Date;
+        UtilityBillEndDatePicker.SelectedDate =
+            endLocal.Date;
+        UtilityBillStartTimeTextBox.Text =
+            startLocal.ToString("HH:mm");
+        UtilityBillEndTimeTextBox.Text =
+            endLocal.ToString("HH:mm");
+
+        UtilityBillFromReadingSelector.SelectedValue =
+            bill.FromReadingId;
+        UtilityBillToReadingSelector.SelectedValue =
+            bill.ToReadingId;
+        UtilityBillKwhTextBox.Text =
+            FormatEditableNumber(
+                bill.BilledConsumptionKwh);
+        UtilityBillTariffPlanTextBox.Text =
+            bill.TariffPlan ?? string.Empty;
+        UtilityBillTaxableTextBox.Text =
+            FormatEditableNumber(
+                bill.TaxableAmountClp);
+        UtilityBillIvaTextBox.Text =
+            FormatEditableNumber(
+                bill.IvaClp);
+        UtilityBillExemptTextBox.Text =
+            FormatEditableNumber(
+                bill.ExemptAmountClp);
+        UtilityBillGrossTextBox.Text =
+            FormatEditableNumber(
+                bill.GrossBillAmountClp);
+        UtilityBillOtherChargesTextBox.Text =
+            FormatEditableNumber(
+                bill.OtherChargesClp);
+        UtilityBillTotalDueTextBox.Text =
+            FormatEditableNumber(
+                bill.TotalDueClp ??
+                bill.AmountClp);
+        UtilityBillReferenceTextBox.Text =
+            bill.InvoiceReference ?? string.Empty;
+        UtilityBillNotesTextBox.Text =
+            bill.Notes ?? string.Empty;
+
+        UtilityAddBillButton.Content =
+            "Guardar revisión";
+        UtilityCancelBillReviewButton.Visibility =
+            Visibility.Visible;
+        UtilityBillStatusText.Text =
+            $"Revisando boleta #{bill.BillId} · origen {bill.SourceKind} · estado {bill.ReviewState}. " +
+            "Puedes corregirla manualmente y/o importar el PDF para contrastar y vincular evidencia.";
+    }
+
+    private void UtilityCancelBillReview_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ClearUtilityBillEditor();
+        UtilityBillStatusText.Text =
+            "Revisión cancelada; la boleta guardada no fue modificada.";
+    }
+
+    private void ClearUtilityBillEditor()
+    {
+        _editingUtilityBillId = null;
+        _editingUtilityBillLineId = null;
+        ClearPendingUtilityBillPdfDraft();
+
+        UtilityBillKwhTextBox.Clear();
+        UtilityBillTaxableTextBox.Clear();
+        UtilityBillIvaTextBox.Clear();
+        UtilityBillExemptTextBox.Clear();
+        UtilityBillGrossTextBox.Clear();
+        UtilityBillOtherChargesTextBox.Clear();
+        UtilityBillTotalDueTextBox.Clear();
+        UtilityBillTariffPlanTextBox.Clear();
+        UtilityBillReferenceTextBox.Clear();
+        UtilityBillNotesTextBox.Clear();
+        UtilityBillFromReadingSelector.SelectedIndex = -1;
+        UtilityBillToReadingSelector.SelectedIndex = -1;
+        UtilityAddBillButton.Content =
+            _localization.GetString(
+                "GridUtility.AddBill");
+        UtilityCancelBillReviewButton.Visibility =
+            Visibility.Collapsed;
+        ClearUtilityBillLineEditor();
+    }
+
+    private static string FormatEditableNumber(
+        double? value) =>
+        value.HasValue
+            ? value.Value.ToString(
+                "0.###",
+                CultureInfo.CurrentCulture)
+            : string.Empty;
 
     private void UtilityDeleteBill_Click(
         object sender,
@@ -4086,9 +4411,29 @@ public partial class MainWindow : Window
 
         try
         {
-            _services
-                .GetRequiredService<UtilityMeterRepository>()
-                .AddBillLine(
+            var repository = _services
+                .GetRequiredService<UtilityMeterRepository>();
+
+            if (_editingUtilityBillLineId.HasValue)
+            {
+                repository.UpdateBillLine(
+                    _editingUtilityBillLineId.Value,
+                    section,
+                    description,
+                    amount,
+                    categoryKey,
+                    quantity,
+                    UtilityBillLineUnitTextBox.Text,
+                    unitRate,
+                    UtilityBillLineTaxTextBox.Text,
+                    UtilityBillSourceKind.Manual,
+                    UtilityBillEvidenceState.UserEntered);
+                UtilityBillLineStatusText.Text =
+                    "Línea actualizada manualmente.";
+            }
+            else
+            {
+                repository.AddBillLine(
                     bill.BillId,
                     section,
                     description,
@@ -4098,17 +4443,12 @@ public partial class MainWindow : Window
                     unit: UtilityBillLineUnitTextBox.Text,
                     unitRateClp: unitRate,
                     taxTreatment: UtilityBillLineTaxTextBox.Text);
+                UtilityBillLineStatusText.Text =
+                    _localization.GetString(
+                        "GridUtility.BillLineSaved");
+            }
 
-            UtilityBillLineTypeSelector.SelectedValue = "CUSTOM";
-            UtilityBillLineDescriptionTextBox.Clear();
-            UtilityBillLineAmountTextBox.Clear();
-            UtilityBillLineQuantityTextBox.Clear();
-            UtilityBillLineUnitTextBox.Clear();
-            UtilityBillLineRateTextBox.Clear();
-            UtilityBillLineTaxTextBox.Clear();
-            UtilityBillLineStatusText.Text =
-                _localization.GetString(
-                    "GridUtility.BillLineSaved");
+            ClearUtilityBillLineEditor();
             RefreshSelectedBillLines();
             RefreshUtilityAuditPreview();
         }
@@ -4116,6 +4456,90 @@ public partial class MainWindow : Window
         {
             UtilityBillLineStatusText.Text = ex.Message;
         }
+    }
+
+    private void UtilityEditBillLine_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (UtilityBillsGrid.SelectedItem
+                is not UtilityBillViewRow bill ||
+            UtilityBillLinesGrid.SelectedItem
+                is not UtilityBillLineViewRow selected)
+        {
+            UtilityBillLineStatusText.Text =
+                "Selecciona una línea guardada para editarla.";
+            return;
+        }
+
+        var line = _services
+            .GetRequiredService<UtilityMeterRepository>()
+            .GetBillLines(bill.BillId)
+            .Single(item =>
+                item.BillLineId ==
+                selected.BillLineId);
+
+        _editingUtilityBillLineId =
+            line.BillLineId;
+        UtilityBillLineTypeSelector.SelectedValue =
+            string.IsNullOrWhiteSpace(
+                line.CategoryKey)
+                ? "CUSTOM"
+                : line.CategoryKey;
+        UtilityBillLineSectionSelector.SelectedValue =
+            line.SectionKey;
+        UtilityBillLineDescriptionTextBox.Text =
+            line.Description;
+        UtilityBillLineAmountTextBox.Text =
+            line.AmountClp.ToString(
+                "0.###",
+                CultureInfo.CurrentCulture);
+        UtilityBillLineQuantityTextBox.Text =
+            FormatEditableNumber(
+                line.Quantity);
+        UtilityBillLineUnitTextBox.Text =
+            line.Unit ?? string.Empty;
+        UtilityBillLineRateTextBox.Text =
+            FormatEditableNumber(
+                line.UnitRateClp);
+        UtilityBillLineTaxTextBox.Text =
+            line.TaxTreatment ?? string.Empty;
+
+        UtilitySaveBillLineButton.Content =
+            "Guardar línea";
+        UtilityCancelBillLineEditButton.Visibility =
+            Visibility.Visible;
+        UtilityBillLineStatusText.Text =
+            $"Editando línea #{line.BillLineId}; cualquier cambio quedará como revisión manual.";
+    }
+
+    private void UtilityCancelBillLineEdit_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ClearUtilityBillLineEditor();
+        UtilityBillLineStatusText.Text =
+            "Edición de línea cancelada.";
+    }
+
+    private void ClearUtilityBillLineEditor()
+    {
+        _editingUtilityBillLineId = null;
+        UtilityBillLineTypeSelector.SelectedValue =
+            "CUSTOM";
+        UtilityBillLineSectionSelector.SelectedValue =
+            "OTRO";
+        UtilityBillLineDescriptionTextBox.Clear();
+        UtilityBillLineAmountTextBox.Clear();
+        UtilityBillLineQuantityTextBox.Clear();
+        UtilityBillLineUnitTextBox.Clear();
+        UtilityBillLineRateTextBox.Clear();
+        UtilityBillLineTaxTextBox.Clear();
+        UtilitySaveBillLineButton.Content =
+            _localization.GetString(
+                "GridUtility.AddBillLine");
+        UtilityCancelBillLineEditButton.Visibility =
+            Visibility.Collapsed;
     }
 
     private void UtilityDeleteBillLine_Click(

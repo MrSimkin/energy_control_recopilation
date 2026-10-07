@@ -301,6 +301,11 @@
     <sys:String x:Key="GridUtility.BillPeriodDateOnly">Sólo fecha impresa</sys:String>
     <sys:String x:Key="GridUtility.BillPeriodExact">Fecha y hora exacta</sys:String>
     <sys:String x:Key="GridUtility.ImportBillPdf">Importar PDF de boleta…</sys:String>
+    <sys:String x:Key="GridUtility.ReviewSelectedBill">Revisar seleccionada</sys:String>
+    <sys:String x:Key="GridUtility.CancelBillReview">Cancelar revisión</sys:String>
+    <sys:String x:Key="GridUtility.ApplyDetectedPdfLines">Incorporar/vincular líneas detectadas del PDF al guardar</sys:String>
+    <sys:String x:Key="GridUtility.EditBillLine">Editar línea</sys:String>
+    <sys:String x:Key="GridUtility.CancelBillLineEdit">Cancelar edición</sys:String>
     <sys:String x:Key="GridUtility.BillSource">Origen</sys:String>
     <sys:String x:Key="GridUtility.BillReviewState">Revisión</sys:String>
     <sys:String x:Key="GridUtility.BillEvidence">Evidencia</sys:String>

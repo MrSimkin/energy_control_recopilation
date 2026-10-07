@@ -317,6 +317,114 @@ public sealed class UtilityMeterRepository
         return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
+    public void UpdateBill(
+        long billId,
+        DateTimeOffset periodStartUtc,
+        DateTimeOffset periodEndUtc,
+        double? billedConsumptionKwh,
+        double? amountClp,
+        string? invoiceReference,
+        string? notes,
+        long? fromReadingId = null,
+        long? toReadingId = null,
+        double? meterStartKwh = null,
+        double? meterEndKwh = null,
+        string? tariffPlan = null,
+        double? taxableAmountClp = null,
+        double? ivaClp = null,
+        double? exemptAmountClp = null,
+        double? grossBillAmountClp = null,
+        double? otherChargesClp = null,
+        double? totalDueClp = null,
+        string periodPrecision = UtilityTimePrecision.Exact,
+        string sourceKind = UtilityBillSourceKind.Manual,
+        long? sourceDocumentId = null,
+        string reviewState = UtilityBillReviewState.Reviewed,
+        double? ivaRate = null)
+    {
+        periodStartUtc = periodStartUtc.ToUniversalTime();
+        periodEndUtc = periodEndUtc.ToUniversalTime();
+        if (periodEndUtc <= periodStartUtc)
+            throw new ArgumentException("Bill period end must be later than its start.");
+
+        foreach (var pair in new[]
+        {
+            (billedConsumptionKwh, nameof(billedConsumptionKwh)),
+            (amountClp, nameof(amountClp)),
+            (meterStartKwh, nameof(meterStartKwh)),
+            (meterEndKwh, nameof(meterEndKwh)),
+            (taxableAmountClp, nameof(taxableAmountClp)),
+            (ivaClp, nameof(ivaClp)),
+            (exemptAmountClp, nameof(exemptAmountClp)),
+            (grossBillAmountClp, nameof(grossBillAmountClp)),
+            (totalDueClp, nameof(totalDueClp))
+        })
+        {
+            ValidateOptionalNonNegative(pair.Item1, pair.Item2);
+        }
+
+        if (otherChargesClp.HasValue &&
+            !double.IsFinite(otherChargesClp.Value))
+            throw new ArgumentOutOfRangeException(nameof(otherChargesClp));
+
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE utility_bill
+            SET period_start_utc = $startUtc,
+                period_end_utc = $endUtc,
+                billed_consumption_kwh = $consumption,
+                amount_clp = $amount,
+                invoice_reference = $reference,
+                notes = $notes,
+                from_reading_id = $fromReadingId,
+                to_reading_id = $toReadingId,
+                meter_start_kwh = $meterStart,
+                meter_end_kwh = $meterEnd,
+                tariff_plan = $tariffPlan,
+                taxable_amount_clp = $taxable,
+                iva_clp = $iva,
+                exempt_amount_clp = $exempt,
+                gross_bill_amount_clp = $gross,
+                other_charges_clp = $otherCharges,
+                total_due_clp = $totalDue,
+                period_precision = $periodPrecision,
+                source_kind = $sourceKind,
+                source_document_id = $sourceDocumentId,
+                review_state = $reviewState,
+                iva_rate = $ivaRate,
+                updated_utc = $updatedUtc
+            WHERE bill_id = $billId;
+            """;
+        command.Parameters.AddWithValue("$billId", billId);
+        command.Parameters.AddWithValue("$startUtc", periodStartUtc.ToString("O"));
+        command.Parameters.AddWithValue("$endUtc", periodEndUtc.ToString("O"));
+        command.Parameters.AddWithValue("$consumption", billedConsumptionKwh.HasValue ? billedConsumptionKwh.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$amount", amountClp.HasValue ? amountClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$reference", string.IsNullOrWhiteSpace(invoiceReference) ? DBNull.Value : invoiceReference.Trim());
+        command.Parameters.AddWithValue("$notes", string.IsNullOrWhiteSpace(notes) ? DBNull.Value : notes.Trim());
+        command.Parameters.AddWithValue("$fromReadingId", fromReadingId.HasValue ? fromReadingId.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$toReadingId", toReadingId.HasValue ? toReadingId.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$meterStart", meterStartKwh.HasValue ? meterStartKwh.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$meterEnd", meterEndKwh.HasValue ? meterEndKwh.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$tariffPlan", string.IsNullOrWhiteSpace(tariffPlan) ? DBNull.Value : tariffPlan.Trim());
+        command.Parameters.AddWithValue("$taxable", taxableAmountClp.HasValue ? taxableAmountClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$iva", ivaClp.HasValue ? ivaClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$exempt", exemptAmountClp.HasValue ? exemptAmountClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$gross", grossBillAmountClp.HasValue ? grossBillAmountClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$otherCharges", otherChargesClp.HasValue ? otherChargesClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$totalDue", totalDueClp.HasValue ? totalDueClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$periodPrecision", periodPrecision);
+        command.Parameters.AddWithValue("$sourceKind", sourceKind);
+        command.Parameters.AddWithValue("$sourceDocumentId", sourceDocumentId.HasValue ? sourceDocumentId.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$reviewState", reviewState);
+        command.Parameters.AddWithValue("$ivaRate", ivaRate.HasValue ? ivaRate.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$updatedUtc", DateTimeOffset.UtcNow.ToString("O"));
+
+        if (command.ExecuteNonQuery() != 1)
+            throw new InvalidOperationException("Bill was not found for update.");
+    }
+
     public IReadOnlyList<UtilityBillLine> GetBillLines(long billId)
     {
         using var connection = _database.OpenConnection();
@@ -589,6 +697,94 @@ public sealed class UtilityMeterRepository
                 updated));
         }
         return result;
+    }
+
+    public void UpdateBillLine(
+        long billLineId,
+        string sectionKey,
+        string description,
+        double amountClp,
+        string? categoryKey = null,
+        double? quantity = null,
+        string? unit = null,
+        double? unitRateClp = null,
+        string? taxTreatment = null,
+        string sourceKind = UtilityBillSourceKind.Manual,
+        string evidenceState = UtilityBillEvidenceState.UserEntered,
+        int? sourcePage = null,
+        string? sourceText = null)
+    {
+        if (string.IsNullOrWhiteSpace(sectionKey))
+            throw new ArgumentException("Section is required.", nameof(sectionKey));
+        if (string.IsNullOrWhiteSpace(description))
+            throw new ArgumentException("Description is required.", nameof(description));
+        if (!double.IsFinite(amountClp))
+            throw new ArgumentOutOfRangeException(nameof(amountClp));
+
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE utility_bill_line
+            SET section_key = $section,
+                category_key = $category,
+                description = $description,
+                quantity = $quantity,
+                unit = $unit,
+                unit_rate_clp = $unitRate,
+                amount_clp = $amount,
+                tax_treatment = $taxTreatment,
+                source_kind = $sourceKind,
+                evidence_state = $evidenceState,
+                source_page = $sourcePage,
+                source_text = $sourceText,
+                updated_utc = $updatedUtc
+            WHERE bill_line_id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", billLineId);
+        command.Parameters.AddWithValue("$section", sectionKey.Trim());
+        command.Parameters.AddWithValue("$category", string.IsNullOrWhiteSpace(categoryKey) ? DBNull.Value : categoryKey.Trim());
+        command.Parameters.AddWithValue("$description", description.Trim());
+        command.Parameters.AddWithValue("$quantity", quantity.HasValue ? quantity.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$unit", string.IsNullOrWhiteSpace(unit) ? DBNull.Value : unit.Trim());
+        command.Parameters.AddWithValue("$unitRate", unitRateClp.HasValue ? unitRateClp.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$amount", amountClp);
+        command.Parameters.AddWithValue("$taxTreatment", string.IsNullOrWhiteSpace(taxTreatment) ? DBNull.Value : taxTreatment.Trim());
+        command.Parameters.AddWithValue("$sourceKind", sourceKind);
+        command.Parameters.AddWithValue("$evidenceState", evidenceState);
+        command.Parameters.AddWithValue("$sourcePage", sourcePage.HasValue ? sourcePage.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$sourceText", string.IsNullOrWhiteSpace(sourceText) ? DBNull.Value : sourceText.Trim());
+        command.Parameters.AddWithValue("$updatedUtc", DateTimeOffset.UtcNow.ToString("O"));
+        if (command.ExecuteNonQuery() != 1)
+            throw new InvalidOperationException("Bill line was not found for update.");
+    }
+
+    public void ConfirmBillLinePdfEvidence(
+        long billLineId,
+        string? categoryKey,
+        int sourcePage,
+        string sourceText)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE utility_bill_line
+            SET category_key = COALESCE(category_key, $category),
+                source_kind = $sourceKind,
+                evidence_state = $evidenceState,
+                source_page = $sourcePage,
+                source_text = $sourceText,
+                updated_utc = $updatedUtc
+            WHERE bill_line_id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", billLineId);
+        command.Parameters.AddWithValue("$category", string.IsNullOrWhiteSpace(categoryKey) ? DBNull.Value : categoryKey.Trim());
+        command.Parameters.AddWithValue("$sourceKind", UtilityBillSourceKind.PdfReviewed);
+        command.Parameters.AddWithValue("$evidenceState", UtilityBillEvidenceState.PdfExtractedConfirmed);
+        command.Parameters.AddWithValue("$sourcePage", sourcePage);
+        command.Parameters.AddWithValue("$sourceText", sourceText);
+        command.Parameters.AddWithValue("$updatedUtc", DateTimeOffset.UtcNow.ToString("O"));
+        if (command.ExecuteNonQuery() != 1)
+            throw new InvalidOperationException("Bill line was not found for PDF evidence update.");
     }
 
     public void DeleteBillLine(long billLineId)

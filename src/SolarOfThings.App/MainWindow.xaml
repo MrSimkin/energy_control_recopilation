@@ -1762,6 +1762,17 @@
                                                                             Padding="12,6"
                                                                             Margin="8,0,0,0"
                                                                             Click="UtilityImportBillPdf_Click"/>
+                                                                    <Button x:Name="UtilityReviewBillButton"
+                                                                            Content="{DynamicResource GridUtility.ReviewSelectedBill}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            Click="UtilityReviewBill_Click"/>
+                                                                    <Button x:Name="UtilityCancelBillReviewButton"
+                                                                            Content="{DynamicResource GridUtility.CancelBillReview}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            Visibility="Collapsed"
+                                                                            Click="UtilityCancelBillReview_Click"/>
                                                                     <Button x:Name="UtilityDeleteBillButton"
                                                                             Content="{DynamicResource GridUtility.DeleteBill}"
                                                                             Padding="12,6"
@@ -1774,6 +1785,11 @@
                                                                            Margin="0,0,0,8"
                                                                            TextWrapping="Wrap"/>
 
+                                                                <CheckBox x:Name="UtilityBillPdfApplyLinesCheckBox"
+                                                                          Content="{DynamicResource GridUtility.ApplyDetectedPdfLines}"
+                                                                          IsChecked="True"
+                                                                          Margin="0,0,0,6"
+                                                                          Visibility="Collapsed"/>
                                                                 <DataGrid x:Name="UtilityBillPdfPreviewGrid"
                                                                           Height="120"
                                                                           Margin="0,0,0,8"
@@ -1876,9 +1892,23 @@
                                                                     </StackPanel>
                                                                 </WrapPanel>
                                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.AddBillLine}"
+                                                                    <Button x:Name="UtilitySaveBillLineButton"
+                                                                            Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                            Content="{DynamicResource GridUtility.AddBillLine}"
                                                                             Padding="12,6"
                                                                             Click="UtilityAddBillLine_Click"/>
+                                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                            Content="{DynamicResource GridUtility.EditBillLine}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            Click="UtilityEditBillLine_Click"/>
+                                                                    <Button x:Name="UtilityCancelBillLineEditButton"
+                                                                            Style="{StaticResource SecondaryActionButtonStyle}"
+                                                                            Content="{DynamicResource GridUtility.CancelBillLineEdit}"
+                                                                            Padding="12,6"
+                                                                            Margin="8,0,0,0"
+                                                                            Visibility="Collapsed"
+                                                                            Click="UtilityCancelBillLineEdit_Click"/>
                                                                     <Button Style="{StaticResource DestructiveActionButtonStyle}" Content="{DynamicResource GridUtility.DeleteBillLine}"
                                                                             Padding="12,6"
                                                                             Margin="8,0,0,0"
