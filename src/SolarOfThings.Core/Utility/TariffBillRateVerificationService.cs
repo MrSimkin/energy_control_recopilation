@@ -45,15 +45,34 @@ public sealed class TariffBillRateVerificationService
             bill,
             timeZoneId);
 
+        var candidateCache =
+            selection.Status == "RESOLVED"
+                ? selection.Publications
+                    .Select(item => item.PublicationId)
+                    .Distinct()
+                    .ToDictionary(
+                        publicationId => publicationId,
+                        publicationId =>
+                            _candidateRepository.GetForPublication(
+                                publicationId))
+                : new Dictionary<
+                    long,
+                    IReadOnlyList<TariffRateCandidate>>();
+
         return lines
-            .Select(line => VerifyLine(line, bill, selection))
+            .Select(line => VerifyLine(
+                line,
+                bill,
+                selection,
+                candidateCache))
             .ToArray();
     }
 
     private BillLineTariffVerification VerifyLine(
         UtilityBillLine line,
         UtilityBillRecord bill,
-        TariffPeriodSelection selection)
+        TariffPeriodSelection selection,
+        IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
     {
         var componentKey = MapComponentKey(line);
 
@@ -83,8 +102,20 @@ public sealed class TariffBillRateVerificationService
         foreach (var publication in selection.Publications)
         {
             var publicationId = publication.PublicationId;
-            var candidates = _candidateRepository
-                .GetForPublication(publicationId)
+            if (!candidateCache.TryGetValue(
+                    publicationId,
+                    out var cachedCandidates))
+            {
+                return Result(
+                    line,
+                    componentKey,
+                    "MISSING_COMPONENT_SOURCE",
+                    $"Publication {publicationId} candidate cache is unavailable.",
+                    publicationIds: selection.Publications.Select(item => item.PublicationId).ToArray(),
+                    publications: selection.Publications);
+            }
+
+            var candidates = cachedCandidates
                 .Where(candidate =>
                     string.Equals(
                         candidate.TariffPlan,
