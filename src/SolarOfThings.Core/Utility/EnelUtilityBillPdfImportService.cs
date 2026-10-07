@@ -292,9 +292,11 @@ public sealed partial class EnelUtilityBillPdfImportService
                         continue;
                     }
 
-                    if (line.Contains("-", StringComparison.Ordinal) ||
+                    if (amount < 0 ||
                         line.Contains("descuento", StringComparison.OrdinalIgnoreCase) ||
-                        line.Contains("subsidio", StringComparison.OrdinalIgnoreCase))
+                        line.Contains("subsidio", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("crédito", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("credito", StringComparison.OrdinalIgnoreCase))
                     {
                         amount = -Math.Abs(amount);
                     }
