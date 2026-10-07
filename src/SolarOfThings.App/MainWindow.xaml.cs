@@ -3243,6 +3243,12 @@ public partial class MainWindow : Window
                     ? $"$ {summary.SupportedVariableRateClpPerKwh.Value:N3}/kWh"
                     : "—";
 
+            var fixedSupported =
+                summary.TariffAnalysis.SupportedFixedAmountClp.HasValue &&
+                summary.TariffAnalysis.SupportedFixedAmountClp.Value > 0.0001
+                    ? $"$ {summary.TariffAnalysis.SupportedFixedAmountClp.Value:N0}"
+                    : "—";
+
             var ivaDetail =
                 summary.PrintedIvaClp.HasValue &&
                 summary.ExpectedIvaClp.HasValue
@@ -3259,8 +3265,8 @@ public partial class MainWindow : Window
 
             UtilityBillSummaryDetailText.Text =
                 spanish
-                    ? $"Enel − inversor observado: {energyDifference} ({energyPercent}) · cobertura {summary.CoveragePercent:N2}% · tasa variable oficial soportada {rate}. La estimación monetaria recalcula componentes tarifarios sustentados y preserva explícitamente los no reconstruibles; origen {summary.BillSourceKind}, revisión {summary.ReviewState}.{ivaDetail}{adjustmentDetail}"
-                    : $"Utility − observed inverter: {energyDifference} ({energyPercent}) · coverage {summary.CoveragePercent:N2}% · supported official variable rate {rate}. The monetary estimate reconstructs supported tariff components and explicitly preserves non-reconstructable items; source {summary.BillSourceKind}, review {summary.ReviewState}.{ivaDetail}{adjustmentDetail}";
+                    ? $"Enel − inversor observado: {energyDifference} ({energyPercent}) · cobertura {summary.CoveragePercent:N2}% · tasa variable oficial soportada {rate} · cargo fijo oficial reconstruido {fixedSupported}. La estimación monetaria recalcula componentes tarifarios sustentados y preserva explícitamente los no reconstruibles; origen {summary.BillSourceKind}, revisión {summary.ReviewState}.{ivaDetail}{adjustmentDetail}"
+                    : $"Utility − observed inverter: {energyDifference} ({energyPercent}) · coverage {summary.CoveragePercent:N2}% · supported official variable rate {rate} · reconstructed official fixed charge {fixedSupported}. The monetary estimate reconstructs supported tariff components and explicitly preserves non-reconstructable items; source {summary.BillSourceKind}, review {summary.ReviewState}.{ivaDetail}{adjustmentDetail}";
 
             if (!summary.TariffAnalysis.HasTariffModel)
             {
@@ -3316,6 +3322,12 @@ public partial class MainWindow : Window
     private string FormatAuditCalculationBasis(
         UtilityBillLineAuditV2 item)
     {
+        if (!string.IsNullOrWhiteSpace(
+                item.CalculationDetail))
+        {
+            return item.CalculationDetail;
+        }
+
         if (!item.CalculationQuantity.HasValue)
         {
             return "—";
