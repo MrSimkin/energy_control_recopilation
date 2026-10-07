@@ -6368,3 +6368,157 @@ Gate D — Enel browser fallback:
   - PASS fallback requires no native Save-As folder picker and app-controlled import.
 
 Do not reopen Build-538/P5-P50-P95/HPVINV02/CNE-380-368/Imperva frozen evidence unless a genuinely new defect appears.
+
+
+## Owner QA — Build 632 partial PASS / integrity defects; Build 635 focused corrective candidate — 2026-10-07
+
+### Build 632 owner-PC QA results
+
+Owner evidence established the following as **PASS and frozen unless new contrary evidence appears**:
+
+- startup/navigation no longer produced the Build-612 intermittent `(No responde)` behavior;
+- leaving Grid Utility idle did not reproduce the prior spontaneous hangs;
+- saved-bill DATE_ONLY reconciliation completed almost immediately;
+- real bill grid returned approximately:
+  - billed 97.000 kWh;
+  - observed inverter 88.065 kWh;
+  - difference about -8.93 kWh;
+  - coverage about 99.3%;
+- Audit loaded quickly rather than taking minutes;
+- Audit retained:
+  - actual bill CLP 26,854;
+  - Enel 97.000 kWh;
+  - observed inverter 88.065 kWh;
+  - estimate CLP 24,690;
+  - actual minus estimate +CLP 2,164;
+  - coverage 99.33%;
+- IVA reconstruction displayed CLP 3,922 = 19% of taxable base;
+- Enel browser-assisted fallback:
+  - zero-click automatic capture did **not** complete;
+  - clicking the PDF viewer Download control produced **no native Save-As dialog**;
+  - `CoreWebView2.DownloadStarting -> EnelTariffPdfImportService: COMPLETADO`;
+  - existing byte-identical official September-2026 PDF was reimported;
+  - publication id 29;
+  - 18 pages;
+  - 7,786 normalized tariff candidates.
+
+Therefore:
+- **zero-click capture remains an open enhancement**;
+- the validated Download fallback is accepted and should not be re-proved in the next focused QA.
+
+### Build 632 defects found from screenshots
+
+Build 632 is not fully accepted because the owner screenshots exposed three bill-review integrity defects:
+
+1. **Reviewed-field PDF conflict remained only informational**
+   - UI reported:
+     `otros cargos/abonos: guardado -2206 vs PDF 2206`;
+   - because the bill had already been marked REVIEWED/PDF_REVIEWED by an earlier build, Build 632 conservatively refused to replace the form value;
+   - this caused Audit summary to show:
+     `Resumen: Total a pagar difiere +4412`;
+   - the official PDF value is +2,206 and the intended review operation is explicit user action.
+
+2. **Duplicate subsidy detail line**
+   - the saved detail showed both a legacy subsidy row and a PDF-reviewed subsidy row;
+   - wording differed enough to evade the previous text matcher:
+     - legacy `Subsidio Electrico Ley 21677 (4/6)`;
+     - PDF `Subsidio Eléctrico Ley N° 21.667 (4/6)`;
+   - this must be one canonical subsidy line, not two.
+
+3. **Audit header verification count inconsistent with table**
+   - header displayed `0 línea(s) verificadas`;
+   - table already contained successfully reconciled/reconstructed tariff lines;
+   - count logic omitted successful `BILL_AMOUNT_RECONCILED*` statuses.
+
+### Corrective semantics for explicit PDF review
+
+When the user is already in **Review selected bill** and explicitly imports a PDF:
+- discrepancies now update the **review draft** to the PDF value;
+- the UI reports old -> PDF and states that the DB remains unchanged until **Save review**;
+- this applies to dates, period precision, numeric printed facts and tariff;
+- therefore the known -2,206 legacy transcription can become +2,206 in the draft without a silent DB mutation.
+
+This is different from silently overwriting a saved bill in the background: the change occurs only inside an explicit user review session and still requires Save review.
+
+### Canonical PDF detail-line merge
+
+PDF detail-line reconciliation was moved from `MainWindow` into:
+- `UtilityBillPdfReviewMergeService`.
+
+The service:
+- uses canonical category identity when possible;
+- can infer known categories from legacy descriptions;
+- updates matched legacy rows to the printed PDF description/amount/section/evidence;
+- removes same-amount duplicate rows representing the same canonical printed line;
+- preserves optional quantity/unit/rate/tax metadata on the chosen row;
+- adds a new row only when no canonical/description match exists.
+
+A new deterministic smoke regression recreates the Build-632 state with:
+- one legacy subsidy line;
+- one PDF subsidy duplicate;
+- differing legacy/PDF wording;
+- same -3,758 CLP amount.
+
+Expected/verified result after merge:
+- exactly one subsidy line;
+- category `SUBSIDY`;
+- PDF printed description retained;
+- source `PDF_REVIEWED`;
+- evidence `PDF_EXTRACTED_CONFIRMED`;
+- one duplicate removed.
+
+### Audit header count
+
+Successful non-ambiguous `BILL_AMOUNT_RECONCILED*` line statuses now count as verified in the Audit summary header. Applicability-ambiguous variants remain outside the verified count.
+
+### Build 635
+
+Source commit:
+- `b57f63134127055f52b3124b4225bd0add6fbd6d`.
+
+Workflow:
+- run `37692009734`;
+- run/build number **635**;
+- Build: **PASS**;
+- SQLite smoke: **PASS**, including the new duplicate subsidy merge regression;
+- live Enel/CNE probes: skipped by workflow conditions, not failures;
+- portable publish: **PASS**;
+- portable marker: **PASS**;
+- artifact upload: **PASS**.
+
+Artifact:
+- name: `SolarEnergyMonitor-win-x64-dev`;
+- artifact ID: `11513837477`;
+- digest:
+  `sha256:2f386ceb6ad97e6251e843df926a17acc4f842c05fd29e2d3b00c5a9a06e192d`;
+- user-facing filename:
+  `SolarEnergyMonitor-Build-635-win-x64.zip`.
+
+Downloaded artifact verification:
+- local SHA-256 equals GitHub artifact digest;
+- 490 ZIP entries;
+- `portable.mode`: present;
+- `SolarEnergyMonitor.exe`: present;
+- bundled `energy.db`: absent;
+- bundled Data directory: absent.
+
+Build 635 is the current **focused corrective QA candidate, not yet accepted**.
+
+### Focused owner QA for Build 635
+
+Do **not** repeat Build-632 stability, DATE_ONLY performance or Enel browser fallback QA unless a new defect appears.
+
+Only re-check the previously failing bill-review integrity path:
+
+1. select the real 28-08-2026 -> 28-09-2026 bill;
+2. Review selected;
+3. import the same real PDF;
+4. confirm the form draft changes `Otros cargos/abonos` from stored -2,206 to **+2,206**, with conflict text explicitly saying the draft was updated and DB is unchanged until Save review;
+5. Save review;
+6. confirm detail has **one subsidy row only**, using the PDF-backed printed description/evidence;
+7. enter Audit:
+   - printed summary should now be **OK** rather than +4,412 difference;
+   - detail should remain **exceeds total by CLP 3 / no printed adjustment**;
+   - header verified-line count must no longer incorrectly say zero when reconciled lines are present.
+
+If these checks pass, no repeat Enel-browser test is required; Build-632 already accepted the no-Save-As Download fallback and established zero-click as an open enhancement.
