@@ -14,7 +14,7 @@ namespace SolarOfThings.Core.Utility;
 /// </summary>
 public sealed partial class EnelUtilityBillPdfImportService
 {
-    public const string ParserVersion = "enel-utility-bill.v2";
+    public const string ParserVersion = "enel-utility-bill.v3";
 
     private readonly AppPaths _paths;
 
@@ -63,9 +63,19 @@ public sealed partial class EnelUtilityBillPdfImportService
         var exempt = ParseMoneyAfterLabels(
             joined,
             ["monto exento", "total exento", "subtotal exento"]);
+        var gross = ParseMoneyAfterLabels(
+            joined,
+            ["total boleta"]);
+        var otherCharges = ParseSignedMoneyAfterLabels(
+            joined,
+            ["otros cargos/abonos", "otros cargos / abonos"]);
+        var previousBalance = ParseSignedMoneyAfterLabels(
+            joined,
+            ["saldo anterior"]);
         var total = ParseMoneyAfterLabels(
             joined,
-            ["total a pagar", "total cuenta", "total boleta"]);
+            ["total a pagar", "total cuenta"]);
+        var readings = ParseMeterReadings(joined);
         var tariff = TariffRegex().Match(joined) is { Success: true } tm
             ? tm.Value.ToUpperInvariant()
             : null;
@@ -110,6 +120,11 @@ public sealed partial class EnelUtilityBillPdfImportService
             taxable,
             iva,
             exempt,
+            gross,
+            otherCharges,
+            previousBalance,
+            readings.Previous,
+            readings.Current,
             total,
             tariff,
             lines,
@@ -247,6 +262,83 @@ public sealed partial class EnelUtilityBillPdfImportService
         return null;
     }
 
+    private static double? ParseSignedMoneyAfterLabels(
+        string text,
+        IReadOnlyList<string> labels)
+    {
+        foreach (var rawLine in SplitLines(text))
+        {
+            var line = rawLine.Trim();
+            if (!labels.Any(label =>
+                    line.Contains(label, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            if (TryExtractPrintedMoney(
+                    line,
+                    out var value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static (double? Previous, double? Current)
+        ParseMeterReadings(string text)
+    {
+        double? previous = null;
+        double? current = null;
+
+        foreach (var rawLine in SplitLines(text))
+        {
+            var line = Regex.Replace(
+                    rawLine,
+                    @"\s+",
+                    " ")
+                .Trim();
+
+            if (!current.HasValue)
+            {
+                var currentMatch =
+                    CurrentReadingRegex().Match(line);
+                if (currentMatch.Success &&
+                    TryParseChileNumber(
+                        currentMatch.Groups["value"].Value,
+                        out var currentValue) &&
+                    currentValue >= 0)
+                {
+                    current = Math.Abs(currentValue);
+                }
+            }
+
+            if (!previous.HasValue)
+            {
+                var previousMatch =
+                    PreviousReadingRegex().Match(line);
+                if (previousMatch.Success &&
+                    TryParseChileNumber(
+                        previousMatch.Groups["value"].Value,
+                        out var previousValue))
+                {
+                    // Some PDF text extractors emit the visual subtraction
+                    // dash as a numeric minus before the previous reading.
+                    previous = Math.Abs(previousValue);
+                }
+            }
+
+            if (previous.HasValue &&
+                current.HasValue)
+            {
+                break;
+            }
+        }
+
+        return (previous, current);
+    }
+
     private static IReadOnlyList<UtilityBillPdfDraftLine> ParseKnownLines(
         IReadOnlyList<(int Page, string Text)> pages)
     {
@@ -257,11 +349,11 @@ public sealed partial class EnelUtilityBillPdfImportService
             ("Cargo fijo", "SERVICIO_ELECTRICO", UtilityBillLineCategory.FixedMonthly),
             ("Subsidio Eléctrico", "OTROS_CARGOS", UtilityBillLineCategory.Subsidy),
             ("Subsidio Electrico", "OTROS_CARGOS", UtilityBillLineCategory.Subsidy),
-            ("Administración del servicio", "OTROS_CARGOS", UtilityBillLineCategory.ServiceAdministration),
-            ("Administracion del servicio", "OTROS_CARGOS", UtilityBillLineCategory.ServiceAdministration),
-            ("Arriendo Medidor", "OTROS_CARGOS", UtilityBillLineCategory.MeterRental),
-            ("Servicio Común", "OTROS_CARGOS", UtilityBillLineCategory.CommonService),
-            ("Servicio Comun", "OTROS_CARGOS", UtilityBillLineCategory.CommonService),
+            ("Administración del servicio", "SERVICIO_ELECTRICO", UtilityBillLineCategory.ServiceAdministration),
+            ("Administracion del servicio", "SERVICIO_ELECTRICO", UtilityBillLineCategory.ServiceAdministration),
+            ("Arriendo Medidor", "SERVICIO_ELECTRICO", UtilityBillLineCategory.MeterRental),
+            ("Servicio Común", "SERVICIO_ELECTRICO", UtilityBillLineCategory.CommonService),
+            ("Servicio Comun", "SERVICIO_ELECTRICO", UtilityBillLineCategory.CommonService),
             ("IVA 19%", "ACUMULADO", UtilityBillLineCategory.Vat19),
             ("I.V.A. 19%", "ACUMULADO", UtilityBillLineCategory.Vat19),
             ("Ajuste", "ACUMULADO", UtilityBillLineCategory.SimpleAdjustment)
@@ -463,6 +555,16 @@ public sealed partial class EnelUtilityBillPdfImportService
         @"(?<value>[-+]?\s*(?:\d{1,3}(?:\.\d{3})+|\d{3,})(?:,\d+)?)\s*$",
         RegexOptions.CultureInvariant)]
     private static partial Regex TrailingMoneyRegex();
+
+    [GeneratedRegex(
+        @"\bActual\s+(?<value>[-+]?\s*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex CurrentReadingRegex();
+
+    [GeneratedRegex(
+        @"\bAnterior\s+(?<value>[-+]?\s*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PreviousReadingRegex();
 
     [GeneratedRegex(
         @"\bBT1(?:[-\s][A-Z0-9]+)?\b",
