@@ -42,6 +42,18 @@ public sealed class CneTariffEvidenceCaptureService
         RegexOptions.CultureInvariant |
         RegexOptions.Compiled);
 
+    private static readonly Regex ListingResolutionWithDateRegex = new(
+        @"RESOLUCI[ÓO]N\s+EXENTA\s+(?:N[°ºo.]?\s*)?(?<number>\d+)\s*,?\s+DE\s+(?<day>\d{1,2})\s+DE\s+(?<month>ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+DE\s+(?<year>20\d{2})",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
+    private static readonly Regex CorrectionTargetWithDateRegex = new(
+        @"RECTIFICA(?:\s*,)?\s+RESOLUCI[ÓO]N\s+EXENTA\s+(?:N[°ºo.]?\s*)?(?<number>\d+)(?:\s*,?\s+DE\s+(?<day>\d{1,2})\s+DE\s+(?<month>ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\s+DE\s+(?<year>20\d{2}))?",
+        RegexOptions.IgnoreCase |
+        RegexOptions.CultureInvariant |
+        RegexOptions.Compiled);
+
     private static readonly Regex EffectivePeriodRegex = new(
         @"periodo\s+comprendido\s+entre\s+el\s+1\s+de\s+" +
         @"(?<month>enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)" +
@@ -194,16 +206,50 @@ public sealed class CneTariffEvidenceCaptureService
                     isCorrection,
                     url);
 
+                var officialIdentity =
+                    ParseOfficialResolutionIdentity(
+                        candidate.ListingText,
+                        fullText,
+                        effectiveFrom);
+                var correctedIdentity =
+                    isCorrection
+                        ? ParseCorrectedResolutionIdentity(
+                            candidate.ListingText,
+                            fullText,
+                            officialIdentity.OfficialDate?.Year ??
+                            effectiveFrom.Value.Year)
+                        : null;
+
                 var publication = new TariffPublicationDiscovery(
                     "CNE_CHILE",
                     "VAD_INDEX",
                     title,
                     url,
                     effectiveFrom,
-                    isCorrection);
+                    isCorrection,
+                    officialIdentity.DocumentNumber,
+                    officialIdentity.OfficialDate,
+                    correctedIdentity?.DocumentNumber,
+                    "CNE_OFFICIAL_LISTING_AND_DOCUMENT");
 
                 var publicationId = _repository.UpsertDiscovery(
                     publication);
+
+                if (correctedIdentity is not null)
+                {
+                    _repository.UpsertRelation(
+                        new TariffPublicationRelationUpsert(
+                            publicationId,
+                            "CORRECTS",
+                            "CNE_CHILE",
+                            "VAD_INDEX",
+                            correctedIdentity.DocumentNumber,
+                            url,
+                            BuildCorrectionEvidenceText(
+                                candidate.ListingText,
+                                officialIdentity,
+                                correctedIdentity)));
+                }
 
                 var fileName = SafeFileName(
                     $"{effectiveFrom?.ToString("yyyy-MM") ?? year.ToString()}_" +
@@ -240,6 +286,8 @@ public sealed class CneTariffEvidenceCaptureService
                     $"{url}: {ex.Message}");
             }
         }
+
+        _repository.ResolveRelationTargets();
 
         progress?.Report(
             $"CNE {year}: {accepted} documento(s) VAD capturado(s), " +
@@ -546,6 +594,171 @@ public sealed class CneTariffEvidenceCaptureService
             : null;
     }
 
+    private static OfficialResolutionIdentity
+        ParseOfficialResolutionIdentity(
+            string listingText,
+            string documentText,
+            DateOnly? effectiveFrom)
+    {
+        var listing =
+            ListingResolutionWithDateRegex.Match(
+                listingText);
+        if (listing.Success)
+        {
+            var date = ParseSpanishDate(
+                listing.Groups["day"].Value,
+                listing.Groups["month"].Value,
+                listing.Groups["year"].Value);
+            var number =
+                listing.Groups["number"].Value;
+            return new OfficialResolutionIdentity(
+                BuildCanonicalResolutionNumber(
+                    number,
+                    date?.Year ??
+                    effectiveFrom?.Year),
+                date);
+        }
+
+        var listingNumber =
+            ResolutionNumberRegex.Match(
+                listingText);
+        if (listingNumber.Success)
+        {
+            return new OfficialResolutionIdentity(
+                BuildCanonicalResolutionNumber(
+                    listingNumber.Groups["number"].Value,
+                    effectiveFrom?.Year),
+                null);
+        }
+
+        var documentNumber =
+            CurrentResolutionNumberRegex.Match(
+                documentText);
+        if (documentNumber.Success)
+        {
+            return new OfficialResolutionIdentity(
+                BuildCanonicalResolutionNumber(
+                    documentNumber.Groups["number"].Value,
+                    effectiveFrom?.Year),
+                null);
+        }
+
+        return new OfficialResolutionIdentity(
+            null,
+            null);
+    }
+
+    private static OfficialResolutionIdentity?
+        ParseCorrectedResolutionIdentity(
+            string listingText,
+            string documentText,
+            int fallbackYear)
+    {
+        var match =
+            CorrectionTargetWithDateRegex.Match(
+                listingText);
+        if (!match.Success)
+        {
+            match =
+                CorrectionTargetWithDateRegex.Match(
+                    documentText);
+        }
+
+        if (!match.Success)
+            return null;
+
+        var date =
+            match.Groups["year"].Success
+                ? ParseSpanishDate(
+                    match.Groups["day"].Value,
+                    match.Groups["month"].Value,
+                    match.Groups["year"].Value)
+                : null;
+
+        var canonical =
+            BuildCanonicalResolutionNumber(
+                match.Groups["number"].Value,
+                date?.Year ?? fallbackYear);
+
+        return string.IsNullOrWhiteSpace(canonical)
+            ? null
+            : new OfficialResolutionIdentity(
+                canonical,
+                date);
+    }
+
+    private static DateOnly? ParseSpanishDate(
+        string dayText,
+        string monthText,
+        string yearText)
+    {
+        if (!int.TryParse(
+                dayText,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var day) ||
+            !int.TryParse(
+                yearText,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var year))
+        {
+            return null;
+        }
+
+        var month =
+            MonthNumber(
+                monthText);
+        if (!month.HasValue)
+            return null;
+
+        try
+        {
+            return new DateOnly(
+                year,
+                month.Value,
+                day);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
+    private static string? BuildCanonicalResolutionNumber(
+        string number,
+        int? year)
+    {
+        if (string.IsNullOrWhiteSpace(number) ||
+            !year.HasValue)
+        {
+            return null;
+        }
+
+        return $"REX-{number.Trim()}-{year.Value}";
+    }
+
+    private static string BuildCorrectionEvidenceText(
+        string listingText,
+        OfficialResolutionIdentity source,
+        OfficialResolutionIdentity target)
+    {
+        var listing =
+            Regex.Replace(
+                listingText,
+                @"\s+",
+                " ")
+            .Trim();
+
+        var prefix =
+            $"{source.DocumentNumber ?? "CNE resolution"} " +
+            $"CORRECTS {target.DocumentNumber}";
+
+        return string.IsNullOrWhiteSpace(listing)
+            ? prefix
+            : $"{prefix}. Official listing: {listing}";
+    }
+
     private static string BuildTitle(
         string text,
         string listingText,
@@ -681,6 +894,10 @@ public sealed class CneTariffEvidenceCaptureService
             "es-CL,es;q=0.9");
         return client;
     }
+    private sealed record OfficialResolutionIdentity(
+        string? DocumentNumber,
+        DateOnly? OfficialDate);
+
     private sealed record CnePdfCandidate(
         string Url,
         string ListingText);
