@@ -3657,41 +3657,17 @@ public partial class MainWindow : Window
             ? "America/Santiago"
             : profile.StationTimeZone;
 
-        UtilityMeterReading? fromReading = null;
-        UtilityMeterReading? toReading = null;
-        DateTimeOffset startUtc;
-        DateTimeOffset endUtc;
         var periodPrecision =
             UtilityBillPeriodPrecisionSelector.SelectedValue?.ToString()
             ?? UtilityTimePrecision.DateOnly;
 
-        if (UtilityBillFromReadingSelector.SelectedValue is long fromId &&
-            UtilityBillToReadingSelector.SelectedValue is long toId)
-        {
-            fromReading = repository.GetReading(fromId);
-            toReading = repository.GetReading(toId);
-            if (fromReading is null ||
-                toReading is null ||
-                toReading.ReadingAtUtc <= fromReading.ReadingAtUtc)
-            {
-                UtilityBillStatusText.Text =
-                    _localization.GetString(
-                        "GridUtility.CompareInvalid");
-                return;
-            }
+        DateTimeOffset startUtc;
+        DateTimeOffset endUtc;
 
-            startUtc = fromReading.ReadingAtUtc;
-            endUtc = toReading.ReadingAtUtc;
-            if (fromReading.TimePrecision != UtilityTimePrecision.Exact ||
-                toReading.TimePrecision != UtilityTimePrecision.Exact)
-            {
-                periodPrecision = UtilityTimePrecision.DateOnly;
-            }
-        }
-        else if (string.Equals(
-                     periodPrecision,
-                     UtilityTimePrecision.DateOnly,
-                     StringComparison.Ordinal))
+        if (string.Equals(
+                periodPrecision,
+                UtilityTimePrecision.DateOnly,
+                StringComparison.Ordinal))
         {
             if (!TryParseUtilityLocalDateBoundary(
                     UtilityBillStartDatePicker,
@@ -3728,6 +3704,12 @@ public partial class MainWindow : Window
         }
 
         if (!TryParseOptionalNonNegative(
+                UtilityBillMeterStartTextBox.Text,
+                out var meterStart) ||
+            !TryParseOptionalNonNegative(
+                UtilityBillMeterEndTextBox.Text,
+                out var meterEnd) ||
+            !TryParseOptionalNonNegative(
                 UtilityBillKwhTextBox.Text,
                 out var billedKwh))
         {
@@ -3737,23 +3719,69 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!billedKwh.HasValue &&
-            fromReading is not null &&
-            toReading is not null)
+        if (meterStart.HasValue &&
+            meterEnd.HasValue)
         {
-            var derived =
-                toReading.ReadingKwh -
-                fromReading.ReadingKwh;
-            if (derived >= 0)
-                billedKwh = derived;
+            var derivedConsumption =
+                meterEnd.Value -
+                meterStart.Value;
+
+            if (derivedConsumption < -0.0005)
+            {
+                UtilityBillStatusText.Text =
+                    _localization.CurrentLanguage.StartsWith(
+                        "es",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? "La lectura actual no puede ser menor que la lectura anterior."
+                        : "The current reading cannot be lower than the previous reading.";
+                return;
+            }
+
+            if (!billedKwh.HasValue)
+            {
+                billedKwh =
+                    Math.Max(0, derivedConsumption);
+                UtilityBillKwhTextBox.Text =
+                    billedKwh.Value.ToString(
+                        "0.###",
+                        CultureInfo.CurrentCulture);
+            }
+            else if (Math.Abs(
+                         billedKwh.Value -
+                         derivedConsumption) >
+                     0.01)
+            {
+                UtilityBillStatusText.Text =
+                    _localization.CurrentLanguage.StartsWith(
+                        "es",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? $"Las lecturas implican {derivedConsumption:N3} kWh, pero la boleta indica {billedKwh.Value:N3} kWh. Revisa la transcripción antes de guardar."
+                        : $"The readings imply {derivedConsumption:N3} kWh, but the bill says {billedKwh.Value:N3} kWh. Review the transcription before saving.";
+                return;
+            }
         }
 
-        if (!TryParseOptionalNonNegative(UtilityBillTaxableTextBox.Text, out var taxable) ||
-            !TryParseOptionalNonNegative(UtilityBillIvaTextBox.Text, out var iva) ||
-            !TryParseOptionalNonNegative(UtilityBillExemptTextBox.Text, out var exempt) ||
-            !TryParseOptionalNonNegative(UtilityBillGrossTextBox.Text, out var gross) ||
-            !TryParseOptionalFinite(UtilityBillOtherChargesTextBox.Text, out var otherCharges) ||
-            !TryParseOptionalNonNegative(UtilityBillTotalDueTextBox.Text, out var totalDue))
+        if (!TryParseOptionalNonNegative(
+                UtilityBillTaxableTextBox.Text,
+                out var taxable) ||
+            !TryParseOptionalNonNegative(
+                UtilityBillIvaTextBox.Text,
+                out var iva) ||
+            !TryParseOptionalNonNegative(
+                UtilityBillExemptTextBox.Text,
+                out var exempt) ||
+            !TryParseOptionalNonNegative(
+                UtilityBillGrossTextBox.Text,
+                out var gross) ||
+            !TryParseOptionalFinite(
+                UtilityBillOtherChargesTextBox.Text,
+                out var otherCharges) ||
+            !TryParseOptionalFinite(
+                UtilityBillPreviousBalanceTextBox.Text,
+                out var previousBalance) ||
+            !TryParseOptionalNonNegative(
+                UtilityBillTotalDueTextBox.Text,
+                out var totalDue))
         {
             UtilityBillStatusText.Text =
                 _localization.GetString(
@@ -3790,6 +3818,11 @@ public partial class MainWindow : Window
                     ? UtilityBillSourceKind.PdfReviewed
                     : UtilityBillSourceKind.Manual;
 
+            var preservedFromReadingId =
+                existingBill?.FromReadingId;
+            var preservedToReadingId =
+                existingBill?.ToReadingId;
+
             long billId;
             if (_editingUtilityBillId.HasValue)
             {
@@ -3802,10 +3835,10 @@ public partial class MainWindow : Window
                     totalDue,
                     UtilityBillReferenceTextBox.Text,
                     UtilityBillNotesTextBox.Text,
-                    fromReading?.ReadingId,
-                    toReading?.ReadingId,
-                    fromReading?.ReadingKwh,
-                    toReading?.ReadingKwh,
+                    preservedFromReadingId,
+                    preservedToReadingId,
+                    meterStart,
+                    meterEnd,
                     UtilityBillTariffPlanTextBox.Text,
                     taxable,
                     iva,
@@ -3817,7 +3850,8 @@ public partial class MainWindow : Window
                     sourceKind,
                     sourceDocumentId,
                     UtilityBillReviewState.Reviewed,
-                    0.19);
+                    0.19,
+                    previousBalance);
             }
             else
             {
@@ -3828,22 +3862,21 @@ public partial class MainWindow : Window
                     totalDue,
                     UtilityBillReferenceTextBox.Text,
                     UtilityBillNotesTextBox.Text,
-                    fromReading?.ReadingId,
-                    toReading?.ReadingId,
-                    fromReading?.ReadingKwh,
-                    toReading?.ReadingKwh,
-                    UtilityBillTariffPlanTextBox.Text,
-                    taxable,
-                    iva,
-                    exempt,
-                    gross,
-                    otherCharges,
-                    totalDue,
-                    periodPrecision,
+                    meterStartKwh: meterStart,
+                    meterEndKwh: meterEnd,
+                    tariffPlan: UtilityBillTariffPlanTextBox.Text,
+                    taxableAmountClp: taxable,
+                    ivaClp: iva,
+                    exemptAmountClp: exempt,
+                    grossBillAmountClp: gross,
+                    otherChargesClp: otherCharges,
+                    totalDueClp: totalDue,
+                    periodPrecision: periodPrecision,
                     sourceKind: sourceKind,
                     sourceDocumentId: sourceDocumentId,
                     reviewState: UtilityBillReviewState.Reviewed,
-                    ivaRate: 0.19);
+                    ivaRate: 0.19,
+                    previousBalanceClp: previousBalance);
             }
 
             SaveUtilityBillFieldEvidence(
@@ -3853,12 +3886,15 @@ public partial class MainWindow : Window
                 startUtc,
                 endUtc,
                 periodPrecision,
+                meterStart,
+                meterEnd,
                 billedKwh,
                 taxable,
                 iva,
                 exempt,
                 gross,
                 otherCharges,
+                previousBalance,
                 totalDue,
                 UtilityBillTariffPlanTextBox.Text);
 
@@ -3883,6 +3919,7 @@ public partial class MainWindow : Window
                         : "Bill reviewed and updated in the same record.")
                     : _localization.GetString(
                         "GridUtility.BillSaved");
+
             RefreshGridUtilityView();
 
             if (UtilityBillsGrid.ItemsSource is
