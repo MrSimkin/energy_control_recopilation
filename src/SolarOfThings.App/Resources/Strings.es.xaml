@@ -315,14 +315,14 @@
     <sys:String x:Key="GridUtility.BillLineSaved">Línea guardada.</sys:String>
     <sys:String x:Key="GridUtility.BillLineDeleted">Línea eliminada.</sys:String>
     <sys:String x:Key="GridUtility.TariffHeading">Tarifas y evidencia oficial</sys:String>
-    <sys:String x:Key="GridUtility.TariffIntro">Selecciona un año para actualizar toda la evidencia oficial disponible automáticamente. CNE se captura directamente; si Enel bloquea el acceso automatizado, la app lo informa y permite importar PDFs oficiales obtenidos normalmente en el navegador. Cada fuente conserva vigencia, versión/corrección, PDF y SHA-256.</sys:String>
+    <sys:String x:Key="GridUtility.TariffIntro">Selecciona un año para actualizar la evidencia oficial. La app intenta catálogo Enel, último catálogo oficial cacheado y assets PDF directos de content/dam; CNE se captura directamente y aporta relaciones de corrección. La importación manual queda como último fallback. Cada fuente conserva vigencia, versión/corrección, PDF y SHA-256.</sys:String>
     <sys:String x:Key="GridUtility.TariffYear">Año</sys:String>
     <sys:String x:Key="GridUtility.TariffCapture">Descargar / actualizar año</sys:String>
     <sys:String x:Key="GridUtility.TariffImportEnel">Importar PDFs oficiales Enel…</sys:String>
     <sys:String x:Key="GridUtility.TariffOpenEnel">Abrir página oficial Enel</sys:String>
     <sys:String x:Key="GridUtility.TariffAuthority">Fuente</sys:String>
     <sys:String x:Key="GridUtility.TariffAutoCaptureResult">Actualización {0}: CNE {1} documento(s) VAD capturado(s), {2} corrección(es), {3} fallo(s). Enel automático: {4}</sys:String>
-    <sys:String x:Key="GridUtility.TariffEnelBlocked">no disponible por protección web; usa “Abrir página oficial Enel” + “Importar PDFs oficiales Enel”</sys:String>
+    <sys:String x:Key="GridUtility.TariffEnelBlocked">no disponible por catálogo vivo, cache ni assets directos; usa “Abrir página oficial Enel” + “Importar PDFs oficiales Enel”</sys:String>
     <sys:String x:Key="GridUtility.TariffEnelOk">{0}/{1} publicación(es) Enel capturada(s); {2} candidato(s) normalizado(s)</sys:String>
     <sys:String x:Key="GridUtility.TariffImportResult">Importación Enel: {0} PDF(s) importado(s), {1} candidato(s) normalizado(s), {2} fallo(s).</sys:String>
     <sys:String x:Key="GridUtility.TariffCorrection">Corrección</sys:String>
