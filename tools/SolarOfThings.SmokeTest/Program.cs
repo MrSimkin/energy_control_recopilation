@@ -1749,6 +1749,8 @@ try
         new UtilityBillReconciliationSummaryService(
             utilityRepository,
             utilityReconciliation,
+            new UtilityBillGapStatisticalCompletionService(
+                database),
             new UtilityBillTariffScenarioAnalysisService(
                 utilityRepository,
                 tariffRepository,
@@ -1782,6 +1784,64 @@ try
     {
         throw new InvalidOperationException(
             "Phase 10 observed bill-reconciliation summary smoke test failed.");
+    }
+
+
+    var dateOnlyGap =
+        new UtilityBillGapStatisticalCompletionService(
+            database)
+        .Analyze(
+            familySmokeDeviceId,
+            new DateOnly(2026, 1, 10),
+            new DateOnly(2026, 1, 13),
+            "America/Santiago");
+
+    var dateOnlyStoredEnd =
+        new DateTimeOffset(
+            2026, 1, 13, 0, 0, 0,
+            TimeSpan.FromHours(-3))
+        .ToUniversalTime();
+
+    var dateOnlyBillId =
+        utilityRepository.AddBill(
+            utilityFromUtc,
+            dateOnlyStoredEnd,
+            dateOnlyGap.Completion.ObservedKwh,
+            1000,
+            "PHASE10-DATEONLY-SMOKE",
+            "Date-only bill end date is inclusive",
+            tariffPlan: "BT1-SMOKE",
+            totalDueClp: 1000,
+            periodPrecision:
+                UtilityTimePrecision.DateOnly);
+
+    var dateOnlySummary =
+        new UtilityBillReconciliationSummaryService(
+            utilityRepository,
+            utilityReconciliation,
+            new UtilityBillGapStatisticalCompletionService(
+                database),
+            new UtilityBillTariffScenarioAnalysisService(
+                utilityRepository,
+                tariffRepository,
+                candidateRepository,
+                versionResolver))
+        .Analyze(
+            familySmokeDeviceId,
+            dateOnlyBillId,
+            "America/Santiago");
+
+    if (Math.Abs(
+            dateOnlySummary.ObservedInverterKwh -
+            dateOnlyGap.Completion.ObservedKwh) >
+        0.000001 ||
+        Math.Abs(
+            dateOnlySummary.CoveragePercent -
+            dateOnlyGap.Completion.CoveragePercent) >
+        0.000001)
+    {
+        throw new InvalidOperationException(
+            "Phase 10 date-only inclusive-end reconciliation regression failed.");
     }
 
 

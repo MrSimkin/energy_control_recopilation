@@ -30,6 +30,8 @@ public sealed class EnelTariffBrowserWindow : Window
         new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _autoCapturedResponseUris =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PartialPdfCapture> _partialPdfCaptures =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public event EventHandler? TariffImported;
 
@@ -95,9 +97,9 @@ public sealed class EnelTariffBrowserWindow : Window
                 Text =
                     "Esta ventana usa Edge/WebView2 como un navegador normal. " +
                     "Si Enel muestra una verificación, complétala aquí. Luego abre " +
-                    "“Tarifas suministro eléctrico” y pulsa Descargar. " +
-                    "Los PDFs oficiales compatibles se importarán, hashearán y " +
-                    "normalizarán automáticamente.",
+                    "“Tarifas suministro eléctrico”. La app intentará capturar el PDF " +
+                    "automáticamente; si el visor lo entrega por rangos incompletos, " +
+                    "el icono Descargar queda como fallback.",
                 Foreground =
                     new SolidColorBrush(
                         Color.FromRgb(0x6C, 0x75, 0x7D)),
@@ -264,8 +266,8 @@ public sealed class EnelTariffBrowserWindow : Window
                     {
                         _statusText.Text =
                             "PDF oficial abierto dentro del navegador integrado. " +
-                            "Usa el icono Descargar del visor PDF; la app interceptará " +
-                            "esa descarga y la importará automáticamente.";
+                            "Intentando captura automática; si no se completa, usa " +
+                            "el icono Descargar del visor PDF como fallback.";
                     }
                     else
                     {
@@ -363,22 +365,24 @@ public sealed class EnelTariffBrowserWindow : Window
                 UriKind.Absolute,
                 out var uri) ||
             !IsOfficialTariffPdfUri(uri) ||
-            e.Response.StatusCode != 200)
+            (e.Response.StatusCode != 200 &&
+             e.Response.StatusCode != 206))
         {
             return;
         }
 
         var responseKey = uri.AbsoluteUri;
-        if (!_autoCapturedResponseUris.Add(
+        if (_autoCapturedResponseUris.Contains(
                 responseKey))
         {
             return;
         }
 
         var fileName =
-            Uri.UnescapeDataString(
-                Path.GetFileName(
-                    uri.AbsolutePath));
+            NormalizeBrowserDownloadFileName(
+                Uri.UnescapeDataString(
+                    Path.GetFileName(
+                        uri.AbsolutePath)));
 
         string? targetPath = null;
         try
@@ -387,23 +391,81 @@ public sealed class EnelTariffBrowserWindow : Window
                 await e.Response.GetContentAsync();
 
             if (content is null)
-            {
-                _autoCapturedResponseUris.Remove(
-                    responseKey);
                 return;
-            }
 
             using var memory =
                 new MemoryStream();
             await content.CopyToAsync(
                 memory);
-            var bytes = memory.ToArray();
+            var responseBytes =
+                memory.ToArray();
+
+            byte[] bytes;
+
+            if (e.Response.StatusCode == 206)
+            {
+                if (!TryGetContentRange(
+                        e.Response.Headers,
+                        out var rangeStart,
+                        out var rangeEnd,
+                        out var totalLength) ||
+                    responseBytes.LongLength !=
+                        rangeEnd - rangeStart + 1)
+                {
+                    return;
+                }
+
+                if (!_partialPdfCaptures.TryGetValue(
+                        responseKey,
+                        out var partial))
+                {
+                    partial =
+                        new PartialPdfCapture(
+                            totalLength);
+                    _partialPdfCaptures[
+                        responseKey] =
+                        partial;
+                }
+
+                if (partial.TotalLength !=
+                    totalLength)
+                {
+                    _partialPdfCaptures.Remove(
+                        responseKey);
+                    return;
+                }
+
+                partial.Add(
+                    rangeStart,
+                    responseBytes);
+
+                _statusText.Text =
+                    $"PDF oficial recibido por rangos: {partial.CapturedBytes:N0}/{totalLength:N0} bytes. " +
+                    "La app lo importará automáticamente si el visor entrega el archivo completo.";
+
+                if (!partial.TryAssemble(
+                        out bytes))
+                {
+                    return;
+                }
+
+                _partialPdfCaptures.Remove(
+                    responseKey);
+            }
+            else
+            {
+                bytes = responseBytes;
+            }
 
             if (!LooksLikePdf(
                     bytes))
             {
-                _autoCapturedResponseUris.Remove(
-                    responseKey);
+                return;
+            }
+
+            if (!_autoCapturedResponseUris.Add(
+                    responseKey))
+            {
                 return;
             }
 
@@ -438,6 +500,8 @@ public sealed class EnelTariffBrowserWindow : Window
         catch (Exception ex)
         {
             _autoCapturedResponseUris.Remove(
+                responseKey);
+            _partialPdfCaptures.Remove(
                 responseKey);
             _statusText.Text =
                 "La captura automática del PDF no pudo completarse. " +
@@ -480,10 +544,8 @@ public sealed class EnelTariffBrowserWindow : Window
         object? sender,
         CoreWebView2DownloadStartingEventArgs e)
     {
-        var uri = e.DownloadOperation.Uri;
-        var suggested =
-            Path.GetFileName(
-                e.ResultFilePath);
+        var uri =
+            e.DownloadOperation.Uri;
         string? uriSuggested = null;
 
         if (Uri.TryCreate(
@@ -492,18 +554,19 @@ public sealed class EnelTariffBrowserWindow : Window
                 out var parsedUri))
         {
             uriSuggested =
-                Uri.UnescapeDataString(
-                    Path.GetFileName(
-                        parsedUri.AbsolutePath));
+                NormalizeBrowserDownloadFileName(
+                    Uri.UnescapeDataString(
+                        Path.GetFileName(
+                            parsedUri.AbsolutePath)));
         }
 
-        if (!IsSupportedTariffPdf(
-                suggested) &&
+        var suggested =
             IsSupportedTariffPdf(
-                uriSuggested))
-        {
-            suggested = uriSuggested!;
-        }
+                uriSuggested)
+                ? uriSuggested!
+                : NormalizeBrowserDownloadFileName(
+                    Path.GetFileName(
+                        e.ResultFilePath));
 
         _receiptText.Text =
             "CoreWebView2.DownloadStarting capturado.\n" +
@@ -520,8 +583,10 @@ public sealed class EnelTariffBrowserWindow : Window
             return;
         }
 
-        // Keep the official filename intact. Uniqueness belongs in the temp
-        // directory, not in the filename consumed by the provenance importer.
+        // Suppress WebView2's default download UI as early as possible, then
+        // route the download directly into app-controlled incoming storage.
+        e.Handled = true;
+
         var tempDir = Path.Combine(
             _paths.TariffEnelIncomingDirectory,
             Guid.NewGuid().ToString("N"));
@@ -534,7 +599,6 @@ public sealed class EnelTariffBrowserWindow : Window
 
         e.ResultFilePath =
             targetPath;
-        e.Handled = true;
 
         var operation =
             e.DownloadOperation;
@@ -723,6 +787,187 @@ public sealed class EnelTariffBrowserWindow : Window
             $"Publicación ID: {receipt.PublicationId} · páginas: {receipt.PageCount} · " +
             $"candidatos normalizados: {receipt.NormalizedCandidates}\n" +
             $"Hora UTC: {receipt.CompletedUtc:yyyy-MM-dd HH:mm:ss}";
+    }
+
+    private static string NormalizeBrowserDownloadFileName(
+        string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(
+                fileName))
+        {
+            return string.Empty;
+        }
+
+        var trimmed =
+            fileName.Trim();
+        var extension =
+            Path.GetExtension(
+                trimmed);
+
+        if (!string.Equals(
+                extension,
+                ".pdf",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        var stem =
+            Path.GetFileNameWithoutExtension(
+                trimmed);
+        var marker =
+            stem.LastIndexOf(
+                " (",
+                StringComparison.Ordinal);
+
+        if (marker >= 0 &&
+            stem.EndsWith(
+                ")",
+                StringComparison.Ordinal))
+        {
+            var numeric =
+                stem[
+                    (marker + 2)..
+                    ^1];
+
+            if (int.TryParse(
+                    numeric,
+                    out _))
+            {
+                stem =
+                    stem[..marker];
+            }
+        }
+
+        return stem +
+               extension;
+    }
+
+    private static bool TryGetContentRange(
+        CoreWebView2HttpResponseHeaders headers,
+        out long start,
+        out long end,
+        out long total)
+    {
+        start = 0;
+        end = 0;
+        total = 0;
+
+        string raw;
+        try
+        {
+            raw =
+                headers.GetHeader(
+                    "Content-Range");
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                raw) ||
+            !raw.StartsWith(
+                "bytes ",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var value =
+            raw[6..].Trim();
+        var slash =
+            value.IndexOf('/');
+        var dash =
+            value.IndexOf('-');
+
+        if (dash <= 0 ||
+            slash <= dash + 1)
+        {
+            return false;
+        }
+
+        return long.TryParse(
+                   value[..dash],
+                   out start) &&
+               long.TryParse(
+                   value[(dash + 1)..slash],
+                   out end) &&
+               long.TryParse(
+                   value[(slash + 1)..],
+                   out total) &&
+               start >= 0 &&
+               end >= start &&
+               total > end;
+    }
+
+    private sealed class PartialPdfCapture
+    {
+        private readonly SortedDictionary<long, byte[]> _parts =
+            new();
+
+        public PartialPdfCapture(
+            long totalLength)
+        {
+            TotalLength =
+                totalLength;
+        }
+
+        public long TotalLength { get; }
+
+        public long CapturedBytes =>
+            _parts.Sum(item =>
+                (long)item.Value.Length);
+
+        public void Add(
+            long start,
+            byte[] bytes)
+        {
+            _parts[start] =
+                bytes;
+        }
+
+        public bool TryAssemble(
+            out byte[] bytes)
+        {
+            bytes =
+                Array.Empty<byte>();
+
+            if (TotalLength <= 0 ||
+                TotalLength > int.MaxValue)
+            {
+                return false;
+            }
+
+            var cursor = 0L;
+            foreach (var part in _parts)
+            {
+                if (part.Key != cursor)
+                    return false;
+
+                cursor +=
+                    part.Value.LongLength;
+            }
+
+            if (cursor != TotalLength)
+                return false;
+
+            bytes =
+                new byte[
+                    (int)TotalLength];
+
+            foreach (var part in _parts)
+            {
+                Buffer.BlockCopy(
+                    part.Value,
+                    0,
+                    bytes,
+                    (int)part.Key,
+                    part.Value.Length);
+            }
+
+            return true;
+        }
     }
 
     private static void TryDelete(

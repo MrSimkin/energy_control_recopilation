@@ -1,3 +1,5 @@
+using SolarOfThings.Core.SolarOfThings;
+
 namespace SolarOfThings.Core.Utility;
 
 /// <summary>
@@ -17,15 +19,18 @@ public sealed class UtilityBillReconciliationSummaryService
 
     private readonly UtilityMeterRepository _repository;
     private readonly UtilityReconciliationService _reconciliation;
+    private readonly UtilityBillGapStatisticalCompletionService _billGapCompletion;
     private readonly UtilityBillTariffScenarioAnalysisService _tariffAnalysis;
 
     public UtilityBillReconciliationSummaryService(
         UtilityMeterRepository repository,
         UtilityReconciliationService reconciliation,
+        UtilityBillGapStatisticalCompletionService billGapCompletion,
         UtilityBillTariffScenarioAnalysisService tariffAnalysis)
     {
         _repository = repository;
         _reconciliation = reconciliation;
+        _billGapCompletion = billGapCompletion;
         _tariffAnalysis = tariffAnalysis;
     }
 
@@ -39,19 +44,64 @@ public sealed class UtilityBillReconciliationSummaryService
             ?? throw new InvalidOperationException(
                 "Bill was not found.");
 
-        var comparison = _reconciliation
-            .GetBillReconciliations(deviceId)
-            .Single(item => item.BillId == billId);
+        double observedKwh;
+        double coveragePercent;
+        double uncoveredHours;
+
+        if (string.Equals(
+                bill.PeriodPrecision,
+                UtilityTimePrecision.DateOnly,
+                StringComparison.Ordinal))
+        {
+            var startLocalDate =
+                SolarApiTime.GetLocalDate(
+                    bill.PeriodStartUtc,
+                    timeZoneId);
+            var endLocalDateInclusive =
+                SolarApiTime.GetLocalDate(
+                    bill.PeriodEndUtc,
+                    timeZoneId);
+
+            var observed =
+                _billGapCompletion.Analyze(
+                    deviceId,
+                    startLocalDate,
+                    endLocalDateInclusive,
+                    timeZoneId);
+
+            observedKwh =
+                observed.Completion.ObservedKwh;
+            coveragePercent =
+                observed.Completion.CoveragePercent;
+            uncoveredHours =
+                observed.Completion.MissingHours;
+        }
+        else
+        {
+            var comparison = _reconciliation
+                .GetBillReconciliations(deviceId)
+                .Single(item =>
+                    item.BillId == billId);
+
+            observedKwh =
+                observedKwh;
+            coveragePercent =
+                coveragePercent;
+            uncoveredHours =
+                comparison.Sensitivity
+                    ?.UncoveredHours ??
+                0;
+        }
 
         var completion = new UtilityGridImportStatisticalCompletion(
-            comparison.InverterGridImportKwh,
+            observedKwh,
             null,
             null,
             null,
             null,
             null,
-            comparison.CoveragePercent,
-            comparison.Sensitivity?.UncoveredHours ?? 0,
+            coveragePercent,
+            uncoveredHours,
             0,
             0,
             ObservedOnlyMethodVersion,
@@ -110,7 +160,7 @@ public sealed class UtilityBillReconciliationSummaryService
         var billedMinusObserved =
             bill.BilledConsumptionKwh.HasValue
                 ? bill.BilledConsumptionKwh.Value -
-                  comparison.InverterGridImportKwh
+                  observedKwh
                 : (double?)null;
 
         var billedMinusObservedPercent =
@@ -126,7 +176,7 @@ public sealed class UtilityBillReconciliationSummaryService
                 ? "ENERGY_ONLY_TARIFF_MODEL_UNAVAILABLE"
                 : !actualTotal.HasValue
                     ? "VARIABLE_COMPONENTS_ONLY_TOTAL_MISSING"
-                    : comparison.CoveragePercent < 98.0
+                    : coveragePercent < 98.0
                         ? "SUPPORTED_ESTIMATE_PARTIAL_COVERAGE"
                         : tariff.Status.StartsWith(
                             "PARTIAL_",
@@ -135,7 +185,7 @@ public sealed class UtilityBillReconciliationSummaryService
                             : "SUPPORTED_OBSERVED_ESTIMATE";
 
         var limitations = new List<string>();
-        if (comparison.CoveragePercent < 98.0)
+        if (coveragePercent < 98.0)
         {
             limitations.Add(
                 "Observed inverter energy is incomplete; telemetry gaps are not filled in this product summary.");
@@ -153,10 +203,10 @@ public sealed class UtilityBillReconciliationSummaryService
             status,
             actualTotal,
             bill.BilledConsumptionKwh,
-            comparison.InverterGridImportKwh,
+            observedKwh,
             billedMinusObserved,
             billedMinusObservedPercent,
-            comparison.CoveragePercent,
+            coveragePercent,
             tariff.SupportedVariableRateClpPerKwh,
             tariff.ActualSupportedLinesClp,
             preservedNonVariable,
