@@ -35,6 +35,111 @@ try
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
 
+    // Regression: a real owner Data\ folder is currently schema v13.
+    // Verify the in-place v13 -> v14 migration preserves existing tariff
+    // evidence and creates the regulatory relation graph metadata.
+    var migration13Root = Path.Combine(
+        root,
+        "schema13-upgrade");
+    var migration13Paths =
+        new AppPaths(migration13Root);
+    Directory.CreateDirectory(
+        Path.GetDirectoryName(
+            migration13Paths.DatabasePath)!);
+
+    using (var legacyConnection =
+           new SqliteConnection(
+               new SqliteConnectionStringBuilder
+               {
+                   DataSource =
+                       migration13Paths.DatabasePath
+               }.ToString()))
+    {
+        legacyConnection.Open();
+
+        using var create =
+            legacyConnection.CreateCommand();
+        create.CommandText = """
+            CREATE TABLE schema_migration (
+                version INTEGER PRIMARY KEY,
+                applied_utc TEXT NOT NULL,
+                description TEXT NOT NULL
+            );
+            INSERT INTO schema_migration(
+                version, applied_utc, description
+            )
+            VALUES(
+                13, '2026-10-06T00:00:00Z', 'schema13 fixture'
+            );
+
+            CREATE TABLE tariff_publication (
+                publication_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider TEXT NOT NULL,
+                category TEXT NOT NULL,
+                title TEXT NOT NULL,
+                source_url TEXT NOT NULL UNIQUE,
+                effective_from TEXT NULL,
+                is_retroactive INTEGER NOT NULL DEFAULT 0,
+                local_pdf_path TEXT NULL,
+                content_sha256 TEXT NULL,
+                content_length INTEGER NULL,
+                page_count INTEGER NULL,
+                capture_status TEXT NOT NULL,
+                captured_utc TEXT NULL,
+                updated_utc TEXT NOT NULL,
+                normalization_status TEXT NOT NULL DEFAULT 'NOT_NORMALIZED',
+                normalization_parser_version TEXT NULL,
+                normalized_utc TEXT NULL
+            );
+
+            INSERT INTO tariff_publication(
+                provider, category, title, source_url,
+                effective_from, is_retroactive,
+                capture_status, updated_utc,
+                normalization_status
+            )
+            VALUES(
+                'ENEL_DISTRIBUCION_CHILE',
+                'SUPPLY_REGULATED',
+                'Existing v13 tariff evidence',
+                'https://example.invalid/v13-tariff.pdf',
+                '2026-09-01',
+                0,
+                'CAPTURED',
+                '2026-10-06T00:00:00Z',
+                'CANDIDATES_EXTRACTED'
+            );
+            """;
+        create.ExecuteNonQuery();
+    }
+
+    var migration13Database =
+        new SqliteDatabase(
+            migration13Paths);
+    migration13Database.Initialize();
+
+    if (migration13Database.GetSchemaVersion() != 14)
+    {
+        throw new InvalidOperationException(
+            "Schema v13 -> v14 migration did not reach version 14.");
+    }
+
+    var migratedTariffRepository =
+        new TariffPublicationRepository(
+            migration13Database);
+    var migratedTariffs =
+        migratedTariffRepository.GetAll();
+
+    if (migratedTariffs.Count != 1 ||
+        migratedTariffs[0].Title !=
+            "Existing v13 tariff evidence" ||
+        migratedTariffs[0].OfficialDocumentNumber is not null ||
+        migratedTariffRepository.GetRelations().Count != 0)
+    {
+        throw new InvalidOperationException(
+            "Schema v13 -> v14 migration did not preserve prior tariff evidence cleanly.");
+    }
+
     var settings = new AppSettingsRepository(database);
     settings.Set("smoke.setting", "ok");
     if (settings.Get("smoke.setting") != "ok")
