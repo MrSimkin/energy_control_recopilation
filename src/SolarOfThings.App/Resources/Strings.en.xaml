@@ -315,14 +315,15 @@
     <sys:String x:Key="GridUtility.BillLineSaved">Line saved.</sys:String>
     <sys:String x:Key="GridUtility.BillLineDeleted">Line deleted.</sys:String>
     <sys:String x:Key="GridUtility.TariffHeading">Official tariffs and evidence</sys:String>
-    <sys:String x:Key="GridUtility.TariffIntro">Select a year to refresh all official evidence available automatically. CNE is captured directly; if Enel blocks automated access, the app reports it and lets you import official PDFs obtained normally in a browser. Each source preserves effective period, version/correction, PDF and SHA-256.</sys:String>
+    <sys:String x:Key="GridUtility.TariffIntro">Select a year to refresh official evidence. CNE is captured automatically and supplies correction relationships. Enel first tries HTTP/cache; when web protection blocks it, use “Capture Enel in browser…” to browse normally and let the app automatically import the PDFs you download. Manual import remains available as the final fallback. Each source preserves effective period, version/correction, PDF and SHA-256.</sys:String>
     <sys:String x:Key="GridUtility.TariffYear">Year</sys:String>
     <sys:String x:Key="GridUtility.TariffCapture">Download / refresh year</sys:String>
+    <sys:String x:Key="GridUtility.TariffBrowserEnel">Capture Enel in browser…</sys:String>
     <sys:String x:Key="GridUtility.TariffImportEnel">Import official Enel PDFs…</sys:String>
     <sys:String x:Key="GridUtility.TariffOpenEnel">Open official Enel page</sys:String>
     <sys:String x:Key="GridUtility.TariffAuthority">Source</sys:String>
     <sys:String x:Key="GridUtility.TariffAutoCaptureResult">Update {0}: CNE {1} VAD document(s) captured, {2} correction(s), {3} failure(s). Automatic Enel: {4}</sys:String>
-    <sys:String x:Key="GridUtility.TariffEnelBlocked">unavailable through live catalog, cache and direct assets; use “Open official Enel page” + “Import official Enel PDFs”</sys:String>
+    <sys:String x:Key="GridUtility.TariffEnelBlocked">HTTP blocked by web protection; use “Capture Enel in browser…” or manual import</sys:String>
     <sys:String x:Key="GridUtility.TariffEnelOk">{0}/{1} Enel publication(s) captured; {2} normalized candidate(s)</sys:String>
     <sys:String x:Key="GridUtility.TariffImportResult">Enel import: {0} PDF(s) imported, {1} normalized candidate(s), {2} failure(s).</sys:String>
     <sys:String x:Key="GridUtility.TariffCorrection">Correction</sys:String>
