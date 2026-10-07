@@ -3767,11 +3767,16 @@ public partial class MainWindow : Window
             if (UtilityBillsGrid.ItemsSource is
                     IEnumerable<UtilityBillViewRow> refreshedBills)
             {
-                UtilityBillsGrid.SelectedItem =
+                var savedRow =
                     refreshedBills.FirstOrDefault(item =>
                         item.BillId == billId);
-                UtilityBillsGrid.ScrollIntoView(
-                    UtilityBillsGrid.SelectedItem);
+                if (savedRow is not null)
+                {
+                    UtilityBillsGrid.SelectedItem =
+                        savedRow;
+                    UtilityBillsGrid.ScrollIntoView(
+                        savedRow);
+                }
             }
         }
         catch (Exception ex)
