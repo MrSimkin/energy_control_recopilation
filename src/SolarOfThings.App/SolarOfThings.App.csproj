@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SolarOfThings.Core\SolarOfThings.Core.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
     <PackageReference Include="ScottPlot.WPF" />
   </ItemGroup>
   <ItemGroup>
