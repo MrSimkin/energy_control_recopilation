@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 15;
+    public const int CurrentSchemaVersion = 16;
 
     private readonly AppPaths _paths;
 
@@ -121,6 +121,12 @@ public sealed class SqliteDatabase
         if (current < 15)
         {
             ApplyMigration15(connection);
+            current = 15;
+        }
+
+        if (current < 16)
+        {
+            ApplyMigration16(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -807,6 +813,25 @@ public sealed class SqliteDatabase
             transaction,
             15,
             "Phase 10 bill-ingestion v2: source documents, field provenance, review state, VAT rate and line evidence.");
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration16(
+        SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            ALTER TABLE utility_bill
+                ADD COLUMN previous_balance_clp REAL NULL;
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            16,
+            "Phase 10 bill summary fidelity: preserve printed previous balance separately from current-period charges.");
+
         transaction.Commit();
     }
 
