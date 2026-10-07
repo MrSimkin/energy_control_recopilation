@@ -39,6 +39,37 @@
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
+        <Style x:Key="WorkspaceSectionStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#5F6B76"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="SectionHeadingStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#263238"/>
+        </Style>
+        <Style x:Key="HelperTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#6C757D"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="InfoStatusBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F2F8FD"/>
+            <Setter Property="BorderBrush" Value="#CFE4F6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="11,8"/>
+        </Style>
         <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="#0B6ECA"/>
@@ -1635,311 +1666,323 @@
                         <TabItem Header="{DynamicResource GridUtility.Tab.Bills}"
                                  Style="{StaticResource PageTabItemStyle}">
                             <StackPanel Margin="0,16,0,0">
+                                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource GridUtility.BillsHeading}"
+                                                   FontSize="18"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#263238"/>
+                                        <TextBlock Text="{DynamicResource GridUtility.BillsIntro}"
+                                                   FontSize="12"
+                                                   Foreground="#6C757D"
+                                                   Margin="0,4,0,14"
+                                                   TextWrapping="Wrap"/>
+
+                                        <Grid Margin="0,0,0,14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="14"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0"
+                                                    Background="#F2F8FD"
+                                                    BorderBrush="#BFDDF5"
+                                                    BorderThickness="1"
+                                                    CornerRadius="7"
+                                                    Padding="15">
+                                                <StackPanel>
+                                                    <TextBlock Text="{DynamicResource GridUtility.BillEntryPdfTitle}"
+                                                               FontSize="14"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#0B5FA5"/>
+                                                    <TextBlock Text="{DynamicResource GridUtility.BillEntryPdfIntro}"
+                                                               Style="{StaticResource HelperTextStyle}"
+                                                               Margin="0,5,0,10"/>
+                                                    <Button x:Name="UtilityImportBillPdfButton"
+                                                            Style="{StaticResource PrimaryActionButtonStyle}"
+                                                            Content="{DynamicResource GridUtility.ImportBillPdf}"
+                                                            HorizontalAlignment="Left"
+                                                            Click="UtilityImportBillPdf_Click"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="2"
+                                                    Background="#FAFAFB"
+                                                    BorderBrush="#DFE3E7"
+                                                    BorderThickness="1"
+                                                    CornerRadius="7"
+                                                    Padding="15">
+                                                <StackPanel>
+                                                    <TextBlock Text="{DynamicResource GridUtility.BillEntryManualTitle}"
+                                                               FontSize="14"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#343A40"/>
+                                                    <TextBlock Text="{DynamicResource GridUtility.BillEntryManualIntro}"
+                                                               Style="{StaticResource HelperTextStyle}"
+                                                               Margin="0,5,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <Border Style="{StaticResource WorkspaceSectionStyle}">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GridUtility.BillPrimaryDataHeading}"
+                                                           Style="{StaticResource SectionHeadingStyle}"/>
+                                                <TextBlock Text="{DynamicResource GridUtility.BillPrimaryDataIntro}"
+                                                           Style="{StaticResource HelperTextStyle}"
+                                                           Margin="0,3,0,12"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="16"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillFromReading}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <ComboBox x:Name="UtilityBillFromReadingSelector" DisplayMemberPath="Display" SelectedValuePath="ReadingId"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillToReading}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <ComboBox x:Name="UtilityBillToReadingSelector" DisplayMemberPath="Display" SelectedValuePath="ReadingId"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillPeriodPrecision}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <ComboBox x:Name="UtilityBillPeriodPrecisionSelector" SelectedValuePath="Tag" SelectedIndex="0">
+                                                            <ComboBoxItem Tag="DATE_ONLY" Content="{DynamicResource GridUtility.BillPeriodDateOnly}"/>
+                                                            <ComboBoxItem Tag="EXACT" Content="{DynamicResource GridUtility.BillPeriodExact}"/>
+                                                        </ComboBox>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,10">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BilledKwh}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillKwhTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <Grid Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                            <TextBlock Text="{DynamicResource GridUtility.BillStart}" Style="{StaticResource FieldLabelStyle}"/>
+                                                            <controls:QuickDatePicker x:Name="UtilityBillStartDatePicker" SelectedDateChanged="UtilityBillDatePicker_SelectedDateChanged"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{DynamicResource GridUtility.Time}" Style="{StaticResource FieldLabelStyle}"/>
+                                                            <TextBox x:Name="UtilityBillStartTimeTextBox" MinHeight="30" VerticalContentAlignment="Center" Text="00:00"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <Grid Grid.Row="2" Grid.Column="2" Margin="0,0,0,10">
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                            <TextBlock Text="{DynamicResource GridUtility.BillEnd}" Style="{StaticResource FieldLabelStyle}"/>
+                                                            <controls:QuickDatePicker x:Name="UtilityBillEndDatePicker" SelectedDateChanged="UtilityBillDatePicker_SelectedDateChanged"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{DynamicResource GridUtility.Time}" Style="{StaticResource FieldLabelStyle}"/>
+                                                            <TextBox x:Name="UtilityBillEndTimeTextBox" MinHeight="30" VerticalContentAlignment="Center" Text="00:00"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <StackPanel Grid.Row="3" Grid.Column="0">
+                                                        <TextBlock Text="{DynamicResource GridUtility.TariffPlan}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillTariffPlanTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="3" Grid.Column="2">
+                                                        <TextBlock Text="{DynamicResource GridUtility.Reference}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillReferenceTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <TextBlock Text="{DynamicResource GridUtility.BillManualFallback}" Style="{StaticResource HelperTextStyle}" Margin="0,10,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Style="{StaticResource WorkspaceSectionStyle}">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GridUtility.BillFinancialHeading}" Style="{StaticResource SectionHeadingStyle}"/>
+                                                <TextBlock Text="{DynamicResource GridUtility.BillFinancialIntro}" Style="{StaticResource HelperTextStyle}" Margin="0,3,0,12"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
+                                                        <TextBlock Text="{DynamicResource GridUtility.TaxableAmount}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillTaxableTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
+                                                        <TextBlock Text="{DynamicResource GridUtility.IvaAmount}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillIvaTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillIvaHint}" Style="{StaticResource HelperTextStyle}" Margin="0,3,0,0"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="0" Grid.Column="4" Margin="0,0,0,10">
+                                                        <TextBlock Text="{DynamicResource GridUtility.ExemptAmount}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillExemptTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="1" Grid.Column="0">
+                                                        <TextBlock Text="{DynamicResource GridUtility.GrossBill}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillGrossTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="1" Grid.Column="2">
+                                                        <TextBlock Text="{DynamicResource GridUtility.OtherCharges}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillOtherChargesTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="1" Grid.Column="4">
+                                                        <TextBlock Text="{DynamicResource GridUtility.TotalDue}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillTotalDueTextBox" MinHeight="30" VerticalContentAlignment="Center" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <StackPanel Margin="0,12,0,0">
+                                                    <TextBlock Text="{DynamicResource GridUtility.Notes}" Style="{StaticResource FieldLabelStyle}"/>
+                                                    <TextBox x:Name="UtilityBillNotesTextBox" MinHeight="54" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Style="{StaticResource WorkspaceSectionStyle}" Visibility="{Binding Visibility, ElementName=UtilityBillPdfPreviewGrid}">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GridUtility.BillPdfPreviewHeading}" Style="{StaticResource SectionHeadingStyle}"/>
+                                                <TextBlock Text="{DynamicResource GridUtility.BillPdfPreviewIntro}" Style="{StaticResource HelperTextStyle}" Margin="0,3,0,8"/>
+                                                <CheckBox x:Name="UtilityBillPdfApplyLinesCheckBox" Content="{DynamicResource GridUtility.ApplyDetectedPdfLines}" IsChecked="True" Margin="0,0,0,8" Visibility="Collapsed"/>
+                                                <DataGrid x:Name="UtilityBillPdfPreviewGrid" Height="150" AutoGenerateColumns="False" IsReadOnly="True" Visibility="Collapsed" CanUserAddRows="False">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillDescription}" Binding="{Binding Description}" Width="*"/>
+                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillLineAmount}" Binding="{Binding Amount}" Width="120"/>
+                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillEvidence}" Binding="{Binding Evidence}" Width="190"/>
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <Button x:Name="UtilityAddBillButton" Style="{StaticResource PrimaryActionButtonStyle}" Content="{DynamicResource GridUtility.AddBill}" Click="UtilityAddBill_Click"/>
+                                            <Button x:Name="UtilityCancelBillReviewButton" Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.CancelBillReview}" Margin="8,0,0,0" Visibility="Collapsed" Click="UtilityCancelBillReview_Click"/>
+                                        </StackPanel>
+                                        <Border Style="{StaticResource InfoStatusBorderStyle}">
+                                            <TextBlock x:Name="UtilityBillStatusText" FontSize="12" Foreground="#425466" TextWrapping="Wrap"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GridUtility.SavedBillsHeading}" FontSize="16" FontWeight="SemiBold" Foreground="#263238"/>
+                                                <TextBlock Text="{DynamicResource GridUtility.SavedBillsIntro}" Style="{StaticResource HelperTextStyle}" Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                                                <Button x:Name="UtilityReviewBillButton" Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.ReviewSelectedBill}" Click="UtilityReviewBill_Click"/>
+                                                <Button x:Name="UtilityDeleteBillButton" Style="{StaticResource DestructiveActionButtonStyle}" Content="{DynamicResource GridUtility.DeleteBill}" Margin="8,0,0,0" Click="UtilityDeleteBill_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <DataGrid x:Name="UtilityBillsGrid" Height="240" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" SelectionChanged="UtilityBillsGrid_SelectionChanged" CanUserAddRows="False">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.Interval}" Binding="{Binding Interval}" Width="225"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BilledKwh}" Binding="{Binding BilledKwh}" Width="100"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.InverterKwh}" Binding="{Binding InverterKwh}" Width="105"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.DifferenceKwh}" Binding="{Binding DifferenceKwh}" Width="95"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.Coverage}" Binding="{Binding Coverage}" Width="80"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.TotalDue}" Binding="{Binding TotalDue}" Width="95"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillSource}" Binding="{Binding Source}" Width="105"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillReviewState}" Binding="{Binding ReviewState}" Width="115"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.Reference}" Binding="{Binding Reference}" Width="130"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.Quality}" Binding="{Binding Quality}" Width="*"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </Border>
+
                                 <Border Style="{StaticResource CardStyle}" Margin="0">
-                                                            <StackPanel>
-                                                                <TextBlock Text="{DynamicResource GridUtility.BillsHeading}"
-                                                                           FontSize="17"
-                                                                           FontWeight="SemiBold"/>
-                                                                <TextBlock Text="{DynamicResource GridUtility.BillsIntro}"
-                                                                           FontSize="12"
-                                                                           Foreground="#6C757D"
-                                                                           Margin="0,4,0,10"
-                                                                           TextWrapping="Wrap"/>
-
-                                                                <TextBlock Text="{DynamicResource GridUtility.BillEvidenceHeading}"
-                                                                           FontSize="13"
-                                                                           FontWeight="SemiBold"
-                                                                           Margin="0,0,0,6"/>
-                                                                <WrapPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillFromReading}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <ComboBox x:Name="UtilityBillFromReadingSelector"
-                                                                                  Width="310"
-                                                                                  DisplayMemberPath="Display"
-                                                                                  SelectedValuePath="ReadingId"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillToReading}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <ComboBox x:Name="UtilityBillToReadingSelector"
-                                                                                  Width="310"
-                                                                                  DisplayMemberPath="Display"
-                                                                                  SelectedValuePath="ReadingId"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BilledKwh}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillKwhTextBox" Width="125" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.TariffPlan}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillTariffPlanTextBox" Width="110" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.Reference}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillReferenceTextBox" Width="160" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                </WrapPanel>
-
-                                                                <TextBlock Text="{DynamicResource GridUtility.BillManualFallback}"
-                                                                           FontSize="11"
-                                                                           Foreground="#6C757D"
-                                                                           Margin="0,0,0,5"
-                                                                           TextWrapping="Wrap"/>
-                                                                <WrapPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillPeriodPrecision}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <ComboBox x:Name="UtilityBillPeriodPrecisionSelector"
-                                                                                  Width="150"
-                                                                                  SelectedValuePath="Tag"
-                                                                                  SelectedIndex="0">
-                                                                            <ComboBoxItem Tag="DATE_ONLY" Content="{DynamicResource GridUtility.BillPeriodDateOnly}"/>
-                                                                            <ComboBoxItem Tag="EXACT" Content="{DynamicResource GridUtility.BillPeriodExact}"/>
-                                                                        </ComboBox>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillStart}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <controls:QuickDatePicker x:Name="UtilityBillStartDatePicker"
-                                                                  Width="150"
-                                                                  SelectedDateChanged="UtilityBillDatePicker_SelectedDateChanged"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.Time}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillStartTimeTextBox" Width="80" MinHeight="28" VerticalContentAlignment="Center" Text="00:00"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillEnd}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <controls:QuickDatePicker x:Name="UtilityBillEndDatePicker"
-                                                                  Width="150"
-                                                                  SelectedDateChanged="UtilityBillDatePicker_SelectedDateChanged"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.Time}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillEndTimeTextBox" Width="80" MinHeight="28" VerticalContentAlignment="Center" Text="00:00"/>
-                                                                    </StackPanel>
-                                                                </WrapPanel>
-
-                                                                <TextBlock Text="{DynamicResource GridUtility.BillSummaryHeading}"
-                                                                           FontSize="13"
-                                                                           FontWeight="SemiBold"
-                                                                           Margin="0,6,0,6"/>
-                                                                <WrapPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.TaxableAmount}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillTaxableTextBox" Width="110" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.IvaAmount}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillIvaTextBox" Width="100" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.ExemptAmount}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillExemptTextBox" Width="100" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.GrossBill}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillGrossTextBox" Width="110" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.OtherCharges}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillOtherChargesTextBox" Width="110" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.TotalDue}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillTotalDueTextBox" Width="110" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.Notes}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillNotesTextBox" Width="260" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                </WrapPanel>
-
-                                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                                                    <Button x:Name="UtilityAddBillButton"
-                                                                            Content="{DynamicResource GridUtility.AddBill}"
-                                                                            Padding="12,6"
-                                                                            Click="UtilityAddBill_Click"/>
-                                                                    <Button x:Name="UtilityImportBillPdfButton"
-                                                                            Content="{DynamicResource GridUtility.ImportBillPdf}"
-                                                                            Padding="12,6"
-                                                                            Margin="8,0,0,0"
-                                                                            Click="UtilityImportBillPdf_Click"/>
-                                                                    <Button x:Name="UtilityReviewBillButton"
-                                                                            Content="{DynamicResource GridUtility.ReviewSelectedBill}"
-                                                                            Padding="12,6"
-                                                                            Margin="8,0,0,0"
-                                                                            Click="UtilityReviewBill_Click"/>
-                                                                    <Button x:Name="UtilityCancelBillReviewButton"
-                                                                            Content="{DynamicResource GridUtility.CancelBillReview}"
-                                                                            Padding="12,6"
-                                                                            Margin="8,0,0,0"
-                                                                            Visibility="Collapsed"
-                                                                            Click="UtilityCancelBillReview_Click"/>
-                                                                    <Button x:Name="UtilityDeleteBillButton"
-                                                                            Content="{DynamicResource GridUtility.DeleteBill}"
-                                                                            Padding="12,6"
-                                                                            Margin="8,0,0,0"
-                                                                            Click="UtilityDeleteBill_Click"/>
-                                                                </StackPanel>
-                                                                <TextBlock x:Name="UtilityBillStatusText"
-                                                                           FontSize="12"
-                                                                           Foreground="#6C757D"
-                                                                           Margin="0,0,0,8"
-                                                                           TextWrapping="Wrap"/>
-
-                                                                <CheckBox x:Name="UtilityBillPdfApplyLinesCheckBox"
-                                                                          Content="{DynamicResource GridUtility.ApplyDetectedPdfLines}"
-                                                                          IsChecked="True"
-                                                                          Margin="0,0,0,6"
-                                                                          Visibility="Collapsed"/>
-                                                                <DataGrid x:Name="UtilityBillPdfPreviewGrid"
-                                                                          Height="120"
-                                                                          Margin="0,0,0,8"
-                                                                          AutoGenerateColumns="False"
-                                                                          IsReadOnly="True"
-                                                                          Visibility="Collapsed"
-                                                                          CanUserAddRows="False">
-                                                                    <DataGrid.Columns>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillDescription}" Binding="{Binding Description}" Width="*"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillLineAmount}" Binding="{Binding Amount}" Width="110"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillEvidence}" Binding="{Binding Evidence}" Width="180"/>
-                                                                    </DataGrid.Columns>
-                                                                </DataGrid>
-
-                                                                <DataGrid x:Name="UtilityBillsGrid"
-                                                                          Height="240"
-                                                                          AutoGenerateColumns="False"
-                                                                          IsReadOnly="True"
-                                                                          SelectionMode="Single"
-                                                                          SelectionChanged="UtilityBillsGrid_SelectionChanged"
-                                                                          CanUserAddRows="False">
-                                                                    <DataGrid.Columns>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Interval}" Binding="{Binding Interval}" Width="245"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BilledKwh}" Binding="{Binding BilledKwh}" Width="100"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.InverterKwh}" Binding="{Binding InverterKwh}" Width="110"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.DifferenceKwh}" Binding="{Binding DifferenceKwh}" Width="100"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Coverage}" Binding="{Binding Coverage}" Width="85"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TotalDue}" Binding="{Binding TotalDue}" Width="100"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillSource}" Binding="{Binding Source}" Width="105"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillReviewState}" Binding="{Binding ReviewState}" Width="115"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Reference}" Binding="{Binding Reference}" Width="130"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.Quality}" Binding="{Binding Quality}" Width="*"/>
-                                                                    </DataGrid.Columns>
-                                                                </DataGrid>
-
-                                                                <Separator Margin="0,14,0,12"/>
-                                                                <TextBlock Text="{DynamicResource GridUtility.BillLinesHeading}"
-                                                                           FontSize="15"
-                                                                           FontWeight="SemiBold"/>
-                                                                <TextBlock Text="{DynamicResource GridUtility.BillLinesIntro}"
-                                                                           FontSize="11"
-                                                                           Foreground="#6C757D"
-                                                                           Margin="0,3,0,8"
-                                                                           TextWrapping="Wrap"/>
-
-                                                                <WrapPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillType}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <ComboBox x:Name="UtilityBillLineTypeSelector"
-                                                                                  Width="190"
-                                                                                  SelectedValuePath="Tag"
-                                                                                  SelectedIndex="0"
-                                                                                  SelectionChanged="UtilityBillLineTypeSelector_SelectionChanged">
-                                                                            <ComboBoxItem Tag="CUSTOM" Content="{DynamicResource GridUtility.BillType.Custom}"/>
-                                                                            <ComboBoxItem Tag="ELECTRICITY_CONSUMED" Content="{DynamicResource GridUtility.BillType.ElectricityConsumed}"/>
-                                                                            <ComboBoxItem Tag="ELECTRICITY_TRANSPORT" Content="{DynamicResource GridUtility.BillType.ElectricityTransport}"/>
-                                                                            <ComboBoxItem Tag="FIXED_MONTHLY" Content="{DynamicResource GridUtility.BillType.FixedMonthly}"/>
-                                                                            <ComboBoxItem Tag="SUBSIDY" Content="{DynamicResource GridUtility.BillType.Subsidy}"/>
-                                                                            <ComboBoxItem Tag="SERVICE_ADMINISTRATION" Content="{DynamicResource GridUtility.BillType.ServiceAdministration}"/>
-                                                                            <ComboBoxItem Tag="METER_RENTAL" Content="{DynamicResource GridUtility.BillType.MeterRental}"/>
-                                                                            <ComboBoxItem Tag="COMMON_SERVICE" Content="{DynamicResource GridUtility.BillType.CommonService}"/>
-                                                                            <ComboBoxItem Tag="VAT_19" Content="{DynamicResource GridUtility.BillType.Vat19}"/>
-                                                                            <ComboBoxItem Tag="SIMPLE_ADJUSTMENT" Content="{DynamicResource GridUtility.BillType.SimpleAdjustment}"/>
-                                                                        </ComboBox>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillSection}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <ComboBox x:Name="UtilityBillLineSectionSelector"
-                                                                                  Width="175"
-                                                                                  SelectedValuePath="Tag">
-                                                                            <ComboBoxItem Tag="SERVICIO_ELECTRICO" Content="{DynamicResource GridUtility.BillSection.Service}"/>
-                                                                            <ComboBoxItem Tag="OTROS_CARGOS" Content="{DynamicResource GridUtility.BillSection.OtherCharges}"/>
-                                                                            <ComboBoxItem Tag="ACUMULADO" Content="{DynamicResource GridUtility.BillSection.Accumulated}"/>
-                                                                            <ComboBoxItem Tag="OTRO" Content="{DynamicResource GridUtility.BillSection.Other}"/>
-                                                                        </ComboBox>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillDescription}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillLineDescriptionTextBox" Width="260" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillLineAmount}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillLineAmountTextBox" Width="105" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillQuantity}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillLineQuantityTextBox" Width="90" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillUnit}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillLineUnitTextBox" Width="70" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.BillUnitRate}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillLineRateTextBox" Width="100" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                    <StackPanel Margin="0,0,10,10">
-                                                                        <TextBlock Text="{DynamicResource GridUtility.TaxTreatment}" FontSize="12" Foreground="#6C757D"/>
-                                                                        <TextBox x:Name="UtilityBillLineTaxTextBox" Width="110" MinHeight="28" VerticalContentAlignment="Center"/>
-                                                                    </StackPanel>
-                                                                </WrapPanel>
-                                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                                    <Button x:Name="UtilitySaveBillLineButton"
-                                                                            Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                            Content="{DynamicResource GridUtility.AddBillLine}"
-                                                                            Padding="12,6"
-                                                                            Click="UtilityAddBillLine_Click"/>
-                                                                    <Button Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                            Content="{DynamicResource GridUtility.EditBillLine}"
-                                                                            Padding="12,6"
-                                                                            Margin="8,0,0,0"
-                                                                            Click="UtilityEditBillLine_Click"/>
-                                                                    <Button x:Name="UtilityCancelBillLineEditButton"
-                                                                            Style="{StaticResource SecondaryActionButtonStyle}"
-                                                                            Content="{DynamicResource GridUtility.CancelBillLineEdit}"
-                                                                            Padding="12,6"
-                                                                            Margin="8,0,0,0"
-                                                                            Visibility="Collapsed"
-                                                                            Click="UtilityCancelBillLineEdit_Click"/>
-                                                                    <Button Style="{StaticResource DestructiveActionButtonStyle}" Content="{DynamicResource GridUtility.DeleteBillLine}"
-                                                                            Padding="12,6"
-                                                                            Margin="8,0,0,0"
-                                                                            Click="UtilityDeleteBillLine_Click"/>
-                                                                </StackPanel>
-                                                                <TextBlock x:Name="UtilityBillLineStatusText"
-                                                                           FontSize="11"
-                                                                           Foreground="#6C757D"
-                                                                           Margin="0,0,0,8"
-                                                                           TextWrapping="Wrap"/>
-
-                                                                <DataGrid x:Name="UtilityBillLinesGrid"
-                                                                          Height="220"
-                                                                          AutoGenerateColumns="False"
-                                                                          IsReadOnly="True"
-                                                                          SelectionMode="Single"
-                                                                          CanUserAddRows="False">
-                                                                    <DataGrid.Columns>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillSection}" Binding="{Binding Section}" Width="150"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillDescription}" Binding="{Binding Description}" Width="*"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillQuantity}" Binding="{Binding Quantity}" Width="85"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillUnit}" Binding="{Binding Unit}" Width="70"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillUnitRate}" Binding="{Binding UnitRate}" Width="95"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillLineAmount}" Binding="{Binding Amount}" Width="105"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.TaxTreatment}" Binding="{Binding TaxTreatment}" Width="110"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillSource}" Binding="{Binding Source}" Width="100"/>
-                                                                        <DataGridTextColumn Header="{DynamicResource GridUtility.BillEvidence}" Binding="{Binding Evidence}" Width="135"/>
-                                                                    </DataGrid.Columns>
-                                                                </DataGrid>
-                                                            </StackPanel>
-                                                        </Border>
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource GridUtility.BillLineEditorHeading}" FontSize="16" FontWeight="SemiBold" Foreground="#263238"/>
+                                        <TextBlock Text="{DynamicResource GridUtility.BillLinesIntro}" Style="{StaticResource HelperTextStyle}" Margin="0,3,0,12"/>
+                                        <Border Style="{StaticResource WorkspaceSectionStyle}">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="190"/><ColumnDefinition Width="14"/><ColumnDefinition Width="180"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillType}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <ComboBox x:Name="UtilityBillLineTypeSelector" SelectedValuePath="Tag" SelectedIndex="0" SelectionChanged="UtilityBillLineTypeSelector_SelectionChanged">
+                                                            <ComboBoxItem Tag="CUSTOM" Content="{DynamicResource GridUtility.BillType.Custom}"/>
+                                                            <ComboBoxItem Tag="ELECTRICITY_CONSUMED" Content="{DynamicResource GridUtility.BillType.ElectricityConsumed}"/>
+                                                            <ComboBoxItem Tag="ELECTRICITY_TRANSPORT" Content="{DynamicResource GridUtility.BillType.ElectricityTransport}"/>
+                                                            <ComboBoxItem Tag="FIXED_MONTHLY" Content="{DynamicResource GridUtility.BillType.FixedMonthly}"/>
+                                                            <ComboBoxItem Tag="SUBSIDY" Content="{DynamicResource GridUtility.BillType.Subsidy}"/>
+                                                            <ComboBoxItem Tag="SERVICE_ADMINISTRATION" Content="{DynamicResource GridUtility.BillType.ServiceAdministration}"/>
+                                                            <ComboBoxItem Tag="METER_RENTAL" Content="{DynamicResource GridUtility.BillType.MeterRental}"/>
+                                                            <ComboBoxItem Tag="COMMON_SERVICE" Content="{DynamicResource GridUtility.BillType.CommonService}"/>
+                                                            <ComboBoxItem Tag="VAT_19" Content="{DynamicResource GridUtility.BillType.Vat19}"/>
+                                                            <ComboBoxItem Tag="SIMPLE_ADJUSTMENT" Content="{DynamicResource GridUtility.BillType.SimpleAdjustment}"/>
+                                                        </ComboBox>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillSection}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <ComboBox x:Name="UtilityBillLineSectionSelector" SelectedValuePath="Tag">
+                                                            <ComboBoxItem Tag="SERVICIO_ELECTRICO" Content="{DynamicResource GridUtility.BillSection.Service}"/>
+                                                            <ComboBoxItem Tag="OTROS_CARGOS" Content="{DynamicResource GridUtility.BillSection.OtherCharges}"/>
+                                                            <ComboBoxItem Tag="ACUMULADO" Content="{DynamicResource GridUtility.BillSection.Accumulated}"/>
+                                                            <ComboBoxItem Tag="OTRO" Content="{DynamicResource GridUtility.BillSection.Other}"/>
+                                                        </ComboBox>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="4">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillDescription}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillLineDescriptionTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <Grid Margin="0,10,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
+                                                        <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillLineAmount}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillLineAmountTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillQuantity}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillLineQuantityTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="4">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillUnit}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillLineUnitTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="6">
+                                                        <TextBlock Text="{DynamicResource GridUtility.BillUnitRate}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillLineRateTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="8">
+                                                        <TextBlock Text="{DynamicResource GridUtility.TaxTreatment}" Style="{StaticResource FieldLabelStyle}"/>
+                                                        <TextBox x:Name="UtilityBillLineTaxTextBox" MinHeight="30" VerticalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <Button x:Name="UtilitySaveBillLineButton" Style="{StaticResource PrimaryActionButtonStyle}" Content="{DynamicResource GridUtility.AddBillLine}" Click="UtilityAddBillLine_Click"/>
+                                            <Button Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.EditBillLine}" Margin="8,0,0,0" Click="UtilityEditBillLine_Click"/>
+                                            <Button x:Name="UtilityCancelBillLineEditButton" Style="{StaticResource SecondaryActionButtonStyle}" Content="{DynamicResource GridUtility.CancelBillLineEdit}" Margin="8,0,0,0" Visibility="Collapsed" Click="UtilityCancelBillLineEdit_Click"/>
+                                            <Button Style="{StaticResource DestructiveActionButtonStyle}" Content="{DynamicResource GridUtility.DeleteBillLine}" Margin="8,0,0,0" Click="UtilityDeleteBillLine_Click"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="UtilityBillLineStatusText" Style="{StaticResource HelperTextStyle}" Margin="0,0,0,8"/>
+                                        <DataGrid x:Name="UtilityBillLinesGrid" Height="230" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserAddRows="False">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillSection}" Binding="{Binding Section}" Width="145"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillDescription}" Binding="{Binding Description}" Width="*"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillQuantity}" Binding="{Binding Quantity}" Width="80"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillUnit}" Binding="{Binding Unit}" Width="65"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillUnitRate}" Binding="{Binding UnitRate}" Width="95"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillLineAmount}" Binding="{Binding Amount}" Width="100"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.TaxTreatment}" Binding="{Binding TaxTreatment}" Width="105"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillSource}" Binding="{Binding Source}" Width="105"/>
+                                                <DataGridTextColumn Header="{DynamicResource GridUtility.BillEvidence}" Binding="{Binding Evidence}" Width="145"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </TabItem>
                         <TabItem Header="{DynamicResource GridUtility.Tab.Audit}"
@@ -1988,6 +2031,32 @@
                                                Foreground="#495057"
                                                TextWrapping="Wrap"
                                                Margin="0,0,0,10"/>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Style="{StaticResource WorkspaceSectionStyle}" Margin="0">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GridUtility.AuditCoverageCard}" Style="{StaticResource FieldLabelStyle}"/>
+                                                <TextBlock x:Name="UtilityAuditReconstructionCoverageText" Text="—" FontSize="18" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource WorkspaceSectionStyle}" Margin="0">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GridUtility.AuditVatCard}" Style="{StaticResource FieldLabelStyle}"/>
+                                                <TextBlock x:Name="UtilityAuditVatCheckText" Text="—" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Grid.Column="4" Style="{StaticResource WorkspaceSectionStyle}" Margin="0">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GridUtility.AuditBalanceCard}" Style="{StaticResource FieldLabelStyle}"/>
+                                                <TextBlock x:Name="UtilityAuditBalanceText" Text="—" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
 
                                     <Border BorderBrush="#DEE2E6"
                                             BorderThickness="1"
@@ -2080,6 +2149,9 @@
                                             <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Evidence}"
                                                                 Binding="{Binding Evidence}"
                                                                 Width="150"/>
+                                            <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.ActualAmount}"
+                                                                Binding="{Binding ActualAmount}"
+                                                                Width="115"/>
                                             <DataGridTextColumn Header="{DynamicResource GridUtility.AuditColumn.Reconstructed}"
                                                                 Binding="{Binding Reconstructed}"
                                                                 Width="130"/>
