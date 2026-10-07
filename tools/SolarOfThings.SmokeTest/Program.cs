@@ -1831,13 +1831,16 @@ try
     }
 
 
-    // Phase 10 closure: mixed fixed + variable Administration service.
-    // Official BT1 structure represented by the normalized fixture:
-    // fixed monthly charge + public-service rate × kWh; FET is zero <=350 kWh.
+    // Phase 10 closure: reproduce the actual 2026 Enel bill grouping:
+    // Administration = monthly fixed charge; Transport line can include the
+    // tax-exempt public-service charge. The public-service amount is also
+    // independently cross-checked against the printed exempt subtotal.
     const double smokeAdminBilledKwh = 10.0;
     const double smokeAdminObservedKwh = 8.0;
     const double smokeAdminFixedConsumer = 709.540;
+    const double smokeAdminFixedPrinted = 710.0;
     const double smokeAdminPublicServiceRate = 0.855;
+    const double smokeAdminTransportRate = 15.964;
     const double smokeAdminElectricityRate = 176.2788;
 
     var adminBillStart =
@@ -1851,25 +1854,32 @@ try
             TimeSpan.FromHours(-3))
         .ToUniversalTime();
 
-    var adminActualAmount =
-        smokeAdminFixedConsumer +
-        smokeAdminBilledKwh *
-        smokeAdminPublicServiceRate;
     var adminElectricityAmount =
         smokeAdminBilledKwh *
         smokeAdminElectricityRate;
+    var adminTransportAmount =
+        smokeAdminBilledKwh *
+        (smokeAdminTransportRate +
+         smokeAdminPublicServiceRate);
+    var adminExemptAmount =
+        smokeAdminBilledKwh *
+        smokeAdminPublicServiceRate;
 
     var adminBillId = utilityRepository.AddBill(
         adminBillStart,
         adminBillEnd,
         smokeAdminBilledKwh,
-        adminActualAmount + adminElectricityAmount,
+        adminElectricityAmount +
+        adminTransportAmount +
+        smokeAdminFixedPrinted,
         "PHASE10-ADMIN-SMOKE",
-        "Fixed plus public-service reconstruction",
+        "Fixed administration plus transport/public-service reconstruction",
         tariffPlan: "BT1-T1",
+        exemptAmountClp: adminExemptAmount,
         totalDueClp:
-            adminActualAmount +
-            adminElectricityAmount,
+            adminElectricityAmount +
+            adminTransportAmount +
+            smokeAdminFixedPrinted,
         periodPrecision:
             UtilityTimePrecision.DateOnly);
 
@@ -1882,14 +1892,24 @@ try
             UtilityBillLineCategory.ElectricityConsumed,
         sortOrder: 10);
 
+    var adminTransportLineId =
+        utilityRepository.AddBillLine(
+            adminBillId,
+            "SERVICIO_ELECTRICO",
+            "Transporte de electricidad",
+            adminTransportAmount,
+            categoryKey:
+                UtilityBillLineCategory.ElectricityTransport,
+            sortOrder: 20);
+
     var adminLineId = utilityRepository.AddBillLine(
         adminBillId,
         "SERVICIO_ELECTRICO",
         "Administración del servicio",
-        adminActualAmount,
+        smokeAdminFixedPrinted,
         categoryKey:
             UtilityBillLineCategory.ServiceAdministration,
-        sortOrder: 20);
+        sortOrder: 30);
 
     var adminAnalysis =
         new UtilityBillTariffScenarioAnalysisService(
@@ -1912,42 +1932,59 @@ try
         adminAnalysis.Components.SingleOrDefault(item =>
             item.ComponentKey ==
             UtilityBillLineCategory.ServiceAdministration);
+    var transportComponent =
+        adminAnalysis.Components.SingleOrDefault(item =>
+            item.ComponentKey ==
+            "ELECTRICITY_TRANSPORT_PLUS_PUBLIC_SERVICE");
     var adminObservedScenario =
         adminAnalysis.Scenarios.Single(item =>
             item.Key == "SOLAR_OBSERVED");
 
     var expectedAdminObservedSubtotal =
-        smokeAdminFixedConsumer +
+        smokeAdminFixedPrinted +
         smokeAdminObservedKwh *
         (smokeAdminElectricityRate +
+         smokeAdminTransportRate +
          smokeAdminPublicServiceRate);
 
     if (!adminAnalysis.HasTariffModel ||
         adminComponent is null ||
+        transportComponent is null ||
         Math.Abs(
             adminComponent.FixedAmountClp -
-            smokeAdminFixedConsumer) > 0.0001 ||
+            smokeAdminFixedPrinted) > 0.0001 ||
         Math.Abs(
-            adminComponent.RateClpPerKwh -
-            smokeAdminPublicServiceRate) > 0.000001 ||
+            adminComponent.RateClpPerKwh) > 0.000001 ||
         Math.Abs(
             adminComponent.ReconstructedAmountClp -
-            adminActualAmount) > 0.001 ||
+            smokeAdminFixedPrinted) > 0.001 ||
         string.IsNullOrWhiteSpace(
             adminComponent.CalculationBasis) ||
         !adminComponent.CalculationBasis.Contains(
-            "FET 0",
-            StringComparison.Ordinal) ||
+            "Cargo fijo mensual",
+            StringComparison.OrdinalIgnoreCase) ||
+        Math.Abs(
+            transportComponent.RateClpPerKwh -
+            (smokeAdminTransportRate +
+             smokeAdminPublicServiceRate)) > 0.000001 ||
+        string.IsNullOrWhiteSpace(
+            transportComponent.CalculationBasis) ||
+        !transportComponent.CalculationBasis.Contains(
+            "servicio público",
+            StringComparison.OrdinalIgnoreCase) ||
+        !transportComponent.CalculationBasis.Contains(
+            "exento impreso",
+            StringComparison.OrdinalIgnoreCase) ||
         adminAnalysis.SupportedFixedAmountClp is null ||
         Math.Abs(
             adminAnalysis.SupportedFixedAmountClp.Value -
-            smokeAdminFixedConsumer) > 0.0001 ||
+            smokeAdminFixedPrinted) > 0.0001 ||
         Math.Abs(
             adminObservedScenario.SupportedTariffSubtotalClp -
             expectedAdminObservedSubtotal) > 0.001)
     {
         throw new InvalidOperationException(
-            "Phase 10 administration-service reconstruction smoke test failed.");
+            "Phase 10 real-structure administration/transport reconstruction smoke test failed.");
     }
 
     var adminAudit =
@@ -1966,23 +2003,30 @@ try
     var adminAuditLine =
         adminAudit.Lines.Single(item =>
             item.BillLineId == adminLineId);
+    var transportAuditLine =
+        adminAudit.Lines.Single(item =>
+            item.BillLineId == adminTransportLineId);
 
     if (!adminAuditLine.ReconstructedAmountClp.HasValue ||
         Math.Abs(
             adminAuditLine.ReconstructedAmountClp.Value -
-            adminActualAmount) > 0.001 ||
+            smokeAdminFixedPrinted) > 0.001 ||
         string.IsNullOrWhiteSpace(
             adminAuditLine.CalculationDetail) ||
         !adminAuditLine.CalculationDetail.Contains(
             "fijo",
-            StringComparison.OrdinalIgnoreCase))
+            StringComparison.OrdinalIgnoreCase) ||
+        !transportAuditLine.ReconstructedAmountClp.HasValue ||
+        string.IsNullOrWhiteSpace(
+            transportAuditLine.CalculationDetail))
     {
         throw new InvalidOperationException(
-            "Phase 10 administration audit-basis smoke test failed.");
+            "Phase 10 administration/transport audit-basis smoke test failed.");
     }
 
     // Phase 10 closure: a single bill crosses two effective tariff
-    // publications with genuinely different electricity/public-service rates.
+    // publications with genuinely different variable rates while the monthly
+    // fixed charge remains whole-peso equivalent across the periods.
     var mayFixture =
         tariffPageFixture;
     var juneFixture =
@@ -2052,6 +2096,7 @@ try
     const double juneElectricityRate = 186.2788;
     const double mayServiceRate = 0.855;
     const double juneServiceRate = 0.955;
+    const double multiTransportRate = 15.964;
     const int mayDays = 12;
     const int juneDays = 10;
     const int multiDays = mayDays + juneDays;
@@ -2068,8 +2113,11 @@ try
     var multiElectricityAmount =
         multiBilledKwh *
         multiElectricityRate;
-    var multiAdminAmount =
-        smokeAdminFixedConsumer +
+    var multiTransportAmount =
+        multiBilledKwh *
+        (multiTransportRate +
+         multiServiceRate);
+    var multiExemptAmount =
         multiBilledKwh *
         multiServiceRate;
 
@@ -2085,13 +2133,17 @@ try
                 .ToUniversalTime(),
             multiBilledKwh,
             multiElectricityAmount +
-            multiAdminAmount,
+            multiTransportAmount +
+            smokeAdminFixedPrinted,
             "PHASE10-MULTI-PERIOD",
             "Two tariff periods in one bill",
             tariffPlan: "BT1-T1",
+            exemptAmountClp:
+                multiExemptAmount,
             totalDueClp:
                 multiElectricityAmount +
-                multiAdminAmount,
+                multiTransportAmount +
+                smokeAdminFixedPrinted,
             periodPrecision:
                 UtilityTimePrecision.DateOnly);
 
@@ -2106,11 +2158,19 @@ try
     utilityRepository.AddBillLine(
         multiBillId,
         "SERVICIO_ELECTRICO",
+        "Transporte de electricidad",
+        multiTransportAmount,
+        categoryKey:
+            UtilityBillLineCategory.ElectricityTransport,
+        sortOrder: 20);
+    utilityRepository.AddBillLine(
+        multiBillId,
+        "SERVICIO_ELECTRICO",
         "Administración del servicio",
-        multiAdminAmount,
+        smokeAdminFixedPrinted,
         categoryKey:
             UtilityBillLineCategory.ServiceAdministration,
-        sortOrder: 20);
+        sortOrder: 30);
 
     var multiAnalysis =
         new UtilityBillTariffScenarioAnalysisService(
@@ -2133,13 +2193,18 @@ try
         multiAnalysis.Components.SingleOrDefault(item =>
             item.ComponentKey ==
             UtilityBillLineCategory.ServiceAdministration);
+    var multiTransport =
+        multiAnalysis.Components.SingleOrDefault(item =>
+            item.ComponentKey ==
+            "ELECTRICITY_TRANSPORT_PLUS_PUBLIC_SERVICE");
     var multiObserved =
         multiAnalysis.Scenarios.Single(item =>
             item.Key == "SOLAR_OBSERVED");
     var expectedMultiObserved =
-        smokeAdminFixedConsumer +
+        smokeAdminFixedPrinted +
         multiObservedKwh *
         (multiElectricityRate +
+         multiTransportRate +
          multiServiceRate);
 
     if (!multiAnalysis.HasTariffModel ||
@@ -2151,18 +2216,22 @@ try
         multiAnalysis.PublicationPeriods[1].PublicationId !=
             junePublicationId ||
         multiAdmin is null ||
+        multiTransport is null ||
         Math.Abs(
             multiAdmin.FixedAmountClp -
-            smokeAdminFixedConsumer) > 0.0001 ||
+            smokeAdminFixedPrinted) > 0.0001 ||
         Math.Abs(
-            multiAdmin.RateClpPerKwh -
-            multiServiceRate) > 0.000001 ||
+            multiAdmin.RateClpPerKwh) > 0.000001 ||
         multiAdmin.PublicationIds.Count != 2 ||
         string.IsNullOrWhiteSpace(
             multiAdmin.RateBasis) ||
         !multiAdmin.RateBasis.Contains(
             "2026-06-01",
             StringComparison.Ordinal) ||
+        Math.Abs(
+            multiTransport.RateClpPerKwh -
+            (multiTransportRate +
+             multiServiceRate)) > 0.000001 ||
         Math.Abs(
             multiObserved.SupportedTariffSubtotalClp -
             expectedMultiObserved) > 0.001)
