@@ -1978,8 +1978,8 @@ public partial class MainWindow : Window
                     totalDue.HasValue
                         ? $"$ {totalDue.Value:N0}"
                         : "—",
-                    bill.SourceKind,
-                    bill.ReviewState,
+                    UtilityBillSourceLabel(bill.SourceKind),
+                    UtilityBillReviewLabel(bill.ReviewState),
                     bill.InvoiceReference ?? string.Empty,
                     comparison is null
                         ? string.Empty
@@ -2885,7 +2885,7 @@ public partial class MainWindow : Window
                             FormatAuditCalculationBasis(item),
                             AuditVerificationStatusLabel(item.Status),
                             item.Source,
-                            item.Evidence,
+                            UtilityBillAuditEvidenceLabel(item.Evidence),
                             $"$ {item.ActualAmountClp:+#,##0;-#,##0;0}",
                             item.ReconstructedAmountClp.HasValue
                                 ? $"$ {item.ReconstructedAmountClp.Value:N0}"
@@ -2904,30 +2904,6 @@ public partial class MainWindow : Window
                     StringComparison.Ordinal) ||
                 item.Status == "VAT_RECONSTRUCTED_19");
 
-            var taxDetail =
-                audit.ExpectedIvaClp.HasValue &&
-                audit.PrintedIvaClp.HasValue
-                    ? $" · IVA: impreso $ {audit.PrintedIvaClp.Value:N0}, 19% reconstruido $ {audit.ExpectedIvaClp.Value:N0}, dif. $ {audit.IvaDifferenceClp.GetValueOrDefault():+0;-0;0}"
-                    : audit.PrintedIvaClp.HasValue
-                        ? " · IVA impreso disponible, base afecta insuficiente para reconstruir 19%"
-                        : string.Empty;
-            var adjustmentDetail =
-                Math.Abs(audit.SimpleAdjustmentClp) > 0.0001
-                    ? $" · ajuste sencillo registrado $ {audit.SimpleAdjustmentClp:+0;-0;0}"
-                    : string.Empty;
-            var balanceDetail =
-                audit.UnexplainedResidualClp.HasValue
-                    ? audit.BalanceStatus switch
-                    {
-                        "BALANCED" =>
-                            " · cuadratura de líneas: OK",
-                        "SMALL_UNEXPLAINED_RESIDUAL" =>
-                            $" · residuo pequeño no explicado $ {audit.UnexplainedResidualClp.Value:+0;-0;0} (revisar si la boleta imprime ajuste)",
-                        _ =>
-                            $" · diferencia no explicada de cuadratura $ {audit.UnexplainedResidualClp.Value:+0;-0;0}"
-                    }
-                    : " · total insuficiente para cuadratura";
-
             UtilityAuditReconstructionCoverageText.Text =
                 $"{audit.ReconstructionCoveragePercent:N1}%";
 
@@ -2935,13 +2911,21 @@ public partial class MainWindow : Window
                 audit.TaxStatus switch
                 {
                     "IVA_MATCH_19" =>
-                        $"OK · $ {audit.PrintedIvaClp.GetValueOrDefault():N0} = 19% de la base afecta",
+                        spanish
+                            ? $"OK · $ {audit.PrintedIvaClp.GetValueOrDefault():N0} = 19% de la base afecta"
+                            : $"OK · $ {audit.PrintedIvaClp.GetValueOrDefault():N0} = 19% of taxable base",
                     "IVA_DIFFERENCE" =>
-                        $"Revisar · impreso $ {audit.PrintedIvaClp.GetValueOrDefault():N0} vs calculado $ {audit.ExpectedIvaClp.GetValueOrDefault():N0}",
+                        spanish
+                            ? $"Revisar · impreso $ {audit.PrintedIvaClp.GetValueOrDefault():N0} vs calculado $ {audit.ExpectedIvaClp.GetValueOrDefault():N0}"
+                            : $"Review · printed $ {audit.PrintedIvaClp.GetValueOrDefault():N0} vs calculated $ {audit.ExpectedIvaClp.GetValueOrDefault():N0}",
                     "IVA_BASE_MISSING" =>
-                        "Falta base afecta para reconstruir el 19%",
+                        spanish
+                            ? "Falta base afecta para reconstruir el 19%"
+                            : "Taxable base missing for 19% reconstruction",
                     _ =>
-                        "IVA no registrado en la boleta"
+                        spanish
+                            ? "IVA no registrado en la boleta"
+                            : "VAT not recorded on the bill"
                 };
 
             UtilityAuditBalanceText.Text =
@@ -2949,14 +2933,24 @@ public partial class MainWindow : Window
                 {
                     "BALANCED" =>
                         Math.Abs(audit.SimpleAdjustmentClp) > 0.0001
-                            ? $"Cuadra · ajuste impreso $ {audit.SimpleAdjustmentClp:+0;-0;0}"
-                            : "Cuadra sin residuo",
+                            ? spanish
+                                ? $"Cuadra · ajuste impreso $ {audit.SimpleAdjustmentClp:+0;-0;0}"
+                                : $"Balanced · printed adjustment $ {audit.SimpleAdjustmentClp:+0;-0;0}"
+                            : spanish
+                                ? "Cuadra sin residuo"
+                                : "Balanced with no residual",
                     "SMALL_UNEXPLAINED_RESIDUAL" =>
-                        $"Revisar residuo pequeño $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
+                        spanish
+                            ? $"Revisar residuo pequeño $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}"
+                            : $"Review small residual $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
                     "MATERIAL_UNEXPLAINED_DIFFERENCE" =>
-                        $"Diferencia no explicada $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
+                        spanish
+                            ? $"Diferencia no explicada $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}"
+                            : $"Unexplained difference $ {audit.UnexplainedResidualClp.GetValueOrDefault():+0;-0;0}",
                     _ =>
-                        "Total insuficiente para cuadratura"
+                        spanish
+                            ? "Total insuficiente para cuadratura"
+                            : "Insufficient total for balance check"
                 };
 
             UtilityAuditStatusText.Text =
@@ -4492,8 +4486,10 @@ public partial class MainWindow : Window
                 item.UnitRateClp.HasValue ? $"$ {item.UnitRateClp.Value:N3}" : "—",
                 $"$ {item.AmountClp:+0;-0;0}",
                 item.TaxTreatment ?? string.Empty,
-                item.SourceKind,
-                item.EvidenceState))
+                UtilityBillSourceLabel(item.SourceKind),
+                UtilityBillEvidenceLabel(
+                    item.EvidenceState,
+                    item.SourcePage)))
             .ToArray();
     }
 
@@ -4785,6 +4781,120 @@ public partial class MainWindow : Window
                 "GridUtility.BillLineDeleted");
         RefreshSelectedBillLines();
         RefreshUtilityAuditPreview();
+    }
+
+    private string UtilityBillSourceLabel(
+        string sourceKind)
+    {
+        var spanish =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase);
+
+        return sourceKind switch
+        {
+            UtilityBillSourceKind.Manual =>
+                spanish ? "Manual" : "Manual",
+            UtilityBillSourceKind.PdfReviewed =>
+                spanish ? "PDF + revisión" : "PDF + review",
+            UtilityBillSourceKind.LegacyManual =>
+                spanish ? "Manual legacy" : "Legacy manual",
+            _ => sourceKind
+        };
+    }
+
+    private string UtilityBillReviewLabel(
+        string reviewState)
+    {
+        var spanish =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase);
+
+        return reviewState switch
+        {
+            UtilityBillReviewState.Reviewed =>
+                spanish ? "Revisada" : "Reviewed",
+            UtilityBillReviewState.Draft =>
+                spanish ? "Borrador" : "Draft",
+            UtilityBillReviewState.LegacyUnreviewed =>
+                spanish ? "Legacy · revisar" : "Legacy · review",
+            _ => reviewState
+        };
+    }
+
+    private string UtilityBillEvidenceLabel(
+        string evidenceState,
+        int? sourcePage)
+    {
+        var spanish =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase);
+        var page =
+            sourcePage.HasValue
+                ? (spanish
+                    ? $" · p.{sourcePage.Value}"
+                    : $" · p.{sourcePage.Value}")
+                : string.Empty;
+
+        return evidenceState switch
+        {
+            UtilityBillEvidenceState.UserEntered =>
+                spanish ? "Ingresado manualmente" : "User entered",
+            UtilityBillEvidenceState.PdfExtractedConfirmed =>
+                (spanish ? "PDF confirmado" : "PDF confirmed") + page,
+            UtilityBillEvidenceState.PdfExtractedReviewRequired =>
+                (spanish ? "PDF · revisar" : "PDF · review") + page,
+            UtilityBillEvidenceState.NotPrinted =>
+                spanish ? "No impreso" : "Not printed",
+            UtilityBillEvidenceState.Derived =>
+                spanish ? "Derivado" : "Derived",
+            UtilityBillEvidenceState.LegacyUnreviewed =>
+                spanish ? "Legacy · revisar" : "Legacy · review",
+            _ => evidenceState + page
+        };
+    }
+
+    private string UtilityBillAuditEvidenceLabel(
+        string raw)
+    {
+        var spanish =
+            _localization.CurrentLanguage.StartsWith(
+                "es",
+                StringComparison.OrdinalIgnoreCase);
+
+        var value = raw
+            .Replace(
+                UtilityBillSourceKind.PdfReviewed,
+                spanish ? "PDF + revisión" : "PDF + review",
+                StringComparison.Ordinal)
+            .Replace(
+                UtilityBillSourceKind.Manual,
+                spanish ? "Manual" : "Manual",
+                StringComparison.Ordinal)
+            .Replace(
+                UtilityBillSourceKind.LegacyManual,
+                spanish ? "Manual legacy" : "Legacy manual",
+                StringComparison.Ordinal)
+            .Replace(
+                UtilityBillEvidenceState.PdfExtractedConfirmed,
+                spanish ? "PDF confirmado" : "PDF confirmed",
+                StringComparison.Ordinal)
+            .Replace(
+                UtilityBillEvidenceState.PdfExtractedReviewRequired,
+                spanish ? "PDF · revisar" : "PDF · review",
+                StringComparison.Ordinal)
+            .Replace(
+                UtilityBillEvidenceState.UserEntered,
+                spanish ? "Ingresado por usuario" : "User entered",
+                StringComparison.Ordinal)
+            .Replace(
+                UtilityBillEvidenceState.LegacyUnreviewed,
+                spanish ? "Legacy · revisar" : "Legacy · review",
+                StringComparison.Ordinal);
+
+        return value;
     }
 
     private string BillSectionLabel(string key) =>
