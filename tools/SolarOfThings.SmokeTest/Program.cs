@@ -1686,6 +1686,66 @@ try
     }
 
 
+    const double smokeElectricityRate = 176.2788;
+    const double smokeTransportRate = 13.415;
+    const double smokePreservedCharges = 1000.0;
+
+    var summaryElectricityAmount =
+        expectedGridImport *
+        smokeElectricityRate;
+    var summaryTransportAmount =
+        expectedGridImport *
+        smokeTransportRate;
+    var summaryBillTotal =
+        summaryElectricityAmount +
+        summaryTransportAmount +
+        smokePreservedCharges;
+
+    var summaryBillId = utilityRepository.AddBill(
+        utilityFromUtc,
+        utilityToUtc,
+        expectedGridImport,
+        summaryBillTotal,
+        "PHASE10-SUMMARY-SMOKE",
+        "Observed bill reconciliation summary",
+        tariffPlan: "BT1-SMOKE",
+        totalDueClp: summaryBillTotal,
+        periodPrecision:
+            UtilityTimePrecision.Exact);
+
+    utilityRepository.AddBillLine(
+        summaryBillId,
+        "SERVICIO_ELECTRICO",
+        "Electricidad consumida",
+        summaryElectricityAmount,
+        categoryKey: "ELECTRICITY_CONSUMED",
+        quantity: expectedGridImport,
+        unit: "kWh",
+        unitRateClp: smokeElectricityRate,
+        taxTreatment: "AFECTO",
+        sortOrder: 10);
+
+    utilityRepository.AddBillLine(
+        summaryBillId,
+        "SERVICIO_ELECTRICO",
+        "Transporte de electricidad",
+        summaryTransportAmount,
+        categoryKey: "ELECTRICITY_TRANSPORT",
+        quantity: expectedGridImport,
+        unit: "kWh",
+        unitRateClp: smokeTransportRate,
+        taxTreatment: "AFECTO",
+        sortOrder: 20);
+
+    utilityRepository.AddBillLine(
+        summaryBillId,
+        "OTROS_CARGOS",
+        "Cargo preservado smoke",
+        smokePreservedCharges,
+        categoryKey: "CUSTOM_PRESERVED",
+        amountClp: smokePreservedCharges,
+        sortOrder: 30);
+
     var productBillSummary =
         new UtilityBillReconciliationSummaryService(
             utilityRepository,
@@ -1697,21 +1757,28 @@ try
                 versionResolver))
         .Analyze(
             familySmokeDeviceId,
-            billId,
+            summaryBillId,
             "America/Santiago");
 
     if (!productBillSummary.HasObservedEconomicEstimate ||
-        productBillSummary.ActualBillTotalClp != 12000 ||
+        productBillSummary.ActualBillTotalClp is null ||
+        Math.Abs(
+            productBillSummary.ActualBillTotalClp.Value -
+            summaryBillTotal) > 0.01 ||
         productBillSummary.BilledMinusObservedKwh is null ||
         Math.Abs(
             productBillSummary.BilledMinusObservedKwh.Value) > 0.000001 ||
         productBillSummary.EstimatedObservedTotalClp is null ||
         Math.Abs(
             productBillSummary.EstimatedObservedTotalClp.Value -
-            12000) > 0.01 ||
+            summaryBillTotal) > 0.01 ||
         productBillSummary.ActualMinusEstimatedObservedClp is null ||
         Math.Abs(
             productBillSummary.ActualMinusEstimatedObservedClp.Value) > 0.01 ||
+        productBillSummary.PreservedNonVariableClp is null ||
+        Math.Abs(
+            productBillSummary.PreservedNonVariableClp.Value -
+            smokePreservedCharges) > 0.01 ||
         productBillSummary.CoveragePercent < 95)
     {
         throw new InvalidOperationException(
