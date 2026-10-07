@@ -730,7 +730,9 @@ try
     var utilityStatistics = new EnergyRangeStatisticsService(database);
     var utilityReconciliation = new UtilityReconciliationService(
         utilityRepository,
-        utilityStatistics);
+        utilityStatistics,
+        new UtilityBillGapStatisticalCompletionService(
+            database));
     var utilityStatisticalCompletion =
         new UtilityGridImportStatisticalCompletionService(
             database,
@@ -871,7 +873,8 @@ try
 
     var billRows =
         utilityReconciliation.GetBillReconciliations(
-            familySmokeDeviceId);
+            familySmokeDeviceId,
+            "America/Santiago");
     var billRecord = utilityRepository.GetBills().Single();
     var billLines = utilityRepository.GetBillLines(billId);
 
