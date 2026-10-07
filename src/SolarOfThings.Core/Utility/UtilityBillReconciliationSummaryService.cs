@@ -9,8 +9,10 @@ namespace SolarOfThings.Core.Utility;
 /// fill telemetry gaps or promote the bill-specific provisional P5/P50/P95
 /// research method into the normal product workflow.
 ///
-/// Supported official variable tariff components are recalculated at the
-/// observed inverter energy while all other actual bill amounts are preserved.
+/// Supported official tariff components are reconstructed independently.
+/// Variable components are recalculated at observed inverter energy; supported
+/// fixed components remain fixed once per bill. All unsupported actual bill
+/// amounts are preserved explicitly rather than guessed.
 /// </summary>
 public sealed class UtilityBillReconciliationSummaryService
 {
@@ -204,7 +206,7 @@ public sealed class UtilityBillReconciliationSummaryService
             !tariff.HasTariffModel
                 ? "ENERGY_ONLY_TARIFF_MODEL_UNAVAILABLE"
                 : !actualTotal.HasValue
-                    ? "VARIABLE_COMPONENTS_ONLY_TOTAL_MISSING"
+                    ? "SUPPORTED_COMPONENTS_TOTAL_MISSING"
                     : coveragePercent < 98.0
                         ? "SUPPORTED_ESTIMATE_PARTIAL_COVERAGE"
                         : tariff.Status.StartsWith(
