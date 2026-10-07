@@ -163,6 +163,7 @@ public sealed class UtilityMeterRepository
                    taxable_amount_clp, iva_clp, exempt_amount_clp,
                    gross_bill_amount_clp, other_charges_clp, total_due_clp,
                    period_precision,
+                   source_kind, source_document_id, review_state, iva_rate,
                    created_utc, updated_utc
             FROM utility_bill
             ORDER BY period_start_utc DESC, bill_id DESC;
@@ -174,8 +175,8 @@ public sealed class UtilityMeterRepository
         {
             if (!TryReadInstant(reader.GetString(1), out var start) ||
                 !TryReadInstant(reader.GetString(2), out var end) ||
-                !TryReadInstant(reader.GetString(19), out var createdAt) ||
-                !TryReadInstant(reader.GetString(20), out var updatedAt))
+                !TryReadInstant(reader.GetString(23), out var createdAt) ||
+                !TryReadInstant(reader.GetString(24), out var updatedAt))
             {
                 continue;
             }
@@ -200,6 +201,10 @@ public sealed class UtilityMeterRepository
                 ReadNullableDouble(reader, 16),
                 ReadNullableDouble(reader, 17),
                 reader.GetString(18),
+                reader.GetString(19),
+                ReadNullableInt64(reader, 20),
+                reader.GetString(21),
+                ReadNullableDouble(reader, 22),
                 createdAt,
                 updatedAt));
         }
@@ -225,7 +230,11 @@ public sealed class UtilityMeterRepository
         double? grossBillAmountClp = null,
         double? otherChargesClp = null,
         double? totalDueClp = null,
-        string periodPrecision = UtilityTimePrecision.Exact)
+        string periodPrecision = UtilityTimePrecision.Exact,
+        string sourceKind = UtilityBillSourceKind.Manual,
+        long? sourceDocumentId = null,
+        string reviewState = UtilityBillReviewState.Reviewed,
+        double? ivaRate = null)
     {
         periodStartUtc = periodStartUtc.ToUniversalTime();
         periodEndUtc = periodEndUtc.ToUniversalTime();
@@ -264,6 +273,7 @@ public sealed class UtilityMeterRepository
                 taxable_amount_clp, iva_clp, exempt_amount_clp,
                 gross_bill_amount_clp, other_charges_clp, total_due_clp,
                 period_precision,
+                source_kind, source_document_id, review_state, iva_rate,
                 created_utc, updated_utc
             )
             VALUES (
@@ -275,6 +285,7 @@ public sealed class UtilityMeterRepository
                 $taxable, $iva, $exempt,
                 $gross, $otherCharges, $totalDue,
                 $periodPrecision,
+                $sourceKind, $sourceDocumentId, $reviewState, $ivaRate,
                 $createdUtc, $updatedUtc
             );
             SELECT last_insert_rowid();
@@ -297,6 +308,10 @@ public sealed class UtilityMeterRepository
         command.Parameters.AddWithValue("$otherCharges", otherChargesClp.HasValue ? otherChargesClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$totalDue", totalDueClp.HasValue ? totalDueClp.Value : DBNull.Value);
         command.Parameters.AddWithValue("$periodPrecision", periodPrecision);
+        command.Parameters.AddWithValue("$sourceKind", sourceKind);
+        command.Parameters.AddWithValue("$sourceDocumentId", sourceDocumentId.HasValue ? sourceDocumentId.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$reviewState", reviewState);
+        command.Parameters.AddWithValue("$ivaRate", ivaRate.HasValue ? ivaRate.Value : DBNull.Value);
         command.Parameters.AddWithValue("$createdUtc", now.ToString("O"));
         command.Parameters.AddWithValue("$updatedUtc", now.ToString("O"));
         return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
@@ -310,6 +325,7 @@ public sealed class UtilityMeterRepository
             SELECT bill_line_id, bill_id, section_key, category_key,
                    description, quantity, unit, unit_rate_clp,
                    amount_clp, tax_treatment, sort_order,
+                   source_kind, evidence_state, source_page, source_text,
                    created_utc, updated_utc
             FROM utility_bill_line
             WHERE bill_id = $billId
@@ -321,8 +337,8 @@ public sealed class UtilityMeterRepository
         var result = new List<UtilityBillLine>();
         while (reader.Read())
         {
-            if (!TryReadInstant(reader.GetString(11), out var createdAt) ||
-                !TryReadInstant(reader.GetString(12), out var updatedAt))
+            if (!TryReadInstant(reader.GetString(15), out var createdAt) ||
+                !TryReadInstant(reader.GetString(16), out var updatedAt))
                 continue;
 
             result.Add(new UtilityBillLine(
@@ -337,6 +353,10 @@ public sealed class UtilityMeterRepository
                 reader.GetDouble(8),
                 ReadNullableString(reader, 9),
                 reader.GetInt32(10),
+                reader.GetString(11),
+                reader.GetString(12),
+                reader.IsDBNull(13) ? null : reader.GetInt32(13),
+                ReadNullableString(reader, 14),
                 createdAt,
                 updatedAt));
         }
@@ -353,7 +373,11 @@ public sealed class UtilityMeterRepository
         string? unit = null,
         double? unitRateClp = null,
         string? taxTreatment = null,
-        int sortOrder = 0)
+        int sortOrder = 0,
+        string sourceKind = UtilityBillSourceKind.Manual,
+        string evidenceState = UtilityBillEvidenceState.UserEntered,
+        int? sourcePage = null,
+        string? sourceText = null)
     {
         if (string.IsNullOrWhiteSpace(sectionKey))
             throw new ArgumentException("Section is required.", nameof(sectionKey));
@@ -369,12 +393,16 @@ public sealed class UtilityMeterRepository
             INSERT INTO utility_bill_line (
                 bill_id, section_key, category_key, description,
                 quantity, unit, unit_rate_clp, amount_clp,
-                tax_treatment, sort_order, created_utc, updated_utc
+                tax_treatment, sort_order,
+                source_kind, evidence_state, source_page, source_text,
+                created_utc, updated_utc
             )
             VALUES (
                 $billId, $section, $category, $description,
                 $quantity, $unit, $unitRate, $amount,
-                $taxTreatment, $sortOrder, $createdUtc, $updatedUtc
+                $taxTreatment, $sortOrder,
+                $sourceKind, $evidenceState, $sourcePage, $sourceText,
+                $createdUtc, $updatedUtc
             );
             SELECT last_insert_rowid();
             """;
@@ -388,9 +416,179 @@ public sealed class UtilityMeterRepository
         command.Parameters.AddWithValue("$amount", amountClp);
         command.Parameters.AddWithValue("$taxTreatment", string.IsNullOrWhiteSpace(taxTreatment) ? DBNull.Value : taxTreatment.Trim());
         command.Parameters.AddWithValue("$sortOrder", sortOrder);
+        command.Parameters.AddWithValue("$sourceKind", sourceKind);
+        command.Parameters.AddWithValue("$evidenceState", evidenceState);
+        command.Parameters.AddWithValue("$sourcePage", sourcePage.HasValue ? sourcePage.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$sourceText", string.IsNullOrWhiteSpace(sourceText) ? DBNull.Value : sourceText.Trim());
         command.Parameters.AddWithValue("$createdUtc", now.ToString("O"));
         command.Parameters.AddWithValue("$updatedUtc", now.ToString("O"));
         return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    public long AddBillDocument(
+        string provider,
+        string originalFileName,
+        string localPdfPath,
+        string contentSha256,
+        long contentLength,
+        int pageCount,
+        string parserVersion,
+        string? extractedText)
+    {
+        using var connection = _database.OpenConnection();
+
+        using (var existing = connection.CreateCommand())
+        {
+            existing.CommandText = """
+                SELECT document_id
+                FROM utility_bill_document
+                WHERE content_sha256 = $sha;
+                """;
+            existing.Parameters.AddWithValue("$sha", contentSha256);
+            var value = existing.ExecuteScalar();
+            if (value is not null && value != DBNull.Value)
+                return Convert.ToInt64(value, CultureInfo.InvariantCulture);
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO utility_bill_document (
+                provider, original_file_name, local_pdf_path,
+                content_sha256, content_length, page_count,
+                parser_version, extracted_text, imported_utc
+            )
+            VALUES (
+                $provider, $fileName, $path,
+                $sha, $length, $pages,
+                $parser, $text, $utc
+            );
+            SELECT last_insert_rowid();
+            """;
+        command.Parameters.AddWithValue("$provider", provider);
+        command.Parameters.AddWithValue("$fileName", originalFileName);
+        command.Parameters.AddWithValue("$path", localPdfPath);
+        command.Parameters.AddWithValue("$sha", contentSha256);
+        command.Parameters.AddWithValue("$length", contentLength);
+        command.Parameters.AddWithValue("$pages", pageCount);
+        command.Parameters.AddWithValue("$parser", parserVersion);
+        command.Parameters.AddWithValue("$text", string.IsNullOrWhiteSpace(extractedText) ? DBNull.Value : extractedText);
+        command.Parameters.AddWithValue("$utc", DateTimeOffset.UtcNow.ToString("O"));
+        return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    public UtilityBillDocument? GetBillDocument(long documentId)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT document_id, provider, original_file_name, local_pdf_path,
+                   content_sha256, content_length, page_count,
+                   parser_version, extracted_text, imported_utc
+            FROM utility_bill_document
+            WHERE document_id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", documentId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read() ||
+            !TryReadInstant(reader.GetString(9), out var imported))
+        {
+            return null;
+        }
+
+        return new UtilityBillDocument(
+            reader.GetInt64(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetInt64(5),
+            reader.GetInt32(6),
+            reader.GetString(7),
+            ReadNullableString(reader, 8),
+            imported);
+    }
+
+    public void UpsertBillFieldEvidence(
+        long billId,
+        string fieldKey,
+        string sourceKind,
+        string evidenceState,
+        string? printedValueText,
+        string? normalizedValueText,
+        int? sourcePage = null,
+        string? sourceText = null)
+    {
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO utility_bill_field_evidence (
+                bill_id, field_key, source_kind, evidence_state,
+                printed_value_text, normalized_value_text,
+                source_page, source_text, created_utc, updated_utc
+            )
+            VALUES (
+                $billId, $fieldKey, $sourceKind, $state,
+                $printed, $normalized,
+                $page, $sourceText, $now, $now
+            )
+            ON CONFLICT(bill_id, field_key) DO UPDATE SET
+                source_kind = excluded.source_kind,
+                evidence_state = excluded.evidence_state,
+                printed_value_text = excluded.printed_value_text,
+                normalized_value_text = excluded.normalized_value_text,
+                source_page = excluded.source_page,
+                source_text = excluded.source_text,
+                updated_utc = excluded.updated_utc;
+            """;
+        command.Parameters.AddWithValue("$billId", billId);
+        command.Parameters.AddWithValue("$fieldKey", fieldKey);
+        command.Parameters.AddWithValue("$sourceKind", sourceKind);
+        command.Parameters.AddWithValue("$state", evidenceState);
+        command.Parameters.AddWithValue("$printed", string.IsNullOrWhiteSpace(printedValueText) ? DBNull.Value : printedValueText);
+        command.Parameters.AddWithValue("$normalized", string.IsNullOrWhiteSpace(normalizedValueText) ? DBNull.Value : normalizedValueText);
+        command.Parameters.AddWithValue("$page", sourcePage.HasValue ? sourcePage.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$sourceText", string.IsNullOrWhiteSpace(sourceText) ? DBNull.Value : sourceText);
+        command.Parameters.AddWithValue("$now", now);
+        command.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<UtilityBillFieldEvidence> GetBillFieldEvidence(
+        long billId)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT evidence_id, bill_id, field_key, source_kind,
+                   evidence_state, printed_value_text, normalized_value_text,
+                   source_page, source_text, created_utc, updated_utc
+            FROM utility_bill_field_evidence
+            WHERE bill_id = $billId
+            ORDER BY field_key;
+            """;
+        command.Parameters.AddWithValue("$billId", billId);
+        using var reader = command.ExecuteReader();
+        var result = new List<UtilityBillFieldEvidence>();
+        while (reader.Read())
+        {
+            if (!TryReadInstant(reader.GetString(9), out var created) ||
+                !TryReadInstant(reader.GetString(10), out var updated))
+                continue;
+
+            result.Add(new UtilityBillFieldEvidence(
+                reader.GetInt64(0),
+                reader.GetInt64(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetString(4),
+                ReadNullableString(reader, 5),
+                ReadNullableString(reader, 6),
+                reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                ReadNullableString(reader, 8),
+                created,
+                updated));
+        }
+        return result;
     }
 
     public void DeleteBillLine(long billLineId)

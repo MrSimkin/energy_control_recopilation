@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 14;
+    public const int CurrentSchemaVersion = 15;
 
     private readonly AppPaths _paths;
 
@@ -115,6 +115,12 @@ public sealed class SqliteDatabase
         if (current < 14)
         {
             ApplyMigration14(connection);
+            current = 14;
+        }
+
+        if (current < 15)
+        {
+            ApplyMigration15(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -735,6 +741,72 @@ public sealed class SqliteDatabase
             14,
             "Official tariff document identity and explicit correction/supersession relation graph.");
 
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration15(
+        SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            CREATE TABLE utility_bill_document (
+                document_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider TEXT NOT NULL,
+                original_file_name TEXT NOT NULL,
+                local_pdf_path TEXT NOT NULL,
+                content_sha256 TEXT NOT NULL UNIQUE,
+                content_length INTEGER NOT NULL,
+                page_count INTEGER NOT NULL,
+                parser_version TEXT NOT NULL,
+                extracted_text TEXT NULL,
+                imported_utc TEXT NOT NULL
+            );
+
+            CREATE INDEX ix_utility_bill_document_sha
+                ON utility_bill_document(content_sha256);
+
+            CREATE TABLE utility_bill_field_evidence (
+                evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bill_id INTEGER NOT NULL,
+                field_key TEXT NOT NULL,
+                source_kind TEXT NOT NULL,
+                evidence_state TEXT NOT NULL,
+                printed_value_text TEXT NULL,
+                normalized_value_text TEXT NULL,
+                source_page INTEGER NULL,
+                source_text TEXT NULL,
+                created_utc TEXT NOT NULL,
+                updated_utc TEXT NOT NULL,
+                FOREIGN KEY(bill_id) REFERENCES utility_bill(bill_id)
+                    ON DELETE CASCADE,
+                UNIQUE(bill_id, field_key)
+            );
+
+            ALTER TABLE utility_bill
+                ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'LEGACY_MANUAL';
+            ALTER TABLE utility_bill
+                ADD COLUMN source_document_id INTEGER NULL;
+            ALTER TABLE utility_bill
+                ADD COLUMN review_state TEXT NOT NULL DEFAULT 'LEGACY_UNREVIEWED';
+            ALTER TABLE utility_bill
+                ADD COLUMN iva_rate REAL NULL;
+
+            ALTER TABLE utility_bill_line
+                ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'LEGACY_MANUAL';
+            ALTER TABLE utility_bill_line
+                ADD COLUMN evidence_state TEXT NOT NULL DEFAULT 'LEGACY_UNREVIEWED';
+            ALTER TABLE utility_bill_line
+                ADD COLUMN source_page INTEGER NULL;
+            ALTER TABLE utility_bill_line
+                ADD COLUMN source_text TEXT NULL;
+            """, transaction);
+
+        RecordMigration(
+            connection,
+            transaction,
+            15,
+            "Phase 10 bill-ingestion v2: source documents, field provenance, review state, VAT rate and line evidence.");
         transaction.Commit();
     }
 

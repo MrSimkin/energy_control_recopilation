@@ -107,6 +107,7 @@ public partial class App : Application
         builder.Services.AddSingleton<EnelTariffNormalizationService>();
         builder.Services.AddSingleton<CneTariffEvidenceCaptureService>();
         builder.Services.AddSingleton<EnelTariffPdfImportService>();
+        builder.Services.AddSingleton<EnelUtilityBillPdfImportService>();
         builder.Services.AddSingleton<TariffPublicationVersionResolver>();
         builder.Services.AddSingleton<TariffBillRateVerificationService>();
         builder.Services.AddSingleton<EnelTariffCaptureService>();

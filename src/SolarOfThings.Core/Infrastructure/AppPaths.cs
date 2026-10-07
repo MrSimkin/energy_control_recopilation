@@ -60,6 +60,10 @@ public sealed class AppPaths
             Path.Combine(
                 TariffEnelDirectory,
                 "_incoming");
+        UtilityBillDirectory =
+            Path.Combine(DataDirectory, "Bills");
+        UtilityBillEnelDirectory =
+            Path.Combine(UtilityBillDirectory, "Enel");
 
         Directory.CreateDirectory(BackupDirectory);
         Directory.CreateDirectory(LogDirectory);
@@ -67,6 +71,8 @@ public sealed class AppPaths
         Directory.CreateDirectory(TariffEnelDirectory);
         Directory.CreateDirectory(
             TariffEnelIncomingDirectory);
+        Directory.CreateDirectory(UtilityBillDirectory);
+        Directory.CreateDirectory(UtilityBillEnelDirectory);
     }
 
     public string RootDirectory { get; }
@@ -76,6 +82,8 @@ public sealed class AppPaths
     public string TariffDirectory { get; }
     public string TariffEnelDirectory { get; }
     public string TariffEnelIncomingDirectory { get; }
+    public string UtilityBillDirectory { get; }
+    public string UtilityBillEnelDirectory { get; }
     public string DatabasePath =>
         Path.Combine(DataDirectory, "energy.db");
 
