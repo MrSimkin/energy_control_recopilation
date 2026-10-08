@@ -522,7 +522,12 @@ try
     {
         ("documents/Bills/CON.txt", 1),
         ("documents/Bills/trailing.", 2),
-        ("documents/Bills/invalid?.txt", 3)
+        ("documents/Bills/invalid?.txt", 3),
+        ("documents/Bills/CONIN$.txt", 4),
+        ("documents/Bills/CONOUT$.txt", 5),
+        ("documents/Bills/COM¹.txt", 6),
+        ("documents/Bills/LPT².txt", 7),
+        ("documents/Bills/" + new string('x', 256) + ".txt", 8)
     })
     {
         var reservedZipPath = Path.Combine(root, $"reserved-name-{index}.zip");

@@ -528,19 +528,22 @@ public sealed class FullBackupService
     {
         // ZIP entries may originate on another OS. Windows strips terminal
         // dots/spaces and reserves device names, even with extensions.
-        if (segment.Length == 0 || segment is "." or ".." ||
+        if (segment.Length is 0 or > 255 || segment is "." or ".." ||
             segment.EndsWith('.') || segment.EndsWith(' ') ||
             segment.Any(ch => char.IsControl(ch) ||
                 ch is '<' or '>' or '"' or '|' or '?' or '*'))
             return false;
         var stem = segment.Split('.')[0].TrimEnd(' ');
         var upper = stem.ToUpperInvariant();
-        if (upper is "CON" or "PRN" or "AUX" or "NUL")
+        if (upper is "CON" or "PRN" or "AUX" or "NUL" or
+            "CONIN$" or "CONOUT$")
             return false;
+        // Windows also treats the superscript one/two/three characters
+        // as digits in the legacy COM and LPT device namespaces.
         if (upper.Length == 4 &&
             (upper.StartsWith("COM", StringComparison.Ordinal) ||
              upper.StartsWith("LPT", StringComparison.Ordinal)) &&
-            upper[3] >= '1' && upper[3] <= '9')
+            (upper[3] is >= '1' and <= '9' or '¹' or '²' or '³'))
             return false;
         return true;
     }
