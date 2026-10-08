@@ -194,3 +194,22 @@ After the owner's explicit choice **B**, the additional Enel evidence expected 2
 Initial actual code change: bilingual five-group scrollable sidebar navigation and clearer navigation labels in `MainWindow.xaml` + ES/EN string dictionaries; original ten navigation buttons, route identifiers and handlers remain intact. Changes were committed `[skip ci]`, with re-fetched static structure checks only: **no Windows compile, no new downloadable Build, no owner visual QA**. See `NEXT_TRANCHE_DECISIONS_2026-10-08.md` for approved requirements and tracked open work. Existing Phase 11/12 implementation remains partial and cannot be called complete.
 
 Crucial safety gate: existing SQLite-only daily/pre-migration backup code has **not yet been removed**, because doing so before a verified complete-recovery replacement would reduce protection. Never describe full-backup/restore implementation as complete at this point.
+
+## Urgent complete-backup implementation started (2026-10-08; CI pending)
+
+Owner explicitly reports **no known actual recoverable backups** on the target PC and requests **immediate priority for the weekly complete-backup workflow**, ahead of SQL/UX. This is not evidence that any copy exists on the owner workstation.
+
+Implemented on draft work branch after the owner's authorization:
+- New `FullBackupService`: native SQLite WAL-consistent temporary snapshot, schema/integrity check, `Bills` and `Tariffs` source files, SHA-256 manifest including producing app/build/schema/format, ZIP64-capable archive, post-creation full content verification, atomic `.inprogress` publication. Explicitly excludes `Secrets`, logs and existing backup directory. **No real restore implemented**.
+- New user-facing **weekly optional** reminder on app startup for missing/stale complete package: create, postpone 24h or skip one week, persisted across restarts; manual complete-backup action now available through Settings, plus secondary-folder selection. No daily automatic copy should run from `App.OnStartup`.
+- If an actual schema upgrade is required, user can postpone; otherwise a **verified complete** package is required before migration. Preexisting data are not programmatically accessed from the development environment.
+- Developer Diagnostics manual backup action now calls full package service instead of an SQLite-only service. Existing legacy technical `DatabaseBackupService` still exists for historical/testing compatibility; it is no longer a routine startup task.
+- Optional secondary destination copies only completed, fully verified full packages; SHA checked again. Status shows secondary copy failure separately from local success; no assumption that a failed mirror succeeded.
+- Synthetic smoke case exercises WAL data in ZIP, source document inventory, checksum verification, copy to secondary, recognition of corruption and blocking deletion of the last available complete local copy.
+
+**Key limitations/status:**
+- New code was committed and Windows CI triggered; **do not claim CI PASS, user-PC backup creation, installation, on-disk confirmation or verified actual recovery until evidence**.
+- Full backup is a safely formed *recoverable package*, but **selective restore/import of historical versions is NOT implemented**; safe restoration testing remains future work.
+- The full approved inventory and individually-deletable local/secondary list **is not yet fully wired into end-user UI**; no auto cleanup is permitted.
+- Existing program still displays `v0.10.0` until consolidation; no branch merge. Full-backup secrets/raw SQLite and original bill PDFs are sensitive and must not be shared publicly.
+- Do not rerun pre-migration import/recovery against the owner's real `D:\\SolarEnergyMonitorTest\\Data\\energy.db` or real backup files without later explicit and safe owner action.
