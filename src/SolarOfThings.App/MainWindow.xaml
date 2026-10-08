@@ -2740,6 +2740,15 @@
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource Settings.BackupHeading}" FontSize="17" FontWeight="SemiBold"/>
                                 <TextBlock Text="{DynamicResource Settings.BackupDescription}" FontSize="12" Foreground="#6C757D" TextWrapping="Wrap" Margin="0,5,0,10"/>
+                                <TextBlock Text="{DynamicResource Settings.BackupSecondLocation}" FontSize="13"
+                                           FontWeight="SemiBold" Margin="0,5,0,4"/>
+                                <TextBlock x:Name="SettingsBackupSecondaryFolderText" FontSize="12"
+                                           TextWrapping="Wrap" Foreground="#495057" Margin="0,0,0,8"/>
+                                <Button Content="{DynamicResource Settings.BackupChooseSecondary}" HorizontalAlignment="Left"
+                                        Style="{StaticResource SecondaryActionButtonStyle}" Margin="0,0,0,12"
+                                        Click="SettingsBackupChooseSecondary_Click"/>
+                                <TextBlock x:Name="SettingsBackupInventoryText" FontSize="12"
+                                           TextWrapping="Wrap" Foreground="#495057" Margin="0,0,0,10"/>
                                 <Button x:Name="SettingsBackupNowButton" HorizontalAlignment="Left"
                                         Content="{DynamicResource Settings.BackupNow}" Padding="14,7"
                                         Click="SettingsBackupNow_Click"/>
