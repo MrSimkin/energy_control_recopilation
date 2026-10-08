@@ -28,6 +28,9 @@
     <sys:String x:Key="Backup.ColumnStatus">Integrity</sys:String>
     <sys:String x:Key="Backup.LastCopyPolicy">Deletion requires confirmation and another available verified complete backup. It never cascades to the mirror or deletes active data.</sys:String>
 
+    <sys:String x:Key="SqlExplorer.ShortcutExecute">Run shortcut:</sys:String>
+    <sys:String x:Key="SqlExplorer.ShortcutCsv">CSV shortcut:</sys:String>
+    <sys:String x:Key="SqlExplorer.ShortcutExcel">Excel shortcut:</sys:String>
     <sys:String x:Key="Nav.SqlExplorer">SQL Explorer</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Title">SQL Explorer</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Subtitle">Read-only queries and exports</sys:String>
