@@ -4279,6 +4279,39 @@ try
             sheet.Cell(1, 1).GetString() != "key")
             throw new InvalidOperationException("XLSX export range regression.");
     }
+    // SQL structured diagnostic regression: do not invent parser offsets.
+    var invalidTableSql = "SELECT 1\nFROM table_that_does_not_exist;";
+    SqliteException? missingTableError = null;
+    try { await explorer.PreviewAsync(invalidTableSql); }
+    catch (SqliteException ex) { missingTableError = ex; }
+    if (missingTableError is null)
+        throw new InvalidOperationException("Expected invalid table SQL exception.");
+    var detail = SolarOfThings.Core.SqlExplorer.SqlErrorDiagnostics.Describe(
+        missingTableError, invalidTableSql);
+    if (detail.SqliteCode != missingTableError.SqliteErrorCode ||
+        detail.ApproximateLine != 2 ||
+        detail.ApproximateColumn != 6 ||
+        detail.LocationStatus != "APPROXIMATE_IDENTIFIER_REFERENCE_NOT_PARSER_ERROR_OFFSET")
+        throw new InvalidOperationException(
+            "SQL diagnostics did not provide a properly labelled approximate reference.");
+
+    var ambiguousSql = "SELECT 1 FROM same_missing_table AS a CROSS JOIN same_missing_table AS b;";
+    SqliteException? ambiguousError = null;
+    try { await explorer.PreviewAsync(ambiguousSql); }
+    catch (SqliteException ex) { ambiguousError = ex; }
+    if (ambiguousError is null ||
+        SolarOfThings.Core.SqlExplorer.SqlErrorDiagnostics.Describe(
+            ambiguousError, ambiguousSql).ApproximateOffset is not null)
+        throw new InvalidOperationException(
+            "Ambiguous SQL identifier was incorrectly assigned a precise position.");
+
+    if (csv.Elapsed < TimeSpan.Zero || xlsx.Elapsed < TimeSpan.Zero ||
+        csv.FileSizeBytes != new FileInfo(csvOutput).Length ||
+        xlsx.FileSizeBytes != new FileInfo(xlsxOutput).Length ||
+        csv.FileSizeBytes <= 0 || xlsx.FileSizeBytes <= 0)
+        throw new InvalidOperationException(
+            "SQL export performance accounting mismatches actual output bytes.");
+
     // SQL million-row streaming XLSX regression: 1,000,000 synthetic data rows
     // plus header fits in Excel's 1,048,576-row worksheet. Do not load the
     // 1-million-row XLSX into ClosedXML or the smoke-test process RAM.
