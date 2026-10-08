@@ -159,6 +159,46 @@ public sealed class FullBackupService
         File.Delete(full);
     }
 
+    /// <summary>
+    /// Creates a separately verified mirror only after the source archive has passed
+    /// full manifest validation. Never copies active SQLite or overwrites destination.
+    /// </summary>
+    public CompleteBackupResult CopyVerifiedToSecondary(string localPackage, string secondaryFolder)
+    {
+        var source = ValidateManagedLocalPath(localPackage);
+        var verified = VerifyLocal(source);
+        var targetDirectory = Path.GetFullPath(secondaryFolder);
+        var localDirectory = Path.GetFullPath(_paths.BackupDirectory);
+        if (string.Equals(targetDirectory, localDirectory, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The secondary destination must differ from the local backup folder.");
+        Directory.CreateDirectory(targetDirectory);
+        var destination = Path.Combine(targetDirectory, Path.GetFileName(source));
+        if (File.Exists(destination))
+        {
+            if (!string.Equals(HashFile(destination), verified.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new IOException("A different backup file already exists at the secondary destination.");
+            // Already copied and byte-identical; do not overwrite.
+            return verified with { Path = destination };
+        }
+        var temporary = destination + ".inprogress";
+        using (var input = File.OpenRead(source))
+        using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            input.CopyTo(output);
+        try
+        {
+            if (!string.Equals(HashFile(temporary), verified.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Secondary copy SHA-256 does not match local verified backup.");
+            VerifyArchive(temporary);
+            File.Move(temporary, destination);
+            return verified with { Path = destination };
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                TryRemoveFile(temporary);
+        }
+    }
+
     private bool TryVerifyArchive(string path)
     {
         try { VerifyArchive(path); return true; }
@@ -180,19 +220,34 @@ public sealed class FullBackupService
         return full;
     }
 
-    private static void AddDirectory(ZipArchive zip, string root, string target, List<CompleteBackupEntry> files)
+    private static void AddDirectory(ZipArchive zip, string root, string target,
+        List<CompleteBackupEntry> files)
     {
         if (!Directory.Exists(root))
             return;
         var rootFull = Path.GetFullPath(root);
-        foreach (var source in Directory.EnumerateFiles(rootFull, "*", SearchOption.AllDirectories))
+        var pending = new Stack<string>();
+        pending.Push(rootFull);
+        while (pending.Count != 0)
         {
-            if ((File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidDataException("Linked files must not be packaged: " + source);
-            var relative = Path.GetRelativePath(rootFull, source).Replace('\\', '/');
-            if (relative.StartsWith("../", StringComparison.Ordinal) || relative.Contains("/../", StringComparison.Ordinal))
-                throw new InvalidDataException("Unsafe source path.");
-            AddFile(zip, source, target + relative, files);
+            var dir = pending.Pop();
+            if ((File.GetAttributes(dir) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("Linked directories are not permitted in backups.");
+            foreach (var child in Directory.EnumerateFileSystemEntries(dir).OrderBy(p => p, StringComparer.Ordinal))
+            {
+                if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Linked files or folders are not permitted in backups.");
+                if (Directory.Exists(child))
+                {
+                    pending.Push(child);
+                    continue;
+                }
+                var relative = Path.GetRelativePath(rootFull, child).Replace('\\', '/');
+                if (relative.StartsWith("../", StringComparison.Ordinal) ||
+                    relative.Contains("/../", StringComparison.Ordinal))
+                    throw new InvalidDataException("Unsafe source path.");
+                AddFile(zip, child, target + relative, files);
+            }
         }
     }
 
