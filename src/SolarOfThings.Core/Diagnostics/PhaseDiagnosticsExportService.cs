@@ -140,6 +140,48 @@ public sealed class PhaseDiagnosticsExportService
             new JsonSerializerOptions { WriteIndented = true });
         var detailsJson = JsonSerializer.Serialize(details,
             new JsonSerializerOptions { WriteIndented = true });
+        // The interactive official-site flow cannot be exercised by CI.
+        // Export only explicit, allowlisted operational fields; never copy
+        // arbitrary browser logs, headers or URLs into a support bundle.
+        var enelEvents = new List<object>();
+        var browserEventsPath = Path.Combine(
+            _paths.LogDirectory, EnelBrowserCaptureTelemetry.FileName);
+        if (File.Exists(browserEventsPath))
+        {
+            foreach (var raw in File.ReadLines(browserEventsPath).TakeLast(150))
+            {
+                try
+                {
+                    using var parsed = JsonDocument.Parse(raw);
+                    var root = parsed.RootElement;
+                    enelEvents.Add(new
+                    {
+                        utc = root.GetProperty("utc").GetString(),
+                        step = root.GetProperty("step").GetString(),
+                        outcome = root.GetProperty("outcome").GetString(),
+                        http_status = root.TryGetProperty("http_status", out var code) &&
+                            code.ValueKind == JsonValueKind.Number
+                            ? code.GetInt32() : (int?)null,
+                        bytes = root.TryGetProperty("bytes", out var count) &&
+                            count.ValueKind == JsonValueKind.Number
+                            ? count.GetInt64() : (long?)null
+                    });
+                }
+                catch (Exception exception)
+                    when (exception is JsonException or InvalidOperationException
+                          or KeyNotFoundException)
+                {
+                    // Ignore malformed historical lines, do not export them.
+                }
+            }
+        }
+        var enelJson = JsonSerializer.Serialize(new
+        {
+            status = enelEvents.Count == 0 ? "NOT_RUN" : "CAPTURE_EVENTS_AVAILABLE",
+            important = "An observed event is not proof that zero-click imported successfully.",
+            events = enelEvents
+        }, new JsonSerializerOptions { WriteIndented = true });
+
         var readme = """
             Phase 10-12 diagnostic export (explicit user action).
             No raw telemetry, source PDFs, active SQLite database,
@@ -159,6 +201,7 @@ public sealed class PhaseDiagnosticsExportService
                 var hashes = new Dictionary<string, string>();
                 Add(zip, "overview.json", detailsJson, hashes);
                 Add(zip, "schema_inventory.json", schemaJson, hashes);
+                Add(zip, "enel_capture_events.json", enelJson, hashes);
                 Add(zip, "README.txt", readme, hashes);
                 Add(zip, "manifest.json", JsonSerializer.Serialize(
                     new
