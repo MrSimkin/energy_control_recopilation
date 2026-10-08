@@ -40,6 +40,7 @@ public sealed class PhaseDiagnosticsExportService
         connection.Open();
 
         var schema = new List<object>();
+        var structuralObjects = new List<(string Type, string Name)>();
         var viewNames = new HashSet<string>(StringComparer.Ordinal);
         using (var command = connection.CreateCommand())
         {
@@ -56,6 +57,7 @@ public sealed class PhaseDiagnosticsExportService
             {
                 var type = reader.GetString(0);
                 var name = reader.GetString(1);
+                structuralObjects.Add((type, name));
                 if (type == "view")
                     viewNames.Add(name);
                 schema.Add(new
@@ -64,6 +66,52 @@ public sealed class PhaseDiagnosticsExportService
                     name,
                     ddl = reader.IsDBNull(2) ? null : reader.GetString(2)
                 });
+            }
+        }
+
+        // Runtime column dictionary and declared relationships come from
+        // SQLite itself rather than a hand-maintained, potentially stale list.
+        var columnsCsv = new StringBuilder(
+            "object_type,table_or_view,column,sql_type,not_null,primary_key\n");
+        var foreignKeysCsv = new StringBuilder(
+            "child_table,foreign_key_id,sequence,parent_table,child_column,parent_column\n");
+        foreach (var item in structuralObjects)
+        {
+            using var columnCommand = connection.CreateCommand();
+            columnCommand.CommandText =
+                "SELECT name,type,\"notnull\",pk FROM pragma_table_info($name);";
+            columnCommand.Parameters.AddWithValue("$name", item.Name);
+            using (var reader = columnCommand.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    columnsCsv.AppendLine(string.Join(",",
+                        Csv(item.Type), Csv(item.Name),
+                        Csv(reader.GetString(0)),
+                        Csv(reader.IsDBNull(1) ? "" : reader.GetString(1)),
+                        reader.GetInt64(2).ToString(),
+                        reader.GetInt64(3).ToString()));
+                }
+            }
+
+            if (item.Type != "table")
+                continue;
+
+            using var keyCommand = connection.CreateCommand();
+            keyCommand.CommandText =
+                "SELECT id,seq,\"table\",\"from\",\"to\" " +
+                "FROM pragma_foreign_key_list($name);";
+            keyCommand.Parameters.AddWithValue("$name", item.Name);
+            using var keys = keyCommand.ExecuteReader();
+            while (keys.Read())
+            {
+                foreignKeysCsv.AppendLine(string.Join(",",
+                    Csv(item.Name),
+                    keys.GetInt64(0).ToString(),
+                    keys.GetInt64(1).ToString(),
+                    Csv(keys.GetString(2)),
+                    Csv(keys.GetString(3)),
+                    Csv(keys.IsDBNull(4) ? "" : keys.GetString(4))));
             }
         }
 
@@ -201,6 +249,8 @@ public sealed class PhaseDiagnosticsExportService
                 var hashes = new Dictionary<string, string>();
                 Add(zip, "overview.json", detailsJson, hashes);
                 Add(zip, "schema_inventory.json", schemaJson, hashes);
+                Add(zip, "schema_columns.csv", columnsCsv.ToString(), hashes);
+                Add(zip, "schema_foreign_keys.csv", foreignKeysCsv.ToString(), hashes);
                 Add(zip, "enel_capture_events.json", enelJson, hashes);
                 Add(zip, "README.txt", readme, hashes);
                 Add(zip, "manifest.json", JsonSerializer.Serialize(
@@ -222,6 +272,9 @@ public sealed class PhaseDiagnosticsExportService
 
         return target;
     }
+
+    private static string Csv(string value) =>
+        "\"" + value.Replace("\"", "\"\"") + "\"";
 
     private static void Add(
         ZipArchive zip,
