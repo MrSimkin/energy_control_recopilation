@@ -114,6 +114,10 @@ public sealed class IsolatedRecoveryPreviewService
                         0, 0, 0, "Category exceeds bounded preview or contains duplicate identities."));
                 }
             }
+            // Unexpected missing tables, duplicate portable keys, or bounded-
+            // preview limits are NOT a successful complete preview. Do not
+            // let callers mistake zero counters for a validated clean category.
+            var partial = results.Any(category => category.UnsupportedReason is not null);
             // Explicitly refuse any implied import of relationally coupled
             // categories until source identity/foreign keys are mapped.
             results.Add(new RecoveryCategoryResult("METER_READINGS", 0, 0, 0,
@@ -123,8 +127,10 @@ public sealed class IsolatedRecoveryPreviewService
             results.Add(new RecoveryCategoryResult("ENERGY_TELEMETRY", 0, 0, 0,
                 "Large history, normalization rules, device identities and coverage need a reviewed adapter."));
             return new RecoveryPreviewResult(manifest.SchemaVersion, targetVersion,
-                "READ_ONLY_PREVIEW", results,
-                "Counts are a dry run, NOT an import authorization; original files and target remain unchanged.");
+                partial ? "PARTIAL_PREVIEW" : "READ_ONLY_PREVIEW", results,
+                partial
+                    ? "One or more categories could not be compared: counts are INCOMPLETE. No import is authorized; original files and target unchanged."
+                    : "Counts are a dry run, NOT an import authorization; original files and target remain unchanged.");
         }
         finally
         {

@@ -632,6 +632,26 @@ try
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");
+    // A target can claim the current schema version while a required column
+    // is missing. A partial comparison must not masquerade as a full PASS.
+    var partialPaths = new AppPaths(Path.Combine(root, "partial-preview-schema"));
+    var partialTarget = new SqliteDatabase(partialPaths);
+    partialTarget.Initialize();
+    using (var partialConnection = partialTarget.OpenConnection())
+    using (var mutate = partialConnection.CreateCommand())
+    {
+        mutate.CommandText =
+            "ALTER TABLE app_setting RENAME COLUMN value TO synthetic_missing_value;";
+        mutate.ExecuteNonQuery();
+    }
+    var incomplete = previewer.Preview(complete.Path, partialTarget.DatabasePath);
+    if (incomplete.Status != "PARTIAL_PREVIEW" ||
+        !incomplete.Categories.Any(c => c.Category == "SETTINGS" &&
+            c.UnsupportedReason is not null) ||
+        !incomplete.Disclaimer.Contains("INCOMPLETE", StringComparison.Ordinal))
+        throw new InvalidOperationException(
+            "Incomplete recovery category was incorrectly treated as full preview.");
+
     using (var unchanged = previewDatabase.OpenConnection())
     using (var check = unchanged.CreateCommand())
     {
