@@ -36,7 +36,7 @@
     <sys:String x:Key="Page.SqlExplorer.Subtitle">Read-only queries and exports</sys:String>
     <sys:String x:Key="SqlExplorer.Heading">SQL Explorer — read-only</sys:String>
     <sys:String x:Key="SqlExplorer.Intro">Run SELECT queries without modifying the database. Writes, attachments, schema changes and unsafe SQL functions are blocked. Preview is limited to 200 rows; CSV and Excel rerun the complete query within safety limits.</sys:String>
-    <sys:String x:Key="SqlExplorer.Execute">Execute (Ctrl+Enter / F5)</sys:String>
+    <sys:String x:Key="SqlExplorer.Execute">Run SQL (F5)</sys:String>
     <sys:String x:Key="SqlExplorer.Cancel">Cancel (Esc)</sys:String>
     <sys:String x:Key="SqlExplorer.ExportCsv">Export full CSV</sys:String>
     <sys:String x:Key="SqlExplorer.ExportXlsx">Export full Excel</sys:String>
