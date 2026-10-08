@@ -104,7 +104,8 @@ public static class SqlErrorDiagnostics
             { blockComment = true; i += 2; continue; }
             if (sql[i] == '\'')
             { literal = '\''; i++; continue; }
-            if (string.Compare(sql, i, term, 0, term.Length,
+            if (i + term.Length <= sql.Length &&
+                string.Compare(sql, i, term, 0, term.Length,
                     StringComparison.OrdinalIgnoreCase) == 0 &&
                 (i == 0 || !IsIdentifierPart(sql[i - 1])) &&
                 (i + term.Length == sql.Length ||
