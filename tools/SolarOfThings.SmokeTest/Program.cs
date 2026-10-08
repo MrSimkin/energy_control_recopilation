@@ -4008,6 +4008,167 @@ try
         }
     }
 
+    // Synthetic linked bill/tariff graph audit: portable evidence is matched
+    // by archive category + SHA, never by source surrogate ID or date alone.
+    var graphPaths = new AppPaths(Path.Combine(root, "relational-graph-source"));
+    var graphDb = new SqliteDatabase(graphPaths);
+    graphDb.Initialize();
+    var billFile = Path.Combine(graphPaths.UtilityBillEnelDirectory,
+        "test-linked-bill.pdf");
+    var tariffFile = Path.Combine(graphPaths.TariffEnelDirectory,
+        "test-tariff.pdf");
+    File.WriteAllText(billFile, "SYNTHETIC BILL EVIDENCE");
+    File.WriteAllText(tariffFile, "SYNTHETIC TARIFF EVIDENCE");
+    var billHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(billFile)))
+        .ToLowerInvariant();
+    var tariffHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(tariffFile)))
+        .ToLowerInvariant();
+    const string testSourceUrl = "smoke://tariff-linkage-2026";
+    long graphBillId, graphPublicationId;
+    using (var connection = graphDb.OpenConnection())
+    using (var cmd = connection.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_bill_document(
+                provider,original_file_name,local_pdf_path,content_sha256,
+                content_length,page_count,parser_version,imported_utc)
+            VALUES('ENEL','test-linked-bill.pdf',$billFile,$billHash,23,1,
+                   'smoke-v1','2026-10-08T00:00:00Z');
+            """;
+        cmd.Parameters.AddWithValue("$billFile", billFile);
+        cmd.Parameters.AddWithValue("$billHash", billHash);
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO utility_meter_reading(
+                reading_at_utc,reading_kwh,created_utc,updated_utc)
+            VALUES('2026-09-01T00:00:00Z',1000,
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO utility_bill(
+                period_start_utc,period_end_utc,billed_consumption_kwh,
+                created_utc,updated_utc,source_document_id,from_reading_id)
+            VALUES('2026-09-01T00:00:00Z','2026-09-30T00:00:00Z',97,
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z',
+                   (SELECT document_id FROM utility_bill_document WHERE content_sha256=$billHash),
+                   (SELECT reading_id FROM utility_meter_reading LIMIT 1));
+            """;
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = "SELECT last_insert_rowid();";
+        graphBillId = Convert.ToInt64(cmd.ExecuteScalar());
+        cmd.Parameters.AddWithValue("$billId", graphBillId);
+        cmd.CommandText = """
+            INSERT INTO utility_bill_line(
+                bill_id,section_key,description,amount_clp,created_utc,updated_utc)
+            VALUES($billId,'ELECTRICITY','Synthetic charge',999,
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO utility_bill_field_evidence(
+                bill_id,field_key,source_kind,evidence_state,created_utc,updated_utc)
+            VALUES($billId,'TOTAL','PDF','OBSERVED',
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+
+        cmd.Parameters.AddWithValue("$tariffFile", tariffFile);
+        cmd.Parameters.AddWithValue("$tariffHash", tariffHash);
+        cmd.CommandText = """
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,effective_from,
+                local_pdf_path,content_sha256,content_length,page_count,
+                capture_status,updated_utc)
+            VALUES('ENEL','REGULATED','Synthetic 2026',$url,'2026-09-01',
+                   $tariffFile,$tariffHash,25,1,'CAPTURED','2026-10-08T00:00:00Z');
+            """;
+        cmd.Parameters.AddWithValue("$url", testSourceUrl);
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = "SELECT last_insert_rowid();";
+        graphPublicationId = Convert.ToInt64(cmd.ExecuteScalar());
+        cmd.Parameters.AddWithValue("$publicationId", graphPublicationId);
+        cmd.CommandText = """
+            INSERT INTO tariff_publication_page_text(
+                publication_id,page_number,page_text)
+            VALUES($publicationId,1,'Synthetic document page');
+            """;
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO tariff_rate_candidate(
+                publication_id,page_number,tariff_plan,component_key,
+                printed_description,candidate_index,source_text,
+                parser_version,validation_state,created_utc)
+            VALUES($publicationId,1,'BT1','ENERGY','Example rate',1,
+                   '100 CLP','smoke-v1','UNREVIEWED','2026-10-08T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var graphZip = new FullBackupService(graphDb, graphPaths)
+        .Create("0.11.0-test", "synthetic", "linked-graph");
+    var graphTargetPaths = new AppPaths(Path.Combine(root, "relational-graph-target"));
+    var graphTarget = new SqliteDatabase(graphTargetPaths);
+    graphTarget.Initialize();
+    var graphAuditor = new IsolatedRecoveryRelationAuditService();
+    var graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+    var linkedBill = graphAudit.Bills.Single(b => b.SourceBillId == graphBillId);
+    var linkedTariff = graphAudit.Tariffs.Single(t =>
+        t.SourcePublicationId == graphPublicationId);
+    if (graphAudit.Status != "READ_ONLY_GRAPH_AUDIT" ||
+        linkedBill.State != "READING_REMAP_REQUIRED" ||
+        linkedBill.ChargeLineCount != 1 || linkedBill.FieldEvidenceCount != 1 ||
+        !linkedBill.HasFromReading || linkedBill.OriginalDocumentSha256 != billHash ||
+        linkedTariff.State != "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED" ||
+        linkedTariff.RateCandidates != 1 || linkedTariff.SourceTextPages != 1)
+        throw new InvalidOperationException("Linked source graph dependency audit failed.");
+
+    // The destination can contain the identical source document bytes while
+    // having unrelated local IDs: mark OVERLAP, not 'identical full bill'.
+    using (var connection = graphTarget.OpenConnection())
+    using (var cmd = connection.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_bill_document(
+                provider,original_file_name,local_pdf_path,content_sha256,
+                content_length,page_count,parser_version,imported_utc)
+            VALUES('ENEL','target-alias.pdf',$path,$billHash,23,1,
+                   'smoke-v1','2026-10-08T00:00:00Z');
+            """;
+        cmd.Parameters.AddWithValue("$billHash", billHash);
+        cmd.Parameters.AddWithValue("$path", Path.Combine(graphTargetPaths.UtilityBillDirectory,
+            "target-alias.pdf"));
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,capture_status,updated_utc)
+            VALUES('ENEL','REGULATED','Target other title',$url,
+                   'DISCOVERED','2026-10-08T00:00:00Z');
+            """;
+        cmd.Parameters.AddWithValue("$url", testSourceUrl);
+        cmd.ExecuteNonQuery();
+    }
+    graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+    if (graphAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId).State !=
+        "TARIFF_SOURCE_OVERLAP_REVIEW")
+        throw new InvalidOperationException("Source URL overlap must require review.");
+    if (graphAudit.Bills.Single(b => b.SourceBillId == graphBillId).State !=
+        "READING_REMAP_REQUIRED")
+        throw new InvalidOperationException("Bill's ambiguous reading FK must remain blocked.");
+    using (var connection = graphTarget.OpenConnection())
+    using (var check = connection.CreateCommand())
+    {
+        check.CommandText = "SELECT COUNT(*) FROM utility_bill;";
+        if (Convert.ToInt32(check.ExecuteScalar()) != 0)
+            throw new InvalidOperationException("Read-only graph audit wrote an active bill.");
+    }
+    var arbitraryAuditRejected = false;
+    try { graphAuditor.Audit(graphZip.Path, Path.Combine(Path.GetTempPath(), "user-owned.db")); }
+    catch (InvalidOperationException) { arbitraryAuditRejected = true; }
+    if (!arbitraryAuditRejected)
+        throw new InvalidOperationException("Graph audit accepted a non-fixture target.");
+
     Console.WriteLine(
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
