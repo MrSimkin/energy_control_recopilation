@@ -262,3 +262,13 @@ Owner confirmed consolidated functional requirements and asked to start actual d
 **CI history of this slice:** run #689 initially FAILed to compile due to a test-local variable name collision (the core new backup/recovery services compiled). That test-only collision was corrected in subsequent commit `645353f43c605f1b1d80ea8fd43b4569279b3b5a`. The corrected run #690 is being checked separately. **Do not claim success until its actual Windows job and smoke tests finish.** No new owner-facing Build is requested or delivered; the next user QA remains one consolidated v0.11.0 handoff after the 2026-10-12 continuity discussion where applicable.
 
 **Source status:** Draft PR #1, with `main` base SHA `59120a630b0f56684ba7672d960673f5c5c1797b`; documentation-only checkpoint.
+
+## Build 690 — full ZIP/reference integrity and synthetic recovery preview CI PASS (2026-10-08)
+
+**Windows GitHub Actions run `37828322217`, build number `690`: completed `SUCCESS`.** Source code/test commit `645353f43c605f1b1d80ea8fd43b4569279b3b5a`; Windows Release build, SQLite smoke (including newly added isolated preview and missing-source-reference rejection), win-x64 portable publish/marker and upload all PASS. Conditional live Enel/CNE probes were **SKIPPED**, not certified. Build 689 failed to compile due only to test variable collision and was superseded by 690.
+
+**No owner QA/handoff for Build 690.** The package is a CI artifact, not the next mutually agreed user-testing delivery, and the visible executable version remains `v0.10.0`. The v0.11.0 consolidated implementation continues, PR remains Draft, no merge, no access to live owner `Data` or provisional folder copy.
+
+**Implementation gaps remain:** full backup package/category/identity metadata and cross-version adapters, safe additive importer/rollback on isolated synthetic databases, relationally coherent imports of bills/lines, large telemetry and date-quality rules, UI/UX for recovery preview, verified deletion interface target-PC QA, integrated SQL console/editor and reporting semantics, further WPF/performance work. Real active data import/restore still requires separate explicit future authorization.
+
+**Do not reclassify synthetic tests as owner's physical backup/recovery proof.** Current user-owned `Data` folder duplicate is a provisional unverified safeguard to be retained.
