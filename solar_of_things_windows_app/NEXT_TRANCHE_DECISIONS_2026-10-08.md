@@ -322,3 +322,15 @@ These Grid/Enel details were subsequently **approved by the owner** as the next-
 - Recovery stress/performance tests use isolated synthetic data; **no touching the owner's real QA DB or backups** for implementation/testing without separate permission. Target-machine usage may be tested by owner later using the usual safe QA handoff.
 
 **Status:** design/acceptance requirements approved, not test evidence and not authorization to begin coding/CI/build. Next scope decision is whether the single consolidated v0.11.0 owner-QA build should incorporate the additional Enel material the owner plans to supply **2026-10-12**, or treat that as a later tranche if delayed. Do not assume what the material contains.
+
+## 2026-10-08 — Scope split APPROVED; start implementing available v0.11.0 work
+
+**OWNER DECISION B:** Do **not** hold the whole v0.11.0 development tranche for anticipated Enel data on **2026-10-12**. Owner explicitly says **"desarrollemos lo que podemos ahora y el 12, retomamos lo que nos queda para cerrar"**. Proceed now with previously approved, technically independent v0.11.0 work; resume outstanding Enel-specific evidence and remaining final closure questions on 2026-10-12 when/if the new owner data are actually supplied. Do not guess the new Enel data or retroactively alter the accepted Build-684 audit. Keep already-accepted Enel/Phase-10 workflows intact.
+
+**This is express owner authorization to begin non-destructive implementation of approved features** on existing isolated `work/phase10-12-consolidated-20261007` branch, with incremental work commits, not permission to merge `main`, change the real owner's DB, delete real backups, run active-data restore, or publish an unfinished user-QA Build. Keep PR #1 in draft. Keep each staging commit from triggering redundant CI packaging if skip-CI is accepted, then run one consolidated release CI/QA when the tranche is genuinely cohesive and authorized.
+
+**First safe implementation slice:** visible bilingual grouped/sidebar navigation and existing-menu labels, preserve current route identifiers, existing selected-state logic, accessibility, low-height scrolling. Add new SQL and Backup navigation entries only when their actual screens work; no deceptive dead-end nav items. Do not bump executable version or make claims of implemented full-backup/restore before the real functions exist.
+
+**Additional implementation disciplines:** defer risky DB/schema migrations until complete verified pre-migration backup gate exists; use only synthetic test data for recovery; keep complete-only owner-facing backup policy, additive conflict-aware versioned recovery, isolated QA matrix, safe readonly SQL and CSV/XLSX goals. The real QA `D:\\SolarEnergyMonitorTest\\Data\\energy.db` and existing backups remain untouched by developer work.
+
+**Milestone still open:** the 2026-10-12 owner-provided Enel evidence is not yet available. Final scope/closure of v0.11.0 and target-PC QA is still pending; no background work promise.
