@@ -66,6 +66,7 @@ public partial class MainWindow : Window
     private bool _analysisRangeInitializationPending;
     private int _analysisPresetGeneration;
     private bool _analysisPresetLoading;
+    private bool _analysisCustomRangePendingApply;
     private EnergyAggregationTable? _analysisRenderedAggregation;
     private BatteryThresholdContext? _analysisRenderedThresholds;
     private string? _analysisRenderedDeviceId;
