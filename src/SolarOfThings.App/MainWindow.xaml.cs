@@ -7181,7 +7181,7 @@ public partial class MainWindow : Window
             var service = _services.GetRequiredService<CompleteBackupInventoryService>();
             var result = await Task.Run(() => service.Verify(chosen, ConfiguredSecondaryBackupFolder()));
             var rows = (BackupInventoryGrid.ItemsSource as IEnumerable<PhysicalBackupCopy>)?.ToList()
-                ?? [];
+                ?? new List<PhysicalBackupCopy>();
             var updated = chosen with { VerificationStatus = "PASS" };
             var index = rows.FindIndex(r => r.Path == chosen.Path);
             if (index >= 0)
