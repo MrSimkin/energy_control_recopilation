@@ -45,7 +45,7 @@ Owner discussion after Build 685. Authority for completed history: `PHASE_10_12_
 
 ## Decision status
 
-Only the items under **Decisions confirmed** are accepted requirements/constraints. Wireframes, backups workflow, restoration policy, precise version, implementation steps and dates remain **OPEN**. This is a continuity checkpoint, not QA evidence or a release authorization.
+Only items under **Decisions confirmed** and subsequent sections explicitly marked **APPROVED** are accepted requirements/constraints. Wireframes, backups workflow, restoration policy, precise version, implementation steps and dates remain **OPEN**. This is a continuity checkpoint, not QA evidence or a release authorization.
 
 ## Backup-design decision B — owner confirmation (2026-10-08)
 
@@ -61,6 +61,22 @@ Only the items under **Decisions confirmed** are accepted requirements/constrain
 - Avoid unlimited backup growth and intrusive startup background work: inventory disk-space needs, propose non-destructive safeguards. **Automatic retention/deletion is still prohibited** pending owner approval and a tested retention policy.
 - Backup restore, destructive imports and active database replacement remain **OUT OF SCOPE** unless owner separately authorizes a new safety-tested design.
 
-**Next discussion question:** owner must choose whether the additionally protected material is **SQLite database only** or a **complete recoverable application-data package including required documents/settings**; based on current `AppPaths`, this is not interchangeable. Explicitly determine safe scope/exclusions. Then discuss cadence/retention and recovery separately. UI wireframes follow design decisions.
+**Scope decision:** resolved in the subsequent approved decision for a full recoverable package. Exact safe file inventory/exclusions require engineering design. Next discuss cadence/retention and recovery separately. UI wireframes follow design decisions.
 
 No code, schema, branch merge, build, QA, destructive operations, restore or numeric/report changes authorized by this decision.
+
+## Backup scope decision — owner confirmation (2026-10-08)
+
+**APPROVED PRODUCT REQUIREMENT:** Owner approves **combined recovery-capable** backups, with both:
+- **Fast, regular SQLite backups** using the safe native snapshot approach already implemented as a baseline.
+- **Full, recoverable application-data backup packages** containing SQLite **and** the necessary external source documents and configuration to restore the useful local working environment (e.g. referenced original Enel bills, official tariff documents, required settings). Scope must be based on an explicit inventory; merely copying `energy.db` is insufficient.
+- Both fit the already approved policy of **automatic local copies plus a user-configurable second destination and clear failure notices**.
+
+**Safety and implementation considerations, subject to design:**
+- Consistency between the SQLite snapshot and separately stored documents is essential: use controlled staging, validated file hashes and a manifest; distinguish missing source files from successful recoverability. No claim of full coverage without a validated inventory.
+- Do not pack passwords, reusable sessions/tokens, secrets or arbitrary diagnostics indiscriminately into a recoverable archive. Plan safe treatment of portable settings and Windows-bound encrypted credentials separately.
+- Performance: avoid blocking launch or foreground UI; avoid copying unchanged large sources needlessly; design bounded storage accounting before implementation.
+- **Not yet decided:** exact cadence for fast versus full packages, retention and any deletion policy, automated copy retry semantics, UI wireframes, recovery/restore authorization or procedure, and detailed directory inventory.
+- No automatic backup deletion, real active-DB restore, destructive operations, merges, new builds or code changes are authorized by this documentation decision.
+
+**Next owner discussion:** choose default backup frequencies and safe retention approach. Restore/recovery design to be discussed independently before any authorization.
