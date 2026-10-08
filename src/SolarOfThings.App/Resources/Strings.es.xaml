@@ -36,7 +36,7 @@
     <sys:String x:Key="Page.SqlExplorer.Subtitle">Consultas de solo lectura y exportaciones</sys:String>
     <sys:String x:Key="SqlExplorer.Heading">Explorador SQL — solo lectura</sys:String>
     <sys:String x:Key="SqlExplorer.Intro">Consulta la base con SELECT. Las operaciones que escriben, los adjuntos y los cambios de estructura están bloqueados. Vista previa de hasta 200 filas; CSV y Excel ejecutan la consulta completa dentro de límites seguros.</sys:String>
-    <sys:String x:Key="SqlExplorer.Execute">Ejecutar (Ctrl+Enter / F5)</sys:String>
+    <sys:String x:Key="SqlExplorer.Execute">Ejecutar SQL (F5)</sys:String>
     <sys:String x:Key="SqlExplorer.Cancel">Cancelar (Esc)</sys:String>
     <sys:String x:Key="SqlExplorer.ExportCsv">Exportar CSV completo</sys:String>
     <sys:String x:Key="SqlExplorer.ExportXlsx">Exportar Excel completo</sys:String>
