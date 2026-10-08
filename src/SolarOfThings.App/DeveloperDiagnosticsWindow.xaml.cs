@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using SolarOfThings.Core.Diagnostics;
+using SolarOfThings.Core.Backup;
 using SolarOfThings.Core.Infrastructure;
 
 namespace SolarOfThings.App;
@@ -10,16 +11,19 @@ public partial class DeveloperDiagnosticsWindow : Window
     private readonly ApiDiagnosticsStore _diagnostics;
     private readonly InvestigationDiagnosticsService _investigation;
     private readonly AppPaths _paths;
+    private readonly DatabaseBackupService _backup;
     private bool _busy;
 
     public DeveloperDiagnosticsWindow(
         ApiDiagnosticsStore diagnostics,
         InvestigationDiagnosticsService investigation,
-        AppPaths paths)
+        AppPaths paths,
+        DatabaseBackupService backup)
     {
         _diagnostics = diagnostics;
         _investigation = investigation;
         _paths = paths;
+        _backup = backup;
 
         InitializeComponent();
         RefreshReport();
@@ -84,6 +88,20 @@ public partial class DeveloperDiagnosticsWindow : Window
             });
     }
 
+    private async void Backup_Click(object sender, RoutedEventArgs e)
+    {
+        await RunAsync(async () =>
+        {
+            ActionStatusText.Text = "Paso 1/2: creando copia SQLite consistente...";
+            var result = await Task.Run(() =>
+                _backup.CreateVerifiedBackup());
+            ActionStatusText.Text =
+                $"Paso 2/2: integridad {result.IntegrityStatus}; " +
+                $"SHA-256 {result.Sha256}; guardado en {result.Path}";
+            ShowSaved(result.Path);
+        });
+    }
+
     private async void ExportBundle_Click(object sender, RoutedEventArgs e)
     {
         await RunAsync(
@@ -132,6 +150,7 @@ public partial class DeveloperDiagnosticsWindow : Window
         ConfigReadButton.IsEnabled = !busy;
         GridEnergyButton.IsEnabled = !busy;
         ExportBundleButton.IsEnabled = !busy;
+        BackupButton.IsEnabled = !busy;
         DiagnosticsBusyBar.Visibility =
             busy ? Visibility.Visible : Visibility.Collapsed;
     }
