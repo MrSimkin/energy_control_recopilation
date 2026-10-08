@@ -2734,6 +2734,29 @@
                             <Button x:Name="SqlSchemaRefreshButton" Content="{DynamicResource SqlExplorer.RefreshSchema}"
                                     Click="SqlExplorerRefreshSchema_Click" Padding="12,7" Margin="0,0,8,6"/>
                         </WrapPanel>
+                        <WrapPanel Margin="0,0,0,10">
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExecute}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlExecuteShortcutSelector" Width="125" Margin="0,0,15,0"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Enter" Tag="Ctrl+Enter"/>
+                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
+                                <ComboBoxItem Content="Ctrl+Shift+Enter" Tag="Ctrl+Shift+Enter"/>
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutCsv}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlCsvShortcutSelector" Width="125" Margin="0,0,15,0"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Shift+C" Tag="Ctrl+Shift+C"/>
+                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
+                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExcel}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlExcelShortcutSelector" Width="130"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Shift+E" Tag="Ctrl+Shift+E"/>
+                                <ComboBoxItem Content="Ctrl+Alt+E" Tag="Ctrl+Alt+E"/>
+                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
+                            </ComboBox>
+                        </WrapPanel>
                         <ProgressBar x:Name="SqlExplorerBusyBar" IsIndeterminate="True"
                                      Height="6" Visibility="Collapsed" Margin="0,0,0,8"/>
                         <TextBlock x:Name="SqlExplorerStatusText" TextWrapping="Wrap"
