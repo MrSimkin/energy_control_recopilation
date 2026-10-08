@@ -35,6 +35,8 @@
     <sys:String x:Key="SqlExplorer.FindHint">Search inside SQL query text</sys:String>
     <sys:String x:Key="SqlExplorer.FindNext">Find next</sys:String>
     <sys:String x:Key="SqlExplorer.FindShortcuts">Ctrl+F find · F3 next</sys:String>
+    <sys:String x:Key="Diagnostics.PerformanceTitle">Observed performance (current session only)</sys:String>
+    <sys:String x:Key="Diagnostics.PerformanceRefresh">Refresh measurements</sys:String>
     <sys:String x:Key="Nav.SqlExplorer">SQL Explorer</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Title">SQL Explorer</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Subtitle">Read-only queries and exports</sys:String>
