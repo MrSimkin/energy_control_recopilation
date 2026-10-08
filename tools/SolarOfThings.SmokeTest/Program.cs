@@ -381,6 +381,45 @@ try
         throw new InvalidOperationException("Complete backup package smoke failed.");
     }
 
+    // Reject an otherwise hash-consistent ZIP with two document names that
+    // differ only by case: on Windows they can map to the same physical path.
+    var collidingArchive = Path.Combine(root, "case-collision-package.zip");
+    File.Copy(complete.Path, collidingArchive);
+    using (var collisionZip = System.IO.Compression.ZipFile.Open(
+               collidingArchive, ZipArchiveMode.Update))
+    {
+        const string originalName = "documents/Bills/smoke-original-bill.txt";
+        const string aliasName = "documents/Bills/SMOKE-original-bill.txt";
+        var originalDocument = collisionZip.GetEntry(originalName)!;
+        byte[] documentBytes;
+        using (var input = originalDocument.Open())
+        using (var buffer = new MemoryStream())
+        {
+            input.CopyTo(buffer);
+            documentBytes = buffer.ToArray();
+        }
+        using (var aliasOutput = collisionZip.CreateEntry(aliasName).Open())
+            aliasOutput.Write(documentBytes);
+        var manifestEntry = collisionZip.GetEntry("manifest.json")!;
+        CompleteBackupManifest revised;
+        using (var manifestInput = manifestEntry.Open())
+            revised = System.Text.Json.JsonSerializer
+                .Deserialize<CompleteBackupManifest>(manifestInput)!;
+        manifestEntry.Delete();
+        revised = revised with { Files = revised.Files.Concat(
+            [new CompleteBackupEntry(aliasName, documentBytes.Length,
+                fullManifest.Files.Single(x =>
+                    x.RelativePath == originalName).Sha256)]).ToArray() };
+        using var manifestOutput = collisionZip.CreateEntry("manifest.json").Open();
+        System.Text.Json.JsonSerializer.Serialize(manifestOutput, revised);
+    }
+    var caseCollisionRejected = false;
+    try { FullBackupService.VerifyArchive(collidingArchive); }
+    catch (InvalidDataException) { caseCollisionRejected = true; }
+    if (!caseCollisionRejected)
+        throw new InvalidOperationException(
+            "Case-colliding ZIP entries were accepted as a complete backup.");
+
     // The ZIP includes committed WAL records and a structurally readable DB.
     var smokeExtract = Path.Combine(root, "verify-complete-backup.db");
     using (var packageZip = System.IO.Compression.ZipFile.OpenRead(complete.Path))
