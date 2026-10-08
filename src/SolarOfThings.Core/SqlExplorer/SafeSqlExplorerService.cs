@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using ClosedXML.Excel;
 using Microsoft.Data.Sqlite;
 using SQLitePCL;
 
@@ -12,7 +11,8 @@ public sealed class SafeSqlExplorerService
 {
     public const int PreviewLimit = 200;
     public const int MaxExportRows = 1_000_000;
-    public const int MaxExcelRows = 100_000;
+    // One worksheet allows 1,048,576 rows; row 1 is the header.
+    public const int MaxExcelRows = 1_000_000;
     private const int MaxColumns = 128;
     private const int MaxCellBytes = 4 * 1024 * 1024;
     private readonly string _databasePath;
@@ -102,10 +102,10 @@ public sealed class SafeSqlExplorerService
             Guid.NewGuid().ToString("N") + Path.GetExtension(output));
         try
         {
-            using var scope = OpenProtected(token, TimeSpan.FromSeconds(90));
+            using var scope = OpenProtected(token, TimeSpan.FromMinutes(10));
             using var cmd = scope.Connection.CreateCommand();
             cmd.CommandText = sql;
-            cmd.CommandTimeout = 15;
+            cmd.CommandTimeout = 600;
             using var reader = cmd.ExecuteReader();
             var cols = GetColumns(reader);
             int count = 0;
@@ -128,36 +128,15 @@ public sealed class SafeSqlExplorerService
             }
             else
             {
-                using var wb = new XLWorkbook();
-                var sheet = wb.Worksheets.Add("SQL");
-                for (var i = 0; i < cols.Count; i++)
-                {
-                    sheet.Cell(1, i + 1).Value = cols[i];
-                    sheet.Cell(1, i + 1).Style.Font.Bold = true;
-                }
-                while (reader.Read())
-                {
-                    token.ThrowIfCancellationRequested();
-                    if (count >= MaxExcelRows)
-                        throw new InvalidOperationException("XLSX exceeds 100,000 rows; no partial file published. For larger results, choose CSV.");
-                    var row = GetRow(reader);
-                    for (int i = 0; i < row.Count; i++)
+                // Low-memory OOXML streaming; never materializes a 1M-row workbook.
+                // One million data rows + headers fits under Excel's 1,048,576.
+                count = StreamingSqlXlsxWriter.Write(temporary, cols,
+                    () =>
                     {
-                        var item = row[i];
-                        if (item.IsNull) continue;
-                        var cell = sheet.Cell(count + 2, i + 1);
-                        if (item.Type == "REAL" && double.TryParse(item.Text,
-                            NumberStyles.Float, CultureInfo.InvariantCulture, out var real) &&
-                            double.IsFinite(real)) cell.Value = real;
-                        else if (item.Type == "INTEGER" && long.TryParse(item.Text,
-                            NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer) &&
-                            integer is >= -9_007_199_254_740_991L and <= 9_007_199_254_740_991L)
-                            cell.Value = (double)integer;
-                        else cell.Value = FormulaSafe(item.Text);
-                    }
-                    count++;
-                }
-                wb.SaveAs(temporary);
+                        token.ThrowIfCancellationRequested();
+                        return reader.Read() ? GetRow(reader) : null;
+                    },
+                    MaxExcelRows, token);
             }
             token.ThrowIfCancellationRequested();
             File.Move(temporary, output); // no overwrite; only complete exports published
