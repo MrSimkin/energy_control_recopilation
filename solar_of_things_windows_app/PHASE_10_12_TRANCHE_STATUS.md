@@ -231,3 +231,20 @@ Implemented on draft work branch after the owner's authorization:
 ## Owner QA scheduling correction — Build 688 not requested for immediate test (2026-10-08)
 
 The owner confirms a separate **manual folder copy of `Data`** is already held as a provisional safeguard. The owner explicitly redirects the first real full-backup exercise, weekly reminder and second-location verification to the **NEXT consolidated Build** rather than conducting an immediate standalone QA with Build 688. Build 688's Windows CI success is code/test evidence **only** and does not constitute owner acceptance or evidence of a verified recovery point on the target machine. The source/SQLite WAL consistency of the manual copy is **unknown**, so preserve it without deleting or renaming as "verified". Continue approved implementation on draft PR; no extra owner-facing emergency ZIP needed and no merge to `main`.
+
+## v0.11.0 implementation slice 1: backup inventory UI (2026-10-08; NOT CI-VALIDATED)
+
+Owner confirmed consolidated functional requirements and asked to start actual development. Continued on the existing work branch after the owner-confirmed baseline `V011_BASELINE_CONSOLIDADO_2026-10-08.md`, without altering `main` or touching the real QA data.
+
+**New code:**
+- `src/SolarOfThings.Core/Backup/CompleteBackupInventoryService.cs`: physical local/secondary copy inventory; legacy `.sqlite` classified visibly as legacy-only; fresh integrity+hash recheck of selected complete ZIP; manual one-copy deletion with normalized/configured parent-path check, reparse-point safeguards, and re-verification that at least one **OTHER available** full package exists (not an offline remembered mirror). No automatic pruning; local and secondary delete targets remain independent.
+- `src/SolarOfThings.App/MainWindow.xaml`: a real first-class **Protección de datos / Data protection** page and sidebar navigation, a scrollable physical-copy inventory, create/secondary settings/open-local actions and explicit **Refresh / Verify / Delete selected** controls, integrity and offline destination status messages.
+- `MainWindow.xaml.cs` + `App.xaml.cs`: page visibility and navigation, asynchronous inventory/verify/delete operations, confirmation before deletion, service registration and links to the previously implemented full-backup creator/settings. Integrity verification and deletion checks run off the UI thread.
+- `Strings.es.xaml` / `Strings.en.xaml`: bilingual page texts and safety labels.
+- `tools/SolarOfThings.SmokeTest/Program.cs`: isolated synthetic fixture checks for full/legacy classification, secondary verification, local-vs-secondary independent deletion, last-copy protection, offline secondary warning and rejection of unrelated-file paths.
+
+**Check performed now:** Re-fetched source from GitHub and verified all 20 referenced page/column localization keys in BOTH languages, 6 new XAML-to-code click handlers, named page/grid/buttons, navigation route, DI registration and synthetic-test case wiring (static structural check PASS).
+
+**DO NOT claim:** compiled, Windows CI PASS for these new commits, end-user visual QA PASS, actual backed-up owner data, safe real restore, final inventory acceptance or released v0.11.0. Build 688 remains previous CI evidence only and requires no separate owner test. These new commits use `[skip ci]`; a single combined CI build and synthetic regression set are reserved for a genuinely consolidated release candidate.
+
+**Next development:** harden full-package referential consistency and failure handling, test the complete inventory/delete feature in actual Windows CI on synthetic files, implement the approved version-aware non-destructive selective-recovery preview/engine and SQL explorer. The decision about continuity after actual new Enel evidence arrives on 2026-10-12 remains open; do not presume that input.
