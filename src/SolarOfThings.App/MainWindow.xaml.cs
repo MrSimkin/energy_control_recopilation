@@ -64,6 +64,12 @@ public partial class MainWindow : Window
     private int _analysisRefreshGeneration;
     private bool _analysisDataLoading;
     private bool _analysisRangeInitializationPending;
+    private int _analysisPresetGeneration;
+    private bool _analysisPresetLoading;
+    private EnergyAggregationTable? _analysisRenderedAggregation;
+    private BatteryThresholdContext? _analysisRenderedThresholds;
+    private string? _analysisRenderedDeviceId;
+    private int _analysisRenderedGeneration = -1;
     private int _dashboardRefreshGeneration;
     private bool _dashboardDataLoading;
     private bool _windowClosed;
@@ -978,18 +984,54 @@ public partial class MainWindow : Window
         RefreshAnalysisView();
     }
 
-    private void AnalysisRangePresetSelector_SelectionChanged(
+    private async void AnalysisRangePresetSelector_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (_suppressAnalysisRangeSelection || !IsInitialized)
+        if (_suppressAnalysisRangeSelection || !IsInitialized ||
+            _windowClosed || AnalysisContent is null)
+            return;
+
+        var preset = AnalysisRangePresetSelector.SelectedValue?.ToString() ?? "custom";
+        var generation = ++_analysisPresetGeneration;
+        // Immediately prevent any in-flight old Analysis range from painting
+        // while the new date preset is resolving from historical coverage.
+        _analysisRefreshGeneration++;
+        if (string.Equals(preset, "custom", StringComparison.Ordinal))
         {
+            _analysisPresetLoading = false;
             return;
         }
 
-        if (ApplyAnalysisRangePreset())
+        _analysisPresetLoading = true;
+        var shouldRefresh = false;
+        try
         {
-            RefreshAnalysisView();
+            shouldRefresh = await ApplyAnalysisRangePresetAsync(preset, generation);
+        }
+        catch (Exception ex)
+        {
+            if (generation == _analysisPresetGeneration &&
+                AnalysisContent.Visibility == Visibility.Visible)
+            {
+                AnalysisStatusText.Text =
+                    _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible seleccionar el rango histórico."
+                        : "The historical range could not be selected.";
+                Debug.WriteLine(
+                    $"Analysis preset coverage failed ({ex.GetType().Name}).");
+            }
+        }
+        finally
+        {
+            if (generation == _analysisPresetGeneration)
+            {
+                _analysisPresetLoading = false;
+                if (shouldRefresh && !_windowClosed &&
+                    AnalysisContent.Visibility == Visibility.Visible)
+                    RefreshAnalysisView();
+            }
         }
     }
 
@@ -1004,6 +1046,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        // An explicit custom-date edit supersedes any pending preset query.
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
         _suppressAnalysisRangeSelection = true;
         AnalysisRangePresetSelector.SelectedValue = "custom";
         _suppressAnalysisRangeSelection = false;
@@ -1024,13 +1069,29 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        if (IsInitialized &&
-            AnalysisContent is not null &&
-            AnalysisFromDatePicker is not null &&
-            AnalysisToDatePicker is not null)
+        if (!IsInitialized || _windowClosed || AnalysisContent is null ||
+            AnalysisFromDatePicker is null || AnalysisToDatePicker is null ||
+            AnalysisContent.Visibility != Visibility.Visible)
+            return;
+
+        // Checkbox changes affect *only* the energy plot's visible series.
+        // While an Analysis fetch is in progress the final UI renderer uses
+        // the latest checkbox state, so no redundant query is necessary.
+        if (_analysisDataLoading || _analysisPresetLoading)
+            return;
+
+        if (_analysisRenderedAggregation is not null &&
+            AnalysisRefreshPolicy.CanReuseChart(
+                _analysisRenderedGeneration, _analysisRefreshGeneration,
+                true, false, _analysisRenderedDeviceId,
+                _profiles.Get()?.DeviceId))
         {
-            RefreshAnalysisView();
+            using var measure = _performance.Measure("UI.Analysis.SeriesToggle");
+            RefreshAnalysisEnergyChart(_analysisRenderedAggregation.Rows);
+            return;
         }
+
+        RefreshAnalysisView();
     }
 
     private void AnalysisResetCharts_Click(
@@ -1059,7 +1120,10 @@ public partial class MainWindow : Window
             _analysisRangeInitializationPending = true;
 
         _analysisRefreshGeneration++;
-        if (_analysisDataLoading || AnalysisContent.Visibility != Visibility.Visible)
+        _analysisRenderedAggregation = null; // data/chart cache invalidated.
+        _analysisRenderedThresholds = null;
+        if (_analysisDataLoading || _analysisPresetLoading ||
+            AnalysisContent.Visibility != Visibility.Visible)
             return;
 
         _ = LoadAnalysisViewAsync();
@@ -1103,6 +1167,10 @@ public partial class MainWindow : Window
         {
             while (!_windowClosed && AnalysisContent.Visibility == Visibility.Visible)
             {
+                // A preset lookup owns calendar selection until it completes.
+                // Avoid performing an obsolete query against the previous range.
+                if (_analysisPresetLoading)
+                    return;
                 var requestedGeneration = _analysisRefreshGeneration;
                 var initializeRange = _analysisRangeInitializationPending;
                 _analysisRangeInitializationPending = false;
@@ -1249,6 +1317,10 @@ public partial class MainWindow : Window
                     RefreshAnalysisEnergySummary(result.EnergySummary);
                     RenderAnalysisAggregationTable(result.Aggregation, result.Thresholds);
                     RenderAnalysisBehavior(result.Behavior);
+                    _analysisRenderedAggregation = result.Aggregation;
+                    _analysisRenderedThresholds = result.Thresholds;
+                    _analysisRenderedDeviceId = profile.DeviceId;
+                    _analysisRenderedGeneration = requestedGeneration;
                     return;
                 }
                 catch (Exception ex)
@@ -1326,18 +1398,30 @@ public partial class MainWindow : Window
         AnalysisStatusText.Text = string.Empty;
     }
 
-    private bool ApplyAnalysisRangePreset()
+    private async Task<bool> ApplyAnalysisRangePresetAsync(string preset, int generation)
     {
         var profile = _profiles.Get();
-        if (profile is null)
+        if (profile is null || _windowClosed ||
+            AnalysisContent.Visibility != Visibility.Visible)
         {
             return false;
         }
 
         var history =
             _services.GetRequiredService<HistoryRepository>();
-        var coverage =
-            history.GetCoverageSummary(profile.DeviceId);
+        // Read-only historical coverage on a worker, never on Dispatcher.
+        var coverage = await Task.Run(() => MeasureDataCall(
+            "Data.Analysis.PresetCoverage",
+            () => history.GetCoverageSummary(profile.DeviceId)));
+
+        if (_windowClosed ||
+            AnalysisContent.Visibility != Visibility.Visible ||
+            generation != _analysisPresetGeneration ||
+            !string.Equals(_profiles.Get()?.DeviceId,
+                profile.DeviceId, StringComparison.Ordinal) ||
+            !string.Equals(AnalysisRangePresetSelector.SelectedValue?.ToString(),
+                preset, StringComparison.Ordinal))
+            return false;
 
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
@@ -1355,10 +1439,6 @@ public partial class MainWindow : Window
         var lastLocalDate = SolarApiTime.GetLocalDate(
             coverage.LastSampleAtUtc.Value,
             timeZone);
-
-        var preset =
-            AnalysisRangePresetSelector.SelectedValue?.ToString() ??
-            "custom";
 
         if (string.Equals(
                 preset,
@@ -1400,11 +1480,17 @@ public partial class MainWindow : Window
         };
 
         _suppressAnalysisRangeSelection = true;
-        AnalysisFromDatePicker.SelectedDate =
-            resolved.LocalStartDate.ToDateTime(TimeOnly.MinValue);
-        AnalysisToDatePicker.SelectedDate =
-            resolved.LocalEndDate.ToDateTime(TimeOnly.MinValue);
-        _suppressAnalysisRangeSelection = false;
+        try
+        {
+            AnalysisFromDatePicker.SelectedDate =
+                resolved.LocalStartDate.ToDateTime(TimeOnly.MinValue);
+            AnalysisToDatePicker.SelectedDate =
+                resolved.LocalEndDate.ToDateTime(TimeOnly.MinValue);
+        }
+        finally
+        {
+            _suppressAnalysisRangeSelection = false;
+        }
 
         return true;
     }
@@ -1569,6 +1655,7 @@ public partial class MainWindow : Window
     private void RefreshAnalysisEnergyChart(
         IReadOnlyList<EnergyAggregationRow> rows)
     {
+        using var measure = _performance.Measure("UI.Analysis.EnergyChart");
         var plot = AnalysisEnergyPlot.Plot;
         plot.Clear();
         _analysisChartPositions = BuildAnalysisChartPositions(rows);
@@ -1646,6 +1733,7 @@ public partial class MainWindow : Window
         IReadOnlyList<EnergyAggregationRow> rows,
         BatteryThresholdContext thresholds)
     {
+        using var measure = _performance.Measure("UI.Analysis.BatteryChart");
         var plot = AnalysisBatteryPlot.Plot;
         plot.Clear();
 
@@ -1880,6 +1968,10 @@ public partial class MainWindow : Window
 
     private void ResetAnalysisView()
     {
+        _analysisRenderedAggregation = null;
+        _analysisRenderedThresholds = null;
+        _analysisRenderedDeviceId = null;
+        _analysisRenderedGeneration = -1;
         AnalysisFromDatePicker.SelectedDate = null;
         AnalysisToDatePicker.SelectedDate = null;
         ResetAnalysisValues();
@@ -2044,7 +2136,13 @@ public partial class MainWindow : Window
 
         _dashboardVisible = isDashboard;
         if (!isAnalysis)
+        {
             _analysisRefreshGeneration++; // Invalidate pending Analysis work.
+            _analysisPresetGeneration++;
+            _analysisPresetLoading = false;
+            _analysisRenderedAggregation = null;
+            _analysisRenderedThresholds = null;
+        }
         if (!isBattery) _batteryRefreshGeneration++;
         if (!isDashboard)
             _dashboardRefreshGeneration++; // Discard in-flight Dashboard results.
@@ -7517,6 +7615,10 @@ public partial class MainWindow : Window
         _dashboardRefreshGeneration++;
         _batteryRefreshGeneration++;
         _analysisRefreshGeneration++;
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
+        _analysisRenderedAggregation = null;
+        _analysisRenderedThresholds = null;
         _dashboardLiveTimer.Stop();
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();

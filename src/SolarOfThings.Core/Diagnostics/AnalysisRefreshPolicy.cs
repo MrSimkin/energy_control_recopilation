@@ -18,4 +18,23 @@ public static class AnalysisRefreshPolicy
         analysisVisible && !windowClosed &&
         string.Equals(
             requestedDeviceId, currentDeviceId, StringComparison.Ordinal);
+    /// <summary>
+    /// A chart series checkbox may reuse the last successfully rendered
+    /// immutable aggregation only when its source generation and device
+    /// still match the active, visible Analysis page.
+    /// </summary>
+    public static bool CanReuseChart(
+        int displayedGeneration,
+        int requestedGeneration,
+        bool analysisVisible,
+        bool dataLoading,
+        string? displayedDeviceId,
+        string? currentDeviceId) =>
+        displayedGeneration >= 0 &&
+        displayedGeneration == requestedGeneration &&
+        analysisVisible &&
+        !dataLoading &&
+        !string.IsNullOrWhiteSpace(displayedDeviceId) &&
+        string.Equals(displayedDeviceId, currentDeviceId,
+            StringComparison.Ordinal);
 }

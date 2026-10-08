@@ -111,6 +111,17 @@ try
         AnalysisRefreshPolicy.CanApply(5, 5, true, false, "device-a", null))
         throw new InvalidOperationException("Analysis result-generation guard regressed.");
 
+    // Re-rendering a different energy series must not query SQLite again if
+    // the already displayed chart rows still belong to the current request.
+    if (!AnalysisRefreshPolicy.CanReuseChart(11, 11, true, false, "A", "A") ||
+        AnalysisRefreshPolicy.CanReuseChart(10, 11, true, false, "A", "A") ||
+        AnalysisRefreshPolicy.CanReuseChart(11, 11, false, false, "A", "A") ||
+        AnalysisRefreshPolicy.CanReuseChart(11, 11, true, true, "A", "A") ||
+        AnalysisRefreshPolicy.CanReuseChart(11, 11, true, false, "A", "B") ||
+        AnalysisRefreshPolicy.CanReuseChart(11, 11, true, false, null, null) ||
+        AnalysisRefreshPolicy.CanReuseChart(-1, -1, true, false, "A", "A"))
+        throw new InvalidOperationException("Analysis chart reuse guard regressed.");
+
     // Responsive breakpoint regression: same band must preserve layout
     // definitions even as the WPF window changes width by a pixel.
     foreach (var (width, columns) in new (double, int)[]
