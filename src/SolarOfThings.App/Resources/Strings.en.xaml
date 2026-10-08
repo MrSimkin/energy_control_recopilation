@@ -5,6 +5,29 @@
     <sys:String x:Key="Brand.Title">SOLAR ENERGY</sys:String>
     <sys:String x:Key="Brand.Subtitle">Home Monitor</sys:String>
 
+    <sys:String x:Key="Nav.Backup">Data protection</sys:String>
+    <sys:String x:Key="Page.Backup.Title">Data protection</sys:String>
+    <sys:String x:Key="Page.Backup.Subtitle">Complete backups, copies and verification</sys:String>
+    <sys:String x:Key="Backup.PageHeading">Data protection</sys:String>
+    <sys:String x:Key="Backup.PageIntro">Manage complete verifiable copies. Older SQLite-only snapshots are informational and do not constitute complete backups.</sys:String>
+    <sys:String x:Key="Backup.WeeklyHeading">Create a complete backup</sys:String>
+    <sys:String x:Key="Backup.WeeklyInfo">Create a complete package with the SQLite database, bills and tariffs. The weekly reminder allows you to create, snooze or skip this week. Copies are never deleted automatically.</sys:String>
+    <sys:String x:Key="Backup.CreateNow">Create complete backup now</sys:String>
+    <sys:String x:Key="Backup.DestinationSettings">Configure secondary location</sys:String>
+    <sys:String x:Key="Backup.OpenLocal">Open local folder</sys:String>
+    <sys:String x:Key="Backup.InventoryHeading">Recognized physical copies</sys:String>
+    <sys:String x:Key="Backup.InventoryIntro">Each local/secondary physical file is listed individually. The presence of a ZIP does not prove integrity: select Verify to check it again. Offline secondary storage is reported separately.</sys:String>
+    <sys:String x:Key="Backup.Refresh">Refresh list</sys:String>
+    <sys:String x:Key="Backup.Verify">Verify selected</sys:String>
+    <sys:String x:Key="Backup.DeleteSelected">Delete only this copy</sys:String>
+    <sys:String x:Key="Backup.ColumnLocation">Location</sys:String>
+    <sys:String x:Key="Backup.ColumnName">File</sys:String>
+    <sys:String x:Key="Backup.ColumnKind">Type</sys:String>
+    <sys:String x:Key="Backup.ColumnDate">Date</sys:String>
+    <sys:String x:Key="Backup.ColumnSize">Bytes</sys:String>
+    <sys:String x:Key="Backup.ColumnStatus">Integrity</sys:String>
+    <sys:String x:Key="Backup.LastCopyPolicy">Deletion requires confirmation and another available verified complete backup. It never cascades to the mirror or deletes active data.</sys:String>
+
     <sys:String x:Key="Nav.Group.Home">HOME</sys:String>
     <sys:String x:Key="Nav.Group.Energy">ENERGY</sys:String>
     <sys:String x:Key="Nav.Group.Reports">REPORTS</sys:String>
