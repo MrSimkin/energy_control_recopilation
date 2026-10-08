@@ -59,9 +59,11 @@ public partial class MainWindow : Window
     private long? _editingUtilityBillId;
     private long? _editingUtilityBillLineId;
     private bool _dashboardVisible;
+    private int _batteryRefreshGeneration;
+    private bool _batteryDataLoading;
     private int _dashboardRefreshGeneration;
     private bool _dashboardDataLoading;
-    private bool _dashboardWindowClosed;
+    private bool _windowClosed;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
     private bool _suppressReportRangeSelection;
@@ -350,7 +352,7 @@ public partial class MainWindow : Window
     private void RefreshDashboardMetrics()
     {
         _dashboardRefreshGeneration++;
-        if (!_dashboardVisible || _dashboardWindowClosed ||
+        if (!_dashboardVisible || _windowClosed ||
             _dashboardDataLoading)
             return;
 
@@ -401,7 +403,7 @@ public partial class MainWindow : Window
         _dashboardDataLoading = true;
         try
         {
-            while (_dashboardVisible && !_dashboardWindowClosed)
+            while (_dashboardVisible && !_windowClosed)
             {
                 var requestedGeneration = _dashboardRefreshGeneration;
                 try
@@ -424,7 +426,7 @@ public partial class MainWindow : Window
                         profile.DeviceId, profile.StationTimeZone,
                         normalized, current, history, statistics));
 
-                    if (_dashboardWindowClosed || !_dashboardVisible)
+                    if (_windowClosed || !_dashboardVisible)
                         return;
                     if (requestedGeneration != _dashboardRefreshGeneration)
                         continue;
@@ -435,7 +437,7 @@ public partial class MainWindow : Window
                         _dashboardRefreshGeneration++;
                     if (!DashboardRefreshPolicy.CanApply(
                             requestedGeneration, _dashboardRefreshGeneration,
-                            _dashboardVisible, _dashboardWindowClosed,
+                            _dashboardVisible, _windowClosed,
                             profile.DeviceId, currentDeviceId))
                         continue;
 
@@ -461,7 +463,7 @@ public partial class MainWindow : Window
                 {
                     if (requestedGeneration != _dashboardRefreshGeneration)
                         continue;
-                    if (_dashboardWindowClosed || !_dashboardVisible)
+                    if (_windowClosed || !_dashboardVisible)
                         return;
 
                     // Fail closed: never leave potentially stale energy values
@@ -696,30 +698,116 @@ public partial class MainWindow : Window
 
     private void RefreshBatteryView()
     {
-        using var measure = _performance.Measure("UI.Battery.Refresh");
         if (!IsInitialized || BatteryContent is null)
-        {
             return;
-        }
-
-        var profile = _profiles.Get();
-        if (profile is null)
-        {
-            ResetBatteryView();
+        _batteryRefreshGeneration++;
+        if (_windowClosed || _batteryDataLoading ||
+            BatteryContent.Visibility != Visibility.Visible)
             return;
-        }
+        _ = LoadBatteryViewAsync();
+    }
 
-        var repository = _services.GetRequiredService<NormalizationRepository>();
-        var storedMetrics = repository.GetLatestMetrics(profile.DeviceId);
-        var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>()
-            .GetLatest(profile.DeviceId);
+    private sealed record BatteryReadResult(
+        IReadOnlyDictionary<string, NormalizedMetricValue> StoredMetrics,
+        CurrentHouseholdSnapshot? CurrentSnapshot,
+        BatteryConfiguration Configuration,
+        BatteryThresholdContext Thresholds);
+
+    private BatteryReadResult ReadBatteryData(
+        string deviceId,
+        NormalizationRepository repository,
+        CurrentHouseholdSnapshotService currentRepository,
+        BatteryConfigurationService configurationService,
+        BatteryThresholdContextService thresholdService)
+    {
+        using var measure = _performance.Measure("Data.Battery.BackgroundFetch");
+        // Worker receives only non-WPF services and value arguments.
+        var stored = MeasureDataCall("Data.Battery.LatestMetrics",
+            () => repository.GetLatestMetrics(deviceId));
+        var current = MeasureDataCall("Data.Battery.CurrentSnapshot",
+            () => currentRepository.GetLatest(deviceId));
+        var configuration = MeasureDataCall("Data.Battery.Configuration",
+            configurationService.Get);
+        var thresholds = MeasureDataCall("Data.Battery.Thresholds",
+            () => thresholdService.Get(deviceId));
+        return new BatteryReadResult(stored, current, configuration, thresholds);
+    }
+
+    private async Task LoadBatteryViewAsync()
+    {
+        _batteryDataLoading = true;
+        try
+        {
+            while (!_windowClosed && BatteryContent.Visibility == Visibility.Visible)
+            {
+                var generation = _batteryRefreshGeneration;
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        ResetBatteryView();
+                        return;
+                    }
+
+                    // Resolve services before Task.Run; no UI control is
+                    // accessed on the worker thread.
+                    var repository = _services.GetRequiredService<NormalizationRepository>();
+                    var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>();
+                    var configuration = _services.GetRequiredService<BatteryConfigurationService>();
+                    var thresholds = _services.GetRequiredService<BatteryThresholdContextService>();
+                    var result = await Task.Run(() => ReadBatteryData(
+                        profile.DeviceId, repository, current, configuration, thresholds));
+
+                    if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
+                        return;
+                    if (generation != _batteryRefreshGeneration)
+                        continue;
+
+                    var deviceNow = _profiles.Get()?.DeviceId;
+                    if (!string.Equals(deviceNow, profile.DeviceId, StringComparison.Ordinal))
+                        _batteryRefreshGeneration++;
+                    if (!BatteryRefreshPolicy.CanApply(
+                        generation, _batteryRefreshGeneration,
+                        BatteryContent.Visibility == Visibility.Visible,
+                        _windowClosed, profile.DeviceId, deviceNow))
+                        continue;
+
+                    using var measure = _performance.Measure("UI.Battery.Refresh");
+                    RenderBatteryData(result);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (generation != _batteryRefreshGeneration)
+                        continue;
+                    if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
+                        return;
+
+                    ResetBatteryView();
+                    BatteryLastReadingText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible actualizar los datos de batería."
+                        : "Battery data could not be refreshed.";
+                    Debug.WriteLine($"Battery read failed ({ex.GetType().Name}); values hidden.");
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _batteryDataLoading = false;
+        }
+    }
+
+    private void RenderBatteryData(BatteryReadResult result)
+    {
+        var current = result.CurrentSnapshot;
         var useLive = current?.IsFresh == true &&
                       current.Metrics.ContainsKey("battery_soc_pct");
-        var metrics = useLive
-            ? current!.Metrics
-            : storedMetrics;
-        var configuration = _services.GetRequiredService<BatteryConfigurationService>().Get();
-        var thresholds = _services.GetRequiredService<BatteryThresholdContextService>().Get(profile.DeviceId);
+        var metrics = useLive ? current!.Metrics : result.StoredMetrics;
+        var configuration = result.Configuration;
+        var thresholds = result.Thresholds;
 
         RefreshBatteryTechnicalMetrics(metrics);
 
@@ -972,7 +1060,8 @@ public partial class MainWindow : Window
         }
 
         var history = _services.GetRequiredService<HistoryRepository>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
+        var coverage = MeasureDataCall("Data.Analysis.Coverage",
+            () => history.GetCoverageSummary(profile.DeviceId));
 
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
@@ -1037,12 +1126,9 @@ public partial class MainWindow : Window
         var fromWindow = SolarApiTime.GetLocalDayWindow(fromDate, timeZone);
         var toWindow = SolarApiTime.GetLocalDayWindow(toDate, timeZone);
 
-        var energySummary =
-            _services.GetRequiredService<EnergyRangeStatisticsService>()
-                .Get(
-                    profile.DeviceId,
-                    fromWindow.Start,
-                    toWindow.End);
+        var energySummary = MeasureDataCall("Data.Analysis.EnergySummary",
+            () => _services.GetRequiredService<EnergyRangeStatisticsService>()
+                .Get(profile.DeviceId, fromWindow.Start, toWindow.End));
 
         RefreshAnalysisEnergySummary(energySummary);
         RefreshAnalysisAggregationTable(
@@ -1051,12 +1137,9 @@ public partial class MainWindow : Window
             toWindow.End,
             timeZone);
 
-        var statistics =
-            _services.GetRequiredService<HouseholdBehaviorStatisticsService>()
-                .Get(
-                    profile.DeviceId,
-                    fromWindow.Start,
-                    toWindow.End);
+        var statistics = MeasureDataCall("Data.Analysis.HouseholdStats",
+            () => _services.GetRequiredService<HouseholdBehaviorStatisticsService>()
+                .Get(profile.DeviceId, fromWindow.Start, toWindow.End));
 
         if (statistics.SampleCount < 2)
         {
@@ -1198,15 +1281,12 @@ public partial class MainWindow : Window
     {
         var period = GetSelectedAggregationPeriod();
 
-        var table =
-            _services.GetRequiredService<EnergyAggregationTableService>()
-                .Get(
-                    deviceId,
-                    rangeStart,
-                    rangeEnd,
-                    timeZoneId,
-                    period);
+        var table = MeasureDataCall("Data.Analysis.Aggregation",
+            () => _services.GetRequiredService<EnergyAggregationTableService>()
+                .Get(deviceId, rangeStart, rangeEnd, timeZoneId, period));
 
+        // ScottPlot and bound WPF UI controls stay on the Dispatcher.
+        using var render = _performance.Measure("UI.Analysis.ChartSetup");
         _analysisAggregationRows = table.Rows;
         AnalysisAggregationGrid.ItemsSource = table.Rows;
         RefreshAnalysisEnergyChart(table.Rows);
@@ -1462,8 +1542,9 @@ public partial class MainWindow : Window
         AddBatterySeriesSegments(plot, rows, row => row.SocAveragePercent, _localization.GetString("Analysis.BatteryChart.Average"));
         AddBatterySeriesSegments(plot, rows, row => row.SocEndingPercent, _localization.GetString("Analysis.BatteryChart.End"));
 
-        var thresholds = _services.GetRequiredService<BatteryThresholdContextService>()
-            .Get(_profiles.Get()?.DeviceId ?? string.Empty);
+        var thresholds = MeasureDataCall("Data.Analysis.ChartThresholds",
+            () => _services.GetRequiredService<BatteryThresholdContextService>()
+                .Get(_profiles.Get()?.DeviceId ?? string.Empty));
 
         var floor = plot.Add.HorizontalLine(
             thresholds.EmergencyFloorSocPercent);
@@ -1838,6 +1919,7 @@ public partial class MainWindow : Window
         var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
 
         _dashboardVisible = isDashboard;
+        if (!isBattery) _batteryRefreshGeneration++;
         if (!isDashboard)
             _dashboardRefreshGeneration++; // Discard in-flight Dashboard results.
         if (isDashboard)
@@ -7305,8 +7387,9 @@ public partial class MainWindow : Window
         object? sender,
         EventArgs e)
     {
-        _dashboardWindowClosed = true;
+        _windowClosed = true;
         _dashboardRefreshGeneration++;
+        _batteryRefreshGeneration++;
         _dashboardLiveTimer.Stop();
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();

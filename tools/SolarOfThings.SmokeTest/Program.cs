@@ -92,6 +92,16 @@ try
         DashboardRefreshPolicy.CanApply(10, 10, true, false, "A", null))
         throw new InvalidOperationException("Dashboard stale-result policy regressed.");
 
+    // Battery background-result guard: only the visible, current device and
+    // request generation may be rendered.
+    if (!BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", "A") ||
+        BatteryRefreshPolicy.CanApply(3, 4, true, false, "A", "A") ||
+        BatteryRefreshPolicy.CanApply(4, 4, false, false, "A", "A") ||
+        BatteryRefreshPolicy.CanApply(4, 4, true, true, "A", "A") ||
+        BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", "B") ||
+        BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", null))
+        throw new InvalidOperationException("Battery stale-result policy regressed.");
+
     // Responsive breakpoint regression: same band must preserve layout
     // definitions even as the WPF window changes width by a pixel.
     foreach (var (width, columns) in new (double, int)[]
