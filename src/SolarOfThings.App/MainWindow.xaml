@@ -3053,6 +3053,21 @@
                                         Margin="8,0,0,0"
                                         Click="OpenDiagnostics_Click"/>
                             </StackPanel>
+                            <TextBlock x:Name="PerformanceSummaryTitle" Text="{DynamicResource Diagnostics.PerformanceTitle}"
+                                       FontWeight="SemiBold" Foreground="#343A40" Visibility="Collapsed"
+                                       Margin="0,18,0,6" HorizontalAlignment="Center"/>
+                            <Button x:Name="PerformanceSummaryRefreshButton"
+                                    Content="{DynamicResource Diagnostics.PerformanceRefresh}"
+                                    Click="PerformanceSummaryRefresh_Click"
+                                    Visibility="Collapsed"
+                                    HorizontalAlignment="Center" Padding="10,5" Margin="0,0,0,8"/>
+                            <ScrollViewer x:Name="PerformanceSummaryScroll"
+                                          Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                                          MaxHeight="260" MinWidth="460">
+                                <TextBlock x:Name="PerformanceSummaryText" FontSize="11"
+                                           FontFamily="Consolas" Foreground="#495057"
+                                           TextWrapping="Wrap" TextAlignment="Left"/>
+                            </ScrollViewer>
                         </StackPanel>
                     </Border>
                 </Grid>
