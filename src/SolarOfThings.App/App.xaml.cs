@@ -128,31 +128,46 @@ public partial class App : Application
         _host = builder.Build();
 
         var database = _host.Services.GetRequiredService<SqliteDatabase>();
-        // Before any schema upgrade, make a consistent WAL-aware snapshot.
-        // The first snapshot is retained; subsequent launches reuse a
-        // verified automatic backup from the preceding 24 hours.
-        // Failure stops startup without modifying the existing database.
+        var backupService = _host.Services
+            .GetRequiredService<DatabaseBackupService>();
+        // A schema migration is the only reason to make a full backup
+        // synchronously before opening the main window. Daily snapshots
+        // of an unchanged schema must never block a normal launch.
         if (File.Exists(database.DatabasePath))
         {
-            RenderStartupStatus(startupStatus,
-                "Comprobando respaldo automático antes de abrir los datos...");
+            var priorSchemaVersion = 0;
             try
             {
-                var backup = _host.Services
-                    .GetRequiredService<DatabaseBackupService>();
-                await Task.Run(() => backup.CreateAutomaticBackupIfDue());
+                priorSchemaVersion = database.GetSchemaVersion();
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show(
-                    "No se pudo verificar el respaldo de seguridad. " +
-                    "La base de datos original no ha sido reemplazada.\n\n" +
-                    ex.Message,
-                    "Respaldo de seguridad",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                Shutdown(-1);
-                return;
+                // Treat an unreadable schema as requiring a preflight
+                // snapshot, whose integrity check will fail safely if the
+                // database is corrupt. Do not guess and migrate blindly.
+            }
+
+            if (priorSchemaVersion < SqliteDatabase.CurrentSchemaVersion)
+            {
+                RenderStartupStatus(startupStatus,
+                    "Creando respaldo verificado antes de actualizar SQLite...");
+                try
+                {
+                    await Task.Run(() =>
+                        backupService.CreateVerifiedBackup("automatic"));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        "La actualización de la base no comenzó porque " +
+                        "no fue posible verificar un respaldo previo.\n\n" +
+                        ex.Message,
+                        "Protección de datos",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    Shutdown(-1);
+                    return;
+                }
             }
         }
 
@@ -205,6 +220,48 @@ public partial class App : Application
         startupWindow.Close();
 
         ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+        // Routine daily backup is a separate, background maintenance task.
+        // It works on a consistent SQLite snapshot; it never replaces the
+        // active DB and cannot freeze startup as earlier synchronous work did.
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var created = backupService.CreateAutomaticBackupIfDue();
+                if (created is not null)
+                {
+                    apiDiagnostics.RecordLocal(
+                        "Backup", "AutomaticDaily", "SUCCESS",
+                        "A verified automatic database snapshot was created.",
+                        JsonSerializer.Serialize(new
+                        {
+                            schema = created.SchemaVersion,
+                            size_bytes = created.SizeBytes,
+                            sha256 = created.Sha256
+                        }));
+                }
+            }
+            catch (Exception ex)
+            {
+                // Non-migration maintenance failure must be discoverable
+                // without closing a healthy application or leaking paths.
+                try
+                {
+                    apiDiagnostics.RecordLocal(
+                        "Backup", "AutomaticDaily", "FAILED",
+                        "Automatic backup requires attention.",
+                        JsonSerializer.Serialize(new
+                        {
+                            error_type = ex.GetType().Name
+                        }));
+                }
+                catch
+                {
+                    // Logging failure must not alter active user data.
+                }
+            }
+        });
     }
 
     private static Window CreateStartupWindow(out TextBlock statusText)
