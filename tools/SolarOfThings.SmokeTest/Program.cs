@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using ClosedXML.Excel;
 using SolarOfThings.Core.Backup;
 using Microsoft.Data.Sqlite;
