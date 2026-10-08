@@ -2325,6 +2325,29 @@ try
         tariffRepository.GetPageTexts(
             sepRealId));
 
+    // Real official PDFs do not guarantee that the global fixed-monthly
+    // row shares CandidateIndex with the independently classified RED/ETR
+    // electricity row. Exercise that production shape explicitly; the
+    // earlier fixture accidentally assigned zero to both indices.
+    using (var mismatchedFixedIndices = database.OpenConnection())
+    using (var shiftFixedIndex = mismatchedFixedIndices.CreateCommand())
+    {
+        shiftFixedIndex.CommandText =
+            """
+            UPDATE tariff_rate_candidate
+            SET candidate_index = candidate_index + 100
+            WHERE publication_id IN ($augId, $sepId)
+              AND component_key = 'FIXED_MONTHLY';
+            """;
+        shiftFixedIndex.Parameters.AddWithValue("$augId", augRealId);
+        shiftFixedIndex.Parameters.AddWithValue("$sepId", sepRealId);
+        if (shiftFixedIndex.ExecuteNonQuery() < 2)
+        {
+            throw new InvalidOperationException(
+                "Phase 10 fixed-component index divergence fixture was not applied.");
+        }
+    }
+
     const double realStructureBilledKwh = 97.0;
     const double realStructureObservedKwh = 88.065413;
     const double realStructureAdminActual = 727.0;
