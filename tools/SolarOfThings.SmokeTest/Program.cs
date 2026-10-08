@@ -21,6 +21,11 @@ var root = Path.Combine(
 
 try
 {
+    if (args.Contains("--performance-corpus-large", StringComparer.Ordinal))
+    {
+        SyntheticPerformanceCorpus.Run(large: true);
+        return;
+    }
     if (args.Contains("--performance-corpus", StringComparer.Ordinal))
     {
         SyntheticPerformanceCorpus.Run();
@@ -61,6 +66,21 @@ try
     catch (ArgumentException) { sensitiveLabelRejected = true; }
     if (!sensitiveLabelRejected)
         throw new InvalidOperationException("Performance recorder accepted a path as operation label.");
+
+    // A delayed DispatcherTimer tick is only a scheduling-lateness signal,
+    // not proof of a specific UI freeze or its cause. Suspend/long gaps are ignored.
+    var oneSecond = TimeSpan.FromSeconds(1);
+    if (DispatcherTimingPolicy.ObserveLateness(TimeSpan.FromMilliseconds(950), oneSecond) is not null ||
+        DispatcherTimingPolicy.ObserveLateness(TimeSpan.FromMilliseconds(1149), oneSecond) is not null ||
+        DispatcherTimingPolicy.ObserveLateness(TimeSpan.FromMilliseconds(1150), oneSecond) != TimeSpan.FromMilliseconds(150) ||
+        DispatcherTimingPolicy.ObserveLateness(TimeSpan.FromMilliseconds(1600), oneSecond) != TimeSpan.FromMilliseconds(600) ||
+        DispatcherTimingPolicy.ObserveLateness(TimeSpan.FromSeconds(12), oneSecond) is not null)
+        throw new InvalidOperationException("Dispatcher scheduling-lateness policy regressed.");
+    var invalidDispatcherPeriodRejected = false;
+    try { DispatcherTimingPolicy.ObserveLateness(oneSecond, TimeSpan.Zero); }
+    catch (ArgumentOutOfRangeException) { invalidDispatcherPeriodRejected = true; }
+    if (!invalidDispatcherPeriodRejected)
+        throw new InvalidOperationException("Dispatcher lateness policy accepted zero interval.");
 
     // Responsive breakpoint regression: same band must preserve layout
     // definitions even as the WPF window changes width by a pixel.

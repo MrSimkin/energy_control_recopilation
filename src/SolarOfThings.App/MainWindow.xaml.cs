@@ -44,6 +44,8 @@ public partial class MainWindow : Window
     private int _lastResponsiveColumnCount = -1;
     private readonly DispatcherTimer _dashboardLiveTimer;
     private readonly DispatcherTimer _dashboardProgressTimer;
+    private readonly DispatcherTimer _dispatcherLatenessTimer;
+    private long _previousDispatcherTick;
     private DateTimeOffset _dashboardLiveCycleStartedUtc = DateTimeOffset.UtcNow;
     private CancellationTokenSource? _syncCancellation;
     private bool _currentStateRefreshInProgress;
@@ -93,6 +95,13 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(500)
         };
         _dashboardProgressTimer.Tick += DashboardProgressTimer_Tick;
+        _dispatcherLatenessTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _dispatcherLatenessTimer.Tick += DispatcherLatenessTimer_Tick;
+        Activated += MainWindow_Activated;
+        Deactivated += MainWindow_Deactivated;
         Closed += MainWindow_Closed;
 
         InitializeComponent();
@@ -147,6 +156,39 @@ public partial class MainWindow : Window
         ShowPage("Dashboard");
         ApplyResponsiveCardLayouts();
         Loaded += MainWindow_Loaded;
+    }
+
+    // Observe only foreground Dispatcher timer scheduling delay. A late tick
+    // can be caused by rendering, CPU pressure or OS scheduling; it does not
+    // prove a particular UI operation blocked. No background polling thread.
+    private void MainWindow_Activated(object? sender, EventArgs e)
+    {
+        _previousDispatcherTick = Stopwatch.GetTimestamp();
+        _dispatcherLatenessTimer.Start();
+    }
+
+    private void MainWindow_Deactivated(object? sender, EventArgs e)
+    {
+        _dispatcherLatenessTimer.Stop();
+        _previousDispatcherTick = 0;
+    }
+
+    private void DispatcherLatenessTimer_Tick(object? sender, EventArgs e)
+    {
+        var now = Stopwatch.GetTimestamp();
+        if (_previousDispatcherTick == 0 ||
+            !IsActive || WindowState == WindowState.Minimized)
+        {
+            _previousDispatcherTick = now;
+            return;
+        }
+
+        var elapsed = Stopwatch.GetElapsedTime(_previousDispatcherTick, now);
+        _previousDispatcherTick = now;
+        var lateness = DispatcherTimingPolicy.ObserveLateness(
+            elapsed, _dispatcherLatenessTimer.Interval);
+        if (lateness.HasValue)
+            _performance.Record("UI.Dispatcher.TickLateness", lateness.Value);
     }
 
     private void MainWindow_SizeChanged(
@@ -1822,9 +1864,11 @@ public partial class MainWindow : Window
         }
         var header = spanish
             ? "Mediciones locales de esta sesión; sin datos personales.\n" +
-              "Promedio/p95/máximo observados (ms); no son una garantía ni una comparación entre Builds.\n\n"
+              "Promedio/p95/máximo observados (ms); no son una garantía ni una comparación entre Builds.\n" +
+              "UI.Dispatcher.TickLateness: sólo retrasos de temporizador >150 ms con ventana activa; no demuestran bloqueos.\n\n"
             : "Local observations for this session; no personal information.\n" +
-              "Observed mean/p95/max (ms); not a performance guarantee or a build comparison.\n\n";
+              "Observed mean/p95/max (ms); not a performance guarantee or a build comparison.\n" +
+              "UI.Dispatcher.TickLateness: active-window timer delay >150 ms only; does not prove UI blocking.\n\n";
         var rows = summaries.Take(24).Select(x =>
             $"{x.Operation} | n={x.Samples} | " +
             $"avg={x.MeanMilliseconds:F0} p95={x.P95Milliseconds:F0} " +
@@ -7174,6 +7218,10 @@ public partial class MainWindow : Window
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
+        _dispatcherLatenessTimer.Stop();
+        _dispatcherLatenessTimer.Tick -= DispatcherLatenessTimer_Tick;
+        Activated -= MainWindow_Activated;
+        Deactivated -= MainWindow_Deactivated;
     }
 
     private CancellationTokenSource? _sqlRunning;

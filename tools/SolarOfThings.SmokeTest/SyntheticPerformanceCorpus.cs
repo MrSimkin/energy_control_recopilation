@@ -15,7 +15,8 @@ using SolarOfThings.Core.Statistics;
 internal static class SyntheticPerformanceCorpus
 {
     private const string Device = "synthetic-performance-device";
-    private const int Frames = 24_000;
+    private const int DefaultFrames = 24_000;
+    private const int LargerFrames = 96_000;
     private const int WarmRepeats = 7;
     private static readonly string[] Metrics =
     [
@@ -66,8 +67,9 @@ internal static class SyntheticPerformanceCorpus
          AND sample.recorded_at_utc = newest.latest_utc;
         """;
 
-    public static void Run()
+    public static void Run(bool large = false)
     {
+        var frames = large ? LargerFrames : DefaultFrames;
         var root = Path.Combine(Path.GetTempPath(),
             "SolarEnergyMonitorSyntheticPerformance",
             Guid.NewGuid().ToString("N"));
@@ -77,12 +79,13 @@ internal static class SyntheticPerformanceCorpus
             // to the application's shared QA Data path on Windows.
             var database = new SqliteDatabase(new AppPaths(root));
             database.Initialize();
-            Populate(database);
+            Populate(database, frames);
             var file = new FileInfo(database.DatabasePath);
             Console.WriteLine("PERFORMANCE_CORPUS schema=" +
-                SqliteDatabase.CurrentSchemaVersion + " frames=" + Frames +
-                " normalized_rows=" + (Frames * Metrics.Length + Metrics.Length + 2) +
-                " history_rows=" + Frames + " db_bytes=" + file.Length +
+                SqliteDatabase.CurrentSchemaVersion + " frames=" + frames +
+                " normalized_rows=" + (frames * Metrics.Length + Metrics.Length + 2) +
+                " history_rows=" + frames + " db_bytes=" + file.Length +
+                " corpus_scale=" + (large ? "large" : "base") +
                 " measured_on=CI_synthetic_not_owner_PC");
 
             var repo = new NormalizationRepository(database);
@@ -93,7 +96,7 @@ internal static class SyntheticPerformanceCorpus
             // A second independent device contains much later timestamps;
             // neither baseline nor alternative may leak cross-device values.
             if (before.Values.Any(value =>
-                value.RecordedAtUtc >= new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero)))
+                value.RecordedAtUtc >= new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero)))
                 throw new InvalidOperationException("Latest query leaked another device.");
 
             using (var connection = database.OpenConnection())
@@ -130,17 +133,17 @@ internal static class SyntheticPerformanceCorpus
 
             var coverage = new HistoryRepository(database);
             var summary = coverage.GetCoverageSummary(Device);
-            if (summary.RawSampleCount != Frames)
+            if (summary.RawSampleCount != frames)
                 throw new InvalidOperationException("Synthetic history count mismatch.");
             var normalizedCount = repo.GetNormalizedSampleCount(Device);
-            if (normalizedCount != Frames * Metrics.Length + 2)
+            if (normalizedCount != frames * Metrics.Length + 2)
                 throw new InvalidOperationException("Synthetic normalized count mismatch.");
             Measure("history_coverage", () => coverage.GetCoverageSummary(Device));
             Measure("normalized_count", () => repo.GetNormalizedSampleCount(Device));
 
             var start = new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
-            var from = start.AddMinutes((Frames - 481) * 3);
-            var to = start.AddMinutes((Frames - 1) * 3);
+            var from = start.AddMinutes((frames - 481) * 3);
+            var to = start.AddMinutes((frames - 1) * 3);
             var statistics = new EnergyRangeStatisticsService(database);
             var energy = statistics.Get(Device, from, to);
             if (energy.PvPower.SampleCount <= 0 ||
@@ -158,7 +161,7 @@ internal static class SyntheticPerformanceCorpus
         }
     }
 
-    private static void Populate(SqliteDatabase database)
+    private static void Populate(SqliteDatabase database, int frames)
     {
         var start = new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
         using var connection = database.OpenConnection();
@@ -188,7 +191,7 @@ internal static class SyntheticPerformanceCorpus
         history.Parameters.AddWithValue("$device", Device);
         history.Parameters.Add(new SqliteParameter("$utc", DBNull.Value));
 
-        for (var i = 0; i < Frames; i++)
+        for (var i = 0; i < frames; i++)
         {
             var timestamp = start.AddMinutes(3 * i).ToString("O", CultureInfo.InvariantCulture);
             history.Parameters["$utc"].Value = timestamp;
@@ -201,12 +204,12 @@ internal static class SyntheticPerformanceCorpus
                 metric.Parameters["$utc"].Value = timestamp;
                 // The most recent PV reading is NULL and most recent house
                 // reading is UNRESOLVED: return their earlier eligible values.
-                metric.Parameters["$value"].Value = (i == Frames - 1 && j == 0) ||
+                metric.Parameters["$value"].Value = (i == frames - 1 && j == 0) ||
                     (i + j) % 41 == 0
                     ? DBNull.Value : (object)(j == 4 ? 50.0 + i % 40 : 500.0 + (i + j) % 750);
                 metric.Parameters["$unit"].Value = j == 4 ? "%" : "W";
                 metric.Parameters["$confidence"].Value =
-                    (i == Frames - 1 && j == 1) || (i + j) % 37 == 0
+                    (i == frames - 1 && j == 1) || (i + j) % 37 == 0
                         ? "UNRESOLVED" : "HIGH";
                 metric.ExecuteNonQuery();
             }
@@ -221,7 +224,7 @@ internal static class SyntheticPerformanceCorpus
             metric.Parameters["$device"].Value = Device;
             metric.Parameters["$key"].Value = key;
             metric.Parameters["$utc"].Value =
-                start.AddMinutes(3 * Frames).ToString("O", CultureInfo.InvariantCulture);
+                start.AddMinutes(3 * frames).ToString("O", CultureInfo.InvariantCulture);
             metric.Parameters["$value"].Value = value;
             metric.Parameters["$unit"].Value = "W";
             metric.Parameters["$confidence"].Value = confidence;
@@ -234,7 +237,7 @@ internal static class SyntheticPerformanceCorpus
             metric.Parameters["$device"].Value = "synthetic-other-device";
             metric.Parameters["$key"].Value = Metrics[j];
             metric.Parameters["$utc"].Value = new DateTimeOffset(
-                2027, 1, 1, 0, 0, j, TimeSpan.Zero).ToString("O");
+                2030, 1, 1, 0, 0, j, TimeSpan.Zero).ToString("O");
             metric.Parameters["$value"].Value = 999999.0;
             metric.Parameters["$unit"].Value = j == 4 ? "%" : "W";
             metric.Parameters["$confidence"].Value = "HIGH";
