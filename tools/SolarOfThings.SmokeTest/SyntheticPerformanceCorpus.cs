@@ -78,7 +78,7 @@ internal static class SyntheticPerformanceCorpus
             var database = new SqliteDatabase(new AppPaths(root));
             database.Initialize();
             Populate(database);
-            using var file = new FileInfo(database.DatabasePath);
+            var file = new FileInfo(database.DatabasePath);
             Console.WriteLine("PERFORMANCE_CORPUS schema=" +
                 SqliteDatabase.CurrentSchemaVersion + " frames=" + Frames +
                 " normalized_rows=" + (Frames * Metrics.Length + Metrics.Length) +
