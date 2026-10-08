@@ -61,6 +61,7 @@ public partial class App : Application
         builder.Services.AddSingleton(appPaths);
         builder.Services.AddSingleton<SqliteDatabase>();
         builder.Services.AddSingleton<DatabaseBackupService>();
+        builder.Services.AddSingleton<FullBackupService>();
         builder.Services.AddSingleton<AppSettingsRepository>();
         builder.Services.AddSingleton<BatteryConfigurationService>();
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
@@ -130,40 +131,43 @@ public partial class App : Application
         var database = _host.Services.GetRequiredService<SqliteDatabase>();
         var backupService = _host.Services
             .GetRequiredService<DatabaseBackupService>();
-        // A schema migration is the only reason to make a full backup
-        // synchronously before opening the main window. Daily snapshots
-        // of an unchanged schema must never block a normal launch.
+        var fullBackupService = _host.Services.GetRequiredService<FullBackupService>();
+        // Never migrate existing user data without a completed, fully
+        // verified backup. The user may postpone the update and keep the
+        // previous installation; no schema write happens in that case.
         if (File.Exists(database.DatabasePath))
         {
-            var priorSchemaVersion = 0;
-            try
-            {
-                priorSchemaVersion = database.GetSchemaVersion();
-            }
-            catch
-            {
-                // Treat an unreadable schema as requiring a preflight
-                // snapshot, whose integrity check will fail safely if the
-                // database is corrupt. Do not guess and migrate blindly.
-            }
-
+            int priorSchemaVersion = 0;
+            try { priorSchemaVersion = database.GetSchemaVersion(); }
+            catch { /* Inability to read the schema must fail closed below. */ }
             if (priorSchemaVersion < SqliteDatabase.CurrentSchemaVersion)
             {
+                var confirmed = MessageBox.Show(
+                    "Esta versión necesita actualizar la estructura de la base de datos. " +
+                    "Primero crearemos un respaldo COMPLETO verificado (base, boletas y tarifas).\n\n" +
+                    "¿Continuar? No = posponer la actualización y conservar los datos.",
+                    "Respaldo completo antes de migración",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (confirmed != MessageBoxResult.Yes)
+                {
+                    Shutdown(0);
+                    return;
+                }
                 RenderStartupStatus(startupStatus,
-                    "Creando respaldo verificado antes de actualizar SQLite...");
+                    "Creando respaldo completo verificado antes de migrar...");
                 try
                 {
-                    await Task.Run(() =>
-                        backupService.CreateVerifiedBackup("automatic"));
+                    await Task.Run(() => fullBackupService.Create(
+                        ProductInfo.ProductVersion, ProductInfo.BuildNumber,
+                        ProductInfo.SourceRevision));
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show(
-                        "La actualización de la base no comenzó porque " +
-                        "no fue posible verificar un respaldo previo.\n\n" +
+                        "La migración NO comenzó: no fue posible completar y verificar " +
+                        "un respaldo íntegro. Se conservan los datos existentes.\n\n" +
                         ex.Message,
-                        "Protección de datos",
-                        MessageBoxButton.OK,
+                        "Protección de datos", MessageBoxButton.OK,
                         MessageBoxImage.Error);
                     Shutdown(-1);
                     return;
@@ -221,47 +225,11 @@ public partial class App : Application
 
         ShutdownMode = ShutdownMode.OnMainWindowClose;
 
-        // Routine daily backup is a separate, background maintenance task.
-        // It works on a consistent SQLite snapshot; it never replaces the
-        // active DB and cannot freeze startup as earlier synchronous work did.
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                var created = backupService.CreateAutomaticBackupIfDue();
-                if (created is not null)
-                {
-                    apiDiagnostics.RecordLocal(
-                        "Backup", "AutomaticDaily", "SUCCESS",
-                        "A verified automatic database snapshot was created.",
-                        JsonSerializer.Serialize(new
-                        {
-                            schema = created.SchemaVersion,
-                            size_bytes = created.SizeBytes,
-                            sha256 = created.Sha256
-                        }));
-                }
-            }
-            catch (Exception ex)
-            {
-                // Non-migration maintenance failure must be discoverable
-                // without closing a healthy application or leaking paths.
-                try
-                {
-                    apiDiagnostics.RecordLocal(
-                        "Backup", "AutomaticDaily", "FAILED",
-                        "Automatic backup requires attention.",
-                        JsonSerializer.Serialize(new
-                        {
-                            error_type = ex.GetType().Name
-                        }));
-                }
-                catch
-                {
-                    // Logging failure must not alter active user data.
-                }
-            }
-        });
+        // Full backups are user-initiated. Show the skippable weekly reminder
+        // only after the main window becomes usable. Do not create daily DB copies.
+        _ = mainWindow.Dispatcher.BeginInvoke(
+            new Action(async () => await mainWindow.ShowWeeklyBackupReminderIfDueAsync()),
+            DispatcherPriority.Background);
     }
 
     private static Window CreateStartupWindow(out TextBlock statusText)
