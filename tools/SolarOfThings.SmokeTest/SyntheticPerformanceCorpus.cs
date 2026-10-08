@@ -23,9 +23,9 @@ internal static class SyntheticPerformanceCorpus
         "battery_power_w", "battery_soc_pct"
     ];
 
-    // Mirror of the production GetLatestMetrics SQL at the time of Build 700
-    // used ONLY to inspect the planner. Timings of the baseline invoke the
-    // production NormalizationRepository itself (not this copied query).
+    // Preserved Build 700 reference query for both timings and full-record
+    // parity checks after changing the production method to grouped MAX.
+    // This SQL is never used by the production application.
     private const string BaselineSql = """
         WITH ranked AS (
             SELECT metric_key, recorded_at_utc, normalized_value,
@@ -44,8 +44,8 @@ internal static class SyntheticPerformanceCorpus
         FROM ranked WHERE row_number = 1;
         """;
 
-    // Experimental query; do not deploy without functional parity and
-    // reproducible evidence. The composite PK makes the join unambiguous.
+    // Production candidate after measured synthetic parity on Build 702.
+    // The composite PK makes the join unambiguous.
     private const string CandidateSql = """
         WITH newest AS (
             SELECT metric_key, MAX(recorded_at_utc) AS latest_utc
@@ -81,13 +81,13 @@ internal static class SyntheticPerformanceCorpus
             var file = new FileInfo(database.DatabasePath);
             Console.WriteLine("PERFORMANCE_CORPUS schema=" +
                 SqliteDatabase.CurrentSchemaVersion + " frames=" + Frames +
-                " normalized_rows=" + (Frames * Metrics.Length + Metrics.Length) +
+                " normalized_rows=" + (Frames * Metrics.Length + Metrics.Length + 2) +
                 " history_rows=" + Frames + " db_bytes=" + file.Length +
                 " measured_on=CI_synthetic_not_owner_PC");
 
             var repo = new NormalizationRepository(database);
-            var before = repo.GetLatestMetrics(Device);
-            var alternative = GetCandidate(database);
+            var before = GetReferenceWindow(database);
+            var alternative = repo.GetLatestMetrics(Device);
             RequireParity(before, alternative);
 
             // A second independent device contains much later timestamps;
@@ -104,8 +104,8 @@ internal static class SyntheticPerformanceCorpus
 
             // Explicitly label first measured call as connection-warm / OS-cache-
             // unknown; neither a physical disk cold start nor a speed promise.
-            Measure("latest_window_first", () => repo.GetLatestMetrics(Device));
-            Measure("latest_max_first", () => GetCandidate(database));
+            Measure("latest_window_first", () => GetReferenceWindow(database));
+            Measure("latest_max_first", () => repo.GetLatestMetrics(Device));
             var oldTimes = new double[WarmRepeats];
             var newTimes = new double[WarmRepeats];
             for (var i = 0; i < WarmRepeats; i++)
@@ -113,16 +113,16 @@ internal static class SyntheticPerformanceCorpus
                 if (i % 2 == 0)
                 {
                     oldTimes[i] = Measure("latest_window_warm", () =>
-                        repo.GetLatestMetrics(Device), print: false);
+                        GetReferenceWindow(database), print: false);
                     newTimes[i] = Measure("latest_max_warm", () =>
-                        GetCandidate(database), print: false);
+                        repo.GetLatestMetrics(Device), print: false);
                 }
                 else
                 {
                     newTimes[i] = Measure("latest_max_warm", () =>
-                        GetCandidate(database), print: false);
-                    oldTimes[i] = Measure("latest_window_warm", () =>
                         repo.GetLatestMetrics(Device), print: false);
+                    oldTimes[i] = Measure("latest_window_warm", () =>
+                        GetReferenceWindow(database), print: false);
                 }
             }
             PrintDistribution("latest_window_warm", oldTimes);
@@ -133,7 +133,7 @@ internal static class SyntheticPerformanceCorpus
             if (summary.RawSampleCount != Frames)
                 throw new InvalidOperationException("Synthetic history count mismatch.");
             var normalizedCount = repo.GetNormalizedSampleCount(Device);
-            if (normalizedCount != Frames * Metrics.Length)
+            if (normalizedCount != Frames * Metrics.Length + 2)
                 throw new InvalidOperationException("Synthetic normalized count mismatch.");
             Measure("history_coverage", () => coverage.GetCoverageSummary(Device));
             Measure("normalized_count", () => repo.GetNormalizedSampleCount(Device));
@@ -199,13 +199,33 @@ internal static class SyntheticPerformanceCorpus
                 metric.Parameters["$device"].Value = Device;
                 metric.Parameters["$key"].Value = Metrics[j];
                 metric.Parameters["$utc"].Value = timestamp;
-                metric.Parameters["$value"].Value = (i + j) % 41 == 0
+                // The most recent PV reading is NULL and most recent house
+                // reading is UNRESOLVED: return their earlier eligible values.
+                metric.Parameters["$value"].Value = (i == Frames - 1 && j == 0) ||
+                    (i + j) % 41 == 0
                     ? DBNull.Value : (object)(j == 4 ? 50.0 + i % 40 : 500.0 + (i + j) % 750);
                 metric.Parameters["$unit"].Value = j == 4 ? "%" : "W";
                 metric.Parameters["$confidence"].Value =
-                    (i + j) % 37 == 0 ? "UNRESOLVED" : "HIGH";
+                    (i == Frames - 1 && j == 1) || (i + j) % 37 == 0
+                        ? "UNRESOLVED" : "HIGH";
                 metric.ExecuteNonQuery();
             }
+        }
+        // Two deliberately ineligible categories must never appear in latest.
+        foreach (var (key, value, confidence) in new[]
+        {
+            (Key: "synthetic_null_only", Value: (object)DBNull.Value, Confidence: "HIGH"),
+            (Key: "synthetic_unresolved_only", Value: (object)300.0, Confidence: "UNRESOLVED")
+        })
+        {
+            metric.Parameters["$device"].Value = Device;
+            metric.Parameters["$key"].Value = key;
+            metric.Parameters["$utc"].Value =
+                start.AddMinutes(3 * Frames).ToString("O", CultureInfo.InvariantCulture);
+            metric.Parameters["$value"].Value = value;
+            metric.Parameters["$unit"].Value = "W";
+            metric.Parameters["$confidence"].Value = confidence;
+            metric.ExecuteNonQuery();
         }
         // Deliberate later timestamps in a different device, to catch
         // accidental loss of the device partition filter.
@@ -223,12 +243,12 @@ internal static class SyntheticPerformanceCorpus
         transaction.Commit();
     }
 
-    private static IReadOnlyDictionary<string, NormalizedMetricValue> GetCandidate(
+    private static IReadOnlyDictionary<string, NormalizedMetricValue> GetReferenceWindow(
         SqliteDatabase database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = CandidateSql;
+        command.CommandText = BaselineSql;
         command.Parameters.AddWithValue("$deviceId", Device);
         using var reader = command.ExecuteReader();
         var result = new Dictionary<string, NormalizedMetricValue>(StringComparer.Ordinal);
