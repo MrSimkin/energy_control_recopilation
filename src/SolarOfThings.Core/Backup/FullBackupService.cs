@@ -184,11 +184,16 @@ public sealed class FullBackupService
             return verified with { Path = destination };
         }
         var temporary = destination + ".inprogress";
-        using (var input = File.OpenRead(source))
-        using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            input.CopyTo(output);
         try
         {
+            // Include the whole copy phase in cleanup. A disconnected or full
+            // secondary disk may fail mid-stream; leaving an .inprogress file
+            // would block later retries through FileMode.CreateNew.
+            using (var input = File.OpenRead(source))
+            using (var output = new FileStream(temporary, FileMode.CreateNew,
+                       FileAccess.Write, FileShare.None))
+                input.CopyTo(output);
+
             if (!string.Equals(HashFile(temporary), verified.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Secondary copy SHA-256 does not match local verified backup.");
             VerifyArchive(temporary);
