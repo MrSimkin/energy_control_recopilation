@@ -982,6 +982,9 @@ public partial class MainWindow : Window
 
     private void AnalysisApply_Click(object sender, RoutedEventArgs e)
     {
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
+        _analysisCustomRangePendingApply = false;
         RefreshAnalysisView();
     }
 
@@ -994,6 +997,7 @@ public partial class MainWindow : Window
             return;
 
         var preset = AnalysisRangePresetSelector.SelectedValue?.ToString() ?? "custom";
+        _analysisCustomRangePendingApply = preset == "custom";
         var generation = ++_analysisPresetGeneration;
         // Immediately prevent any in-flight old Analysis range from painting
         // while the new date preset is resolving from historical coverage.
@@ -1047,12 +1051,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        // An explicit custom-date edit supersedes any pending preset query.
+        // A manual edit must not implicitly apply the new range.
         _analysisPresetGeneration++;
         _analysisPresetLoading = false;
+        _analysisCustomRangePendingApply = true;
+        _analysisRefreshGeneration++;
         _suppressAnalysisRangeSelection = true;
-        AnalysisRangePresetSelector.SelectedValue = "custom";
-        _suppressAnalysisRangeSelection = false;
+        try { AnalysisRangePresetSelector.SelectedValue = "custom"; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        if (AnalysisContent.Visibility == Visibility.Visible)
+            AnalysisStatusText.Text = _localization.CurrentLanguage == "es"
+                ? "Rango modificado. Presiona Aplicar para calcularlo."
+                : "Range changed. Select Apply to calculate it.";
     }
 
     private void AnalysisAggregationSelector_SelectionChanged(
@@ -1074,6 +1084,8 @@ public partial class MainWindow : Window
             AnalysisFromDatePicker is null || AnalysisToDatePicker is null ||
             AnalysisContent.Visibility != Visibility.Visible)
             return;
+
+        if (_analysisCustomRangePendingApply) return;
 
         // Checkbox changes affect *only* the energy plot's visible series.
         // While an Analysis fetch is in progress the final UI renderer uses
@@ -1118,12 +1130,17 @@ public partial class MainWindow : Window
             return;
 
         if (initializeRange)
+        {
             _analysisRangeInitializationPending = true;
+            _analysisCustomRangePendingApply = false;
+        }
+        if (_analysisCustomRangePendingApply) return;
 
         _analysisRefreshGeneration++;
         _analysisRenderedAggregation = null; // data/chart cache invalidated.
         _analysisRenderedThresholds = null;
         if (_analysisDataLoading || _analysisPresetLoading ||
+            _analysisCustomRangePendingApply ||
             AnalysisContent.Visibility != Visibility.Visible)
             return;
 
@@ -1170,7 +1187,7 @@ public partial class MainWindow : Window
             {
                 // A preset lookup owns calendar selection until it completes.
                 // Avoid performing an obsolete query against the previous range.
-                if (_analysisPresetLoading)
+                if (_analysisPresetLoading || _analysisCustomRangePendingApply)
                     return;
                 var requestedGeneration = _analysisRefreshGeneration;
                 var initializeRange = _analysisRangeInitializationPending;
@@ -1969,12 +1986,18 @@ public partial class MainWindow : Window
 
     private void ResetAnalysisView()
     {
+        _analysisCustomRangePendingApply = false;
         _analysisRenderedAggregation = null;
         _analysisRenderedThresholds = null;
         _analysisRenderedDeviceId = null;
         _analysisRenderedGeneration = -1;
-        AnalysisFromDatePicker.SelectedDate = null;
-        AnalysisToDatePicker.SelectedDate = null;
+        _suppressAnalysisRangeSelection = true;
+        try
+        {
+            AnalysisFromDatePicker.SelectedDate = null;
+            AnalysisToDatePicker.SelectedDate = null;
+        }
+        finally { _suppressAnalysisRangeSelection = false; }
         ResetAnalysisValues();
         ResetAnalysisEnergyValues();
         _analysisAggregationRows = Array.Empty<EnergyAggregationRow>();
@@ -2210,6 +2233,7 @@ public partial class MainWindow : Window
         }
         else if (isAnalysis)
         {
+            _analysisCustomRangePendingApply = false;
             RefreshAnalysisView();
         }
         else if (isBattery)
