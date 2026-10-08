@@ -1745,7 +1745,11 @@ public partial class MainWindow : Window
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-        if (isSettings) RefreshSettingsSessionStatus();
+        if (isSettings)
+        {
+            RefreshSettingsSessionStatus();
+            RefreshExportFolderPreference();
+        }
     }
 
     private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -2654,6 +2658,8 @@ public partial class MainWindow : Window
             FileName = $"Conciliacion-Enel-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
             return;
 
@@ -3514,6 +3520,8 @@ public partial class MainWindow : Window
             FileName = $"Auditoria-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
             return;
 
@@ -3595,6 +3603,8 @@ public partial class MainWindow : Window
             FileName =
                 $"Anexo-Tecnico-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.zip"
         };
+
+        PrepareExportDialog(dialog);
 
         if (dialog.ShowDialog(this) != true)
             return;
@@ -6503,6 +6513,8 @@ public partial class MainWindow : Window
                 $"{SafeReportFileStem(request.Title)}_{request.LocalStartDate:yyyyMMdd}_{request.LocalEndDate:yyyyMMdd}.{extension}"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
         {
             return;
@@ -7017,6 +7029,58 @@ public partial class MainWindow : Window
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
+    }
+
+    private const string DefaultExportFolderKey = "exports.default-folder";
+
+    private void PrepareExportDialog(SaveFileDialog dialog)
+    {
+        var folder = _services.GetRequiredService<AppSettingsRepository>()
+            .Get(DefaultExportFolderKey);
+        if (!string.IsNullOrWhiteSpace(folder) && Directory.Exists(folder))
+            dialog.InitialDirectory = folder;
+    }
+
+    private void RefreshExportFolderPreference()
+    {
+        if (!IsInitialized || SettingsExportFolderText is null)
+            return;
+        var folder = _services.GetRequiredService<AppSettingsRepository>()
+            .Get(DefaultExportFolderKey);
+        SettingsExportFolderText.Text =
+            string.IsNullOrWhiteSpace(folder)
+                ? _localization.GetString("Settings.ExportFolderSystemDefault")
+                : folder + (Directory.Exists(folder) ? string.Empty :
+                    " — " + _localization.GetString("Settings.ExportFolderMissing"));
+    }
+
+    private void SettingsChooseExportFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = _localization.GetString("Settings.ChooseExportFolder"),
+            Multiselect = false
+        };
+        var current = _services.GetRequiredService<AppSettingsRepository>()
+            .Get(DefaultExportFolderKey);
+        if (!string.IsNullOrWhiteSpace(current) && Directory.Exists(current))
+            dialog.InitialDirectory = current;
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        // This preference only changes where user-triggered Save dialogs
+        // start; it does not move the SQLite database or existing exports.
+        _services.GetRequiredService<AppSettingsRepository>()
+            .Set(DefaultExportFolderKey, dialog.FolderName);
+        RefreshExportFolderPreference();
+    }
+
+    private void SettingsResetExportFolder_Click(object sender, RoutedEventArgs e)
+    {
+        _services.GetRequiredService<AppSettingsRepository>()
+            .Delete(DefaultExportFolderKey);
+        RefreshExportFolderPreference();
     }
 
     private bool GetAutoConnectEnabled()
