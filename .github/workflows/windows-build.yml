@@ -47,6 +47,11 @@ jobs:
       - name: SQLite smoke test
         run: dotnet run --project tools/SolarOfThings.SmokeTest/SolarOfThings.SmokeTest.csproj --configuration Release --no-build
 
+      # Isolated, reproducible corpus; observed timings are not performance
+      # guarantees and do not use the owner's actual data.
+      - name: Synthetic SQLite performance corpus
+        run: dotnet run --project tools/SolarOfThings.SmokeTest/SolarOfThings.SmokeTest.csproj --configuration Release --no-build -- --performance-corpus
+
       # Opt-in live-source validation; marked commits trace effective-year source access and correction chains.
       - name: Live Enel resilient tariff pipeline
         if: ${{ contains(github.event.head_commit.message, '[enel-live]') }}

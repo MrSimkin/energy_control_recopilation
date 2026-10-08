@@ -21,6 +21,12 @@ var root = Path.Combine(
 
 try
 {
+    if (args.Contains("--performance-corpus", StringComparer.Ordinal))
+    {
+        SyntheticPerformanceCorpus.Run();
+        return;
+    }
+
     // Bounded non-sensitive performance recorder smoke. No timing target is
     // asserted (CI hardware is not a substitute for owner's Windows PC).
     var perf = new SolarOfThings.Core.Diagnostics.UiPerformanceRecorder();
