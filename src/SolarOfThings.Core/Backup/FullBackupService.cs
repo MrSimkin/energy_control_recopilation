@@ -496,7 +496,13 @@ public sealed class FullBackupService
     private static bool HasRegularArchiveEntryType(ZipArchiveEntry entry)
     {
         var unixType = (entry.ExternalAttributes >> 16) & 0xF000;
-        return unixType is 0 or 0x8000;
+        // Windows-produced ZIPs can also encode an NTFS reparse point or
+        // directory in DOS attributes, with no POSIX file-type bits at all.
+        var windowsFlags = (FileAttributes)(entry.ExternalAttributes & 0xFFFF);
+        var invalidFlags = FileAttributes.ReparsePoint | FileAttributes.Directory |
+                           FileAttributes.Device;
+        return (unixType is 0 or 0x8000) &&
+               (windowsFlags & invalidFlags) == 0;
     }
 
     // Format v1 is a closed archive: one database, one manifest and only

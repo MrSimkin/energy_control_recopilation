@@ -424,6 +424,29 @@ try
                 "Backup verifier accepted non-regular ZIP entry: " + label);
     }
 
+    // On Windows the same ZIP can advertise a reparse point or directory
+    // through DOS attributes even when POSIX type bits are absent.
+    foreach (var (dosFlag, label) in new[]
+    {
+        (FileAttributes.ReparsePoint, "windows-reparse"),
+        (FileAttributes.Directory, "windows-directory")
+    })
+    {
+        var disguised = Path.Combine(root, "unsafe-dos-" + label + ".zip");
+        File.Copy(complete.Path, disguised);
+        using (var zip = ZipFile.Open(disguised, ZipArchiveMode.Update))
+        {
+            var entry = zip.GetEntry("documents/Bills/smoke-original-bill.txt")!;
+            entry.ExternalAttributes |= (int)dosFlag;
+        }
+        var nonFileRejected = false;
+        try { FullBackupService.VerifyArchive(disguised); }
+        catch (InvalidDataException) { nonFileRejected = true; }
+        if (!nonFileRejected)
+            throw new InvalidOperationException(
+                "Backup verifier accepted unsafe Windows ZIP entry: " + label);
+    }
+
     // Reject an otherwise hash-consistent ZIP with two document names that
     // differ only by case: on Windows they can map to the same physical path.
     var collidingArchive = Path.Combine(root, "case-collision-package.zip");
