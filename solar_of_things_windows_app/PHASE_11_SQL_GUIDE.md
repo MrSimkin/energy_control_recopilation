@@ -140,6 +140,38 @@ No usar `SUM(grid_import_power_w)` como energía. Para integración de W→kWh
 se necesitan los intervalos reales entre muestras, exclusión de gaps y
 cobertura; para día local se necesita la zona horaria de la estación.
 
+## Diccionario semántico de columnas de las vistas
+
+La exportación **Diagnóstico → Exportar evidencia Fases 10–12** genera
+`schema_columns.csv` y `schema_foreign_keys.csv` con todas las columnas,
+tipos, restricciones y relaciones físicas presentes **en esa base específica**.
+Los archivos no incluyen valores de las tablas.
+
+| Columna o familia | Descripción funcional |
+|---|---|
+| `device_id` | Identificador técnico de dispositivo; no un identificador de vivienda ni una descripción libre |
+| `recorded_at_utc` | Instante original UTC de la muestra; se debe conservar su zona al interpretarlo |
+| `grid_import_power_w`, `power_w` | Potencia eléctrica instantánea medida en W, no energía acumulada |
+| `soc_pct`, `voltage_v` | Estado de carga de batería en porcentaje y tensión en voltios |
+| `utc_hour`, `utc_day` | Prefijo horario o diario UTC; no representa día civil de Santiago |
+| `sample_count` | Número de registros medidos no nulos en el grupo; no prueba cobertura continua |
+| `sample_average_w` | Media **aritmética de muestras**, sin ponderación temporal |
+| `sample_minimum_w`, `sample_maximum_w` | Extremos observados del grupo, no extremos garantizados del período |
+| `confidence`, `quality`, `normalization_rule_version` | Metadatos de la normalización original que permiten distinguir incertidumbre y cambios de regla |
+| `bill_id`, `bill_line_id` | Identificadores internos de una boleta guardada y de cada línea |
+| `period_start_utc`, `period_end_utc`, `period_precision` | Límites originales; `DATE_ONLY` no significa que Enel midió a las 00:00 |
+| `billed_consumption_kwh` | Energía facturada por la compañía, no consumo estimado del inversor |
+| `taxable_amount_clp`, `iva_clp`, `exempt_amount_clp` | Importes impresos afectos, IVA y exentos de una boleta real |
+| `gross_bill_amount_clp`, `other_charges_clp`, `previous_balance_clp`, `total_due_clp` | Cuadratura de la boleta real; no son tarifas reconstruidas |
+| `amount_clp`, `unit_rate_clp`, `quantity`, `unit` | Importes, tasas y cantidades **guardados** en líneas reales |
+| `source_kind`, `review_state`, `evidence_state` | Procedencia, estado de revisión y estado de evidencia; no son certificados de exactitud automática |
+| `local_date`, `timezone`, `frame_count`, `page_count`, `status` | Fecha local, zona, volumen y estado registrados durante ingesta, no la cobertura física final de un informe |
+
+**Sin falsa equivalencia:** un valor faltante (`NULL`) no se convierte en
+cero automáticamente. Las vistas no contienen credenciales ni JSON crudo
+de API. Para explicar tarifas reconstruidas utiliza Auditoría y su ZIP
+técnico; el SQL de boletas muestra los hechos originales almacenados.
+
 ## Criterio de aceptación pendiente
 
 Migración v16→v17 reproducible; consultas de vistas PASS en CI; revisión
