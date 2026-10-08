@@ -532,9 +532,9 @@
     <sys:String x:Key="Page.Settings.Placeholder">Application, connection and credential settings.</sys:String>
     <sys:String x:Key="Settings.Heading">Settings</sys:String>
     <sys:String x:Key="Settings.Intro">Normal-use options for this copy of Solar Energy Monitor.</sys:String>
-    <sys:String x:Key="Settings.BackupHeading">Database backups</sys:String>
-    <sys:String x:Key="Settings.BackupDescription">Create a verified, consistent SQLite snapshot in Backups. Does not replace active data. Restore remains deferred.</sys:String>
-    <sys:String x:Key="Settings.BackupNow">Create backup now</sys:String>
+    <sys:String x:Key="Settings.BackupHeading">Complete backup</sys:String>
+    <sys:String x:Key="Settings.BackupDescription">Create a verified ZIP on demand containing a consistent SQLite snapshot, bills and tariffs. Secrets are excluded and active data is never replaced. The weekly reminder can be run, postponed or skipped. Recovery is still in development.</sys:String>
+    <sys:String x:Key="Settings.BackupNow">Create complete backup now</sys:String>
     <sys:String x:Key="Settings.ExportFolderHeading">Save exports to</sys:String>
     <sys:String x:Key="Settings.ExportFolderDescription">Starting folder for PDF, Excel, annexes and help exports. Does not move databases or backups.</sys:String>
     <sys:String x:Key="Settings.ChooseExportFolder">Change folder...</sys:String>
@@ -674,7 +674,7 @@
     <sys:String x:Key="Diagnostics.ConfigRead">Direct config read</sys:String>
     <sys:String x:Key="Diagnostics.GridImportEnergy">Check grid-purchase energy</sys:String>
     <sys:String x:Key="Diagnostics.PhaseEvidence">Export Phase 10–12 evidence</sys:String>
-    <sys:String x:Key="Diagnostics.BackupDatabase">Create verified backup</sys:String>
+    <sys:String x:Key="Diagnostics.BackupDatabase">Create complete backup</sys:String>
     <sys:String x:Key="Diagnostics.ExportBundle">Export investigation bundle</sys:String>
 
     <!-- Product experience / help / import -->
