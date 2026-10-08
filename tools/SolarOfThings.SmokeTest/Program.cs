@@ -186,6 +186,19 @@ try
     File.WriteAllText(syntheticBill, "Synthetic bill proof");
     File.WriteAllText(syntheticTariff, "Synthetic tariff proof");
 
+    // Seed stable source identities for the isolated, read-only recovery preview.
+    using (var setup = database.OpenConnection())
+    using (var insert = setup.CreateCommand())
+    {
+        insert.CommandText = """
+            INSERT INTO app_setting(key,value,updated_utc)
+            VALUES
+                ('smoke.preview.source-only','only-in-backup','2026-10-08T00:00:00Z'),
+                ('smoke.preview.conflict','source-value','2026-10-08T00:00:00Z');
+            """;
+        insert.ExecuteNonQuery();
+    }
+
     var completeService = new FullBackupService(database, paths);
     var complete = completeService.Create("0.11.0-test", "synthetic", "smoke");
     var fullManifest = FullBackupService.VerifyArchive(complete.Path);
@@ -217,6 +230,71 @@ try
             "SELECT value FROM app_setting WHERE key = 'smoke.wal.snapshot';";
         if (Convert.ToString(query.ExecuteScalar()) != "committed")
             throw new InvalidOperationException("Full backup lost committed WAL record.");
+    }
+
+    // Selective recovery PREVIEW reads package and isolated target, and makes NO writes.
+    var previewRoot = Path.Combine(root, "isolated-preview-target");
+    var previewPaths = new AppPaths(previewRoot);
+    var previewDatabase = new SqliteDatabase(previewPaths);
+    previewDatabase.Initialize();
+    using (var target = previewDatabase.OpenConnection())
+    using (var setup = target.CreateCommand())
+    {
+        setup.CommandText = """
+            INSERT INTO app_setting(key,value,updated_utc)
+            VALUES
+                ('smoke.wal.snapshot','committed','2026-10-08T00:00:00Z'),
+                ('smoke.preview.conflict','different-live-value','2026-10-08T00:00:00Z');
+            """;
+        setup.ExecuteNonQuery();
+    }
+    var previewer = new IsolatedRecoveryPreviewService();
+    var summary = previewer.Preview(complete.Path, previewDatabase.DatabasePath);
+    var settings = summary.Categories.Single(c => c.Category == "SETTINGS");
+    if (summary.Status != "READ_ONLY_PREVIEW" ||
+        settings.Missing < 1 || settings.Identical < 1 || settings.Conflicts < 1 ||
+        !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
+            c.UnsupportedReason is not null))
+        throw new InvalidOperationException("Isolated selective recovery preview failed.");
+    using (var unchanged = previewDatabase.OpenConnection())
+    using (var check = unchanged.CreateCommand())
+    {
+        check.CommandText = "SELECT value FROM app_setting WHERE key='smoke.preview.conflict';";
+        if (Convert.ToString(check.ExecuteScalar()) != "different-live-value")
+            throw new InvalidOperationException("Read-only recovery preview mutated target.");
+    }
+    // A schema without a tested adapter remains explicitly unsupported.
+    using (var legacyTarget = previewDatabase.OpenConnection())
+    using (var lower = legacyTarget.CreateCommand())
+    {
+        lower.CommandText = "DELETE FROM schema_migration WHERE version=17;";
+        lower.ExecuteNonQuery();
+    }
+    var unsupportedPreview = previewer.Preview(complete.Path, previewDatabase.DatabasePath);
+    if (unsupportedPreview.Status != "UNSUPPORTED_TARGET_SCHEMA")
+        throw new InvalidOperationException("Preview must reject unsupported target schema.");
+
+    // Creating an apparently 'complete' ZIP must FAIL for an original PDF
+    // referenced in SQLite but absent from the managed source directories.
+    using (var missingRef = database.OpenConnection())
+    using (var add = missingRef.CreateCommand())
+    {
+        add.CommandText = """
+            INSERT INTO utility_bill_document
+                (provider,original_file_name,local_pdf_path,content_sha256,
+                 content_length,page_count,parser_version,extracted_text,imported_utc)
+            VALUES ('TEST','missing.pdf',$path,$sha,7,1,'test',NULL,'2026-10-08T00:00:00Z');
+            """;
+        add.Parameters.AddWithValue("$path", Path.Combine(paths.UtilityBillDirectory, "missing.pdf"));
+        add.Parameters.AddWithValue("$sha", new string('a', 64));
+        add.ExecuteNonQuery();
+        var missingRejected = false;
+        try { completeService.Create("0.11.0-test", "synthetic", "missing-ref"); }
+        catch (InvalidDataException) { missingRejected = true; }
+        if (!missingRejected)
+            throw new InvalidOperationException("Missing referenced original PDF was accepted.");
+        add.CommandText = "DELETE FROM utility_bill_document WHERE content_sha256=$sha;";
+        add.ExecuteNonQuery();
     }
 
     // Secondary package copy must verify byte-for-byte; no live DB access.
