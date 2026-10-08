@@ -121,4 +121,19 @@ No code, schema, branch merge, build, QA, destructive operations, restore or num
 4. **Fail closed and explain** if a snapshot is from a newer unsupported format/schema, if required files are missing, or if a safe conversion path is unavailable. Do NOT silently downgrade schemas, erase newer data, blindly overwrite tables or certify an older package as complete if it was database-only. Existing SQLite-only historic backups remain identifiable as **legacy database-only**, with limited recovery possibilities, not relabeled full recoverable.
 5. Restore/recovery remains a **design requirement, not operational authorization** to restore the user's active `energy.db`; until separately permitted and non-destructively validated on synthetic fixtures, do not implement or execute real-DB replacement. No change to current Build 685 has occurred.
 
-**Next design discussion (OPEN):** On selective recovery, choose a default when an old backup and today's data both contain records for the same category: safely import missing records only by default, replace a selected category only under a distinct explicit guarded flow, or another owner-preferred behavior. Exact category-specific equivalence/merge rules are an engineering design task, not permission to assume uniqueness or discard history.
+**Selective recovery policy:** resolved by the owner as **A: add missing data and surface conflicts; never replace whole categories**. See the subsequent approval. Exact category-specific identity, dependency, and merge rules still require careful design.
+
+## Selective recovery policy A — owner approved (2026-10-08)
+
+**APPROVED (supersedes suggested replacement modes):** Recovery from recognized, version-aware complete backups is **non-destructive and additive by default**: import **missing information only**, and **display conflicts** where backup and active data overlap but disagree. No option to bulk replace complete categories is authorized, including as an advanced mode.
+
+**Required semantics and safeguards:**
+- Show per-category dry-run preview: genuinely absent records, already-present equivalents, discrepancies/conflicts, unsupported dependencies and expected file additions; avoid an automatic merge based only on timestamps.
+- Detect same-identity/same-content items and skip duplicates idempotently. When two records conflict, **do not overwrite the live record automatically**; preserve both sources as evidence in an isolated preview/audit trail and offer safe, explicit next steps for owner review. No destructive resolution is implied by approval A.
+- Recover related data coherently (meter reading, bill and lines, original PDF, tariff source metadata and document, or linked metric/provenance groups) without breaking foreign keys, chronology, source identity, raw evidence, quality/uncertainty semantics or installed-version compatibility.
+- Stage and validate in isolation, then apply only verified additions with transaction/rollback safety. Never assume changing isolated SQLite tables independently is safe, and never touch active `energy.db` during the design phase.
+- If an imported backup is too old, too new or missing conversion rules, clearly explain limitations. Legacy DB-only backups cannot claim to restore missing external evidence.
+- Respect the user-approved *full backups only*, weekly skippable reminder, second user-configurable destination, manually deletable recognized inventory with confirmation and mandatory verified **complete** backup before a schema-changing update.
+- Design approved; **no code implementation, active DB restore, destructive operations, branch merge or build authorized yet.**
+
+**Next product discussion:** menu/navigation structure and screen-level UI/UX wireframes for Data Protection, SQL explorer and remaining application pages. The app currently has Dashboard, Analysis, Battery, Grid/Utility, Reports, Data, Diagnostics, Help, Settings and About; Analysis, Battery and Grid/Utility already use tabs, so refinement must preserve functionality and avoid duplicating existing structure.
