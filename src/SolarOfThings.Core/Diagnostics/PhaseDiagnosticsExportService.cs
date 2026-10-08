@@ -5,6 +5,8 @@ using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using SolarOfThings.Core.Backup;
 using SolarOfThings.Core.Data;
+using SolarOfThings.Core.Commissioning;
+using SolarOfThings.Core.Utility;
 using SolarOfThings.Core.Infrastructure;
 
 namespace SolarOfThings.Core.Diagnostics;
@@ -18,14 +20,28 @@ public sealed class PhaseDiagnosticsExportService
 {
     private readonly SqliteDatabase _database;
     private readonly AppPaths _paths;
+    private readonly UtilityBillAuditV2Service _billAudit;
+    private readonly UtilityBillReconciliationSummaryService _summary;
+    private readonly UtilityMeterRepository _bills;
+    private readonly CommissioningProfileRepository _profiles;
 
-    public PhaseDiagnosticsExportService(SqliteDatabase database, AppPaths paths)
+    public PhaseDiagnosticsExportService(
+        SqliteDatabase database,
+        AppPaths paths,
+        UtilityBillAuditV2Service billAudit,
+        UtilityBillReconciliationSummaryService summary,
+        UtilityMeterRepository bills,
+        CommissioningProfileRepository profiles)
     {
         _database = database;
         _paths = paths;
+        _billAudit = billAudit;
+        _summary = summary;
+        _bills = bills;
+        _profiles = profiles;
     }
 
-    public string Export()
+    public string Export(long? requestedBillId = null)
     {
         Directory.CreateDirectory(_paths.LogDirectory);
         var target = Path.Combine(_paths.LogDirectory,
@@ -167,6 +183,90 @@ public sealed class PhaseDiagnosticsExportService
             }
         }
 
+        // Capture a real, selected stored-bill result, not only anonymous
+        // fixtures. Never include printed descriptions, source text or PDFs.
+        // If the QA user did not select a bill, use the most recent stored one.
+        object billEvidence;
+        try
+        {
+            var storedBills = _bills.GetBills();
+            var targetBill = requestedBillId.HasValue
+                ? storedBills.SingleOrDefault(item =>
+                    item.BillId == requestedBillId.Value)
+                : storedBills.OrderByDescending(item => item.BillId)
+                    .FirstOrDefault();
+            var profile = _profiles.Get();
+            if (targetBill is null || profile is null)
+            {
+                billEvidence = new
+                {
+                    status = "NOT_RUN",
+                    reason = "No selected/stored bill or installation profile"
+                };
+            }
+            else
+            {
+                var zone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                    ? "America/Santiago"
+                    : profile.StationTimeZone;
+                var audit = _billAudit.Analyze(targetBill.BillId, zone);
+                var summary = _summary.Analyze(
+                    profile.DeviceId, targetBill.BillId, zone);
+                var components = summary.TariffAnalysis.Components
+                    .Select(item => new
+                    {
+                        category = item.ComponentKey,
+                        actual_clp = item.ActualLineAmountClp,
+                        reconstructed_clp = item.ReconstructedAmountClp,
+                        supported_fixed_clp = item.FixedAmountClp,
+                        rate_clp_per_kwh = item.RateClpPerKwh,
+                        status = item.EvidenceStatus,
+                        official_publication_ids = item.PublicationIds,
+                        basis = item.CalculationBasis
+                    }).ToArray();
+                billEvidence = new
+                {
+                    status = "COMPUTED_NOT_OWNER_VERIFIED",
+                    bill_id = targetBill.BillId,
+                    source = requestedBillId.HasValue
+                        ? "EXPLICIT_SELECTED_BILL" : "MOST_RECENT_STORED_BILL",
+                    bill_consumption_kwh = summary.BilledKwh,
+                    observed_inverter_kwh = summary.ObservedInverterKwh,
+                    observed_coverage_percent = summary.CoveragePercent,
+                    tariff_status = summary.TariffAnalysis.Status,
+                    fixed_amount_supported_clp =
+                        summary.TariffAnalysis.SupportedFixedAmountClp,
+                    actual_total_clp = summary.ActualBillTotalClp,
+                    in_app_estimate_clp = summary.EstimatedObservedTotalClp,
+                    in_app_actual_minus_estimate_clp =
+                        summary.ActualMinusEstimatedObservedClp,
+                    printed_summary_status = audit.SummaryBalanceStatus,
+                    detail_residual_clp = audit.UnexplainedResidualClp,
+                    line_reconstruction_coverage_pct =
+                        audit.ReconstructionCoveragePercent,
+                    audit_lines = audit.Lines.Select(line => new
+                    {
+                        id = line.BillLineId,
+                        actual_clp = line.ActualAmountClp,
+                        reconstructed_clp = line.ReconstructedAmountClp,
+                        status = line.Status
+                    }).ToArray(),
+                    official_components = components
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            billEvidence = new
+            {
+                status = "FAIL",
+                error_type = ex.GetType().Name,
+                note = "Check Audit PDF/annex and app logs; no raw error text exported"
+            };
+        }
+        var billEvidenceJson = JsonSerializer.Serialize(
+            billEvidence, new JsonSerializerOptions { WriteIndented = true });
+
         var details = new
         {
             generated_utc = DateTimeOffset.UtcNow,
@@ -248,6 +348,7 @@ public sealed class PhaseDiagnosticsExportService
             {
                 var hashes = new Dictionary<string, string>();
                 Add(zip, "overview.json", detailsJson, hashes);
+                Add(zip, "bill_reconciliation.json", billEvidenceJson, hashes);
                 Add(zip, "schema_inventory.json", schemaJson, hashes);
                 Add(zip, "schema_columns.csv", columnsCsv.ToString(), hashes);
                 Add(zip, "schema_foreign_keys.csv", foreignKeysCsv.ToString(), hashes);
