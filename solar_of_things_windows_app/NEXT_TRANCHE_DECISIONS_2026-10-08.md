@@ -137,3 +137,24 @@ No code, schema, branch merge, build, QA, destructive operations, restore or num
 - Design approved; **no code implementation, active DB restore, destructive operations, branch merge or build authorized yet.**
 
 **Next product discussion:** menu/navigation structure and screen-level UI/UX wireframes for Data Protection, SQL explorer and remaining application pages. The app currently has Dashboard, Analysis, Battery, Grid/Utility, Reports, Data, Diagnostics, Help, Settings and About; Analysis, Battery and Grid/Utility already use tabs, so refinement must preserve functionality and avoid duplicating existing structure.
+
+## Owner approves grouped sidebar wireframe (2026-10-08)
+
+**APPROVED UX DIRECTION:** Owner likes and accepts the proposed grouped left navigation. Preserve all existing workflows and improve their location:
+- **INICIO:** Panel principal (Dashboard).
+- **ENERGÍA:** Análisis de energía, Batería, Red eléctrica y Enel.
+- **INFORMES:** Informes y exportaciones.
+- **DATOS Y HERRAMIENTAS:** Datos recopilados, Protección de datos (first-class section instead of only Diagnostics), Explorador SQL (first-class section; integrated read-only querying alongside external SQLite access).
+- **SISTEMA Y AYUDA:** Configuración, Diagnósticos, Ayuda, Acerca de.
+
+Keep existing Analysis, Battery, and Grid & Utility task tabs. Localization ES/EN, a clear active selection, keyboard access, narrow-window behavior and no loss of functionality are required. Exact copy/iconography/layout refinement stays subject to wireframe review, not blind implementation.
+
+**UX proposals to discuss NEXT (NOT YET APPROVED):**
+1. **Dashboard**: place a very light/fast-rendering, immediately responsive status and freshness header with Update Data; keep four existing last-observed PV/house/battery/grid cards; plainly distinguish observed instant W/kW from latest stored full/partial-day kWh; put household operating explanation and data coverage below; defer expensive daily computations and optional panels until after first paint; avoid duplicated startup reload and show 'loading' without fabricating zero.
+2. **Grid & Enel**: preserve six implemented tabs (Overview, Readings, Compare, Bills, Audit, Tariffs). Refine Overview into clear actionable summary; Bills into list + selected-bill details; Audit into sequential evidence and source/uncertainty sections, with actions for missing inputs; avoid long permanently expanded forms or materializing unsupported RED/ETR applicability.
+3. **Reports**: separate choosing a report/template and date range from export actions, progress and output; retained report semantics must be preserved.
+4. Performance: measure startup and page latency before adding indexes; never use UI decoration to mask a blocked UI thread.
+
+The owner requested more concrete per-screen wireframes; these are proposals to show, revise and approve in discussion. **Only grouped-sidebar direction has been approved** in this section.
+
+**No development/build/real-data changes authorized; work branch PR stays draft.**
