@@ -14,6 +14,10 @@ public partial class DeveloperDiagnosticsWindow : Window
     private readonly DatabaseBackupService _backup;
     private readonly PhaseDiagnosticsExportService _phaseEvidence;
     private bool _busy;
+    private long? _selectedBillId;
+
+    public void SetSelectedBillId(long? billId) =>
+        _selectedBillId = billId;
 
     public DeveloperDiagnosticsWindow(
         ApiDiagnosticsStore diagnostics,
@@ -96,7 +100,8 @@ public partial class DeveloperDiagnosticsWindow : Window
         await RunAsync(async () =>
         {
             ActionStatusText.Text = "Paso 1/2: revisando esquema y metadatos...";
-            var path = await Task.Run(() => _phaseEvidence.Export());
+            var path = await Task.Run(
+                () => _phaseEvidence.Export(_selectedBillId));
             ActionStatusText.Text = $"Paso 2/2: paquete guardado en {path}";
             ShowSaved(path);
         });
