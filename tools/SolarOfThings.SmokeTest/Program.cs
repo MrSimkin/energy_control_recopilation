@@ -731,8 +731,28 @@ try
     if (inventory.Verify(secondaryPhysical, syntheticSecondary).IntegrityStatus != "PASS")
         throw new InvalidOperationException("Secondary copy integrity verification failed.");
 
-    // The selected secondary copy disappears but the local backup remains untouched.
-    inventory.DeleteOne(secondaryPhysical, syntheticSecondary);
+    // A user selection from an obsolete inventory cannot delete a changed ZIP.
+    // No owner backups are used: only the two temporary synthetic copies.
+    var wrongSize = secondaryPhysical with { SizeBytes = secondaryPhysical.SizeBytes + 1 };
+    var staleSizeBlocked = false;
+    try { inventory.DeleteOne(wrongSize, syntheticSecondary); }
+    catch (InvalidOperationException) { staleSizeBlocked = true; }
+    if (!staleSizeBlocked || !File.Exists(mirrored.Path))
+        throw new InvalidOperationException("Stale-size deletion guard failed.");
+
+    var oldModified = File.GetLastWriteTimeUtc(mirrored.Path);
+    File.SetLastWriteTimeUtc(mirrored.Path, oldModified.AddMinutes(5));
+    var staleTimeBlocked = false;
+    try { inventory.DeleteOne(secondaryPhysical, syntheticSecondary); }
+    catch (InvalidOperationException) { staleTimeBlocked = true; }
+    if (!staleTimeBlocked || !File.Exists(mirrored.Path))
+        throw new InvalidOperationException("Stale-timestamp deletion guard failed.");
+
+    // Explicitly refresh inventory, then delete only that currently selected
+    // secondary package. The local verified package remains untouched.
+    var latestSecondary = inventory.List(syntheticSecondary).Copies.Single(c =>
+        c.Kind == "COMPLETE" && c.Location == "SECONDARY");
+    inventory.DeleteOne(latestSecondary, syntheticSecondary);
     if (File.Exists(mirrored.Path) || !File.Exists(complete.Path))
         throw new InvalidOperationException("Independent secondary delete cascaded or failed.");
 
