@@ -226,3 +226,26 @@ These Grid/Enel details were subsequently **approved by the owner** as the next-
 **Design status:** Owner approves overall explorer and enhancements (XLSX, keyboard bindings, console line-number display, and source-located syntax errors). Choice of specific WPF editor component, parser library, default shortcuts, limits, export schema, and error-location fidelity are implementation design/QA tasks. This is **not authorization to modify code, build, merge, restore, or alter the live DB**.
 
 **Next UI/UX topics:** Analysis and Battery screen refinements, plus Data screen and settings/diagnostics if needed; once screen designs and remaining design questions are closed, assemble a single coherent next build for owner QA.
+
+## Analysis and Battery screen wireframes APPROVED (owner, 2026-10-08)
+
+**APPROVED — user replied "sí" to both concrete interactive screen mockups.** Do not mistake this design approval for implementation permission.
+
+### Análisis de energía
+- Keep three existing tabs **Resumen, Gráficos, Detalle** and **one shared date-range/preset filter** across them, including currently supported quick ranges and custom dates.
+- **Resumen**: observed/derived solar/house/grid/battery kWh summaries with visible temporal coverage, missing-interval and uncertainty states; existing solar/battery/grid operating times, unknown time, recovery/emergency time and state changes remain available rather than disappearing.
+- **Gráficos**: retain current energy/solar/house/grid plot and battery plot with interactive toggles, hover, zoom/reset; keep correct measured-vs-derived energy semantics, separate kW instantaneous from integrated kWh, and do not replace actual calculations with mockup numbers.
+- **Detalle**: preserve all existing Hour/Day/Week/Month/Year aggregation and columns (solar, house, grid, battery in/out, SOC average/min/max/end, coverage), readable/resizable/virtualized tables with horizontal scrolling and data provenance when drilling down.
+- Load heavy ranges/plots lazily off UI thread, with clear progress/cancel where meaningful and no false zeros. Preserve prior accepted math/gap-handling/timezone behavior.
+
+### Batería
+- Keep two existing tabs **Resumen and Técnico**.
+- **Resumen**: prominent latest SOC and observation freshness, estimated stored energy, ordinary-use energy, emergency reserve, configured capacity, activity, protected floor/threshold notes. Clearly mark manually configured thresholds as configuration, not certified hardware values. Do not claim autonomy in hours without validated load methodology.
+- **Técnico**: voltage (V), charge/discharge current (A), power (kW), raw-source freshness/quality, device/config context; absent measurements must show unavailable rather than zero. Preserve existing expander/details and tooltips.
+- Uniform responsive cards, clean hierarchy, async/lazy heavy reads and honest loading states. These reorganizations do not change actual formula semantics.
+
+**Current source review**: `MainWindow.xaml` already has shared Analysis quick-range selector/date pickers, Analysis Summary/Charts/Detail tabs, power/energy/coverage/status indicators, WpfPlot chart controls and aggregation table, Battery Summary/Technical tabs with existing SOC, remaining/ordinary/emergency/reserve and technical readings. The next tranche should improve layout/handling, **not rebuild already implemented functionality**.
+
+**NEXT PROPOSALS ONLY (not yet approved):** improve `Datos recopilados` (current `Cobertura` and `Importar` tabs); reorganize `Configuración` (current connection/session, export folder, manual SQLite backup controls) to avoid duplicating the approved first-class `Protección de datos`; keep `Diagnósticos` an advanced troubleshooting tool with source/operational evidence and safe export, not the home of routine backup operations. Present clear concrete wireframes for user review.
+
+**Status:** Documentation-only design approval; no code or build, no restore, no merge, no action on live QA SQLite.
