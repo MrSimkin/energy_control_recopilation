@@ -441,12 +441,49 @@ public sealed class FullBackupService
             command.CommandText = "SELECT COALESCE(MAX(version),0) FROM schema_migration;";
             if (Convert.ToInt32(command.ExecuteScalar()) != manifest.SchemaVersion)
                 throw new InvalidDataException("SQLite schema differs from package manifest.");
+            // Hashes must also satisfy the snapshot's document references.
+            // ZIP hashes alone cannot detect a deliberately revised manifest
+            // that omits an original bill or tariff still linked in SQLite.
+            if (manifest.SchemaVersion == SqliteDatabase.CurrentSchemaVersion)
+                VerifyEmbeddedDocumentHashes(verified, manifest.Files);
             return manifest;
         }
         finally
         {
             if (File.Exists(disposable))
                 TryRemoveFile(disposable);
+        }
+    }
+
+    private static void VerifyEmbeddedDocumentHashes(
+        SqliteConnection database, IReadOnlyList<CompleteBackupEntry> files)
+    {
+        foreach (var (table, archivePrefix) in new[]
+        {
+            ("utility_bill_document", "documents/Bills/"),
+            ("tariff_publication", "documents/Tariffs/")
+        })
+        {
+            var available = files
+                .Where(item => item.RelativePath.StartsWith(
+                    archivePrefix, StringComparison.Ordinal))
+                .Select(item => item.Sha256)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            using var query = database.CreateCommand();
+            query.CommandText = $"""
+                SELECT content_sha256 FROM {table}
+                 WHERE local_pdf_path IS NOT NULL
+                   AND TRIM(local_pdf_path) <> ''
+                   AND content_sha256 IS NOT NULL
+                   AND TRIM(content_sha256) <> '';
+                """;
+            using var rows = query.ExecuteReader();
+            while (rows.Read())
+            {
+                if (!available.Contains(rows.GetString(0)))
+                    throw new InvalidDataException(
+                        "Snapshot references an original document missing from its backup category.");
+            }
         }
     }
 
