@@ -1776,12 +1776,46 @@ public partial class MainWindow : Window
             pageKey is "Diagnostics"
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        var showPerformance = pageKey == "Diagnostics"
+            ? Visibility.Visible : Visibility.Collapsed;
+        PerformanceSummaryTitle.Visibility = showPerformance;
+        PerformanceSummaryRefreshButton.Visibility = showPerformance;
+        PerformanceSummaryScroll.Visibility = showPerformance;
+        if (showPerformance == Visibility.Visible)
+            RenderPerformanceSummary();
 
         if (isSettings)
         {
             RefreshSettingsSessionStatus();
             RefreshExportFolderPreference();
         }
+    }
+
+    private void PerformanceSummaryRefresh_Click(object sender, RoutedEventArgs e) =>
+        RenderPerformanceSummary();
+
+    private void RenderPerformanceSummary()
+    {
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        var summaries = _performance.Summaries();
+        if (summaries.Count == 0)
+        {
+            PerformanceSummaryText.Text = spanish
+                ? "Sin observaciones todavía. Navega entre las pantallas y vuelve aquí."
+                : "No observations yet. Visit other pages and return.";
+            return;
+        }
+        var header = spanish
+            ? "Mediciones locales de esta sesión; sin datos personales.\n" +
+              "Promedio/p95/máximo observados (ms); no son una garantía ni una comparación entre Builds.\n\n"
+            : "Local observations for this session; no personal information.\n" +
+              "Observed mean/p95/max (ms); not a performance guarantee or a build comparison.\n\n";
+        var rows = summaries.Take(24).Select(x =>
+            $"{x.Operation} | n={x.Samples} | " +
+            $"avg={x.MeanMilliseconds:F0} p95={x.P95Milliseconds:F0} " +
+            $"max={x.MaxMilliseconds:F0} ms");
+        PerformanceSummaryText.Text = header + string.Join(Environment.NewLine, rows);
     }
 
     private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
