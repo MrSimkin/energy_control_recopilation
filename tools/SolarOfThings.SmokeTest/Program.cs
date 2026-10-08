@@ -469,6 +469,45 @@ try
         throw new InvalidOperationException(
             "A valid ZIP/manifest without the SQLite-referenced bill was accepted.");
 
+    // A self-consistent cross-platform ZIP must still reject names that
+    // Windows cannot safely create when a future recovery extracts documents.
+    foreach (var (badName, index) in new[]
+    {
+        ("documents/Bills/CON.txt", 1),
+        ("documents/Bills/trailing.", 2),
+        ("documents/Bills/invalid?.txt", 3)
+    })
+    {
+        var reservedZipPath = Path.Combine(root, $"reserved-name-{index}.zip");
+        File.Copy(complete.Path, reservedZipPath);
+        var payload = System.Text.Encoding.UTF8.GetBytes("synthetic unsafe name");
+        using (var edited = System.IO.Compression.ZipFile.Open(
+                   reservedZipPath, ZipArchiveMode.Update))
+        {
+            using (var added = edited.CreateEntry(badName).Open())
+                added.Write(payload);
+            var manifestEntry = edited.GetEntry("manifest.json")!;
+            CompleteBackupManifest altered;
+            using (var input = manifestEntry.Open())
+                altered = System.Text.Json.JsonSerializer
+                    .Deserialize<CompleteBackupManifest>(input)!;
+            manifestEntry.Delete();
+            altered = altered with { Files = altered.Files.Concat(
+                [new CompleteBackupEntry(badName, payload.Length,
+                    Convert.ToHexString(
+                        System.Security.Cryptography.SHA256.HashData(payload))
+                        .ToLowerInvariant())]).ToArray() };
+            using var updated = edited.CreateEntry("manifest.json").Open();
+            System.Text.Json.JsonSerializer.Serialize(updated, altered);
+        }
+        var unsafeNameRejected = false;
+        try { FullBackupService.VerifyArchive(reservedZipPath); }
+        catch (InvalidDataException) { unsafeNameRejected = true; }
+        if (!unsafeNameRejected)
+            throw new InvalidOperationException(
+                "Unsafe Windows document entry was accepted: " + badName);
+    }
+
     // The ZIP includes committed WAL records and a structurally readable DB.
     var smokeExtract = Path.Combine(root, "verify-complete-backup.db");
     using (var packageZip = System.IO.Compression.ZipFile.OpenRead(complete.Path))
