@@ -92,6 +92,16 @@ public sealed class CompleteBackupInventoryService
         if (!string.Equals(ValidateCopy(selected, configuredSecondary), path,
                 StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The selected backup path changed.");
+        // A stale inventory row must never authorize deletion of a file that
+        // was replaced or modified after the user selected it.
+        var actual = new FileInfo(path);
+        if (!actual.Exists ||
+            !string.Equals(actual.Name, selected.Name,
+                StringComparison.OrdinalIgnoreCase) ||
+            actual.Length != selected.SizeBytes ||
+            actual.LastWriteTimeUtc != selected.ModifiedUtc.UtcDateTime)
+            throw new InvalidOperationException(
+                "The selected backup changed since listing; refresh the inventory.");
         File.Delete(path);
     }
 
