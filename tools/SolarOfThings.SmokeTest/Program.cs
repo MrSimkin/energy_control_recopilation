@@ -557,6 +557,32 @@ try
     if (completeService.CopyVerifiedToSecondary(complete.Path, syntheticSecondary).Path != mirrored.Path)
         throw new InvalidOperationException("Identical secondary copy must be reused safely.");
 
+    // A mismatched existing destination can never be overwritten.
+    var collisionFolder = Path.Combine(root, "secondary-collision");
+    Directory.CreateDirectory(collisionFolder);
+    var colliding = Path.Combine(collisionFolder, Path.GetFileName(complete.Path));
+    File.WriteAllText(colliding, "OTHER BACKUP FILE: KEEP");
+    var collisionRejected = false;
+    try { completeService.CopyVerifiedToSecondary(complete.Path, collisionFolder); }
+    catch (IOException) { collisionRejected = true; }
+    if (!collisionRejected ||
+        File.ReadAllText(colliding) != "OTHER BACKUP FILE: KEEP")
+        throw new InvalidOperationException("Secondary collision replaced existing data.");
+
+    // A pre-existing .inprogress file may belong to another/old attempt.
+    // Failed CreateNew must preserve it; cleanup owns only new staging.
+    var interruptedFolder = Path.Combine(root, "secondary-interrupted");
+    Directory.CreateDirectory(interruptedFolder);
+    var interim = Path.Combine(interruptedFolder,
+        Path.GetFileName(complete.Path) + ".inprogress");
+    File.WriteAllText(interim, "DO NOT REPLACE OR DELETE");
+    var interimRejected = false;
+    try { completeService.CopyVerifiedToSecondary(complete.Path, interruptedFolder); }
+    catch (IOException) { interimRejected = true; }
+    if (!interimRejected || !File.Exists(interim) ||
+        File.ReadAllText(interim) != "DO NOT REPLACE OR DELETE")
+        throw new InvalidOperationException("Secondary staging ownership regression.");
+
     // A single available complete copy must never be deletable.
     var blocked = false;
     try { completeService.DeleteSelectedLocal(complete.Path); }
