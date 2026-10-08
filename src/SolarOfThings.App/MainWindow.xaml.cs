@@ -129,6 +129,7 @@ public partial class MainWindow : Window
 
         AutoConnectCheckBox.IsChecked = GetAutoConnectEnabled();
         RefreshConnectionStatus();
+        RefreshBackupSecondaryPreference();
         RefreshCaptureStartOptions();
         RefreshDashboardMetrics();
         RefreshBatteryView();
@@ -7091,6 +7092,7 @@ public partial class MainWindow : Window
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
     }
 
+    private const string BackupSecondaryPathKey = "backup.complete-secondary-dir";
     private const string BackupReminderNextKey = "backup.complete-reminder-next-utc";
     private const string BackupLastSuccessKey = "backup.complete-last-success-utc";
     private bool _creatingCompleteBackup;
@@ -7192,11 +7194,34 @@ public partial class MainWindow : Window
                 .Set(BackupLastSuccessKey, DateTimeOffset.UtcNow.ToString("O"));
             _services.GetRequiredService<AppSettingsRepository>()
                 .Set(BackupReminderNextKey, DateTimeOffset.UtcNow.AddDays(7).ToString("O"));
-            SettingsBackupStatusText.Text = spanish
+            string secondaryStatus = "";
+            var configuredSecondary = _services.GetRequiredService<AppSettingsRepository>()
+                .Get(BackupSecondaryPathKey);
+            if (!string.IsNullOrWhiteSpace(configuredSecondary))
+            {
+                try
+                {
+                    var second = await Task.Run(() => service.CopyVerifiedToSecondary(
+                        result.Path, configuredSecondary));
+                    secondaryStatus = spanish
+                        ? " Copia secundaria verificada en " + second.Path
+                        : " Verified secondary copy at " + second.Path;
+                }
+                catch (Exception copyError)
+                {
+                    secondaryStatus = spanish
+                        ? " AVISO: respaldo local verificado, pero falló la segunda copia: " +
+                          copyError.Message
+                        : " WARNING: local backup verified, secondary copy failed: " +
+                          copyError.Message;
+                }
+            }
+            SettingsBackupStatusText.Text = (spanish
                 ? $"Respaldo completo verificado ({result.FileCount} archivos). " +
                   $"Guardado en {result.Path}"
                 : $"Verified complete backup ({result.FileCount} files). " +
-                  $"Saved to {result.Path}";
+                  $"Saved to {result.Path}") + secondaryStatus;
+            RefreshBackupSecondaryPreference();
             MessageBox.Show(SettingsBackupStatusText.Text,
                 spanish ? "Respaldo completo creado" : "Complete backup created",
                 MessageBoxButton.OK, MessageBoxImage.Information);
@@ -7217,6 +7242,56 @@ public partial class MainWindow : Window
             SettingsBackupNowButton.IsEnabled = true;
             _creatingCompleteBackup = false;
         }
+    }
+
+    private void RefreshBackupSecondaryPreference()
+    {
+        var settings = _services.GetRequiredService<AppSettingsRepository>();
+        var destination = settings.Get(BackupSecondaryPathKey);
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        SettingsBackupSecondaryFolderText.Text = string.IsNullOrWhiteSpace(destination)
+            ? (spanish ? "No configurada: solo copia local." : "Not configured: local copy only.")
+            : destination + (Directory.Exists(destination) ? "" :
+                (spanish ? " — destino no disponible" : " — destination unavailable"));
+
+        var packages = _services.GetRequiredService<FullBackupService>().ListLocal();
+        SettingsBackupInventoryText.Text = packages.Count == 0
+            ? (spanish ? "No hay respaldos completos locales reconocidos." :
+                "No recognized local complete backups.")
+            : (spanish ? "Respaldos completos locales: " : "Local complete backup packages: ") +
+              packages.Count + (spanish ? " (sin revalidación al listar). " :
+                                        " (not reverified during listing). ") +
+              (spanish ? "Último archivo: " : "Most recent: ") +
+              Path.GetFileName(packages[0].Path);
+    }
+
+    private void SettingsBackupChooseSecondary_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+                ? "Elegir ubicación secundaria para respaldos"
+                : "Choose secondary backup folder",
+            Multiselect = false
+        };
+        var settings = _services.GetRequiredService<AppSettingsRepository>();
+        var existing = settings.Get(BackupSecondaryPathKey);
+        if (!string.IsNullOrWhiteSpace(existing) && Directory.Exists(existing))
+            dialog.InitialDirectory = existing;
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        var destination = Path.GetFullPath(dialog.FolderName);
+        if (string.Equals(destination, Path.GetFullPath(_paths.BackupDirectory),
+            StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("El destino secundario debe ser distinto de Backups.",
+                "Protección de datos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        settings.Set(BackupSecondaryPathKey, destination);
+        RefreshBackupSecondaryPreference();
     }
 
     private const string DefaultExportFolderKey = "exports.default-folder";
