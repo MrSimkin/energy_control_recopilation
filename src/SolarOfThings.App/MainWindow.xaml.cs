@@ -160,12 +160,7 @@ public partial class MainWindow : Window
     private void ApplyResponsiveCardLayouts()
     {
         var usableWidth = Math.Max(0, ActualWidth - 285);
-        var columns = usableWidth switch
-        {
-            < 620 => 1,
-            < 1040 => 2,
-            _ => 4
-        };
+        var columns = ResponsiveGridLayoutPolicy.ColumnsForUsableWidth(usableWidth);
 
         // WPF already resizes Grid children as the window changes width.
         // Rebuilding RowDefinitions/ColumnDefinitions on every pixel of
