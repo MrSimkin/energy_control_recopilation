@@ -503,8 +503,28 @@ public sealed class FullBackupService
             name.EndsWith("/", StringComparison.Ordinal) ||
             name.Contains(':') || name.Contains('\0'))
             return false;
-        return name.Split('/').All(segment => segment.Length > 0 &&
-            segment != "." && segment != "..");
+        return name.Split('/').All(IsPortableFileNameSegment);
+    }
+
+    private static bool IsPortableFileNameSegment(string segment)
+    {
+        // ZIP entries may originate on another OS. Windows strips terminal
+        // dots/spaces and reserves device names, even with extensions.
+        if (segment.Length == 0 || segment is "." or ".." ||
+            segment.EndsWith('.') || segment.EndsWith(' ') ||
+            segment.Any(ch => char.IsControl(ch) ||
+                ch is '<' or '>' or '"' or '|' or '?' or '*'))
+            return false;
+        var stem = segment.Split('.')[0].TrimEnd(' ');
+        var upper = stem.ToUpperInvariant();
+        if (upper is "CON" or "PRN" or "AUX" or "NUL")
+            return false;
+        if (upper.Length == 4 &&
+            (upper.StartsWith("COM", StringComparison.Ordinal) ||
+             upper.StartsWith("LPT", StringComparison.Ordinal)) &&
+            upper[3] >= '1' && upper[3] <= '9')
+            return false;
+        return true;
     }
 
     private static string HashFile(string file)
