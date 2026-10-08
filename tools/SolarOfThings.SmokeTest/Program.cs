@@ -65,6 +65,69 @@ try
                 "Empty Phase 11 grid-import view unexpectedly has rows.");
     }
 
+    // Verify the new views calculate honest arithmetic W statistics over
+    // two known source samples (not kWh, not time-weighted integration).
+    using (var reportingTest = database.OpenConnection())
+    using (var addSamples = reportingTest.CreateCommand())
+    {
+        addSamples.CommandText =
+            """
+            INSERT INTO normalized_metric_sample(
+                device_id,metric_key,recorded_at_utc,
+                normalized_value,normalized_unit,source_attribute_key,
+                source_value_json,normalization_rule_version,confidence,
+                quality,updated_utc)
+            VALUES
+            ('PHASE11_SMOKE','grid_import_power_w',
+             '2026-10-07T09:01:00.0000000+00:00',100,'W',
+             'view-test','100','smoke-v1','HIGH','OBSERVED',
+             '2026-10-08T00:00:00Z'),
+            ('PHASE11_SMOKE','grid_import_power_w',
+             '2026-10-07T09:11:00.0000000+00:00',200,'W',
+             'view-test','200','smoke-v1','HIGH','OBSERVED',
+             '2026-10-08T00:00:00Z');
+            """;
+        addSamples.ExecuteNonQuery();
+        addSamples.CommandText =
+            """
+            SELECT sample_count, sample_average_w
+            FROM reporting_hourly_power_samples
+            WHERE device_id = 'PHASE11_SMOKE'
+              AND metric_key = 'grid_import_power_w'
+              AND utc_hour = '2026-10-07T09';
+            """;
+        using (var hourly = addSamples.ExecuteReader())
+        {
+            if (!hourly.Read() ||
+                hourly.GetInt64(0) != 2 ||
+                Math.Abs(hourly.GetDouble(1) - 150) > 0.001 ||
+                hourly.Read())
+            {
+                throw new InvalidOperationException(
+                    "Phase 11 measured hourly power view regression failed.");
+            }
+        }
+        addSamples.CommandText =
+            """
+            SELECT sample_count, sample_average_w
+            FROM reporting_daily_power_samples
+            WHERE device_id = 'PHASE11_SMOKE'
+              AND metric_key = 'grid_import_power_w'
+              AND utc_day = '2026-10-07';
+            """;
+        using (var daily = addSamples.ExecuteReader())
+        {
+            if (!daily.Read() ||
+                daily.GetInt64(0) != 2 ||
+                Math.Abs(daily.GetDouble(1) - 150) > 0.001 ||
+                daily.Read())
+            {
+                throw new InvalidOperationException(
+                    "Phase 11 measured daily power view regression failed.");
+            }
+        }
+    }
+
     // Exercise the backup with a committed write that may still reside
     // in WAL rather than the main .db file.
     using (var walSource = database.OpenConnection())
