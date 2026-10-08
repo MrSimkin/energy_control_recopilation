@@ -527,6 +527,9 @@ try
             throw new InvalidOperationException("Full backup lost committed WAL record.");
     }
 
+    // The unique marker is required for ALL synthetic recovery operations,
+    // including the read-only preview, before any target DB is opened.
+    IsolatedRecoveryAdditiveTestService.MarkSyntheticSmokeFixture(root);
     // Selective recovery PREVIEW reads package and isolated target, and makes NO writes.
     var previewRoot = Path.Combine(root, "isolated-preview-target");
     var previewPaths = new AppPaths(previewRoot);
@@ -544,6 +547,32 @@ try
         setup.ExecuteNonQuery();
     }
     var previewer = new IsolatedRecoveryPreviewService();
+    // Regression: merely placing a target under OS temp is NOT authorization.
+    var arbitraryPreviewRejected = false;
+    try
+    {
+        previewer.Preview(complete.Path,
+            Path.Combine(Path.GetTempPath(), "UNSAFE-user-database.db"));
+    }
+    catch (InvalidOperationException) { arbitraryPreviewRejected = true; }
+    if (!arbitraryPreviewRejected)
+        throw new InvalidOperationException(
+            "Recovery preview accepted an unmarked temp database path.");
+
+    var unmarkedRoot = Path.Combine(Path.GetTempPath(),
+        "SolarEnergyMonitorSmoke", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(unmarkedRoot);
+    try
+    {
+        var unmarkedPreviewRejected = false;
+        try { previewer.Preview(complete.Path, Path.Combine(unmarkedRoot, "energy.db")); }
+        catch (InvalidOperationException) { unmarkedPreviewRejected = true; }
+        if (!unmarkedPreviewRejected)
+            throw new InvalidOperationException(
+                "Recovery preview accepted a fixture without its synthetic marker.");
+    }
+    finally { Directory.Delete(unmarkedRoot); }
+
     var summary = previewer.Preview(complete.Path, previewDatabase.DatabasePath);
     var previewSettings = summary.Categories.Single(c => c.Category == "SETTINGS");
     if (summary.Status != "READ_ONLY_PREVIEW" ||
@@ -559,8 +588,7 @@ try
             throw new InvalidOperationException("Read-only recovery preview mutated target.");
     }
     // Additive isolated staging without activation: v17 app_setting only.
-    // The marker is created for the random synthetic test root, NOT user Data.
-    IsolatedRecoveryAdditiveTestService.MarkSyntheticSmokeFixture(root);
+    // Reuse the same already-marked synthetic root (never user Data).
     var additive = new IsolatedRecoveryAdditiveTestService();
     var stagedOnce = additive.ApplyToNewStagedFixture(
         complete.Path, previewDatabase.DatabasePath);

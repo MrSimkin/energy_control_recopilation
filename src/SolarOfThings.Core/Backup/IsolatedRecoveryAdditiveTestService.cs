@@ -180,8 +180,21 @@ public sealed class IsolatedRecoveryAdditiveTestService
             components.Skip(2).Any(x => x == ".."))
             throw new InvalidOperationException(
                 "Only uniquely named synthetic smoke-test fixtures under OS temp are supported.");
-        var root = Path.Combine(temp, components[0], components[1]);
-        return ValidateFixtureRoot(root, requireMarker: true);
+        var root = ValidateFixtureRoot(
+            Path.Combine(temp, components[0], components[1]), requireMarker: true);
+        // A valid fixture root is insufficient if a nested target directory
+        // redirects outside it. Do not follow junctions or symbolic links
+        // between the marked root and the supplied database path.
+        var cursor = root;
+        foreach (var component in components.Skip(2).SkipLast(1))
+        {
+            cursor = Path.Combine(cursor, component);
+            if (!Directory.Exists(cursor) ||
+                (File.GetAttributes(cursor) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException(
+                    "Synthetic recovery target has a missing or linked parent directory.");
+        }
+        return root;
     }
 
     private static string ValidateFixtureRoot(string root, bool requireMarker)

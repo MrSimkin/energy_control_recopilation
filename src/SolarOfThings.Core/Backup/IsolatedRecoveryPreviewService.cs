@@ -37,14 +37,12 @@ public sealed class IsolatedRecoveryPreviewService
         ArgumentException.ThrowIfNullOrWhiteSpace(completePackage);
         ArgumentException.ThrowIfNullOrWhiteSpace(isolatedTargetDatabasePath);
         var target = Path.GetFullPath(isolatedTargetDatabasePath);
+        // Match the stricter staging and relation-audit gates: OS temp alone is
+        // not proof that a database belongs to a synthetic smoke fixture.
+        // Check the unique fixture root, exact marker, and linked path segments
+        // BEFORE opening or inspecting any target database.
+        IsolatedRecoveryAdditiveTestService.RequireSyntheticFixtureRoot(target);
         var temp = Path.GetFullPath(Path.GetTempPath());
-        var relative = Path.GetRelativePath(temp, target);
-        if (relative == "." || relative == ".." ||
-            relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
-            relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal) ||
-            Path.IsPathRooted(relative))
-            throw new InvalidOperationException(
-                "Recovery preview is limited to isolated synthetic databases in the OS temp directory.");
         if (!File.Exists(target))
             throw new FileNotFoundException("Isolated target database not found.", target);
         if ((File.GetAttributes(target) & FileAttributes.ReparsePoint) != 0)
