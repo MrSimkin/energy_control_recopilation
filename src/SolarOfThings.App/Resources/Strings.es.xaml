@@ -5,13 +5,19 @@
     <sys:String x:Key="Brand.Title">SOLAR ENERGY</sys:String>
     <sys:String x:Key="Brand.Subtitle">Monitor del hogar</sys:String>
 
-    <sys:String x:Key="Nav.Dashboard">Inicio</sys:String>
-    <sys:String x:Key="Nav.Analysis">Historial y gráficos</sys:String>
+    <sys:String x:Key="Nav.Group.Home">INICIO</sys:String>
+    <sys:String x:Key="Nav.Group.Energy">ENERGÍA</sys:String>
+    <sys:String x:Key="Nav.Group.Reports">INFORMES</sys:String>
+    <sys:String x:Key="Nav.Group.DataTools">DATOS Y HERRAMIENTAS</sys:String>
+    <sys:String x:Key="Nav.Group.System">SISTEMA Y AYUDA</sys:String>
+
+    <sys:String x:Key="Nav.Dashboard">Panel principal</sys:String>
+    <sys:String x:Key="Nav.Analysis">Análisis de energía</sys:String>
     <sys:String x:Key="Nav.Battery">Batería</sys:String>
-    <sys:String x:Key="Nav.GridUtility">Red eléctrica</sys:String>
-    <sys:String x:Key="Nav.Reports">Informes</sys:String>
-    <sys:String x:Key="Nav.Data">Datos y actualizaciones</sys:String>
-    <sys:String x:Key="Nav.Diagnostics">Ayuda técnica</sys:String>
+    <sys:String x:Key="Nav.GridUtility">Red eléctrica y Enel</sys:String>
+    <sys:String x:Key="Nav.Reports">Informes y exportaciones</sys:String>
+    <sys:String x:Key="Nav.Data">Datos recopilados</sys:String>
+    <sys:String x:Key="Nav.Diagnostics">Diagnósticos</sys:String>
     <sys:String x:Key="Nav.Settings">Configuración</sys:String>
 
     <sys:String x:Key="Action.UpdateData">Actualizar datos</sys:String>
@@ -34,9 +40,9 @@
     <sys:String x:Key="Language.Spanish">Español</sys:String>
     <sys:String x:Key="Language.English">English</sys:String>
 
-    <sys:String x:Key="Page.Dashboard.Title">Inicio</sys:String>
+    <sys:String x:Key="Page.Dashboard.Title">Panel principal</sys:String>
     <sys:String x:Key="Page.Dashboard.Subtitle">Análisis local de energía de Solar of Things</sys:String>
-    <sys:String x:Key="Page.Analysis.Title">Historial y gráficos</sys:String>
+    <sys:String x:Key="Page.Analysis.Title">Análisis de energía</sys:String>
     <sys:String x:Key="Page.Analysis.Subtitle">Análisis interactivo de métricas y períodos</sys:String>
     <sys:String x:Key="Page.Analysis.Placeholder">Esta sección se implementará después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Analysis.Heading">Historial de funcionamiento</sys:String>
@@ -169,7 +175,7 @@
     <sys:String x:Key="Tooltip.BatteryRemaining">Estimación de la energía que queda en la batería. Se calcula multiplicando el porcentaje de carga por la capacidad útil configurada; no es una medición independiente.</sys:String>
     <sys:String x:Key="Tooltip.BatteryActivity">Indica si la batería está recibiendo energía, entregando energía o prácticamente en reposo según las lecturas del inversor.</sys:String>
 
-    <sys:String x:Key="Page.GridUtility.Title">Red y compañía eléctrica</sys:String>
+    <sys:String x:Key="Page.GridUtility.Title">Red eléctrica y Enel</sys:String>
     <sys:String x:Key="Page.GridUtility.Subtitle">Importación desde la red y reconciliación con mediciones de la compañía</sys:String>
     <sys:String x:Key="Page.GridUtility.Placeholder">Las funciones de red y compañía eléctrica se incorporarán en fases posteriores.</sys:String>
     <sys:String x:Key="Analysis.Tab.Summary">Resumen</sys:String>
@@ -442,7 +448,7 @@
     <sys:String x:Key="GridUtility.Quality.METER_RESET_OR_REPLACEMENT">Revisar medidor</sys:String>
     <sys:String x:Key="GridUtility.Quality.INVALID_INTERVAL">Intervalo inválido</sys:String>
     <sys:String x:Key="GridUtility.Quality.ASSUMED_TIME">Hora asumida</sys:String>
-    <sys:String x:Key="Page.Reports.Title">Informes</sys:String>
+    <sys:String x:Key="Page.Reports.Title">Informes y exportaciones</sys:String>
     <sys:String x:Key="Page.Reports.Subtitle">Informes guardados, Excel y PDF</sys:String>
     <sys:String x:Key="Page.Reports.Placeholder">Informes reutilizables y exportaciones.</sys:String>
     <sys:String x:Key="Reports.Heading">Informes</sys:String>
@@ -490,7 +496,7 @@
     <sys:String x:Key="Reports.ExportComplete">3/3 · Exportación completada ✓</sys:String>
     <sys:String x:Key="Reports.ExportFailed">La exportación no pudo completarse.</sys:String>
 
-    <sys:String x:Key="Page.Data.Title">Datos</sys:String>
+    <sys:String x:Key="Page.Data.Title">Datos recopilados</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">La sincronización histórica local ya está activa mediante “Actualizar datos”. El análisis se construirá sobre este corpus validado.</sys:String>
     <sys:String x:Key="Data.CoverageHeading">Qué información está guardada</sys:String>
@@ -518,7 +524,7 @@
     <sys:String x:Key="Tooltip.EmptyDays">No es un error: Solar of Things respondió correctamente, pero ese día no entregó lecturas.</sys:String>
     <sys:String x:Key="Tooltip.UnavailableDays">Después de varios intentos fallidos, la aplicación deja de insistir automáticamente para evitar solicitudes repetidas. Usted puede revisarlos manualmente más adelante.</sys:String>
 
-    <sys:String x:Key="Page.Diagnostics.Title">Ayuda técnica</sys:String>
+    <sys:String x:Key="Page.Diagnostics.Title">Diagnósticos</sys:String>
     <sys:String x:Key="Page.Diagnostics.Subtitle">Diagnóstico técnico y estado interno de la aplicación</sys:String>
     <sys:String x:Key="Page.Diagnostics.Placeholder">Los diagnósticos actuales se escriben localmente; esta vista crecerá a medida que se incorporen integraciones reales.</sys:String>
     <sys:String x:Key="Page.Settings.Title">Configuración</sys:String>
