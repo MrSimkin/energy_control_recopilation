@@ -4299,16 +4299,22 @@ try
             throw new InvalidOperationException("Streaming XLSX sheet is missing.");
         long counted = 0;
         string? lastRow = null;
+        string? lastValue = null;
         using var data = sheet.Open();
         using var xml = System.Xml.XmlReader.Create(data);
         while (xml.Read())
         {
-            if (xml.NodeType != System.Xml.XmlNodeType.Element ||
-                xml.LocalName != "row") continue;
-            counted++;
-            lastRow = xml.GetAttribute("r");
+            if (xml.NodeType != System.Xml.XmlNodeType.Element) continue;
+            if (xml.LocalName == "row")
+            {
+                counted++;
+                lastRow = xml.GetAttribute("r");
+            }
+            else if (xml.LocalName == "v" && counted == 1_000_001)
+                lastValue = xml.ReadElementContentAsString();
         }
-        if (counted != 1_000_001 || lastRow != "1000001")
+        if (counted != 1_000_001 || lastRow != "1000001" ||
+            lastValue != "1000000")
             throw new InvalidOperationException(
                 "XLSX last row missing: expected 1,000,000 records plus one header.");
     }
