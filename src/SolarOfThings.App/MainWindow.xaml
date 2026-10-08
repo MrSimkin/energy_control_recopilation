@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
         xmlns:controls="clr-namespace:SolarOfThings.App.Controls"
+        xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         Title="{DynamicResource Window.Title}"
         Width="1440"
         Height="820"
@@ -2764,10 +2765,12 @@
                                 <DockPanel>
                                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource SqlExplorer.EditorHeading}"
                                                FontWeight="SemiBold" Margin="10,8,0,5"/>
-                                    <TextBox x:Name="SqlStatementEditor" AcceptsReturn="True" AcceptsTab="True"
-                                             TextWrapping="NoWrap" FontFamily="Consolas" FontSize="13"
+                                    <avalonedit:TextEditor x:Name="SqlStatementEditor"
+                                             FontFamily="Consolas" FontSize="13"
+                                             ShowLineNumbers="True" WordWrap="False"
+                                             SyntaxHighlighting="TSQL"
                                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                                             SelectionChanged="SqlExplorerEditorSelectionChanged"
+                                             TextChanged="SqlExplorerEditorTextChanged"
                                              PreviewKeyDown="SqlExplorerEditorPreviewKeyDown"
                                              Text="SELECT * FROM reporting_grid_import ORDER BY recorded_at_utc DESC LIMIT 200;"/>
                                 </DockPanel>
