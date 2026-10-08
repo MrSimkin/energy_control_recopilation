@@ -8449,12 +8449,22 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) != true)
             return;
 
-        var destination = Path.GetFullPath(dialog.FolderName);
-        if (string.Equals(destination, Path.GetFullPath(_paths.BackupDirectory),
-            StringComparison.OrdinalIgnoreCase))
+        string destination;
+        try
         {
-            MessageBox.Show("El destino secundario debe ser distinto de Backups.",
-                "Protección de datos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            // Apply the same restriction used by backup creation and inventory.
+            destination = BackupDestinationPolicy.Validate(_paths, dialog.FolderName);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or
+                                  IOException or UnauthorizedAccessException)
+        {
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            MessageBox.Show(
+                (spanish ? "La carpeta secundaria no es segura: "
+                         : "Unsafe secondary backup folder: ") + ex.Message,
+                spanish ? "Protección de datos" : "Data protection",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         settings.Set(BackupSecondaryPathKey, destination);

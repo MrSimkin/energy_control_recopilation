@@ -546,6 +546,34 @@ try
 
     // Secondary package copy must verify byte-for-byte; no live DB access.
     var syntheticSecondary = Path.Combine(root, "other-storage", "backups");
+    // A secondary copy must be outside both active application data and
+    // local Backups, including nested paths and parent folders.
+    if (!string.Equals(BackupDestinationPolicy.Validate(paths, syntheticSecondary),
+            Path.GetFullPath(syntheticSecondary), StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Safe separate secondary path was rejected.");
+    foreach (var invalidFolder in new[]
+    {
+        paths.DataDirectory,
+        paths.BackupDirectory,
+        Path.Combine(paths.DataDirectory, "subfolder"),
+        Path.Combine(paths.BackupDirectory, "subfolder"),
+        root
+    })
+    {
+        var destinationBlocked = false;
+        try { BackupDestinationPolicy.Validate(paths, invalidFolder); }
+        catch (InvalidOperationException) { destinationBlocked = true; }
+        if (!destinationBlocked)
+            throw new InvalidOperationException("Secondary backup overlaps active data.");
+    }
+    var nestedMirrorRejected = false;
+    try { completeService.CopyVerifiedToSecondary(complete.Path,
+        Path.Combine(paths.DataDirectory, "secondary")); }
+    catch (InvalidOperationException) { nestedMirrorRejected = true; }
+    if (!nestedMirrorRejected || Directory.Exists(
+            Path.Combine(paths.DataDirectory, "secondary")))
+        throw new InvalidOperationException("Nested secondary backup was allowed.");
+
     var mirrored = completeService.CopyVerifiedToSecondary(complete.Path, syntheticSecondary);
     if (mirrored.IntegrityStatus != "PASS" ||
         !File.Exists(mirrored.Path) ||

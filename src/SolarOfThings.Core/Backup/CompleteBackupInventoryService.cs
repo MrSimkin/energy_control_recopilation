@@ -116,17 +116,9 @@ public sealed class CompleteBackupInventoryService
         return full;
     }
 
-    private string ValidateSecondaryDirectory(string destination)
-    {
-        var full = Path.GetFullPath(destination);
-        var local = Path.GetFullPath(_paths.BackupDirectory);
-        if (string.Equals(full, local, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Secondary and local locations must differ.");
-        if (Directory.Exists(full) &&
-            (File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0)
-            throw new InvalidOperationException("Linked backup directories are not supported.");
-        return full;
-    }
+    // One shared destination gate for create/mirror, list, verify and delete.
+    private string ValidateSecondaryDirectory(string destination) =>
+        BackupDestinationPolicy.Validate(_paths, destination);
 
     private static void AddRecognized(List<PhysicalBackupCopy> copies,
         string directory, string location, bool listLegacy)

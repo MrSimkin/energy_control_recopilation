@@ -170,10 +170,8 @@ public sealed class FullBackupService
     {
         var source = ValidateManagedLocalPath(localPackage);
         var verified = VerifyLocal(source);
-        var targetDirectory = Path.GetFullPath(secondaryFolder);
-        var localDirectory = Path.GetFullPath(_paths.BackupDirectory);
-        if (string.Equals(targetDirectory, localDirectory, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("The secondary destination must differ from the local backup folder.");
+        // Do not mirror onto application Data/Backups or through junctions.
+        var targetDirectory = BackupDestinationPolicy.Validate(_paths, secondaryFolder);
         Directory.CreateDirectory(targetDirectory);
         var destination = Path.Combine(targetDirectory, Path.GetFileName(source));
         if (File.Exists(destination))
