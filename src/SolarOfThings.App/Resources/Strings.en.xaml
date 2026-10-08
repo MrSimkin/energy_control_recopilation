@@ -534,6 +534,8 @@
     <sys:String x:Key="Settings.Intro">Normal-use options for this copy of Solar Energy Monitor.</sys:String>
     <sys:String x:Key="Settings.BackupHeading">Complete backup</sys:String>
     <sys:String x:Key="Settings.BackupDescription">Create a verified ZIP on demand containing a consistent SQLite snapshot, bills and tariffs. Secrets are excluded and active data is never replaced. The weekly reminder can be run, postponed or skipped. Recovery is still in development.</sys:String>
+    <sys:String x:Key="Settings.BackupSecondLocation">Secondary backup destination</sys:String>
+    <sys:String x:Key="Settings.BackupChooseSecondary">Choose secondary folder...</sys:String>
     <sys:String x:Key="Settings.BackupNow">Create complete backup now</sys:String>
     <sys:String x:Key="Settings.ExportFolderHeading">Save exports to</sys:String>
     <sys:String x:Key="Settings.ExportFolderDescription">Starting folder for PDF, Excel, annexes and help exports. Does not move databases or backups.</sys:String>
