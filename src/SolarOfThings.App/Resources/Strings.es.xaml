@@ -657,6 +657,7 @@
     <sys:String x:Key="Diagnostics.ConfigCache">Leer cache de configuración</sys:String>
     <sys:String x:Key="Diagnostics.ConfigRead">Lectura directa de configuración</sys:String>
     <sys:String x:Key="Diagnostics.GridImportEnergy">Comprobar energía comprada a red</sys:String>
+    <sys:String x:Key="Diagnostics.PhaseEvidence">Exportar evidencia Fases 10–12</sys:String>
     <sys:String x:Key="Diagnostics.BackupDatabase">Crear respaldo verificado</sys:String>
     <sys:String x:Key="Diagnostics.ExportBundle">Exportar paquete de investigación</sys:String>
 
