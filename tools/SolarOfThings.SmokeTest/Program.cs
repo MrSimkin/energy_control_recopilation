@@ -4279,6 +4279,41 @@ try
             sheet.Cell(1, 1).GetString() != "key")
             throw new InvalidOperationException("XLSX export range regression.");
     }
+    // SQL million-row streaming XLSX regression: 1,000,000 synthetic data rows
+    // plus header fits in Excel's 1,048,576-row worksheet. Do not load the
+    // 1-million-row XLSX into ClosedXML or the smoke-test process RAM.
+    var millionXlsx = Path.Combine(root, "sql-million-streaming.xlsx");
+    var millionQuery = """
+        WITH RECURSIVE tally(n) AS
+        (SELECT 1 UNION ALL SELECT n + 1 FROM tally WHERE n < 1000000)
+        SELECT n AS ordinal FROM tally;
+        """;
+    var million = await explorer.ExportAsync(millionQuery, millionXlsx,
+        SolarOfThings.Core.SqlExplorer.SqlExportFormat.Xlsx);
+    if (million.Rows != 1_000_000 || million.Columns != 1 ||
+        !File.Exists(millionXlsx))
+        throw new InvalidOperationException("One-million-row XLSX streaming export failed.");
+    using (var workbook = ZipFile.OpenRead(millionXlsx))
+    {
+        var sheet = workbook.GetEntry("xl/worksheets/sheet1.xml") ??
+            throw new InvalidOperationException("Streaming XLSX sheet is missing.");
+        long counted = 0;
+        string? lastRow = null;
+        using var data = sheet.Open();
+        using var xml = System.Xml.XmlReader.Create(data);
+        while (xml.Read())
+        {
+            if (xml.NodeType != System.Xml.XmlNodeType.Element ||
+                xml.LocalName != "row") continue;
+            counted++;
+            lastRow = xml.GetAttribute("r");
+        }
+        if (counted != 1_000_001 || lastRow != "1000001")
+            throw new InvalidOperationException(
+                "XLSX last row missing: expected 1,000,000 records plus one header.");
+    }
+    File.Delete(millionXlsx);
+
     using (var checkReadOnly = database.OpenConnection())
     using (var check = checkReadOnly.CreateCommand())
     {
