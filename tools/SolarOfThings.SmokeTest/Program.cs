@@ -102,6 +102,15 @@ try
         BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", null))
         throw new InvalidOperationException("Battery stale-result policy regressed.");
 
+    // An obsolete Analysis range or device must never replace newer charts.
+    if (!AnalysisRefreshPolicy.CanApply(5, 5, true, false, "device-a", "device-a") ||
+        AnalysisRefreshPolicy.CanApply(4, 5, true, false, "device-a", "device-a") ||
+        AnalysisRefreshPolicy.CanApply(5, 5, false, false, "device-a", "device-a") ||
+        AnalysisRefreshPolicy.CanApply(5, 5, true, true, "device-a", "device-a") ||
+        AnalysisRefreshPolicy.CanApply(5, 5, true, false, "device-a", "device-b") ||
+        AnalysisRefreshPolicy.CanApply(5, 5, true, false, "device-a", null))
+        throw new InvalidOperationException("Analysis result-generation guard regressed.");
+
     // Responsive breakpoint regression: same band must preserve layout
     // definitions even as the WPF window changes width by a pixel.
     foreach (var (width, columns) in new (double, int)[]

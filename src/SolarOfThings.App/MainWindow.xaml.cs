@@ -61,6 +61,9 @@ public partial class MainWindow : Window
     private bool _dashboardVisible;
     private int _batteryRefreshGeneration;
     private bool _batteryDataLoading;
+    private int _analysisRefreshGeneration;
+    private bool _analysisDataLoading;
+    private bool _analysisRangeInitializationPending;
     private int _dashboardRefreshGeneration;
     private bool _dashboardDataLoading;
     private bool _windowClosed;
@@ -1044,103 +1047,236 @@ public partial class MainWindow : Window
         AnalysisBatteryPlot.Refresh();
     }
 
+    // Keep all UI selection, WPF chart operations and text rendering on the
+    // Dispatcher. Only the existing data services run on background workers.
+    // Consecutive requests share one reader and never paint stale ranges.
     private void RefreshAnalysisView(bool initializeRange = false)
     {
-        using var measure = _performance.Measure("UI.Analysis.Refresh");
-        if (!IsInitialized || AnalysisContent is null)
-        {
+        if (!IsInitialized || AnalysisContent is null || _windowClosed)
             return;
-        }
-
-        var profile = _profiles.Get();
-        if (profile is null)
-        {
-            ResetAnalysisView();
-            return;
-        }
-
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var coverage = MeasureDataCall("Data.Analysis.Coverage",
-            () => history.GetCoverageSummary(profile.DeviceId));
-
-        if (!coverage.FirstSampleAtUtc.HasValue ||
-            !coverage.LastSampleAtUtc.HasValue)
-        {
-            ResetAnalysisView();
-            AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
-            return;
-        }
-
-        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
-            ? "America/Santiago"
-            : profile.StationTimeZone;
-
-        var firstLocalDate = SolarApiTime.GetLocalDate(
-            coverage.FirstSampleAtUtc.Value,
-            timeZone);
-        var lastLocalDate = SolarApiTime.GetLocalDate(
-            coverage.LastSampleAtUtc.Value,
-            timeZone);
 
         if (initializeRange)
-        {
-            _suppressAnalysisRangeSelection = true;
-            AnalysisRangePresetSelector.SelectedValue = "all";
-            AnalysisFromDatePicker.SelectedDate =
-                firstLocalDate.ToDateTime(TimeOnly.MinValue);
-            AnalysisToDatePicker.SelectedDate =
-                lastLocalDate.ToDateTime(TimeOnly.MinValue);
-            _suppressAnalysisRangeSelection = false;
-        }
-        else
-        {
-            if (!AnalysisFromDatePicker.SelectedDate.HasValue)
-            {
-                AnalysisFromDatePicker.SelectedDate =
-                    firstLocalDate.ToDateTime(TimeOnly.MinValue);
-            }
+            _analysisRangeInitializationPending = true;
 
-            if (!AnalysisToDatePicker.SelectedDate.HasValue)
-            {
-                AnalysisToDatePicker.SelectedDate =
-                    lastLocalDate.ToDateTime(TimeOnly.MinValue);
-            }
-        }
+        _analysisRefreshGeneration++;
+        if (_analysisDataLoading || AnalysisContent.Visibility != Visibility.Visible)
+            return;
 
-        var fromDate = DateOnly.FromDateTime(
-            AnalysisFromDatePicker.SelectedDate ??
-            firstLocalDate.ToDateTime(TimeOnly.MinValue));
-        var toDate = DateOnly.FromDateTime(
-            AnalysisToDatePicker.SelectedDate ??
-            lastLocalDate.ToDateTime(TimeOnly.MinValue));
+        _ = LoadAnalysisViewAsync();
+    }
 
-        if (fromDate > toDate)
-        {
-            (fromDate, toDate) = (toDate, fromDate);
-            AnalysisFromDatePicker.SelectedDate =
-                fromDate.ToDateTime(TimeOnly.MinValue);
-            AnalysisToDatePicker.SelectedDate =
-                toDate.ToDateTime(TimeOnly.MinValue);
-        }
+    private sealed record AnalysisReadResult(
+        EnergyRangeSummary EnergySummary,
+        EnergyAggregationTable Aggregation,
+        HouseholdBehaviorStatistics Behavior,
+        BatteryThresholdContext Thresholds);
 
-        var fromWindow = SolarApiTime.GetLocalDayWindow(fromDate, timeZone);
-        var toWindow = SolarApiTime.GetLocalDayWindow(toDate, timeZone);
-
+    private AnalysisReadResult ReadAnalysisData(
+        string deviceId,
+        DateTimeOffset rangeStart,
+        DateTimeOffset rangeEnd,
+        string timeZone,
+        AggregationPeriod period,
+        EnergyRangeStatisticsService energyService,
+        EnergyAggregationTableService aggregationService,
+        HouseholdBehaviorStatisticsService behaviorService,
+        BatteryThresholdContextService thresholdService)
+    {
+        using var measure = _performance.Measure("Data.Analysis.BackgroundFetch");
         var energySummary = MeasureDataCall("Data.Analysis.EnergySummary",
-            () => _services.GetRequiredService<EnergyRangeStatisticsService>()
-                .Get(profile.DeviceId, fromWindow.Start, toWindow.End));
+            () => energyService.Get(deviceId, rangeStart, rangeEnd));
+        var aggregation = MeasureDataCall("Data.Analysis.Aggregation",
+            () => aggregationService.Get(
+                deviceId, rangeStart, rangeEnd, timeZone, period));
+        var behavior = MeasureDataCall("Data.Analysis.HouseholdStats",
+            () => behaviorService.Get(deviceId, rangeStart, rangeEnd));
+        var thresholds = MeasureDataCall("Data.Analysis.ChartThresholds",
+            () => thresholdService.Get(deviceId));
+        return new AnalysisReadResult(
+            energySummary, aggregation, behavior, thresholds);
+    }
 
-        RefreshAnalysisEnergySummary(energySummary);
-        RefreshAnalysisAggregationTable(
-            profile.DeviceId,
-            fromWindow.Start,
-            toWindow.End,
-            timeZone);
+    private async Task LoadAnalysisViewAsync()
+    {
+        _analysisDataLoading = true;
+        try
+        {
+            while (!_windowClosed && AnalysisContent.Visibility == Visibility.Visible)
+            {
+                var requestedGeneration = _analysisRefreshGeneration;
+                var initializeRange = _analysisRangeInitializationPending;
+                _analysisRangeInitializationPending = false;
 
-        var statistics = MeasureDataCall("Data.Analysis.HouseholdStats",
-            () => _services.GetRequiredService<HouseholdBehaviorStatisticsService>()
-                .Get(profile.DeviceId, fromWindow.Start, toWindow.End));
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        ResetAnalysisView();
+                        return;
+                    }
 
+                    var history = _services.GetRequiredService<HistoryRepository>();
+                    var coverage = await Task.Run(() => MeasureDataCall(
+                        "Data.Analysis.Coverage",
+                        () => history.GetCoverageSummary(profile.DeviceId)));
+
+                    if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
+                        return;
+
+                    if (requestedGeneration != _analysisRefreshGeneration)
+                    {
+                        if (initializeRange)
+                            _analysisRangeInitializationPending = true;
+                        continue;
+                    }
+
+                    var currentDeviceId = _profiles.Get()?.DeviceId;
+                    if (!string.Equals(currentDeviceId, profile.DeviceId, StringComparison.Ordinal))
+                    {
+                        _analysisRefreshGeneration++;
+                        if (initializeRange)
+                            _analysisRangeInitializationPending = true;
+                        continue;
+                    }
+
+                    if (!coverage.FirstSampleAtUtc.HasValue ||
+                        !coverage.LastSampleAtUtc.HasValue)
+                    {
+                        ResetAnalysisView();
+                        AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
+                        return;
+                    }
+
+                    var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                        ? "America/Santiago"
+                        : profile.StationTimeZone;
+
+                    var firstLocalDate = SolarApiTime.GetLocalDate(
+                        coverage.FirstSampleAtUtc.Value, timeZone);
+                    var lastLocalDate = SolarApiTime.GetLocalDate(
+                        coverage.LastSampleAtUtc.Value, timeZone);
+
+                    // DatePicker changes are initiated here (not by user
+                    // selection); never interpret them as a custom-range edit.
+                    _suppressAnalysisRangeSelection = true;
+                    try
+                    {
+                        if (initializeRange)
+                        {
+                            AnalysisRangePresetSelector.SelectedValue = "all";
+                            AnalysisFromDatePicker.SelectedDate =
+                                firstLocalDate.ToDateTime(TimeOnly.MinValue);
+                            AnalysisToDatePicker.SelectedDate =
+                                lastLocalDate.ToDateTime(TimeOnly.MinValue);
+                        }
+                        else
+                        {
+                            if (!AnalysisFromDatePicker.SelectedDate.HasValue)
+                                AnalysisFromDatePicker.SelectedDate =
+                                    firstLocalDate.ToDateTime(TimeOnly.MinValue);
+                            if (!AnalysisToDatePicker.SelectedDate.HasValue)
+                                AnalysisToDatePicker.SelectedDate =
+                                    lastLocalDate.ToDateTime(TimeOnly.MinValue);
+                        }
+                    }
+                    finally
+                    {
+                        _suppressAnalysisRangeSelection = false;
+                    }
+
+                    var fromDate = DateOnly.FromDateTime(
+                        AnalysisFromDatePicker.SelectedDate ??
+                        firstLocalDate.ToDateTime(TimeOnly.MinValue));
+                    var toDate = DateOnly.FromDateTime(
+                        AnalysisToDatePicker.SelectedDate ??
+                        lastLocalDate.ToDateTime(TimeOnly.MinValue));
+
+                    if (fromDate > toDate)
+                    {
+                        (fromDate, toDate) = (toDate, fromDate);
+                        _suppressAnalysisRangeSelection = true;
+                        try
+                        {
+                            AnalysisFromDatePicker.SelectedDate =
+                                fromDate.ToDateTime(TimeOnly.MinValue);
+                            AnalysisToDatePicker.SelectedDate =
+                                toDate.ToDateTime(TimeOnly.MinValue);
+                        }
+                        finally
+                        {
+                            _suppressAnalysisRangeSelection = false;
+                        }
+                    }
+
+                    var fromWindow = SolarApiTime.GetLocalDayWindow(fromDate, timeZone);
+                    var toWindow = SolarApiTime.GetLocalDayWindow(toDate, timeZone);
+                    var period = GetSelectedAggregationPeriod();
+
+                    // Resolve services on Dispatcher, then pass only plain
+                    // value types and non-WPF services to the worker.
+                    var energyService = _services.GetRequiredService<EnergyRangeStatisticsService>();
+                    var aggregationService = _services.GetRequiredService<EnergyAggregationTableService>();
+                    var behaviorService = _services.GetRequiredService<HouseholdBehaviorStatisticsService>();
+                    var thresholdsService = _services.GetRequiredService<BatteryThresholdContextService>();
+
+                    AnalysisStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "Calculando análisis..."
+                        : "Calculating analysis...";
+
+                    var result = await Task.Run(() => ReadAnalysisData(
+                        profile.DeviceId, fromWindow.Start, toWindow.End,
+                        timeZone, period, energyService,
+                        aggregationService, behaviorService, thresholdsService));
+
+                    if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
+                        return;
+                    if (requestedGeneration != _analysisRefreshGeneration)
+                        continue;
+
+                    currentDeviceId = _profiles.Get()?.DeviceId;
+                    if (!string.Equals(currentDeviceId, profile.DeviceId, StringComparison.Ordinal))
+                        _analysisRefreshGeneration++;
+
+                    if (!AnalysisRefreshPolicy.CanApply(
+                        requestedGeneration, _analysisRefreshGeneration,
+                        AnalysisContent.Visibility == Visibility.Visible,
+                        _windowClosed, profile.DeviceId, currentDeviceId))
+                        continue;
+
+                    using var measure = _performance.Measure("UI.Analysis.Refresh");
+                    RefreshAnalysisEnergySummary(result.EnergySummary);
+                    RenderAnalysisAggregationTable(result.Aggregation, result.Thresholds);
+                    RenderAnalysisBehavior(result.Behavior);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (requestedGeneration != _analysisRefreshGeneration)
+                        continue;
+                    if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
+                        return;
+
+                    ResetAnalysisView();
+                    AnalysisStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible actualizar el análisis."
+                        : "Analysis could not be refreshed.";
+                    Debug.WriteLine(
+                        $"Analysis read failed ({ex.GetType().Name}); stale values hidden.");
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _analysisDataLoading = false;
+        }
+    }
+
+    private void RenderAnalysisBehavior(HouseholdBehaviorStatistics statistics)
+    {
         if (statistics.SampleCount < 2)
         {
             ResetAnalysisValues();
@@ -1273,24 +1409,15 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private void RefreshAnalysisAggregationTable(
-        string deviceId,
-        DateTimeOffset rangeStart,
-        DateTimeOffset rangeEnd,
-        string timeZoneId)
+    private void RenderAnalysisAggregationTable(
+        EnergyAggregationTable table, BatteryThresholdContext thresholds)
     {
-        var period = GetSelectedAggregationPeriod();
-
-        var table = MeasureDataCall("Data.Analysis.Aggregation",
-            () => _services.GetRequiredService<EnergyAggregationTableService>()
-                .Get(deviceId, rangeStart, rangeEnd, timeZoneId, period));
-
-        // ScottPlot and bound WPF UI controls stay on the Dispatcher.
-        using var render = _performance.Measure("UI.Analysis.ChartSetup");
+        // ScottPlot and WPF ItemsSource are constructed only on Dispatcher.
+        using var measure = _performance.Measure("UI.Analysis.ChartSetup");
         _analysisAggregationRows = table.Rows;
         AnalysisAggregationGrid.ItemsSource = table.Rows;
         RefreshAnalysisEnergyChart(table.Rows);
-        RefreshAnalysisBatteryChart(table.Rows);
+        RefreshAnalysisBatteryChart(table.Rows, thresholds);
     }
 
     private void AnalysisEnergyPlot_MouseMove(
@@ -1516,7 +1643,8 @@ public partial class MainWindow : Window
     }
 
     private void RefreshAnalysisBatteryChart(
-        IReadOnlyList<EnergyAggregationRow> rows)
+        IReadOnlyList<EnergyAggregationRow> rows,
+        BatteryThresholdContext thresholds)
     {
         var plot = AnalysisBatteryPlot.Plot;
         plot.Clear();
@@ -1541,10 +1669,6 @@ public partial class MainWindow : Window
 
         AddBatterySeriesSegments(plot, rows, row => row.SocAveragePercent, _localization.GetString("Analysis.BatteryChart.Average"));
         AddBatterySeriesSegments(plot, rows, row => row.SocEndingPercent, _localization.GetString("Analysis.BatteryChart.End"));
-
-        var thresholds = MeasureDataCall("Data.Analysis.ChartThresholds",
-            () => _services.GetRequiredService<BatteryThresholdContextService>()
-                .Get(_profiles.Get()?.DeviceId ?? string.Empty));
 
         var floor = plot.Add.HorizontalLine(
             thresholds.EmergencyFloorSocPercent);
@@ -1919,6 +2043,8 @@ public partial class MainWindow : Window
         var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
 
         _dashboardVisible = isDashboard;
+        if (!isAnalysis)
+            _analysisRefreshGeneration++; // Invalidate pending Analysis work.
         if (!isBattery) _batteryRefreshGeneration++;
         if (!isDashboard)
             _dashboardRefreshGeneration++; // Discard in-flight Dashboard results.
@@ -7390,6 +7516,7 @@ public partial class MainWindow : Window
         _windowClosed = true;
         _dashboardRefreshGeneration++;
         _batteryRefreshGeneration++;
+        _analysisRefreshGeneration++;
         _dashboardLiveTimer.Stop();
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
