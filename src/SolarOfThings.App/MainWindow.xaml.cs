@@ -1640,6 +1640,7 @@ public partial class MainWindow : Window
             GridUtilityNav,
             ReportsNav,
             DataNav,
+            BackupNav,
             DiagnosticsNav,
             HelpNav,
             SettingsNav,
@@ -1674,6 +1675,7 @@ public partial class MainWindow : Window
         var isGridUtility = string.Equals(pageKey, "GridUtility", StringComparison.Ordinal);
         var isReports = string.Equals(pageKey, "Reports", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
+        var isBackup = string.Equals(pageKey, "Backup", StringComparison.Ordinal);
         var isHelp = string.Equals(pageKey, "Help", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
         var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
@@ -1696,6 +1698,7 @@ public partial class MainWindow : Window
         GridUtilityContent.Visibility = isGridUtility ? Visibility.Visible : Visibility.Collapsed;
         ReportsContent.Visibility = isReports ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
+        BackupContent.Visibility = isBackup ? Visibility.Visible : Visibility.Collapsed;
         HelpContent.Visibility = isHelp ? Visibility.Visible : Visibility.Collapsed;
         SettingsContent.Visibility = isSettings ? Visibility.Visible : Visibility.Collapsed;
         AboutContent.Visibility = isAbout ? Visibility.Visible : Visibility.Collapsed;
@@ -1706,6 +1709,7 @@ public partial class MainWindow : Window
             !isGridUtility &&
             !isReports &&
             !isData &&
+            !isBackup &&
             !isHelp &&
             !isSettings &&
             !isAbout
@@ -1731,6 +1735,10 @@ public partial class MainWindow : Window
         else if (isData)
         {
             RefreshDataCoverageView();
+        }
+        else if (isBackup)
+        {
+            _ = RefreshBackupInventoryAsync();
         }
         else if (isHelp || isAbout)
         {
@@ -7090,6 +7098,154 @@ public partial class MainWindow : Window
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
+    }
+
+    private bool _backupInventoryBusy;
+
+    private string? ConfiguredSecondaryBackupFolder() =>
+        _services.GetRequiredService<AppSettingsRepository>().Get(BackupSecondaryPathKey);
+
+    private void SetBackupInventoryBusy(bool busy)
+    {
+        _backupInventoryBusy = busy;
+        BackupInventoryProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        BackupRefreshButton.IsEnabled = !busy;
+        BackupVerifyButton.IsEnabled = !busy;
+        BackupDeleteButton.IsEnabled = !busy;
+    }
+
+    private async Task RefreshBackupInventoryAsync()
+    {
+        if (_backupInventoryBusy)
+            return;
+        SetBackupInventoryBusy(true);
+        try
+        {
+            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            var snapshot = await Task.Run(() => service.List(ConfiguredSecondaryBackupFolder()));
+            BackupInventoryGrid.ItemsSource = snapshot.Copies;
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            BackupInventoryStatusText.Text = (spanish
+                    ? "Copias reconocidas: " : "Recognized copies: ") +
+                snapshot.Copies.Count +
+                (string.IsNullOrEmpty(snapshot.SecondaryWarning)
+                    ? string.Empty
+                    : (spanish ? ". AVISO: " : ". WARNING: ") + snapshot.SecondaryWarning);
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = "Error: " + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+    }
+
+    private async void BackupPageRefresh_Click(object sender, RoutedEventArgs e) =>
+        await RefreshBackupInventoryAsync();
+
+    private async void BackupPageCreate_Click(object sender, RoutedEventArgs e)
+    {
+        await CreateCompleteBackupAsync();
+        await RefreshBackupInventoryAsync();
+    }
+
+    private void BackupPageSettings_Click(object sender, RoutedEventArgs e) =>
+        ShowPage("Settings");
+
+    private void BackupPageOpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = _paths.BackupDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = ex.Message;
+        }
+    }
+
+    private async void BackupPageVerify_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen)
+            return;
+        SetBackupInventoryBusy(true);
+        try
+        {
+            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            var result = await Task.Run(() => service.Verify(chosen, ConfiguredSecondaryBackupFolder()));
+            var rows = (BackupInventoryGrid.ItemsSource as IEnumerable<PhysicalBackupCopy>)?.ToList()
+                ?? [];
+            var updated = chosen with { VerificationStatus = "PASS" };
+            var index = rows.FindIndex(r => r.Path == chosen.Path);
+            if (index >= 0)
+            {
+                rows[index] = updated;
+                BackupInventoryGrid.ItemsSource = rows;
+                BackupInventoryGrid.SelectedItem = updated;
+            }
+            BackupInventoryStatusText.Text = "PASS — " + result.Path +
+                " · SHA-256 " + result.Sha256 +
+                " · schema " + result.SchemaVersion +
+                " · files " + result.FileCount;
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = "Verification FAILED: " + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+    }
+
+    private async void BackupPageDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen)
+            return;
+        if (chosen.Kind != "COMPLETE")
+        {
+            BackupInventoryStatusText.Text =
+                "Los respaldos antiguos SQLite no pueden eliminarse desde el administrador de copias completas.";
+            return;
+        }
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        var warning = spanish
+            ? "Eliminar ÚNICAMENTE esta copia física?\n\n" + chosen.Path +
+              "\n\nLas otras ubicaciones no se modificarán. Se verificará que exista " +
+              "otra copia completa disponible antes de permitirlo."
+            : "Delete ONLY this physical copy?\n\n" + chosen.Path +
+              "\n\nNo other destination will be changed. Another available " +
+              "complete backup must pass verification before deletion.";
+        if (MessageBox.Show(warning, spanish ? "Confirmar eliminación" : "Confirm deletion",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        SetBackupInventoryBusy(true);
+        try
+        {
+            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            await Task.Run(() => service.DeleteOne(chosen, ConfiguredSecondaryBackupFolder()));
+            BackupInventoryStatusText.Text = (spanish
+                ? "Se eliminó únicamente la copia seleccionada: "
+                : "Only the selected copy was deleted: ") + chosen.Path;
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = (spanish
+                ? "No se eliminó ninguna copia: " : "No copy was deleted: ") + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+        await RefreshBackupInventoryAsync();
     }
 
     private const string BackupSecondaryPathKey = "backup.complete-secondary-dir";
