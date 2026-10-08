@@ -142,6 +142,16 @@ try
             4, 4, true, false, "A", "A", true, true))
         throw new InvalidOperationException("Battery navigation refresh guard regressed.");
 
+    // Diagnostics ranks observed p95 rather than alphabetical labels.
+    var rankSample = new UiPerformanceRecorder();
+    rankSample.Record("UI.Analysis.Refresh", TimeSpan.FromMilliseconds(5));
+    rankSample.Record("UI.Dashboard.Refresh", TimeSpan.FromMilliseconds(30));
+    rankSample.Record("UI.Battery.Refresh", TimeSpan.FromMilliseconds(30));
+    var rankNames = rankSample.Summaries().Select(x => x.Operation).ToArray();
+    if (!rankNames.SequenceEqual(new[]
+        { "UI.Battery.Refresh", "UI.Dashboard.Refresh", "UI.Analysis.Refresh" }))
+        throw new InvalidOperationException("Diagnostics p95 ordering regressed.");
+
     // Responsive breakpoint regression: same band must preserve layout
     // definitions even as the WPF window changes width by a pixel.
     foreach (var (width, columns) in new (double, int)[]
