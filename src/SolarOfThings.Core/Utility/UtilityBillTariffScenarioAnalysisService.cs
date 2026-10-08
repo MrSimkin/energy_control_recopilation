@@ -600,16 +600,17 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
     {
         var first = periods[0];
+        // FIXED_MONTHLY rows have no RED/ETR identity: their parser-local
+        // CandidateIndex does not identify the electricity candidate.
         var fixedSeeds = candidateCache[
                 first.Publication.PublicationId]
             .Where(item =>
                 item.TariffPlan.Equals(
                     "BT1",
                     StringComparison.OrdinalIgnoreCase) &&
-                item.ComponentKey ==
-                    "FIXED_MONTHLY" &&
-                item.CandidateIndex ==
-                    electricity.CandidateIndex)
+                item.ComponentKey == "FIXED_MONTHLY" &&
+                item.NetworkType is null &&
+                item.EtrBand is null)
             .ToArray();
 
         var attempts =
@@ -755,27 +756,53 @@ public sealed class UtilityBillTariffScenarioAnalysisService
 
         foreach (var period in periods)
         {
-            var candidate =
-                FindSameCandidate(
-                    period.Publication.PublicationId,
-                    "FIXED_MONTHLY",
-                    seed,
-                    candidateCache);
+            // Do not match global BT1 fixed charges across PDFs by the
+            // parser-local CandidateIndex. Require that all published
+            // candidates for this component/column independently agree on
+            // one whole-peso amount before attributing it to this bill.
+            var published = candidateCache[
+                    period.Publication.PublicationId]
+                .Where(item =>
+                    item.TariffPlan.Equals(
+                        "BT1",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    item.ComponentKey == "FIXED_MONTHLY" &&
+                    item.NetworkType is null &&
+                    item.EtrBand is null)
+                .Select(item =>
+                {
+                    var valid = TryRate(
+                        item,
+                        column,
+                        out var candidateRate,
+                        allowZeroIva: true);
+                    return new
+                    {
+                        Candidate = item,
+                        Valid = valid && candidateRate > 0 &&
+                            double.IsFinite(candidateRate),
+                        Rate = candidateRate
+                    };
+                })
+                .Where(item => item.Valid)
+                .ToArray();
 
-            if (candidate is null ||
-                !TryRate(
-                    candidate,
-                    column,
-                    out var rate,
-                    allowZeroIva: true))
+            if (published.Length == 0 ||
+                published
+                    .Select(item => Math.Round(
+                        item.Rate,
+                        0,
+                        MidpointRounding.AwayFromZero))
+                    .Distinct()
+                    .Count() != 1)
             {
                 return null;
             }
 
-            rates.Add(rate);
-            representative = candidate;
-            representativePublication =
-                period.Publication;
+            var selected = published[0];
+            rates.Add(selected.Rate);
+            representative = selected.Candidate;
+            representativePublication = period.Publication;
         }
 
         var rounded =
