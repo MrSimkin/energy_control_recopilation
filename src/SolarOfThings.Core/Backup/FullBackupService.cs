@@ -85,6 +85,9 @@ public sealed class FullBackupService
                 AddFile(archive, dbCopy, "database/energy.db", files);
                 AddDirectory(archive, _paths.TariffDirectory, "documents/Tariffs/", files);
                 AddDirectory(archive, _paths.UtilityBillDirectory, "documents/Bills/", files);
+                // A healthy ZIP with missing original documents is NOT a
+                // complete recovery package. Validate DB references now.
+                ValidateReferencedDocuments(dbCopy, files);
 
                 // Portable app settings and report presets already live inside SQLite.
                 // DPAPI secrets, logs and backup folders intentionally remain excluded.
@@ -277,38 +280,177 @@ public sealed class FullBackupService
             Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant()));
     }
 
+    private void ValidateReferencedDocuments(string databaseCopy,
+        IReadOnlyList<CompleteBackupEntry> archived)
+    {
+        var byPath = archived.ToDictionary(
+            item => item.RelativePath, StringComparer.OrdinalIgnoreCase);
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = databaseCopy,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString());
+        connection.Open();
+        foreach (var (table, parent, archivePrefix) in new[]
+        {
+            ("utility_bill_document", _paths.UtilityBillDirectory, "documents/Bills/"),
+            ("tariff_publication", _paths.TariffDirectory, "documents/Tariffs/")
+        })
+        {
+            using var sql = connection.CreateCommand();
+            sql.CommandText = $"""
+                SELECT local_pdf_path, content_sha256
+                  FROM {table}
+                 WHERE local_pdf_path IS NOT NULL AND TRIM(local_pdf_path) <> '';
+                """;
+            using var rows = sql.ExecuteReader();
+            while (rows.Read())
+            {
+                var raw = rows.GetString(0);
+                var sha = rows.IsDBNull(1) ? null : rows.GetString(1);
+                if (!Path.IsPathFullyQualified(raw))
+                    throw new InvalidDataException("Database reference is not an absolute document path.");
+                var relative = Path.GetRelativePath(Path.GetFullPath(parent),
+                    Path.GetFullPath(raw)).Replace('\\', '/');
+                if (relative == "." || relative == ".." ||
+                    relative.StartsWith("../", StringComparison.Ordinal) ||
+                    relative.Contains("/../", StringComparison.Ordinal))
+                    throw new InvalidDataException(
+                        "A referenced source document lives outside its managed folder.");
+                if (!byPath.TryGetValue(archivePrefix + relative, out var included))
+                    throw new InvalidDataException(
+                        "Missing referenced original document in complete package: " +
+                        archivePrefix + relative);
+                if (!string.IsNullOrWhiteSpace(sha) &&
+                    !string.Equals(included.Sha256, sha, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException(
+                        "Referenced document checksum does not match stored original.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates package structure, all file digests AND actual SQLite
+    /// schema/integrity in a disposable temporary database. Does not restore
+    /// or modify the user's active database or source ZIP.
+    /// </summary>
     public static CompleteBackupManifest VerifyArchive(string path)
     {
-        using var zip = ZipFile.OpenRead(path);
-        var manifestEntry = zip.GetEntry("manifest.json")
-            ?? throw new InvalidDataException("Missing backup manifest.");
-        CompleteBackupManifest manifest;
-        using (var stream = manifestEntry.Open())
-            manifest = JsonSerializer.Deserialize<CompleteBackupManifest>(stream)
-                ?? throw new InvalidDataException("Unreadable backup manifest.");
-        if (manifest.FormatVersion != 1 || manifest.SchemaVersion <= 0 ||
-            manifest.Files.Count == 0 || manifest.Files.Count > 100_000)
-            throw new InvalidDataException("Unsupported or incomplete package metadata.");
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var item in manifest.Files)
+        var disposable = Path.Combine(Path.GetTempPath(),
+            "SolarEnergyMonitor-verify-" + Guid.NewGuid().ToString("N") + ".db");
+        try
         {
-            if (!names.Add(item.RelativePath) ||
-                item.RelativePath.StartsWith("/", StringComparison.Ordinal) ||
-                item.RelativePath.Contains("..", StringComparison.Ordinal) ||
-                item.Size < 0)
-                throw new InvalidDataException("Invalid package file inventory.");
-            var entry = zip.GetEntry(item.RelativePath)
-                ?? throw new InvalidDataException("Missing file: " + item.RelativePath);
-            if (entry.Length != item.Size)
-                throw new InvalidDataException("File size mismatch: " + item.RelativePath);
-            using var entryStream = entry.Open();
-            var actual = Convert.ToHexString(SHA256.HashData(entryStream)).ToLowerInvariant();
-            if (!string.Equals(actual, item.Sha256, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("File checksum mismatch: " + item.RelativePath);
+            using var zip = ZipFile.OpenRead(path);
+            var manifestEntry = zip.GetEntry("manifest.json")
+                ?? throw new InvalidDataException("Missing backup manifest.");
+            if (manifestEntry.Length > 16 * 1024 * 1024)
+                throw new InvalidDataException("Unreasonably large backup manifest.");
+            CompleteBackupManifest manifest;
+            using (var stream = manifestEntry.Open())
+                manifest = JsonSerializer.Deserialize<CompleteBackupManifest>(stream)
+                    ?? throw new InvalidDataException("Unreadable backup manifest.");
+            if (manifest.FormatVersion != 1 || manifest.SchemaVersion <= 0 ||
+                manifest.SchemaVersion > SqliteDatabase.CurrentSchemaVersion ||
+                manifest.Files is null || manifest.Files.Count is < 1 or > 100_000 ||
+                string.IsNullOrWhiteSpace(manifest.AppVersion) ||
+                string.IsNullOrWhiteSpace(manifest.BuildNumber) ||
+                string.IsNullOrWhiteSpace(manifest.SourceRevision))
+                throw new InvalidDataException("Unsupported or incomplete backup metadata.");
+
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in zip.Entries)
+            {
+                if (!names.Add(entry.FullName) ||
+                    !IsSafeZipPath(entry.FullName))
+                    throw new InvalidDataException("Unsafe or duplicate ZIP entry.");
+            }
+            if (names.Count != manifest.Files.Count + 1 ||
+                !names.Contains("manifest.json"))
+                throw new InvalidDataException("Incomplete or extra ZIP content.");
+            var inventoried = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var item in manifest.Files)
+            {
+                if (item is null || !IsSafeZipPath(item.RelativePath) ||
+                    !inventoried.Add(item.RelativePath) || item.Size < 0 ||
+                    item.Sha256.Length != 64 ||
+                    !item.Sha256.All(Uri.IsHexDigit))
+                    throw new InvalidDataException("Unsafe or invalid backup inventory.");
+                var entry = zip.GetEntry(item.RelativePath)
+                    ?? throw new InvalidDataException("Missing file in package.");
+                if (entry.Length != item.Size)
+                    throw new InvalidDataException("Backup file size mismatch.");
+                using var bytes = entry.Open();
+                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                var buffer = new byte[1024 * 1024];
+                var isDatabase = item.RelativePath == "database/energy.db";
+                FileStream? destination = isDatabase
+                    ? new FileStream(disposable, FileMode.CreateNew,
+                        FileAccess.Write, FileShare.None)
+                    : null;
+                try
+                {
+                    long total = 0;
+                    int read;
+                    while ((read = bytes.Read(buffer, 0, buffer.Length)) != 0)
+                    {
+                        checked { total += read; }
+                        if (total > item.Size)
+                            throw new InvalidDataException("ZIP entry exceeds its manifest size.");
+                        hash.AppendData(buffer, 0, read);
+                        destination?.Write(buffer, 0, read);
+                    }
+                    if (total != item.Size ||
+                        !string.Equals(Convert.ToHexString(hash.GetHashAndReset()),
+                            item.Sha256, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException("Package checksum verification failed.");
+                }
+                finally
+                {
+                    destination?.Dispose();
+                }
+            }
+            if (!inventoried.Contains("database/energy.db") ||
+                !File.Exists(disposable))
+                throw new InvalidDataException("Package lacks SQLite snapshot.");
+
+            using var verified = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = disposable, Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false
+            }.ToString());
+            verified.Open();
+            using var command = verified.CreateCommand();
+            command.CommandText = "PRAGMA integrity_check;";
+            if (!string.Equals(Convert.ToString(command.ExecuteScalar()), "ok",
+                    StringComparison.Ordinal))
+                throw new InvalidDataException("Embedded SQLite integrity_check failed.");
+            command.CommandText = "PRAGMA foreign_key_check;";
+            using (var fk = command.ExecuteReader())
+                if (fk.Read())
+                    throw new InvalidDataException("Embedded SQLite foreign key check failed.");
+            command.CommandText = "SELECT COALESCE(MAX(version),0) FROM schema_migration;";
+            if (Convert.ToInt32(command.ExecuteScalar()) != manifest.SchemaVersion)
+                throw new InvalidDataException("SQLite schema differs from package manifest.");
+            return manifest;
         }
-        if (!names.Contains("database/energy.db") || zip.Entries.Count != names.Count + 1)
-            throw new InvalidDataException("Invalid or incomplete backup archive.");
-        return manifest;
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(disposable))
+                TryRemoveFile(disposable);
+        }
+    }
+
+    private static bool IsSafeZipPath(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Contains('\\') ||
+            name.StartsWith("/", StringComparison.Ordinal) ||
+            name.EndsWith("/", StringComparison.Ordinal) ||
+            name.Contains(':') || name.Contains('\0'))
+            return false;
+        return name.Split('/').All(segment => segment.Length > 0 &&
+            segment != "." && segment != "..");
     }
 
     private static string HashFile(string file)
