@@ -82,6 +82,16 @@ try
     if (!invalidDispatcherPeriodRejected)
         throw new InvalidOperationException("Dispatcher lateness policy accepted zero interval.");
 
+    // An old background read can complete after navigation or a new data
+    // request. It must never be rendered over a newer device/page result.
+    if (!DashboardRefreshPolicy.CanApply(10, 10, true, false, "A", "A") ||
+        DashboardRefreshPolicy.CanApply(9, 10, true, false, "A", "A") ||
+        DashboardRefreshPolicy.CanApply(10, 10, false, false, "A", "A") ||
+        DashboardRefreshPolicy.CanApply(10, 10, true, true, "A", "A") ||
+        DashboardRefreshPolicy.CanApply(10, 10, true, false, "A", "B") ||
+        DashboardRefreshPolicy.CanApply(10, 10, true, false, "A", null))
+        throw new InvalidOperationException("Dashboard stale-result policy regressed.");
+
     // Responsive breakpoint regression: same band must preserve layout
     // definitions even as the WPF window changes width by a pixel.
     foreach (var (width, columns) in new (double, int)[]

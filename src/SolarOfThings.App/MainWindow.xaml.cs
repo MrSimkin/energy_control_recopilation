@@ -59,6 +59,9 @@ public partial class MainWindow : Window
     private long? _editingUtilityBillId;
     private long? _editingUtilityBillLineId;
     private bool _dashboardVisible;
+    private int _dashboardRefreshGeneration;
+    private bool _dashboardDataLoading;
+    private bool _dashboardWindowClosed;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
     private bool _suppressReportRangeSelection;
@@ -341,38 +344,144 @@ public partial class MainWindow : Window
         return call();
     }
 
+    // Queue the latest Dashboard request without waiting on SQLite from the
+    // Dispatcher. A single background reader coalesces rapidly repeated requests
+    // (initialization, navigation, language switches and sync completion).
     private void RefreshDashboardMetrics()
     {
-        using var measure = _performance.Measure("UI.Dashboard.Refresh");
-        var profile = _profiles.Get();
-        if (profile is null)
-        {
-            ResetDashboardMetrics();
+        _dashboardRefreshGeneration++;
+        if (!_dashboardVisible || _dashboardWindowClosed ||
+            _dashboardDataLoading)
             return;
-        }
 
-        var repository = _services.GetRequiredService<NormalizationRepository>();
-        var storedMetrics = MeasureDataCall(
+        _ = LoadDashboardMetricsAsync();
+    }
+
+    private sealed record DashboardReadResult(
+        IReadOnlyDictionary<string, NormalizedMetricValue> StoredMetrics,
+        CurrentHouseholdSnapshot? CurrentSnapshot,
+        DateOnly? LatestSavedDate,
+        EnergyRangeSummary? LatestSavedEnergy);
+
+    private DashboardReadResult ReadDashboardData(
+        string deviceId,
+        string? stationTimeZone,
+        NormalizationRepository repository,
+        CurrentHouseholdSnapshotService currentRepository,
+        HistoryRepository history,
+        EnergyRangeStatisticsService statistics)
+    {
+        using var measure = _performance.Measure("Data.Dashboard.BackgroundFetch");
+        // Each repository opens its own short-lived SQLite connection. No
+        // WPF control, DependencyObject or Dispatcher is accessed on this thread.
+        var stored = MeasureDataCall(
             "Data.Dashboard.LatestMetrics",
-            () => repository.GetLatestMetrics(profile.DeviceId));
-        var current = _services
-            .GetRequiredService<CurrentHouseholdSnapshotService>()
-            .GetLatest(profile.DeviceId);
-        var useCurrentSnapshot =
-            current is { Metrics.Count: > 0 };
-        var metrics = useCurrentSnapshot
-            ? current!.Metrics
-            : storedMetrics;
+            () => repository.GetLatestMetrics(deviceId));
+        var current = currentRepository.GetLatest(deviceId);
+        var coverage = MeasureDataCall(
+            "Data.Dashboard.Coverage",
+            () => history.GetCoverageSummary(deviceId));
+        if (!coverage.LastSampleAtUtc.HasValue)
+            return new DashboardReadResult(stored, current, null, null);
 
-        SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
-        SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
-        SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
-        SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
-        RefreshOperatingState(metrics);
-        RefreshDashboardFreshness(
-            metrics,
-            useCurrentSnapshot ? current : null);
-        RefreshDashboardLatestSavedDay(profile);
+        var timeZone = string.IsNullOrWhiteSpace(stationTimeZone)
+            ? "America/Santiago"
+            : stationTimeZone;
+        var date = SolarApiTime.GetLocalDate(
+            coverage.LastSampleAtUtc.Value, timeZone);
+        var window = SolarApiTime.GetLocalDayWindow(date, timeZone);
+        var summary = MeasureDataCall(
+            "Data.Dashboard.LatestDayEnergy",
+            () => statistics.Get(deviceId, window.Start, window.End));
+        return new DashboardReadResult(stored, current, date, summary);
+    }
+
+    private async Task LoadDashboardMetricsAsync()
+    {
+        _dashboardDataLoading = true;
+        try
+        {
+            while (_dashboardVisible && !_dashboardWindowClosed)
+            {
+                var requestedGeneration = _dashboardRefreshGeneration;
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        ResetDashboardMetrics();
+                        return;
+                    }
+
+                    // Resolve scoped/singleton dependencies on the UI thread;
+                    // the worker receives only concrete services and immutable
+                    // value arguments. It never touches WPF controls.
+                    var normalized = _services.GetRequiredService<NormalizationRepository>();
+                    var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>();
+                    var history = _services.GetRequiredService<HistoryRepository>();
+                    var statistics = _services.GetRequiredService<EnergyRangeStatisticsService>();
+                    var result = await Task.Run(() => ReadDashboardData(
+                        profile.DeviceId, profile.StationTimeZone,
+                        normalized, current, history, statistics));
+
+                    if (_dashboardWindowClosed || !_dashboardVisible)
+                        return;
+                    if (requestedGeneration != _dashboardRefreshGeneration)
+                        continue;
+
+                    var currentDeviceId = _profiles.Get()?.DeviceId;
+                    if (!string.Equals(currentDeviceId, profile.DeviceId,
+                            StringComparison.Ordinal))
+                        _dashboardRefreshGeneration++;
+                    if (!DashboardRefreshPolicy.CanApply(
+                            requestedGeneration, _dashboardRefreshGeneration,
+                            _dashboardVisible, _dashboardWindowClosed,
+                            profile.DeviceId, currentDeviceId))
+                        continue;
+
+                    using var measure = _performance.Measure("UI.Dashboard.Refresh");
+                    var useCurrentSnapshot = result.CurrentSnapshot is
+                        { Metrics.Count: > 0 };
+                    var metrics = useCurrentSnapshot
+                        ? result.CurrentSnapshot!.Metrics
+                        : result.StoredMetrics;
+
+                    SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
+                    SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
+                    SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
+                    SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
+                    RefreshOperatingState(metrics);
+                    RefreshDashboardFreshness(
+                        metrics,
+                        useCurrentSnapshot ? result.CurrentSnapshot : null);
+                    RenderDashboardLatestSavedDay(result);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (requestedGeneration != _dashboardRefreshGeneration)
+                        continue;
+                    if (_dashboardWindowClosed || !_dashboardVisible)
+                        return;
+
+                    // Fail closed: never leave potentially stale energy values
+                    // on-screen when the latest read cannot be completed.
+                    ResetDashboardMetrics();
+                    DashboardFreshnessText.Text =
+                        _localization.CurrentLanguage.StartsWith(
+                            "es", StringComparison.OrdinalIgnoreCase)
+                            ? "No fue posible actualizar los datos del panel."
+                            : "Dashboard data could not be refreshed.";
+                    Debug.WriteLine(
+                        $"Dashboard read failed ({ex.GetType().Name}); values hidden.");
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _dashboardDataLoading = false;
+        }
     }
 
     private void SetPowerMetric(
@@ -448,36 +557,16 @@ public partial class MainWindow : Window
         ResetDashboardLatestSavedDay();
     }
 
-    private void RefreshDashboardLatestSavedDay(
-        CommissioningProfile profile)
+    private void RenderDashboardLatestSavedDay(DashboardReadResult result)
     {
-        var history =
-            _services.GetRequiredService<HistoryRepository>();
-        var coverage = MeasureDataCall(
-            "Data.Dashboard.Coverage",
-            () => history.GetCoverageSummary(profile.DeviceId));
-
-        if (!coverage.LastSampleAtUtc.HasValue)
+        if (!result.LatestSavedDate.HasValue || result.LatestSavedEnergy is null)
         {
             ResetDashboardLatestSavedDay();
             return;
         }
 
-        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
-            ? "America/Santiago"
-            : profile.StationTimeZone;
-
-        var localDate = SolarApiTime.GetLocalDate(
-            coverage.LastSampleAtUtc.Value,
-            timeZone);
-        var window = SolarApiTime.GetLocalDayWindow(
-            localDate,
-            timeZone);
-
-        var summary = MeasureDataCall(
-            "Data.Dashboard.LatestDayEnergy",
-            () => _services.GetRequiredService<EnergyRangeStatisticsService>()
-                .Get(profile.DeviceId, window.Start, window.End));
+        var localDate = result.LatestSavedDate.Value;
+        var summary = result.LatestSavedEnergy;
 
         DashboardLatestDayDateText.Text = string.Format(
             _localization.GetString("Dashboard.LatestDayDate"),
@@ -1749,6 +1838,8 @@ public partial class MainWindow : Window
         var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
 
         _dashboardVisible = isDashboard;
+        if (!isDashboard)
+            _dashboardRefreshGeneration++; // Discard in-flight Dashboard results.
         if (isDashboard)
         {
             ResetDashboardLiveCycle();
@@ -7214,6 +7305,8 @@ public partial class MainWindow : Window
         object? sender,
         EventArgs e)
     {
+        _dashboardWindowClosed = true;
+        _dashboardRefreshGeneration++;
         _dashboardLiveTimer.Stop();
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
