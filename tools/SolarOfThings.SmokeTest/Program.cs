@@ -74,6 +74,25 @@ try
         throw new InvalidOperationException(
             "Layout would be unnecessarily rebuilt within the same breakpoint.");
 
+    // Deterministic nearest-rank p95 sanity: not a machine-speed assertion.
+    var distribution = new UiPerformanceRecorder();
+    for (var ms = 1; ms <= 20; ms++)
+        distribution.Record("Data.Dashboard.LatestDayEnergy", TimeSpan.FromMilliseconds(ms));
+    var measured = distribution.Summaries().Single();
+    if (measured.Samples != 20 ||
+        Math.Abs(measured.MeanMilliseconds - 10.5) > 0.0001 ||
+        Math.Abs(measured.P95Milliseconds - 19) > 0.0001 ||
+        Math.Abs(measured.MaxMilliseconds - 20) > 0.0001)
+        throw new InvalidOperationException("Data/UI timing scope summary regression.");
+    using (distribution.Measure("UI.Dashboard.Refresh"))
+    using (distribution.Measure("Data.Dashboard.Coverage"))
+    {
+        // Nested UI and data timing scopes must retain independent samples.
+    }
+    if (distribution.Summaries().Count != 3 ||
+        distribution.Snapshot().Any(x => x.ElapsedMilliseconds < 0))
+        throw new InvalidOperationException("Nested data/UI timing scopes were lost.");
+
     var paths = new AppPaths(root);
     var database = new SqliteDatabase(paths);
 

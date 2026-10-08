@@ -291,6 +291,14 @@ public partial class MainWindow : Window
         SetGlobalOperation(false, string.Empty);
     }
 
+    // Instrument service retrieval independently from UI rendering. These
+    // observations can include CPU aggregation; they are not pure SQL timings.
+    private T MeasureDataCall<T>(string operation, Func<T> call)
+    {
+        using var measure = _performance.Measure(operation);
+        return call();
+    }
+
     private void RefreshDashboardMetrics()
     {
         using var measure = _performance.Measure("UI.Dashboard.Refresh");
@@ -302,7 +310,9 @@ public partial class MainWindow : Window
         }
 
         var repository = _services.GetRequiredService<NormalizationRepository>();
-        var storedMetrics = repository.GetLatestMetrics(profile.DeviceId);
+        var storedMetrics = MeasureDataCall(
+            "Data.Dashboard.LatestMetrics",
+            () => repository.GetLatestMetrics(profile.DeviceId));
         var current = _services
             .GetRequiredService<CurrentHouseholdSnapshotService>()
             .GetLatest(profile.DeviceId);
@@ -401,8 +411,9 @@ public partial class MainWindow : Window
     {
         var history =
             _services.GetRequiredService<HistoryRepository>();
-        var coverage =
-            history.GetCoverageSummary(profile.DeviceId);
+        var coverage = MeasureDataCall(
+            "Data.Dashboard.Coverage",
+            () => history.GetCoverageSummary(profile.DeviceId));
 
         if (!coverage.LastSampleAtUtc.HasValue)
         {
@@ -421,12 +432,10 @@ public partial class MainWindow : Window
             localDate,
             timeZone);
 
-        var summary =
-            _services.GetRequiredService<EnergyRangeStatisticsService>()
-                .Get(
-                    profile.DeviceId,
-                    window.Start,
-                    window.End);
+        var summary = MeasureDataCall(
+            "Data.Dashboard.LatestDayEnergy",
+            () => _services.GetRequiredService<EnergyRangeStatisticsService>()
+                .Get(profile.DeviceId, window.Start, window.End));
 
         DashboardLatestDayDateText.Text = string.Format(
             _localization.GetString("Dashboard.LatestDayDate"),
@@ -6892,9 +6901,11 @@ public partial class MainWindow : Window
                     await behavior.RebuildAsync(profile.DeviceId);
 
                     EvaluateInstallationHealth(profile);
-                    RefreshDashboardMetrics();
-                    RefreshBatteryView();
-                    RefreshAnalysisView();
+                    // Hidden pages refresh on ShowPage, without redundant queries
+                    // or chart work immediately after a data rebuild.
+                    if (_dashboardVisible) RefreshDashboardMetrics();
+                    if (BatteryContent.Visibility == Visibility.Visible) RefreshBatteryView();
+                    if (AnalysisContent.Visibility == Visibility.Visible) RefreshAnalysisView();
                 }
             }
             catch (Exception normalizationError)
@@ -6978,9 +6989,9 @@ public partial class MainWindow : Window
             SetGlobalOperation(false, string.Empty);
             RefreshCaptureStartOptions();
             RefreshConnectionStatus();
-            RefreshDataCoverageView();
-            RefreshAnalysisView();
-            RefreshReportsView();
+            if (DataContent.Visibility == Visibility.Visible) RefreshDataCoverageView();
+            if (AnalysisContent.Visibility == Visibility.Visible) RefreshAnalysisView();
+            if (ReportsContent.Visibility == Visibility.Visible) RefreshReportsView();
         }
     }
 
@@ -7049,9 +7060,10 @@ public partial class MainWindow : Window
             if (refreshed)
             {
                 EvaluateInstallationHealth(profile);
-                RefreshDashboardMetrics();
-                RefreshBatteryView();
-                RefreshDataCoverageView();
+                // A hidden page is reloaded when visited by ShowPage.
+                if (_dashboardVisible) RefreshDashboardMetrics();
+                if (BatteryContent.Visibility == Visibility.Visible) RefreshBatteryView();
+                if (DataContent.Visibility == Visibility.Visible) RefreshDataCoverageView();
             }
 
             RefreshConnectionStatus();
@@ -8185,7 +8197,9 @@ public partial class MainWindow : Window
         var history = _services.GetRequiredService<HistoryRepository>();
         var normalized = _services.GetRequiredService<NormalizationRepository>();
         var ingestion = _services.GetRequiredService<HistoryIngestionService>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
+        var coverage = MeasureDataCall(
+            "Data.Coverage.Summary",
+            () => history.GetCoverageSummary(profile.DeviceId));
 
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
@@ -8229,11 +8243,14 @@ public partial class MainWindow : Window
         DataUnavailableDaysText.Text = coverage.UnavailableDays.ToString("N0");
         DataSavedReadingsText.Text = coverage.RawSampleCount.ToString("N0");
         DataReadyReadingsText.Text =
-            normalized.GetNormalizedSampleCount(profile.DeviceId).ToString("N0");
+            MeasureDataCall("Data.Coverage.NormalizedCount",
+                () => normalized.GetNormalizedSampleCount(profile.DeviceId)).ToString("N0");
 
         var healthRepository =
             _services.GetRequiredService<InstallationHealthRepository>();
-        var health = healthRepository.GetSummary(profile.DeviceId);
+        var health = MeasureDataCall(
+            "Data.Coverage.Health",
+            () => healthRepository.GetSummary(profile.DeviceId));
 
         if (health is null)
         {
