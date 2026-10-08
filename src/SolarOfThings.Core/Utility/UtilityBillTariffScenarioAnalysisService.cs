@@ -616,22 +616,24 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         var attempts =
             new List<FixedChargeAttempt>();
 
-        foreach (var seed in fixedSeeds)
-        {
-            foreach (var rate in
-                     ConsumerRateValues(seed))
-            {
-                var attempt =
-                    BuildFixedChargeAttempt(
-                        seed,
-                        rate.Column,
-                        periods,
-                        candidateCache,
-                        line.AmountClp);
+        // Evaluate each available official column at most once, rather
+        // than re-scanning thousands of tariff candidates for every fixed
+        // row on every page of a large real publication.
+        var columns = fixedSeeds
+            .SelectMany(item => ConsumerRateValues(item)
+                .Select(rate => rate.Column))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
-                if (attempt is not null)
-                    attempts.Add(attempt);
-            }
+        foreach (var column in columns)
+        {
+            var attempt = BuildFixedChargeAttempt(
+                column,
+                periods,
+                candidateCache,
+                line.AmountClp);
+            if (attempt is not null)
+                attempts.Add(attempt);
         }
 
         if (attempts.Count == 0)
@@ -743,7 +745,6 @@ public sealed class UtilityBillTariffScenarioAnalysisService
 
     private FixedChargeAttempt?
         BuildFixedChargeAttempt(
-            TariffRateCandidate seed,
             string column,
             IReadOnlyList<PublicationPeriod> periods,
             IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache,
