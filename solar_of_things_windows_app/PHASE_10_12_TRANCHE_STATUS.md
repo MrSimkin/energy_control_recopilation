@@ -186,3 +186,11 @@ its Windows visual output has not yet been checked by the owner. Phases
 The owner has approved the direction of ongoing UI/UX evolution, performance/refactoring, an integrated **and** externally accessible SQL workflow, and further backup-development work. The owner also postponed Build-685 manual visual QA and is not ready for v1.0; additional Enel-report data are expected on 2026-10-12. **No next-tranche code, schema, backup restore, destructive operation, version bump, merge or new build is authorized merely by this record.**
 
 See [`NEXT_TRANCHE_DECISIONS_2026-10-08.md`](NEXT_TRANCHE_DECISIONS_2026-10-08.md) for confirmed decisions, remaining layperson backup/UI design discussions, and the proposed consolidated QA cadence. Phase 10 Build-684 functional acceptance remains intact; Phases 11 and 12 remain partial.
+
+## v0.11.0 work begun on 2026-10-08 (not yet compiled/QA)
+
+After the owner's explicit choice **B**, the additional Enel evidence expected 2026-10-12 is deferred from the current independent implementation work; return to remaining Enel and closure decisions when the owner provides the source material. The owner authorized starting the approved non-destructive v0.11.0 implementation now while keeping the current PR draft and `main` untouched.
+
+Initial actual code change: bilingual five-group scrollable sidebar navigation and clearer navigation labels in `MainWindow.xaml` + ES/EN string dictionaries; original ten navigation buttons, route identifiers and handlers remain intact. Changes were committed `[skip ci]`, with re-fetched static structure checks only: **no Windows compile, no new downloadable Build, no owner visual QA**. See `NEXT_TRANCHE_DECISIONS_2026-10-08.md` for approved requirements and tracked open work. Existing Phase 11/12 implementation remains partial and cannot be called complete.
+
+Crucial safety gate: existing SQLite-only daily/pre-migration backup code has **not yet been removed**, because doing so before a verified complete-recovery replacement would reduce protection. Never describe full-backup/restore implementation as complete at this point.
