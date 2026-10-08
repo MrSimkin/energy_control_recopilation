@@ -7091,47 +7091,131 @@ public partial class MainWindow : Window
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
     }
 
-    private async void SettingsBackupNow_Click(
-        object sender, RoutedEventArgs e)
-    {
-        if (!SettingsBackupNowButton.IsEnabled)
-            return;
+    private const string BackupReminderNextKey = "backup.complete-reminder-next-utc";
+    private const string BackupLastSuccessKey = "backup.complete-last-success-utc";
+    private bool _creatingCompleteBackup;
 
+    /// <summary>
+    /// Shows a skippable reminder, not a scheduled backup job.
+    /// A first installation with no successful complete backup is prompted
+    /// when its normal window is ready; postponement survives restarts.
+    /// </summary>
+    public async Task ShowWeeklyBackupReminderIfDueAsync()
+    {
+        try
+        {
+            var settings = _services.GetRequiredService<AppSettingsRepository>();
+            var full = _services.GetRequiredService<FullBackupService>();
+            var now = DateTimeOffset.UtcNow;
+
+            var lastSuccessful = settings.Get(BackupLastSuccessKey);
+            var lastCompleteUtc = DateTimeOffset.TryParse(lastSuccessful, out var parsed)
+                ? parsed.ToUniversalTime()
+                : DateTimeOffset.MinValue;
+            if (!full.ListLocal().Any())
+                lastCompleteUtc = DateTimeOffset.MinValue;
+
+            var nextReminder = settings.Get(BackupReminderNextKey);
+            if (DateTimeOffset.TryParse(nextReminder, out var due) && now < due)
+                return;
+            if (lastCompleteUtc > now.AddDays(-7))
+                return;
+
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            var choice = MessageBox.Show(
+                spanish
+                    ? "No hay constancia de un respaldo completo reciente.\n\n" +
+                      "Sí: crear ahora un respaldo completo verificado.\n" +
+                      "No: posponer el recordatorio 24 horas.\n" +
+                      "Cancelar: omitirlo durante esta semana.\n\n" +
+                      "La aplicación no crea respaldos diarios automáticamente."
+                    : "No recent successful complete backup is recorded.\n\n" +
+                      "Yes: create a verified complete backup now.\n" +
+                      "No: remind me again in 24 hours.\n" +
+                      "Cancel: skip this week's reminder.\n\n" +
+                      "No daily backups are created automatically.",
+                spanish ? "Recordatorio semanal de respaldo" : "Weekly backup reminder",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (choice == MessageBoxResult.Yes)
+            {
+                await CreateCompleteBackupAsync();
+            }
+            else if (choice == MessageBoxResult.No)
+            {
+                settings.Set(BackupReminderNextKey, now.AddDays(1).ToString("O"));
+            }
+            else
+            {
+                settings.Set(BackupReminderNextKey, now.AddDays(7).ToString("O"));
+            }
+        }
+        catch (Exception ex)
+        {
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            MessageBox.Show((spanish
+                ? "No se pudo revisar el estado de respaldos: "
+                : "Unable to inspect backup status: ") + ex.Message,
+                spanish ? "Protección de datos" : "Data protection",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async void SettingsBackupNow_Click(object sender, RoutedEventArgs e)
+    {
+        await CreateCompleteBackupAsync();
+    }
+
+    private async Task CreateCompleteBackupAsync()
+    {
+        if (_creatingCompleteBackup)
+            return;
+        _creatingCompleteBackup = true;
         var spanish = _localization.CurrentLanguage.StartsWith(
             "es", StringComparison.OrdinalIgnoreCase);
         SettingsBackupNowButton.IsEnabled = false;
         SettingsBackupProgressBar.Visibility = Visibility.Visible;
         SettingsBackupProgressBar.IsIndeterminate = true;
         SettingsBackupStatusText.Text = spanish
-            ? "Paso 1/2 · Creando copia SQLite consistente..."
-            : "Step 1/2 · Creating consistent SQLite snapshot...";
-
+            ? "Creando paquete completo: SQLite, boletas y tarifas. Puede tardar..."
+            : "Creating complete package: SQLite, bills and tariffs. This may take a while...";
         try
         {
-            var service = _services.GetRequiredService<DatabaseBackupService>();
-            var result = await Task.Run(() =>
-                service.CreateVerifiedBackup("manual"));
-
-            SettingsBackupProgressBar.IsIndeterminate = false;
-            SettingsBackupProgressBar.Value = 100;
+            var service = _services.GetRequiredService<FullBackupService>();
+            var result = await Task.Run(() => service.Create(
+                ProductInfo.ProductVersion, ProductInfo.BuildNumber,
+                ProductInfo.SourceRevision));
+            _services.GetRequiredService<AppSettingsRepository>()
+                .Set(BackupLastSuccessKey, DateTimeOffset.UtcNow.ToString("O"));
+            _services.GetRequiredService<AppSettingsRepository>()
+                .Set(BackupReminderNextKey, DateTimeOffset.UtcNow.AddDays(7).ToString("O"));
             SettingsBackupStatusText.Text = spanish
-                ? $"Paso 2/2 · Respaldo verificado ({result.IntegrityStatus}). " +
-                  $"SHA-256: {result.Sha256}. Guardado en: {result.Path}"
-                : $"Step 2/2 · Verified backup ({result.IntegrityStatus}). " +
-                  $"SHA-256: {result.Sha256}. Saved to: {result.Path}";
-            System.Media.SystemSounds.Asterisk.Play();
+                ? $"Respaldo completo verificado ({result.FileCount} archivos). " +
+                  $"Guardado en {result.Path}"
+                : $"Verified complete backup ({result.FileCount} files). " +
+                  $"Saved to {result.Path}";
+            MessageBox.Show(SettingsBackupStatusText.Text,
+                spanish ? "Respaldo completo creado" : "Complete backup created",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            SettingsBackupProgressBar.IsIndeterminate = false;
-            SettingsBackupProgressBar.Value = 100;
-            SettingsBackupStatusText.Text = spanish
-                ? "Error del respaldo: " + ex.Message
-                : "Backup failed: " + ex.Message;
+            SettingsBackupStatusText.Text = (spanish
+                ? "No se pudo crear el respaldo completo: "
+                : "Unable to create complete backup: ") + ex.Message;
+            MessageBox.Show(SettingsBackupStatusText.Text,
+                spanish ? "Protección de datos" : "Data protection",
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
+            SettingsBackupProgressBar.IsIndeterminate = false;
+            SettingsBackupProgressBar.Value = 100;
             SettingsBackupNowButton.IsEnabled = true;
+            _creatingCompleteBackup = false;
         }
     }
 
