@@ -91,6 +91,9 @@ public partial class MainWindow : Window
         Closed += MainWindow_Closed;
 
         InitializeComponent();
+        // Keep live line/column feedback in sync with the WPF code editor.
+        SqlStatementEditor.TextArea.Caret.PositionChanged += (_, _) =>
+            UpdateSqlExplorerCaretStatus();
 
         AnalysisEnergyPlot.Plot.Axes.Link(
             AnalysisBatteryPlot,
@@ -7166,7 +7169,7 @@ public partial class MainWindow : Window
         SqlStatementEditor.Text = "SELECT * FROM \"" +
             selected.Name.Replace("\"", "\"\"") + "\" LIMIT 200;";
         SqlStatementEditor.Focus();
-        SqlStatementEditor.CaretIndex = SqlStatementEditor.Text.Length;
+        SqlStatementEditor.CaretOffset = SqlStatementEditor.Text.Length;
     }
 
     private async void SqlExplorerExecute_Click(object sender, RoutedEventArgs e) =>
@@ -7292,15 +7295,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SqlExplorerEditorSelectionChanged(object sender, RoutedEventArgs e)
+    private void SqlExplorerEditorTextChanged(object? sender, EventArgs e) =>
+        UpdateSqlExplorerCaretStatus();
+
+    private void UpdateSqlExplorerCaretStatus()
     {
         if (SqlStatementEditor is null || SqlExplorerStatusText is null ||
             _sqlExplorerBusy) return;
-        var line = SqlStatementEditor.GetLineIndexFromCharacterIndex(
-            SqlStatementEditor.CaretIndex);
-        var col = SqlStatementEditor.CaretIndex -
-            SqlStatementEditor.GetCharacterIndexFromLineIndex(Math.Max(0, line));
-        SqlExplorerStatusText.Text = $"Ln {line + 1}, Col {col + 1} — SELECT only";
+        var cursor = SqlStatementEditor.TextArea.Caret;
+        SqlExplorerStatusText.Text =
+            $"Ln {cursor.Line}, Col {cursor.Column} — SELECT only";
     }
 
     private sealed record SqlSchemaOption(string Kind, string Name)
