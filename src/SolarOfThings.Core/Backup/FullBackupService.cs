@@ -184,15 +184,19 @@ public sealed class FullBackupService
             return verified with { Path = destination };
         }
         var temporary = destination + ".inprogress";
+        var ownsTemporary = false;
         try
         {
-            // Include the whole copy phase in cleanup. A disconnected or full
-            // secondary disk may fail mid-stream; leaving an .inprogress file
-            // would block later retries through FileMode.CreateNew.
+            // Clean up only a temp file CREATED by this attempt. A pre-existing
+            // .inprogress path must never be overwritten or deleted.
             using (var input = File.OpenRead(source))
             using (var output = new FileStream(temporary, FileMode.CreateNew,
                        FileAccess.Write, FileShare.None))
+            {
+                ownsTemporary = true;
+                // A disconnected/full destination can fail during CopyTo.
                 input.CopyTo(output);
+            }
 
             if (!string.Equals(HashFile(temporary), verified.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Secondary copy SHA-256 does not match local verified backup.");
@@ -202,7 +206,7 @@ public sealed class FullBackupService
         }
         finally
         {
-            if (File.Exists(temporary))
+            if (ownsTemporary && File.Exists(temporary))
                 TryRemoveFile(temporary);
         }
     }
