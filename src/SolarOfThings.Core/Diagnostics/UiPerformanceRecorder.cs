@@ -44,7 +44,6 @@ public sealed class UiPerformanceRecorder
         // Calculated from at most MaximumSamples points; no long-term profile
         // or implied statistical significance when counts are small.
         return Snapshot().GroupBy(x => x.Operation, StringComparer.Ordinal)
-            .OrderBy(x => x.Key, StringComparer.Ordinal)
             .Select(group =>
             {
                 var ordered = group.Select(x => x.ElapsedMilliseconds)
@@ -52,7 +51,10 @@ public sealed class UiPerformanceRecorder
                 var p95 = ordered[(int)Math.Ceiling(0.95 * ordered.Length) - 1];
                 return new UiPerformanceSummary(group.Key, ordered.Length,
                     ordered.Average(), p95, ordered[^1]);
-            }).ToArray();
+            })
+            .OrderByDescending(x => x.P95Milliseconds)
+            .ThenBy(x => x.Operation, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static void ValidateOperation(string operation)
