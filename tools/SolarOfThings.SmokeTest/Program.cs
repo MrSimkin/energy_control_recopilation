@@ -354,6 +354,25 @@ try
     File.WriteAllText(syntheticBill, "Synthetic bill proof");
     File.WriteAllText(syntheticTariff, "Synthetic tariff proof");
 
+    // A genuine original-document reference in the snapshot. The package
+    // must not be considered complete if its document later disappears.
+    using (var witness = database.OpenConnection())
+    using (var insert = witness.CreateCommand())
+    {
+        insert.CommandText = """
+            INSERT INTO utility_bill_document
+                (provider,original_file_name,local_pdf_path,content_sha256,
+                 content_length,page_count,parser_version,extracted_text,imported_utc)
+            VALUES ('TEST','smoke-original-bill.txt',$path,$sha,
+                    20,1,'synthetic',NULL,'2026-10-08T00:00:00Z');
+            """;
+        insert.Parameters.AddWithValue("$path", syntheticBill);
+        insert.Parameters.AddWithValue("$sha", Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                File.ReadAllBytes(syntheticBill))).ToLowerInvariant());
+        insert.ExecuteNonQuery();
+    }
+
     // Seed stable source identities for the isolated, read-only recovery preview.
     using (var setup = database.OpenConnection())
     using (var insert = setup.CreateCommand())
