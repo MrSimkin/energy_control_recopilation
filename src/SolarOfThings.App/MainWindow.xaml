@@ -2700,6 +2700,18 @@
                                 <TextBlock Text="{DynamicResource Settings.PasswordPrivacy}" FontSize="11" Foreground="#6C757D" Margin="0,12,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
+                        <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Settings.ExportFolderHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Settings.ExportFolderDescription}" FontSize="12" Foreground="#6C757D" Margin="0,5,0,8" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="SettingsExportFolderText" TextWrapping="Wrap" FontSize="13" Foreground="#343A40" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="{DynamicResource Settings.ChooseExportFolder}" Click="SettingsChooseExportFolder_Click" Padding="12,6"/>
+                                    <Button Content="{DynamicResource Settings.ResetExportFolder}" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Click="SettingsResetExportFolder_Click" Padding="12,6" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 
