@@ -179,6 +179,61 @@ try
             "Phase 12 WAL-consistent verified backup smoke test failed.");
     }
 
+    // Complete package with WAL and documents; no access to owner's real DB.
+    var syntheticBill = Path.Combine(paths.UtilityBillDirectory, "smoke-original-bill.txt");
+    var syntheticTariff = Path.Combine(paths.TariffDirectory, "smoke-tariff.txt");
+    File.WriteAllText(syntheticBill, "Synthetic bill proof");
+    File.WriteAllText(syntheticTariff, "Synthetic tariff proof");
+
+    var completeService = new FullBackupService(database, paths);
+    var complete = completeService.Create("0.11.0-test", "synthetic", "smoke");
+    var fullManifest = FullBackupService.VerifyArchive(complete.Path);
+    if (complete.IntegrityStatus != "PASS" ||
+        complete.SchemaVersion != 17 ||
+        fullManifest.SchemaVersion != 17 ||
+        fullManifest.AppVersion != "0.11.0-test" ||
+        !fullManifest.Files.Any(f => f.RelativePath == "database/energy.db") ||
+        !fullManifest.Files.Any(f => f.RelativePath == "documents/Bills/smoke-original-bill.txt") ||
+        !fullManifest.Files.Any(f => f.RelativePath == "documents/Tariffs/smoke-tariff.txt"))
+    {
+        throw new InvalidOperationException("Complete backup package smoke failed.");
+    }
+
+    // The ZIP includes committed WAL records and a structurally readable DB.
+    var smokeExtract = Path.Combine(root, "verify-complete-backup.db");
+    using (var packageZip = System.IO.Compression.ZipFile.OpenRead(complete.Path))
+    {
+        packageZip.GetEntry("database/energy.db")!.ExtractToFile(smokeExtract);
+    }
+    using (var recovered = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = smokeExtract, Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    {
+        recovered.Open();
+        using var query = recovered.CreateCommand();
+        query.CommandText =
+            "SELECT value FROM app_setting WHERE key = 'smoke.wal.snapshot';";
+        if (Convert.ToString(query.ExecuteScalar()) != "committed")
+            throw new InvalidOperationException("Full backup lost committed WAL record.");
+    }
+
+    // A single available complete copy must never be deletable.
+    var blocked = false;
+    try { completeService.DeleteSelectedLocal(complete.Path); }
+    catch (InvalidOperationException) { blocked = true; }
+    if (!blocked || !File.Exists(complete.Path))
+        throw new InvalidOperationException("Last-valid-copy deletion guard failed.");
+
+    // A corrupted package must be rejected; original package is unchanged.
+    var broken = Path.Combine(root, "truncated.zip");
+    File.WriteAllBytes(broken, [1, 2, 3, 4, 5]);
+    var badRejected = false;
+    try { FullBackupService.VerifyArchive(broken); }
+    catch (InvalidDataException) { badRejected = true; }
+    if (!badRejected)
+        throw new InvalidOperationException("Truncated backup was not rejected.");
+
     EnelBrowserCaptureTelemetry.Record(
         paths, "ZERO_CLICK_RANGE", "INCOMPLETE", 206, 1024);
     var evidenceZip = new PhaseDiagnosticsExportService(database, paths)
