@@ -525,6 +525,12 @@
     <sys:String x:Key="Page.Settings.Placeholder">Configuración de aplicación, conexión y credenciales.</sys:String>
     <sys:String x:Key="Settings.Heading">Configuración</sys:String>
     <sys:String x:Key="Settings.Intro">Opciones de uso normal de esta copia de Solar Energy Monitor.</sys:String>
+    <sys:String x:Key="Settings.ExportFolderHeading">Guardar exportaciones en</sys:String>
+    <sys:String x:Key="Settings.ExportFolderDescription">Carpeta inicial para PDF, Excel, anexos y ayuda. No mueve los datos ni los respaldos.</sys:String>
+    <sys:String x:Key="Settings.ChooseExportFolder">Cambiar carpeta...</sys:String>
+    <sys:String x:Key="Settings.ResetExportFolder">Usar ubicación de Windows</sys:String>
+    <sys:String x:Key="Settings.ExportFolderSystemDefault">Ubicación predeterminada de Windows</sys:String>
+    <sys:String x:Key="Settings.ExportFolderMissing">Carpeta no disponible; se usará la ubicación de Windows</sys:String>
     <sys:String x:Key="Settings.ConnectionHeading">Conexión y sesión</sys:String>
     <sys:String x:Key="Settings.AutoConnect">Conectarme automáticamente al iniciar</sys:String>
     <sys:String x:Key="Settings.AutoConnectHint">Si existe una sesión recordada, la aplicación verifica el estado al iniciar. Mientras Inicio esté visible, consulta automáticamente el estado actual cada 150 segundos (2,5 minutos); al salir de Inicio, ese polling se detiene.</sys:String>
