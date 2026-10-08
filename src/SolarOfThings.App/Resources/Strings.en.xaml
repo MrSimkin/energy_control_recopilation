@@ -525,6 +525,12 @@
     <sys:String x:Key="Page.Settings.Placeholder">Application, connection and credential settings.</sys:String>
     <sys:String x:Key="Settings.Heading">Settings</sys:String>
     <sys:String x:Key="Settings.Intro">Normal-use options for this copy of Solar Energy Monitor.</sys:String>
+    <sys:String x:Key="Settings.ExportFolderHeading">Save exports to</sys:String>
+    <sys:String x:Key="Settings.ExportFolderDescription">Starting folder for PDF, Excel, annexes and help exports. Does not move databases or backups.</sys:String>
+    <sys:String x:Key="Settings.ChooseExportFolder">Change folder...</sys:String>
+    <sys:String x:Key="Settings.ResetExportFolder">Use Windows default</sys:String>
+    <sys:String x:Key="Settings.ExportFolderSystemDefault">Windows default location</sys:String>
+    <sys:String x:Key="Settings.ExportFolderMissing">Folder unavailable; Windows default will be used</sys:String>
     <sys:String x:Key="Settings.ConnectionHeading">Connection and session</sys:String>
     <sys:String x:Key="Settings.AutoConnect">Connect automatically at startup</sys:String>
     <sys:String x:Key="Settings.AutoConnectHint">When a remembered session exists, the app verifies current state at startup. While Home is visible, it automatically checks current state every 150 seconds (2.5 minutes); polling stops when leaving Home.</sys:String>
