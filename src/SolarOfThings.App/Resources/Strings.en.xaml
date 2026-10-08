@@ -28,6 +28,20 @@
     <sys:String x:Key="Backup.ColumnStatus">Integrity</sys:String>
     <sys:String x:Key="Backup.LastCopyPolicy">Deletion requires confirmation and another available verified complete backup. It never cascades to the mirror or deletes active data.</sys:String>
 
+    <sys:String x:Key="Nav.SqlExplorer">SQL Explorer</sys:String>
+    <sys:String x:Key="Page.SqlExplorer.Title">SQL Explorer</sys:String>
+    <sys:String x:Key="Page.SqlExplorer.Subtitle">Read-only queries and exports</sys:String>
+    <sys:String x:Key="SqlExplorer.Heading">SQL Explorer — read-only</sys:String>
+    <sys:String x:Key="SqlExplorer.Intro">Run SELECT queries without modifying the database. Writes, attachments, schema changes and unsafe SQL functions are blocked. Preview is limited to 200 rows; CSV and Excel rerun the complete query within safety limits.</sys:String>
+    <sys:String x:Key="SqlExplorer.Execute">Execute (Ctrl+Enter / F5)</sys:String>
+    <sys:String x:Key="SqlExplorer.Cancel">Cancel (Esc)</sys:String>
+    <sys:String x:Key="SqlExplorer.ExportCsv">Export full CSV</sys:String>
+    <sys:String x:Key="SqlExplorer.ExportXlsx">Export full Excel</sys:String>
+    <sys:String x:Key="SqlExplorer.RefreshSchema">Refresh schema</sys:String>
+    <sys:String x:Key="SqlExplorer.SchemaHeading">Tables and views</sys:String>
+    <sys:String x:Key="SqlExplorer.EditorHeading">SQL editor</sys:String>
+    <sys:String x:Key="SqlExplorer.ResultsHeading">Results (preview)</sys:String>
+
     <sys:String x:Key="Nav.Group.Home">HOME</sys:String>
     <sys:String x:Key="Nav.Group.Energy">ENERGY</sys:String>
     <sys:String x:Key="Nav.Group.Reports">REPORTS</sys:String>
