@@ -31,6 +31,10 @@
     <sys:String x:Key="SqlExplorer.ShortcutExecute">Run shortcut:</sys:String>
     <sys:String x:Key="SqlExplorer.ShortcutCsv">CSV shortcut:</sys:String>
     <sys:String x:Key="SqlExplorer.ShortcutExcel">Excel shortcut:</sys:String>
+    <sys:String x:Key="SqlExplorer.FindLabel">Find:</sys:String>
+    <sys:String x:Key="SqlExplorer.FindHint">Search inside SQL query text</sys:String>
+    <sys:String x:Key="SqlExplorer.FindNext">Find next</sys:String>
+    <sys:String x:Key="SqlExplorer.FindShortcuts">Ctrl+F find · F3 next</sys:String>
     <sys:String x:Key="Nav.SqlExplorer">SQL Explorer</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Title">SQL Explorer</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Subtitle">Read-only queries and exports</sys:String>
