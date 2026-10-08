@@ -37,7 +37,11 @@ granularity and units. Guide:
 DO NOT invent daily kWh from incomplete power samples. Proposed daily-energy
 and hourly-energy reporting views remain pending trusted parity with the
 PowerAggregationService's real-time integration and coverage logic.
-This phase remains **partial**, irrespective of schema smoke PASS.
+Seven queryable read-only reporting views now include UTC daily/hourly
+arithmetic power-sample statistics (explicitly not kWh), while the
+remaining true energy integration and modeled bill SQL parity are pending.
+This phase remains **partial** until source-equivalent reporting semantics
+and target-PC usefulness are validated.
 
 ## Phase 12 scope — explicitly excluding restoration
 
@@ -68,10 +72,21 @@ Audit PDF + technical annex and targeted owner-PC validation.
 
 ## UI/UX and Enel status
 
-Transversal progress-control consistency, settings default export folder,
-and broader responsive visual polish are NOT YET COMPLETE.
-Enel zero-click is NOT YET COMPLETE and remains non-blocking; the previously
-accepted one-click Download fallback must not regress.
+Implemented in work branch, pending target-PC verification:
+- persisted Settings > default user-export folder and initial directory in PDF,
+  Excel, audit annex, reconciliation and Help Save dialogs;
+- local staged progress and completion ping/path for Audit PDF/ZIP, Reports,
+  and phase/debug/backup operations;
+- independent reconstructed vs verified/ambiguous audit line counts;
+- WebView2 official-PDF response evidence, overlapping HTTP 206 range
+  reconstruction within a 64 MiB cap, and sanitized zero-click/fallback
+  event log in the debug evidence ZIP;
+- bill-specific structured reconciliation evidence selected from Audit;
+- SQLite schema columns and foreign-key dictionaries in the debug ZIP.
+
+Zero-click success on the real official site is NOT YET PROVEN and remains
+non-blocking; the accepted one-click Download fallback must not regress.
+Broader responsive visual polish remains subject to focused Windows QA.
 
 ## QA/CI and release gate
 

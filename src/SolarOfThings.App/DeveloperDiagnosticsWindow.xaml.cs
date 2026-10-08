@@ -103,7 +103,7 @@ public partial class DeveloperDiagnosticsWindow : Window
             var path = await Task.Run(
                 () => _phaseEvidence.Export(_selectedBillId));
             ActionStatusText.Text = $"Paso 2/2: paquete guardado en {path}";
-            ShowSaved(path);
+            System.Media.SystemSounds.Asterisk.Play();
         });
     }
 
@@ -117,7 +117,7 @@ public partial class DeveloperDiagnosticsWindow : Window
             ActionStatusText.Text =
                 $"Paso 2/2: integridad {result.IntegrityStatus}; " +
                 $"SHA-256 {result.Sha256}; guardado en {result.Path}";
-            ShowSaved(result.Path);
+            System.Media.SystemSounds.Asterisk.Play();
         });
     }
 

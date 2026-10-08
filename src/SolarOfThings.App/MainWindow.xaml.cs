@@ -3122,12 +3122,22 @@ public partial class MainWindow : Window
             UtilityAuditBalanceText.Text =
                 $"{summaryBalance} · {detailBalance}";
 
+            var reconstructed = audit.Lines.Count(item =>
+                item.ReconstructedAmountClp.HasValue);
+            var withAmbiguousApplicability = audit.Lines.Count(item =>
+                item.ReconstructedAmountClp.HasValue &&
+                item.Status.Contains("AMBIGUOUS", StringComparison.Ordinal));
             UtilityAuditStatusText.Text =
                 string.Format(
                     _localization.GetString(
                         "GridUtility.AuditPreviewSummary"),
                     verified,
-                    audit.Lines.Count - verified);
+                    audit.Lines.Count - verified) +
+                (spanish
+                    ? $" · {reconstructed} línea(s) con cálculo; " +
+                      $"{withAmbiguousApplicability} con aplicabilidad tarifaria pendiente"
+                    : $" · {reconstructed} line(s) with calculation; " +
+                      $"{withAmbiguousApplicability} with unresolved tariff applicability");
         }
         catch (Exception ex)
         {
@@ -6561,6 +6571,8 @@ public partial class MainWindow : Window
         ReportExportProgressBar.IsIndeterminate = false;
         ReportExportProgressBar.Value = 15;
         ReportExportProgressLabel.Text =
+            (_localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+                ? "Paso 1/3 · " : "Step 1/3 · ") +
             _localization.GetString("Reports.ExportPreparing");
         ReportStatusText.Text = string.Empty;
         SetGlobalOperation(
@@ -6578,6 +6590,8 @@ public partial class MainWindow : Window
 
             ReportExportProgressBar.Value = 55;
             ReportExportProgressLabel.Text =
+                (_localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+                    ? "Paso 2/3 · " : "Step 2/3 · ") +
                 _localization.GetString("Reports.ExportGenerating");
 
             await Task.Run(() =>
@@ -6594,7 +6608,10 @@ public partial class MainWindow : Window
 
             ReportExportProgressBar.Value = 100;
             ReportExportProgressLabel.Text =
+                (_localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+                    ? "Paso 3/3 · " : "Step 3/3 · ") +
                 _localization.GetString("Reports.ExportComplete");
+            System.Media.SystemSounds.Asterisk.Play();
             ReportStatusText.Text = string.Format(
                 _localization.GetString("Reports.ExportSaved"),
                 dialog.FileName);
