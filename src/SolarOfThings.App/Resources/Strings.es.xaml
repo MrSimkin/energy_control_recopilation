@@ -35,6 +35,8 @@
     <sys:String x:Key="SqlExplorer.FindHint">Buscar texto dentro de la consulta SQL</sys:String>
     <sys:String x:Key="SqlExplorer.FindNext">Buscar siguiente</sys:String>
     <sys:String x:Key="SqlExplorer.FindShortcuts">Ctrl+F buscar · F3 siguiente</sys:String>
+    <sys:String x:Key="Diagnostics.PerformanceTitle">Rendimiento observado (solo esta sesión)</sys:String>
+    <sys:String x:Key="Diagnostics.PerformanceRefresh">Actualizar mediciones</sys:String>
     <sys:String x:Key="Nav.SqlExplorer">Explorador SQL</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Title">Explorador SQL</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Subtitle">Consultas de solo lectura y exportaciones</sys:String>
