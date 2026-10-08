@@ -20,18 +20,18 @@ public sealed class PhaseDiagnosticsExportService
 {
     private readonly SqliteDatabase _database;
     private readonly AppPaths _paths;
-    private readonly UtilityBillAuditV2Service _billAudit;
-    private readonly UtilityBillReconciliationSummaryService _summary;
-    private readonly UtilityMeterRepository _bills;
-    private readonly CommissioningProfileRepository _profiles;
+    private readonly UtilityBillAuditV2Service? _billAudit;
+    private readonly UtilityBillReconciliationSummaryService? _summary;
+    private readonly UtilityMeterRepository? _bills;
+    private readonly CommissioningProfileRepository? _profiles;
 
     public PhaseDiagnosticsExportService(
         SqliteDatabase database,
         AppPaths paths,
-        UtilityBillAuditV2Service billAudit,
-        UtilityBillReconciliationSummaryService summary,
-        UtilityMeterRepository bills,
-        CommissioningProfileRepository profiles)
+        UtilityBillAuditV2Service? billAudit = null,
+        UtilityBillReconciliationSummaryService? summary = null,
+        UtilityMeterRepository? bills = null,
+        CommissioningProfileRepository? profiles = null)
     {
         _database = database;
         _paths = paths;
@@ -187,7 +187,16 @@ public sealed class PhaseDiagnosticsExportService
         // fixtures. Never include printed descriptions, source text or PDFs.
         // If the QA user did not select a bill, use the most recent stored one.
         object billEvidence;
-        try
+        if (_bills is null || _profiles is null ||
+            _billAudit is null || _summary is null)
+        {
+            billEvidence = new
+            {
+                status = "NOT_RUN",
+                reason = "Bill audit services not available in isolated smoke harness"
+            };
+        }
+        else try
         {
             var storedBills = _bills.GetBills();
             var targetBill = requestedBillId.HasValue
