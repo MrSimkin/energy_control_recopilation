@@ -48,12 +48,14 @@ public sealed class DatabaseBackupService
             var sourceOptions = new SqliteConnectionStringBuilder
             {
                 DataSource = _database.DatabasePath,
-                Mode = SqliteOpenMode.ReadOnly
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false
             };
             var targetOptions = new SqliteConnectionStringBuilder
             {
                 DataSource = temporary,
-                Mode = SqliteOpenMode.ReadWriteCreate
+                Mode = SqliteOpenMode.ReadWriteCreate,
+                Pooling = false
             };
             using (var source = new SqliteConnection(sourceOptions.ToString()))
             using (var target = new SqliteConnection(targetOptions.ToString()))
@@ -70,7 +72,8 @@ public sealed class DatabaseBackupService
                 new SqliteConnectionStringBuilder
                 {
                     DataSource = temporary,
-                    Mode = SqliteOpenMode.ReadOnly
+                    Mode = SqliteOpenMode.ReadOnly,
+                    Pooling = false
                 }.ToString()))
             {
                 verified.Open();
@@ -123,7 +126,10 @@ public sealed class DatabaseBackupService
         finally
         {
             if (File.Exists(temporary))
-                File.Delete(temporary);
+            {
+                try { File.Delete(temporary); }
+                catch (IOException) { /* Preserve the original exception. */ }
+            }
         }
     }
 }
