@@ -2311,11 +2311,22 @@ public partial class MainWindow : Window
             : "Local observations for this session; no personal information.\n" +
               "Observed mean/p95/max (ms); not a performance guarantee or a build comparison.\n" +
               "UI.Dispatcher.TickLateness: active-window timer delay >150 ms only; does not prove UI blocking.\n\n";
-        var rows = summaries.Take(24).Select(x =>
+        // In-memory summaries are already ranked by observed p95, not name.
+        var visible = summaries.Take(24).ToArray();
+        var rows = visible.Select(x =>
             $"{x.Operation} | n={x.Samples} | " +
             $"avg={x.MeanMilliseconds:F0} p95={x.P95Milliseconds:F0} " +
             $"max={x.MaxMilliseconds:F0} ms");
-        PerformanceSummaryText.Text = header + string.Join(Environment.NewLine, rows);
+        var guide = spanish
+            ? "Ordenado por p95 observado. Con pocas muestras (n) el valor es inestable.\n"
+            : "Sorted by observed p95. With small sample counts (n), estimates are unstable.\n";
+        var hidden = summaries.Count - visible.Length;
+        var suffix = hidden > 0
+            ? (spanish ? $"\n{hidden} operaciones adicionales no mostradas."
+                       : $"\n{hidden} additional operations not shown.")
+            : string.Empty;
+        PerformanceSummaryText.Text = header + guide +
+            string.Join(Environment.NewLine, rows) + suffix;
     }
 
     private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
