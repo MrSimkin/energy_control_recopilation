@@ -763,6 +763,10 @@ public sealed class EnelTariffBrowserWindow : Window
                     [path],
                     progress));
 
+        EnelBrowserCaptureTelemetry.Record(
+            _paths, "PDF_IMPORT",
+            result.Imported == 1 && result.Failed == 0
+                ? "SUCCESS" : "FAIL");
         if (result.Imported == 1 &&
             result.Failed == 0)
         {
