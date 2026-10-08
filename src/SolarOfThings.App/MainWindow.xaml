@@ -2757,6 +2757,21 @@
                                 <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
                             </ComboBox>
                         </WrapPanel>
+                        <WrapPanel Margin="0,0,0,8">
+                            <TextBlock Text="{DynamicResource SqlExplorer.FindLabel}" VerticalAlignment="Center"
+                                       Margin="0,0,6,0"/>
+                            <TextBox x:Name="SqlFindTextBox" Width="260" Margin="0,0,8,0"
+                                     ToolTip="{DynamicResource SqlExplorer.FindHint}"
+                                     KeyDown="SqlExplorerFindKeyDown"/>
+                            <Button Content="{DynamicResource SqlExplorer.FindNext}" Margin="0,0,10,0"
+                                    Click="SqlExplorerFindNext_Click" Padding="9,5"/>
+                            <TextBlock Text="{DynamicResource SqlExplorer.FindShortcuts}" VerticalAlignment="Center"
+                                       Foreground="#6C757D" FontSize="11"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="SqlExplorerPerformanceText" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="#455A64" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="SqlExplorerDiagnosticText" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="#B42318" Margin="0,0,0,5"/>
                         <ProgressBar x:Name="SqlExplorerBusyBar" IsIndeterminate="True"
                                      Height="6" Visibility="Collapsed" Margin="0,0,0,8"/>
                         <TextBlock x:Name="SqlExplorerStatusText" TextWrapping="Wrap"
