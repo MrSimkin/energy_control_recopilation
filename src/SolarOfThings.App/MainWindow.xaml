@@ -314,6 +314,7 @@
                         <Button x:Name="ReportsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Reports" Click="Navigation_Click" Content="{DynamicResource Nav.Reports}"/>
                         <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.DataTools}"/>
                         <Button x:Name="DataNav" Style="{StaticResource SidebarButtonStyle}" Tag="Data" Click="Navigation_Click" Content="{DynamicResource Nav.Data}"/>
+                        <Button x:Name="BackupNav" Style="{StaticResource SidebarButtonStyle}" Tag="Backup" Click="Navigation_Click" Content="{DynamicResource Nav.Backup}"/>
                         <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.System}"/>
                         <Button x:Name="SettingsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Settings" Click="Navigation_Click" Content="{DynamicResource Nav.Settings}"/>
                         <Button x:Name="DiagnosticsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Diagnostics" Click="Navigation_Click" Content="{DynamicResource Nav.Diagnostics}"/>
@@ -2705,6 +2706,67 @@
                         </TabItem>
                         </TabControl>
 </StackPanel>
+                </ScrollViewer>
+
+                <!-- Only complete archives can be verified/deleted here; legacy snapshots are read-only. -->
+                <ScrollViewer x:Name="BackupContent" Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Backup.PageHeading}" FontSize="21"
+                                   FontWeight="SemiBold" Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Backup.PageIntro}" FontSize="13"
+                                   Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Backup.WeeklyHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Backup.WeeklyInfo}" Foreground="#6C757D"
+                                           FontSize="12" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                <WrapPanel>
+                                    <Button Content="{DynamicResource Backup.CreateNow}" Padding="12,8"
+                                            Click="BackupPageCreate_Click" Margin="0,0,8,8"/>
+                                    <Button Content="{DynamicResource Backup.DestinationSettings}" Padding="12,8"
+                                            Click="BackupPageSettings_Click" Margin="0,0,8,8"/>
+                                    <Button Content="{DynamicResource Backup.OpenLocal}" Padding="12,8"
+                                            Click="BackupPageOpenFolder_Click" Margin="0,0,8,8"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Backup.InventoryHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Backup.InventoryIntro}" Foreground="#6C757D"
+                                           FontSize="12" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                                <WrapPanel Margin="0,0,0,10">
+                                    <Button x:Name="BackupRefreshButton" Content="{DynamicResource Backup.Refresh}"
+                                            Padding="12,7" Click="BackupPageRefresh_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupVerifyButton" Content="{DynamicResource Backup.Verify}"
+                                            Padding="12,7" Click="BackupPageVerify_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupDeleteButton" Content="{DynamicResource Backup.DeleteSelected}"
+                                            Style="{StaticResource DestructiveActionButtonStyle}"
+                                            Padding="12,7" Click="BackupPageDelete_Click" Margin="0,0,8,8"/>
+                                </WrapPanel>
+                                <ProgressBar x:Name="BackupInventoryProgress" IsIndeterminate="True"
+                                             Height="7" Margin="0,0,0,10" Visibility="Collapsed"/>
+                                <DataGrid x:Name="BackupInventoryGrid" AutoGenerateColumns="False"
+                                          IsReadOnly="True" SelectionMode="Single"
+                                          Height="305" HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnLocation}" Binding="{Binding Location}" Width="100"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnName}" Binding="{Binding Name}" Width="275"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnKind}" Binding="{Binding Kind}" Width="145"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnDate}" Binding="{Binding ModifiedUtc, StringFormat=yyyy-MM-dd HH:mm}" Width="145"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnSize}" Binding="{Binding SizeBytes, StringFormat=N0}" Width="115"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnStatus}" Binding="{Binding VerificationStatus}" Width="125"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock x:Name="BackupInventoryStatusText" FontSize="12"
+                                           Foreground="#495057" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                                <TextBlock Text="{DynamicResource Backup.LastCopyPolicy}" Foreground="#6C757D"
+                                           FontSize="12" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </ScrollViewer>
 
                 <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
