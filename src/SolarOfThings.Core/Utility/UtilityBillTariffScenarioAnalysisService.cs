@@ -521,7 +521,6 @@ public sealed class UtilityBillTariffScenarioAnalysisService
 
         var best = attempts
             .OrderBy(item => item.AbsoluteDifferenceClp)
-            .ThenBy(item => item.ApplicabilityAmbiguous)
             .First();
 
         if (best.AbsoluteDifferenceClp >
@@ -649,8 +648,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             return null;
 
         var best = attempts
-            .OrderBy(item =>
-                item.AbsoluteDifferenceClp)
+            .OrderBy(item => item.AbsoluteDifferenceClp)
+            .ThenBy(item => item.ApplicabilityAmbiguous)
             .First();
 
         if (best.AbsoluteDifferenceClp >
