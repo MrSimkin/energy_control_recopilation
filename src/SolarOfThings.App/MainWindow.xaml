@@ -30,6 +30,13 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="SidebarGroupHeadingStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#B9C3CD"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="22,15,8,5"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="Background" Value="White"/>
             <Setter Property="CornerRadius" Value="8"/>
@@ -294,18 +301,26 @@
                     </StackPanel>
                 </Border>
 
-                <StackPanel Margin="0,12,0,0">
-                    <Button x:Name="DashboardNav" Style="{StaticResource SidebarButtonStyle}" Tag="Dashboard" Click="Navigation_Click" Content="{DynamicResource Nav.Dashboard}"/>
-                    <Button x:Name="AnalysisNav" Style="{StaticResource SidebarButtonStyle}" Tag="Analysis" Click="Navigation_Click" Content="{DynamicResource Nav.Analysis}"/>
-                    <Button x:Name="BatteryNav" Style="{StaticResource SidebarButtonStyle}" Tag="Battery" Click="Navigation_Click" Content="{DynamicResource Nav.Battery}"/>
-                    <Button x:Name="GridUtilityNav" Style="{StaticResource SidebarButtonStyle}" Tag="GridUtility" Click="Navigation_Click" Content="{DynamicResource Nav.GridUtility}"/>
-                    <Button x:Name="ReportsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Reports" Click="Navigation_Click" Content="{DynamicResource Nav.Reports}"/>
-                    <Button x:Name="DataNav" Style="{StaticResource SidebarButtonStyle}" Tag="Data" Click="Navigation_Click" Content="{DynamicResource Nav.Data}"/>
-                    <Button x:Name="DiagnosticsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Diagnostics" Click="Navigation_Click" Content="{DynamicResource Nav.Diagnostics}"/>
-                    <Button x:Name="HelpNav" Style="{StaticResource SidebarButtonStyle}" Tag="Help" Click="Navigation_Click" Content="{DynamicResource Nav.Help}"/>
-                    <Button x:Name="SettingsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Settings" Click="Navigation_Click" Content="{DynamicResource Nav.Settings}"/>
-                    <Button x:Name="AboutNav" Style="{StaticResource SidebarButtonStyle}" Tag="About" Click="Navigation_Click" Content="{DynamicResource Nav.About}"/>
-                </StackPanel>
+                <!-- Always-scrollable sidebar; named navigation buttons and existing routes are preserved. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <StackPanel Margin="0,8,0,12">
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.Home}"/>
+                        <Button x:Name="DashboardNav" Style="{StaticResource SidebarButtonStyle}" Tag="Dashboard" Click="Navigation_Click" Content="{DynamicResource Nav.Dashboard}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.Energy}"/>
+                        <Button x:Name="AnalysisNav" Style="{StaticResource SidebarButtonStyle}" Tag="Analysis" Click="Navigation_Click" Content="{DynamicResource Nav.Analysis}"/>
+                        <Button x:Name="BatteryNav" Style="{StaticResource SidebarButtonStyle}" Tag="Battery" Click="Navigation_Click" Content="{DynamicResource Nav.Battery}"/>
+                        <Button x:Name="GridUtilityNav" Style="{StaticResource SidebarButtonStyle}" Tag="GridUtility" Click="Navigation_Click" Content="{DynamicResource Nav.GridUtility}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.Reports}"/>
+                        <Button x:Name="ReportsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Reports" Click="Navigation_Click" Content="{DynamicResource Nav.Reports}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.DataTools}"/>
+                        <Button x:Name="DataNav" Style="{StaticResource SidebarButtonStyle}" Tag="Data" Click="Navigation_Click" Content="{DynamicResource Nav.Data}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.System}"/>
+                        <Button x:Name="SettingsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Settings" Click="Navigation_Click" Content="{DynamicResource Nav.Settings}"/>
+                        <Button x:Name="DiagnosticsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Diagnostics" Click="Navigation_Click" Content="{DynamicResource Nav.Diagnostics}"/>
+                        <Button x:Name="HelpNav" Style="{StaticResource SidebarButtonStyle}" Tag="Help" Click="Navigation_Click" Content="{DynamicResource Nav.Help}"/>
+                        <Button x:Name="AboutNav" Style="{StaticResource SidebarButtonStyle}" Tag="About" Click="Navigation_Click" Content="{DynamicResource Nav.About}"/>
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
