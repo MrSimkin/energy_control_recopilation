@@ -40,6 +40,7 @@ public sealed class PhaseDiagnosticsExportService
         connection.Open();
 
         var schema = new List<object>();
+        var viewNames = new HashSet<string>(StringComparer.Ordinal);
         using (var command = connection.CreateCommand())
         {
             command.CommandText =
@@ -53,10 +54,14 @@ public sealed class PhaseDiagnosticsExportService
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
+                var type = reader.GetString(0);
+                var name = reader.GetString(1);
+                if (type == "view")
+                    viewNames.Add(name);
                 schema.Add(new
                 {
-                    type = reader.GetString(0),
-                    name = reader.GetString(1),
+                    type,
+                    name,
                     ddl = reader.IsDBNull(2) ? null : reader.GetString(2)
                 });
             }
@@ -75,17 +80,9 @@ public sealed class PhaseDiagnosticsExportService
             "reporting_utility_bills", "reporting_bill_line_evidence",
             "data_quality_summary"
         };
-        var foundViews = schema.Select(item =>
-                JsonSerializer.Serialize(item))
-            .ToArray();
         var viewChecks = views.ToDictionary(
             name => name,
-            name => foundViews.Any(item =>
-                item.Contains(
-                    $"\\"name\\":\\"{name}\\"",
-                    StringComparison.Ordinal))
-                ? "PASS"
-                : "FAIL");
+            name => viewNames.Contains(name) ? "PASS" : "FAIL");
 
         var verifiedBackups = new List<object>();
         foreach (var manifest in Directory.EnumerateFiles(
