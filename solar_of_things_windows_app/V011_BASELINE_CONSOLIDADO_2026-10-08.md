@@ -3,9 +3,9 @@
 **Fecha de corte:** 2026-10-08 (Chile)  
 **Estado:** decisiones funcionales confirmadas por el propietario; desarrollo parcial preexistente; nueva etapa de implementación aún pendiente de ejecutar a partir de esta consolidación.  
 **Carácter:** resumen **operativo vigente**, no historial de cambios ni certificado de pruebas.  
-**Destino exclusivo:** rama \`work/phase10-12-consolidated-20261007\`, PR **#1 Draft**, sin merge a \`main\`.  
-**Fuente primaria de las aprobaciones:** [\`NEXT_TRANCHE_DECISIONS_2026-10-08.md\`](NEXT_TRANCHE_DECISIONS_2026-10-08.md).  
-**Fuente primaria de lo efectivamente probado:** [\`PHASE_10_12_TRANCHE_STATUS.md\`](PHASE_10_12_TRANCHE_STATUS.md) y [\`CONTINUITY_STATUS.md\`](CONTINUITY_STATUS.md).
+**Destino exclusivo:** rama `work/phase10-12-consolidated-20261007`, PR **#1 Draft**, sin merge a `main`.  
+**Fuente primaria de las aprobaciones:** [`NEXT_TRANCHE_DECISIONS_2026-10-08.md`](NEXT_TRANCHE_DECISIONS_2026-10-08.md).  
+**Fuente primaria de lo efectivamente probado:** [`PHASE_10_12_TRANCHE_STATUS.md`](PHASE_10_12_TRANCHE_STATUS.md) y [`CONTINUITY_STATUS.md`](CONTINUITY_STATUS.md).
 
 > **Aprobación final del propietario en este corte:** «si, cuando llegue el 12 y tengamos la data nueva tendremos que re-estudiar la continuidad; confirmo todo; y ahora vamos a consolidar en repo, justo antes de empezar desarrollo». La autorización previa de implementar lo ya aprobado y técnicamente independiente continúa; esta petición concreta ordena **consolidar documentación primero**, no lanzar otra compilación durante este paso.
 
@@ -14,19 +14,19 @@
 1. Leer **este documento** como mapa vigente de lo aprobado, lo implementado y lo abierto; leer el histórico de decisiones para parámetros concretos de interfaz, políticas y excepciones.
 2. Una decisión posterior explícitamente aprobada **prevalece sobre cualquier borrador anterior** del histórico. En particular: *solo respaldos completos*, recordatorio semanal voluntario, recuperación aditiva A y eliminación individual A; los borradores anteriores con SQLite rápido o copias diarias automáticas quedaron reemplazados.
 3. No borrar ni reescribir la evidencia histórica de las Builds 684/685/688, aunque una sección temprana indique un estado que fue superado cronológicamente.
-4. Antes de programar, comprobar HEAD, PR Draft, \`main\` y estado del código. No basarse en la fecha de este documento para suponer que el estado ejecutable sigue intacto.
+4. Antes de programar, comprobar HEAD, PR Draft, `main` y estado del código. No basarse en la fecha de este documento para suponer que el estado ejecutable sigue intacto.
 5. Diferenciar rigurosamente: **REQUISITO APROBADO**, **CÓDIGO ESCRITO**, **CI PASS**, **QA PROPIETARIO PASS** y **LIBERADO**. Ninguna etapa implica automáticamente la siguiente.
 
 ## 2. Línea base técnica verificada al consolidar
 
-- Aplicación Windows 11 x64, C#/.NET 10 WPF y SQLite WAL; trabajo local-first. La base del equipo del propietario, \`D:\SolarEnergyMonitorTest\Data\energy.db\`, ocupa aproximadamente 2 GB y crece; conservar datos, fuentes, fechas, unidades, claves, incertidumbre, historial y trazabilidad.
-- \`main\` permanece en \`59120a630b0f56684ba7672d960673f5c5c1797b\` según el PR al realizar esta consolidación; trabajo pendiente exclusivamente en \`work/phase10-12-consolidated-20261007\`, PR #1 Draft.
+- Aplicación Windows 11 x64, C#/.NET 10 WPF y SQLite WAL; trabajo local-first. La base del equipo del propietario, `D:\SolarEnergyMonitorTest\Data\energy.db`, ocupa aproximadamente 2 GB y crece; conservar datos, fuentes, fechas, unidades, claves, incertidumbre, historial y trazabilidad.
+- `main` permanece en `59120a630b0f56684ba7672d960673f5c5c1797b` según el PR al realizar esta consolidación; trabajo pendiente exclusivamente en `work/phase10-12-consolidated-20261007`, PR #1 Draft.
 - **Build 684:** QA funcional de Fase 10 aceptado, sujeto a las incertidumbres tarifarias documentadas (RED/ETR no automáticamente certificadas). Conservar el resultado sin cambiar sus cálculos por estética.
 - **Build 685:** CI PASS, corrección textual/denominador en pantalla y PDF; la inspección visual del propietario sigue pendiente y puede incluirse en una entrega consolidada.
 - **Build 688:** Windows CI PASS, build/smoke sobre fixtures sintéticos y ZIP portable producido; incluye primera implementación de menú lateral agrupado y respaldo completo / recordatorio semanal / destino secundario. **No fue aceptada ni probada en el PC del propietario y NO se exige probarla por separado**. El binario continúa mostrando v0.10.0: **v0.11.0 es la versión objetivo, no una versión ya publicada**.
-- Usuario conserva una **copia manual separada de la carpeta \`Data\`**. Tratarla como **resguardo provisional NO verificado**: no se conoce el procedimiento de copia, cierre del proceso, situación WAL ni recuperabilidad. Mantenerla sin alteraciones ni borrarla. No afirmar que ya hay respaldo completo oficial o prueba de restauración.
-- El código \`FullBackupService\` y la prueba sintética existen en la rama; la creación de paquetes, el inventario reconocible parcial, los botones manuales, el aviso semanal y la segunda carpeta **no equivalen aún a la interfaz final, gestión integral de copias ni a restauración selectiva implementada**.
-- El esquema vigente de las pruebas es **SQLite v17** y hay siete vistas SQL descritas en \`PHASE_11_SQL_GUIDE.md\`. No presentar agregación simple de muestras W como energía kWh.
+- Usuario conserva una **copia manual separada de la carpeta `Data`**. Tratarla como **resguardo provisional NO verificado**: no se conoce el procedimiento de copia, cierre del proceso, situación WAL ni recuperabilidad. Mantenerla sin alteraciones ni borrarla. No afirmar que ya hay respaldo completo oficial o prueba de restauración.
+- El código `FullBackupService` y la prueba sintética existen en la rama; la creación de paquetes, el inventario reconocible parcial, los botones manuales, el aviso semanal y la segunda carpeta **no equivalen aún a la interfaz final, gestión integral de copias ni a restauración selectiva implementada**.
+- El esquema vigente de las pruebas es **SQLite v17** y hay siete vistas SQL descritas en `PHASE_11_SQL_GUIDE.md`. No presentar agregación simple de muestras W como energía kWh.
 
 ## 3. Alcance funcional cerrado para implementar, sin volver a pedir el diseño
 
@@ -50,19 +50,19 @@
 | Eliminación | **Opción A:** borrar solamente la copia física elegida, sin cascada; confirmar, proteger última copia completa válida disponible; jamás borrar automáticamente | Comportamiento aprobado, UI/QA faltantes |
 | Recuperación | **Opción A:** importar SOLO ausentes, omitir iguales, conflictos explícitos; preview por categoría, dependencias, origen, adaptación por versión sobre staging, rollback y bloqueo ante incompatibilidad | Diseño cerrado; restauración/importación selectiva segura y tests faltantes |
 
-Los wireframes exactos, restricciones de vocabulario, estados de datos, red/boleta/tarifa, atajos y seguridad siguen definidos con mayor precisión en \`NEXT_TRANCHE_DECISIONS_2026-10-08.md\`.
+Los wireframes exactos, restricciones de vocabulario, estados de datos, red/boleta/tarifa, atajos y seguridad siguen definidos con mayor precisión en `NEXT_TRANCHE_DECISIONS_2026-10-08.md`.
 
 ## 4. Contratos de protección que no se negocian en refactor
 
 **Respaldos**
 - **No** reintroducir la copia automática SQLite-only diaria, ni una copia semanal ejecutada sin aprobación del usuario. Sí mantener la **obligación de crear un paquete completo verificado ANTES de migrar estructura**; si falla/no hay autorización, no migrar y proteger la instalación anterior.
 - Un paquete completo debe contener copia SQLite consistente vía API nativa con WAL confirmado, documentos originales pertinentes (Bills y Tariffs) y ajustes recuperables, sin secretos DPAPI/credenciales ni datos de diagnóstico no pertinentes. Debe indicar formato de paquete, versión del programa, Build, revisión, schema, fecha UTC, archivos/categorías, huellas y verificación independiente. **La consistencia entre referencias SQLite y documentos es una condición de completitud todavía por demostrar**, no una suposición basada en que exista ZIP.
-- Secundario opcional e independiente, verificado antes de informar éxito; errores de disco desconectado visibles, pero no invalidan copia local íntegra. No borrar, renombrar ni sobrescribir la copia manual \`Data\` del usuario.
+- Secundario opcional e independiente, verificado antes de informar éxito; errores de disco desconectado visibles, pero no invalidan copia local íntegra. No borrar, renombrar ni sobrescribir la copia manual `Data` del usuario.
 - Inventario sin confundir "se verificó al crear" con "verificada de nuevo ahora"; una unidad desconectada no cuenta como copia válida actualmente disponible. Al eliminar, solo el archivo reconocido elegido, sin cascada ni barrido de la última copia válida. Prohibida purga/retención automática.
 - **No realizar restauración real ni escritura/merge sobre la base real como parte del desarrollo o QA automático.** Usar únicamente fixtures sintéticos. La futura operación que afecte la base real requiere autorización explícita posterior, preview e integridad; no inferirla del acuerdo de desarrollo.
 
 **Datos y cálculo**
-- Ningún código de QA/desarrollo accede a \`D:\SolarEnergyMonitorTest\Data\energy.db\` ni a copias del usuario. Base real y documentación existente permanecen intactas.
+- Ningún código de QA/desarrollo accede a `D:\SolarEnergyMonitorTest\Data\energy.db` ni a copias del usuario. Base real y documentación existente permanecen intactas.
 - No alterar resultados aceptados de Enel, no certificar tasas RED/ETR ambiguas, no añadir ajustes inventados para cuadrar CLP, no convertir ausencia en cero, no confundir W instantáneos con kWh intervalados, UTC con día civil local, ni medias aritméticas con cobertura energética.
 - Mostrar actividad real, errores y cancelación; no bloquear la navegación con cálculos pesados. Atender especialmente la base ~2 GB y el espacio temporal para respaldos.
 - SQL de lectura bajo controles múltiples; exportación XLSX/CSV no debe fingir que la vista previa limitada equivale al resultado completo.
@@ -91,12 +91,12 @@ El ejecutor puede elegir componentes y bibliotecas compatibles para los requisit
 
 ## 7. Gates de QA, entrega y liberación
 
-1. **Desarrollo**: commits identificables en PR #1 Draft, \`main\` inalterado; no tocar la DB real ni backups del propietario, ni uso de recursos secretos en repositorio/artefacto. Esta consolidación por sí misma **no autoriza cambios destructivos**.
+1. **Desarrollo**: commits identificables en PR #1 Draft, `main` inalterado; no tocar la DB real ni backups del propietario, ni uso de recursos secretos en repositorio/artefacto. Esta consolidación por sí misma **no autoriza cambios destructivos**.
 2. **CI y seguridad**: build Windows y smoke pasan; recuperación y borrados probados solo con fixtures aislados; paquete completo incluye archivos referenciados, hashes y verificación real; pruebas ante corrupción, disco offline, corte/espacio, conflictos/duplicados e incompatibilidad; no falsos PASS.
 3. **Criterios de rendimiento**: medición de inicio/UI/SQLite, diferencia de resultados con Build 684 cuando corresponda; ninguna aceleración justificará cálculos alterados o UI congelada.
-4. **QA del propietario**: próxima Build consolidada con enlace ZIP **directo en el chat**, número real CI, commit/checksum y pasos mínimos [\`BUILD_HANDOFF_RULE.md\`](BUILD_HANDOFF_RULE.md); QA de respaldo verdadero y verificable en PC, UI/SQL/rendimiento y presentación Build 685 acumulada. No exigir una QA separada de Build 688.
+4. **QA del propietario**: próxima Build consolidada con enlace ZIP **directo en el chat**, número real CI, commit/checksum y pasos mínimos [`BUILD_HANDOFF_RULE.md`](BUILD_HANDOFF_RULE.md); QA de respaldo verdadero y verificable en PC, UI/SQL/rendimiento y presentación Build 685 acumulada. No exigir una QA separada de Build 688.
 5. **Real restore/import**: autorización específica futura antes de aplicar datos a la base real; no ejecutar automáticamente al abrir app ni implícitamente como parte del QA general.
-6. **Cierre**: reevaluar con la evidencia Enel del 12 cuando exista; no cerrar v0.11.0, declarar Fase 11/12 completa, ni hacer merge a \`main\` hasta revisión de las evidencias de QA y aprobación final del propietario.
+6. **Cierre**: reevaluar con la evidencia Enel del 12 cuando exista; no cerrar v0.11.0, declarar Fase 11/12 completa, ni hacer merge a `main` hasta revisión de las evidencias de QA y aprobación final del propietario.
 
 ## 8. Puntos realmente abiertos (no confundir con tareas técnicas)
 
@@ -108,4 +108,4 @@ Las elecciones técnicas ordinarias para construir lo aprobado se delegan al eje
 
 ---
 
-**Referencia de congelación pre-desarrollo:** PR #1 HEAD antes de consolidación \`7ddfa75ee051d7eddc838a5b12b5d26387331302\`. La creación documental de esta línea base moverá el HEAD de la rama, sin alterar \`main\`. No usar el HEAD previo como si fuera el estado actual después de estos commits documentales.
+**Referencia de congelación pre-desarrollo:** PR #1 HEAD antes de consolidación `7ddfa75ee051d7eddc838a5b12b5d26387331302`. La creación documental de esta línea base moverá el HEAD de la rama, sin alterar `main`. No usar el HEAD previo como si fuera el estado actual después de estos commits documentales.
