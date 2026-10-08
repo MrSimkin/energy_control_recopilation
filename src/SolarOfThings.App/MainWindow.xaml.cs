@@ -3038,7 +3038,9 @@ public partial class MainWindow : Window
                     StringComparison.Ordinal) ||
                 item.Status.StartsWith(
                     "FIXED_AMOUNT_RECONCILED",
-                    StringComparison.Ordinal) ||
+                    StringComparison.Ordinal) &&
+                !item.Status.Contains(
+                    "AMBIGUOUS", StringComparison.Ordinal) ||
                 item.Status == "VAT_RECONSTRUCTED_19");
 
             var spanish =
@@ -3456,6 +3458,12 @@ public partial class MainWindow : Window
                 _localization.GetString(
                     "GridUtility.AuditStatus.ReconstructedAmbiguous"),
             "BILL_AMOUNT_RECONCILED_MULTI_PERIOD_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ReconstructedAmbiguous"),
+            "FIXED_AMOUNT_RECONCILED_MULTI_PERIOD_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ReconstructedAmbiguous"),
+            "FIXED_AMOUNT_RECONCILED_APPLICABILITY_AMBIGUOUS" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.ReconstructedAmbiguous"),
             "VERIFIED_RECONSTRUCTED_APPLICABILITY_AMBIGUOUS" =>

@@ -2405,13 +2405,16 @@ try
             "Phase 10 multi-period tariff reconstruction smoke test failed.");
     }
 
+    // Unlike earlier single-rate fixtures, this one contains competing
+    // official monthly charges per effective period. A $727 gross rate is
+    // present in both, but applicability must remain explicitly ambiguous.
     // Phase 10 real-bill tariff-structure regression using anonymous
     // September-2026 structural values. No customer-identifying data is stored.
     var augRealFixture =
         tariffPageFixture
             .Replace(
                 "596,252 709,540 596,252 709,540",
-                "610,588 726,600 610,588 726,600",
+                "430,000 512,000 610,588 726,600 754,600 897,974",
                 StringComparison.Ordinal)
             .Replace(
                 "13,415 15,964 13,415 15,964",
@@ -2430,7 +2433,7 @@ try
         tariffPageFixture
             .Replace(
                 "596,252 709,540 596,252 709,540",
-                "611,118 727,230 611,118 727,230",
+                "430,000 512,000 611,118 727,230 755,000 898,900",
                 StringComparison.Ordinal)
             .Replace(
                 "13,415 15,964 13,415 15,964",
@@ -2620,6 +2623,10 @@ try
         Math.Abs(
             realAdmin.ReconstructedAmountClp -
             727) > 0.001 ||
+        !realAdmin.EvidenceStatus.Contains(
+            "APPLICABILITY_AMBIGUOUS", StringComparison.Ordinal) ||
+        !realAdmin.CalculationBasis!.Contains(
+            "no se ha demostrado", StringComparison.Ordinal) ||
         realStructureAnalysis.PublicationPeriods.Count != 2 ||
         realStructureAnalysis.PublicationPeriods[0].PublicationId !=
             augRealId ||

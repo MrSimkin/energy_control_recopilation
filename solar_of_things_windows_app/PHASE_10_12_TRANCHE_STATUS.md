@@ -25,8 +25,22 @@ Actions in this draft:
   billed baseline, preserving the real rounding residual, not inventing a
   synthetic printed adjustment.
 
-Not yet proven: owner’s real official candidate collection and actual 727
-line, UI counter semantics, report exports after code change.
+Build 682 owner QA FAILED on the actual bill: administration remains
+actual-only. The owner's sanitized debug ZIP proves 136 FIXED_MONTHLY
+candidate rows in *each* selected official publication. The alternative
+gross monthly rates are 512, 727, 898 CLP (Aug) and 512, 727, 899 CLP
+(Sep); the older resolver rejected every period because it required all
+alternatives to have the same amount.
+
+Correction in this draft: match the **gross IVA-included** amount of 727
+only if both publication periods independently contain that official
+whole-peso value, while explicitly marking RED/ETR applicability as
+AMBIGUOUS. Do not call printed-amount matching independent verification.
+Do not mark ambiguous lines as verified, and do not invent any fixed-charge
+proration. Add an anonymous competing-rate regression fixture.
+
+Actual Windows QA after this correction is still PENDING; the build must
+not be labeled Phase 10 PASS until the user verifies the new Audit evidence.
 
 ## Phase 11 scope
 
