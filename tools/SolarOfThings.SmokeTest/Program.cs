@@ -4233,6 +4233,32 @@ try
             throw new InvalidOperationException("Cancelled SQL preview did not abort.");
     }
 
+    // Literal and CTE scanner regression: no false-positives inside strings.
+    var legalCte = await explorer.PreviewAsync(
+        "WITH sample AS (SELECT 'DROP; UPDATE -- harmless literal' AS phrase) SELECT phrase FROM sample;");
+    if (legalCte.Rows.Count != 1 ||
+        legalCte.Rows[0][0].Text != "DROP; UPDATE -- harmless literal")
+        throw new InvalidOperationException("Read-only CTE/literal SQL incorrectly rejected.");
+
+    // The read-only connection must never create a missing database.
+    var absentDatabase = Path.Combine(root, "missing-sql-explorer.db");
+    var noDatabaseOpened = false;
+    try
+    {
+        await new SolarOfThings.Core.SqlExplorer.SafeSqlExplorerService(
+            absentDatabase).PreviewAsync("SELECT 1;");
+    }
+    catch (FileNotFoundException) { noDatabaseOpened = true; }
+    if (!noDatabaseOpened || File.Exists(absentDatabase))
+        throw new InvalidOperationException("SQL explorer created a missing database.");
+
+    // Non-whitelisted SQLite functions are denied by the native authorizer.
+    var nativeFunctionBlocked = false;
+    try { await explorer.PreviewAsync("SELECT randomblob(16);"); }
+    catch (SqliteException) { nativeFunctionBlocked = true; }
+    if (!nativeFunctionBlocked)
+        throw new InvalidOperationException("SQLite authorizer accepted an unsafe function.");
+
     var csvOutput = Path.Combine(root, "sql-export-complete.csv");
     var xlsxOutput = Path.Combine(root, "sql-export-complete.xlsx");
     var csv = await explorer.ExportAsync(sqlStatement, csvOutput,
