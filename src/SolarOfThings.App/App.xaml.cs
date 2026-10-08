@@ -65,6 +65,7 @@ public partial class App : Application
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
         builder.Services.AddSingleton<ApiDiagnosticsStore>();
         builder.Services.AddSingleton<InvestigationDiagnosticsService>();
+        builder.Services.AddSingleton<PhaseDiagnosticsExportService>();
         builder.Services.AddSingleton<ISecretStore, DpapiFileSecretStore>();
         builder.Services.AddSingleton<IotOpenCredentialStore>();
         builder.Services.AddSingleton<SolarOfThingsApiClient>();
