@@ -7162,6 +7162,9 @@ public partial class MainWindow : Window
     private void OpenDiagnostics_Click(object sender, RoutedEventArgs e)
     {
         var window = _services.GetRequiredService<DeveloperDiagnosticsWindow>();
+        window.SetSelectedBillId(
+            UtilityAuditBillSelector.SelectedValue is long selectedBill
+                ? selectedBill : null);
         window.Owner = this;
         window.ShowDialog();
     }
