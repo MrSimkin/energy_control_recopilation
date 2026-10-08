@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Data;
 using System.Windows;
 using System.Globalization;
 using System.IO;
@@ -19,6 +20,7 @@ using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.Backup;
+using SolarOfThings.Core.SqlExplorer;
 using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.Utility;
 
@@ -1641,6 +1643,7 @@ public partial class MainWindow : Window
             ReportsNav,
             DataNav,
             BackupNav,
+            SqlNav,
             DiagnosticsNav,
             HelpNav,
             SettingsNav,
@@ -1676,6 +1679,7 @@ public partial class MainWindow : Window
         var isReports = string.Equals(pageKey, "Reports", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
         var isBackup = string.Equals(pageKey, "Backup", StringComparison.Ordinal);
+        var isSqlExplorer = string.Equals(pageKey, "SqlExplorer", StringComparison.Ordinal);
         var isHelp = string.Equals(pageKey, "Help", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
         var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
@@ -1699,6 +1703,7 @@ public partial class MainWindow : Window
         ReportsContent.Visibility = isReports ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
         BackupContent.Visibility = isBackup ? Visibility.Visible : Visibility.Collapsed;
+        SqlExplorerContent.Visibility = isSqlExplorer ? Visibility.Visible : Visibility.Collapsed;
         HelpContent.Visibility = isHelp ? Visibility.Visible : Visibility.Collapsed;
         SettingsContent.Visibility = isSettings ? Visibility.Visible : Visibility.Collapsed;
         AboutContent.Visibility = isAbout ? Visibility.Visible : Visibility.Collapsed;
@@ -1710,6 +1715,7 @@ public partial class MainWindow : Window
             !isReports &&
             !isData &&
             !isBackup &&
+            !isSqlExplorer &&
             !isHelp &&
             !isSettings &&
             !isAbout
@@ -1739,6 +1745,10 @@ public partial class MainWindow : Window
         else if (isBackup)
         {
             _ = RefreshBackupInventoryAsync();
+        }
+        else if (isSqlExplorer)
+        {
+            _ = RefreshSqlSchemaAsync();
         }
         else if (isHelp || isAbout)
         {
@@ -7098,6 +7108,204 @@ public partial class MainWindow : Window
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
+    }
+
+    private CancellationTokenSource? _sqlRunning;
+    private bool _sqlExplorerBusy;
+
+    private SafeSqlExplorerService CreateSqlExplorer() =>
+        new(_paths.DatabasePath);
+
+    private void SetSqlExplorerBusy(bool busy)
+    {
+        _sqlExplorerBusy = busy;
+        SqlExplorerBusyBar.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        SqlExecuteButton.IsEnabled = !busy;
+        SqlExportCsvButton.IsEnabled = !busy;
+        SqlExportXlsxButton.IsEnabled = !busy;
+        SqlSchemaRefreshButton.IsEnabled = !busy;
+        SqlCancelButton.IsEnabled = busy;
+    }
+
+    private bool SqlExplorerSpanish =>
+        _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase);
+
+    private async Task RefreshSqlSchemaAsync()
+    {
+        if (_sqlExplorerBusy) return;
+        SetSqlExplorerBusy(true);
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        try
+        {
+            var result = await CreateSqlExplorer().SchemaAsync(cancellation.Token);
+            SqlSchemaList.ItemsSource = result.Rows.Select(row =>
+                new SqlSchemaOption(row[0].Text ?? "", row[1].Text ?? "")).ToArray();
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Objetos SQL disponibles: " : "Available SQL objects: ") +
+                result.Rows.Count;
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "No se pudo leer el esquema: " : "Unable to read schema: ") + ex.Message;
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private async void SqlExplorerRefreshSchema_Click(object sender, RoutedEventArgs e) =>
+        await RefreshSqlSchemaAsync();
+
+    private void SqlExplorerSchemaDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (SqlSchemaList.SelectedItem is not SqlSchemaOption selected) return;
+        SqlStatementEditor.Text = "SELECT * FROM \"" +
+            selected.Name.Replace("\"", "\"\"") + "\" LIMIT 200;";
+        SqlStatementEditor.Focus();
+        SqlStatementEditor.CaretIndex = SqlStatementEditor.Text.Length;
+    }
+
+    private async void SqlExplorerExecute_Click(object sender, RoutedEventArgs e) =>
+        await ExecuteSqlExplorerAsync();
+
+    private async Task ExecuteSqlExplorerAsync()
+    {
+        if (_sqlExplorerBusy) return;
+        var sql = SqlStatementEditor.Text;
+        SetSqlExplorerBusy(true);
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        SqlExplorerStatusText.Text = SqlExplorerSpanish
+            ? "Ejecutando SELECT en modo de solo lectura..."
+            : "Executing read-only SELECT...";
+        try
+        {
+            var result = await CreateSqlExplorer().PreviewAsync(sql,
+                cancellationToken: cancellation.Token);
+            var table = new DataTable();
+            foreach (var (label, index) in result.Columns.Select((label, index) => (label, index)))
+            {
+                var name = label.Length == 0 ? "Columna " + (index + 1) : label;
+                if (table.Columns.Contains(name))
+                    name += " (" + (index + 1) + ")";
+                table.Columns.Add(name, typeof(string));
+            }
+            foreach (var values in result.Rows)
+                table.Rows.Add(values.Select(cell =>
+                    cell.IsNull ? (object)DBNull.Value : cell.Text ?? "").ToArray());
+            SqlExplorerResultGrid.ItemsSource = table.DefaultView;
+            SqlExplorerResultTitle.Text = SqlExplorerSpanish
+                ? $"Vista previa: {result.Rows.Count} filas" +
+                  (result.HasMore ? " (hay más; exportar para obtener todas)" : "")
+                : $"Preview: {result.Rows.Count} rows" +
+                  (result.HasMore ? " (more rows available; export for all)" : "");
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish ? "Consulta completada en " :
+                "Query completed in ") + result.Elapsed.TotalMilliseconds.ToString("F0") +
+                " ms. " + (SqlExplorerSpanish
+                    ? "Sin modificaciones en la base."
+                    : "Database unchanged.");
+        }
+        catch (OperationCanceledException)
+        {
+            SqlExplorerStatusText.Text = SqlExplorerSpanish
+                ? "Consulta cancelada." : "Query cancelled.";
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = (cancellation.IsCancellationRequested
+                ? (SqlExplorerSpanish ? "Consulta cancelada: " : "Query cancelled: ")
+                : (SqlExplorerSpanish ? "Error SQL: " : "SQL error: ")) +
+                ex.Message;
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private void SqlExplorerCancel_Click(object sender, RoutedEventArgs e) =>
+        _sqlRunning?.Cancel();
+
+    private async void SqlExplorerExportCsv_Click(object sender, RoutedEventArgs e) =>
+        await ExportSqlExplorerAsync(SqlExportFormat.Csv);
+
+    private async void SqlExplorerExportXlsx_Click(object sender, RoutedEventArgs e) =>
+        await ExportSqlExplorerAsync(SqlExportFormat.Xlsx);
+
+    private async Task ExportSqlExplorerAsync(SqlExportFormat format)
+    {
+        if (_sqlExplorerBusy) return;
+        var excel = format == SqlExportFormat.Xlsx;
+        var dialog = new SaveFileDialog
+        {
+            Filter = excel ? "Excel Workbook (*.xlsx)|*.xlsx" : "CSV UTF-8 (*.csv)|*.csv",
+            DefaultExt = excel ? ".xlsx" : ".csv",
+            AddExtension = true,
+            FileName = excel ? "consulta-sql.xlsx" : "consulta-sql.csv",
+            OverwritePrompt = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        SetSqlExplorerBusy(true);
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        SqlExplorerStatusText.Text = SqlExplorerSpanish
+            ? "Exportando consulta completa... No se publicarán archivos parciales."
+            : "Exporting full query... Partial files will not be published.";
+        try
+        {
+            var result = await CreateSqlExplorer().ExportAsync(
+                SqlStatementEditor.Text, dialog.FileName, format, cancellation.Token);
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Exportación completa, filas: " : "Full export, rows: ") +
+                result.Rows + " — " + result.Path;
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "No se completó la exportación: "
+                : "Export was not completed: ") + ex.Message;
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private void SqlExplorerEditorPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if ((e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) ||
+            e.Key == Key.F5)
+        {
+            e.Handled = true;
+            _ = ExecuteSqlExplorerAsync();
+        }
+        else if (e.Key == Key.Escape && _sqlRunning is not null)
+        {
+            e.Handled = true;
+            _sqlRunning.Cancel();
+        }
+    }
+
+    private void SqlExplorerEditorSelectionChanged(object sender, RoutedEventArgs e)
+    {
+        if (SqlStatementEditor is null || SqlExplorerStatusText is null ||
+            _sqlExplorerBusy) return;
+        var line = SqlStatementEditor.GetLineIndexFromCharacterIndex(
+            SqlStatementEditor.CaretIndex);
+        var col = SqlStatementEditor.CaretIndex -
+            SqlStatementEditor.GetCharacterIndexFromLineIndex(Math.Max(0, line));
+        SqlExplorerStatusText.Text = $"Ln {line + 1}, Col {col + 1} — SELECT only";
+    }
+
+    private sealed record SqlSchemaOption(string Kind, string Name)
+    {
+        public override string ToString() => Kind.ToUpperInvariant() + " · " + Name;
     }
 
     private bool _backupInventoryBusy;
