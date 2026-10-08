@@ -151,15 +151,18 @@ public sealed class FullBackupService
 
     public void DeleteSelectedLocal(string path)
     {
+        // Historical API retained for callers, but no longer bypasses the
+        // physical inventory's stale-selection and verified-last-copy guards.
+        // Only other LOCAL complete backups qualify for this local-only action.
         var full = ValidateManagedLocalPath(path);
-        var all = ListLocal();
-        if (all.Count <= 1)
-            throw new InvalidOperationException("Cannot delete the last available complete backup.");
-        // Do not pretend that any local file is valid just because it has the right name.
-        if (!all.Any(item => !string.Equals(item.Path, full, StringComparison.OrdinalIgnoreCase) &&
-                             TryVerifyArchive(item.Path)))
-            throw new InvalidOperationException("Verify another complete backup before deleting this copy.");
-        File.Delete(full);
+        var inventory = new CompleteBackupInventoryService(_paths);
+        var selected = inventory.List(null).Copies.SingleOrDefault(copy =>
+            copy.Location == "LOCAL" && copy.Kind == "COMPLETE" &&
+            string.Equals(copy.Path, full, StringComparison.OrdinalIgnoreCase));
+        if (selected is null)
+            throw new InvalidOperationException(
+                "No currently listed complete backup matches the selected local file.");
+        inventory.DeleteOne(selected, configuredSecondary: null);
     }
 
     /// <summary>
@@ -207,15 +210,6 @@ public sealed class FullBackupService
             if (ownsTemporary && File.Exists(temporary))
                 TryRemoveFile(temporary);
         }
-    }
-
-    private bool TryVerifyArchive(string path)
-    {
-        try { VerifyArchive(path); return true; }
-        catch (IOException) { return false; }
-        catch (InvalidDataException) { return false; }
-        catch (JsonException) { return false; }
-        catch (UnauthorizedAccessException) { return false; }
     }
 
     private string ValidateManagedLocalPath(string path)

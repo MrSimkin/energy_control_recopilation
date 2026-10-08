@@ -825,6 +825,29 @@ try
     if (!blocked || !File.Exists(complete.Path))
         throw new InvalidOperationException("Last-valid-copy deletion guard failed.");
 
+    // The historical local-only deletion API uses the SAME verified-copy
+    // guard as the physical backup inventory. A corrupt second ZIP is not
+    // sufficient; a separate valid ZIP may be deleted without deleting the
+    // original or touching secondary destinations.
+    var bogusLocal = Path.Combine(paths.BackupDirectory,
+        "SolarEnergyMonitor-complete-smoke-corrupt.zip");
+    File.WriteAllText(bogusLocal, "CORRUPT");
+    var bogusCannotProtect = false;
+    try { completeService.DeleteSelectedLocal(complete.Path); }
+    catch (InvalidOperationException) { bogusCannotProtect = true; }
+    if (!bogusCannotProtect || !File.Exists(complete.Path))
+        throw new InvalidOperationException(
+            "Legacy local deletion accepted a corrupt safety copy.");
+    File.Delete(bogusLocal);
+
+    var secondLocal = Path.Combine(paths.BackupDirectory,
+        "SolarEnergyMonitor-complete-smoke-second.zip");
+    File.Copy(complete.Path, secondLocal);
+    completeService.DeleteSelectedLocal(secondLocal);
+    if (File.Exists(secondLocal) || !File.Exists(complete.Path))
+        throw new InvalidOperationException(
+            "Legacy local deletion failed to preserve the valid remaining copy.");
+
     // A corrupted package must be rejected; original package is unchanged.
     var broken = Path.Combine(root, "truncated.zip");
     File.WriteAllBytes(broken, [1, 2, 3, 4, 5]);
