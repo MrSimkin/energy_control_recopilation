@@ -20,6 +20,7 @@ using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Settings;
 using SolarOfThings.Core.Backup;
+using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.SqlExplorer;
 using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.Utility;
@@ -39,6 +40,7 @@ public partial class MainWindow : Window
     private readonly SolarOfThingsSessionManager _session;
     private readonly CommissioningProfileRepository _profiles;
     private readonly IServiceProvider _services;
+    private readonly UiPerformanceRecorder _performance;
     private readonly DispatcherTimer _dashboardLiveTimer;
     private readonly DispatcherTimer _dashboardProgressTimer;
     private DateTimeOffset _dashboardLiveCycleStartedUtc = DateTimeOffset.UtcNow;
@@ -68,13 +70,15 @@ public partial class MainWindow : Window
         LocalizationService localization,
         SolarOfThingsSessionManager session,
         CommissioningProfileRepository profiles,
-        IServiceProvider services)
+        IServiceProvider services,
+        UiPerformanceRecorder performance)
     {
         _paths = paths;
         _localization = localization;
         _session = session;
         _profiles = profiles;
         _services = services;
+        _performance = performance;
 
         _dashboardLiveTimer = new DispatcherTimer(
             DispatcherPriority.Background)
@@ -137,9 +141,8 @@ public partial class MainWindow : Window
         RefreshConnectionStatus();
         RefreshBackupSecondaryPreference();
         RefreshCaptureStartOptions();
-        RefreshDashboardMetrics();
-        RefreshBatteryView();
-        RefreshDataCoverageView();
+        // Dashboard is the only initially visible page. Battery/Data loads are
+        // deferred until their first visit; never query invisible pages on startup.
         ShowPage("Dashboard");
         ApplyResponsiveCardLayouts();
         Loaded += MainWindow_Loaded;
@@ -217,6 +220,7 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        using var measure = _performance.Measure("UI.Loaded.Initialize");
         var profile = _profiles.Get();
         if (profile is null)
         {
@@ -240,8 +244,6 @@ public partial class MainWindow : Window
         if (history.GetSampleCount(profile.DeviceId) == 0)
         {
             RefreshDashboardMetrics();
-            RefreshBatteryView();
-            RefreshDataCoverageView();
             SetGlobalOperation(false, string.Empty);
             return;
         }
@@ -281,13 +283,12 @@ public partial class MainWindow : Window
         }
 
         RefreshDashboardMetrics();
-        RefreshBatteryView();
-        RefreshDataCoverageView();
         SetGlobalOperation(false, string.Empty);
     }
 
     private void RefreshDashboardMetrics()
     {
+        using var measure = _performance.Measure("UI.Dashboard.Refresh");
         var profile = _profiles.Get();
         if (profile is null)
         {
@@ -550,6 +551,7 @@ public partial class MainWindow : Window
 
     private void RefreshBatteryView()
     {
+        using var measure = _performance.Measure("UI.Battery.Refresh");
         if (!IsInitialized || BatteryContent is null)
         {
             return;
@@ -811,6 +813,7 @@ public partial class MainWindow : Window
 
     private void RefreshAnalysisView(bool initializeRange = false)
     {
+        using var measure = _performance.Measure("UI.Analysis.Refresh");
         if (!IsInitialized || AnalysisContent is null)
         {
             return;
@@ -1638,6 +1641,7 @@ public partial class MainWindow : Window
 
     private void ShowPage(string pageKey)
     {
+        using var measure = _performance.Measure("UI.Navigation");
         var buttons = new[]
         {
             DashboardNav,
@@ -1726,7 +1730,11 @@ public partial class MainWindow : Window
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-        if (isAnalysis)
+        if (isDashboard)
+        {
+            RefreshDashboardMetrics();
+        }
+        else if (isAnalysis)
         {
             RefreshAnalysisView();
         }
@@ -1786,18 +1794,21 @@ public partial class MainWindow : Window
         _localization.SetLanguage(language);
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
-        RefreshDashboardMetrics();
-        RefreshBatteryView();
-        RefreshGridUtilityView();
-        RefreshDataCoverageView();
-        RefreshAnalysisView();
-        RefreshReportsView();
+        // Inactive pages reload in ShowPage. Avoid expensive SQLite queries
+        // and chart repaints for pages the user cannot see.
+        if (_dashboardVisible) RefreshDashboardMetrics();
+        if (BatteryContent.Visibility == Visibility.Visible) RefreshBatteryView();
+        if (GridUtilityContent.Visibility == Visibility.Visible) RefreshGridUtilityView();
+        if (DataContent.Visibility == Visibility.Visible) RefreshDataCoverageView();
+        if (AnalysisContent.Visibility == Visibility.Visible) RefreshAnalysisView();
+        if (ReportsContent.Visibility == Visibility.Visible) RefreshReportsView();
         RefreshProductExperienceLocalization();
     }
 
 
     private async void RefreshGridUtilityView()
     {
+        using var measure = _performance.Measure("UI.GridUtility.Refresh");
         if (!IsInitialized || GridUtilityContent is null)
         {
             return;
@@ -8103,6 +8114,7 @@ public partial class MainWindow : Window
 
     private void RefreshDataCoverageView()
     {
+        using var measure = _performance.Measure("UI.DataCoverage.Refresh");
         if (!IsInitialized || DataContent is null)
         {
             return;
