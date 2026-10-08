@@ -158,3 +158,24 @@ Keep existing Analysis, Battery, and Grid & Utility task tabs. Localization ES/E
 The owner requested more concrete per-screen wireframes; these are proposals to show, revise and approve in discussion. **Only grouped-sidebar direction has been approved** in this section.
 
 **No development/build/real-data changes authorized; work branch PR stays draft.**
+
+## Owner screen-design decisions: Dashboard and Reports approved; Grid/Enel needs visual clarification (2026-10-08)
+
+**APPROVED — proposal 1, Dashboard:** Preserve the existing four instant observed-value cards (PV, house load, battery, grid import); promptly display last observation timestamp and freshness; show plain-language current operating explanation; put last available stored-day energy (kWh) with explicit date/coverage below. Keep charts/long analysis in the dedicated Analysis page. Minimize first-paint latency by deferring optional/heavy reads, avoid duplicate startup computations, provide honest loading states instead of zero or fabricated measurements. Preserve live vs stored distinction, W/kW vs integrated kWh and explicit uncertainty.
+
+**APPROVED — proposal 3, Reports:** Separate report/template selection and date-range/presentation options from preview/coverage and PDF/Excel export. Keep all existing report types, formulas, presets and provenance; show staged async progress, persistent completion/failure state and output location. Avoid freezing the GUI during export.
+
+**APPROVED — proposal 4, transversal product UX/performance criteria:** Lazy/nonblocking screen loading; visible local/global progress and recoverable errors; one clear primary action per task; progressive disclosure for advanced diagnostic details; no loss of controls, mathematical validity, or source traceability; measured query/UI responsiveness and indexing/refactoring based on actual evidence. Preserve bilingual ES/EN and keyboard navigation.
+
+**NOT APPROVED — proposal 2, Grid & Enel:** Owner cannot yet visualize the proposed layout and requests a much more concrete, screen-like representation. A new illustrated/tabbed wireframe and an end-to-end example are needed before approval. Do **not** treat previous Grid/Enel proposals as authorization to rearrange this workflow.
+
+### Grid/Enel clarification concept to show (proposal, awaiting owner feedback)
+
+Existing six sub-tabs stay: **Resumen / Lecturas / Comparar lecturas / Boletas / Auditoría / Tarifas**. Demonstrate three distinct example screens rather than abstract cards:
+- **Resumen** = read-only status and direct shortcuts to latest boleta, missing evidence, tariff state, and comparison; no huge edit form.
+- **Boletas** = visible list of saved bills on the left, selected real bill details on right with subtabs `Resumen / Lecturas / Cargos`, plus `Auditar esta boleta`, `Ver PDF` and `Editar` distinct actions.
+- **Auditoría** = selected bill pinned at top, then explicit sections in order `1. Boleta original`, `2. Energía (Enel vs inverter + coverage)`, `3. Cargos/tarifa (verified vs ambiguous)`, `4. Conclusión + PDF/anexo`. Show source/RED-ETR uncertainty instead of treating mathematical matching as tariff certification; do not claim a bill discrepancy proves distributor error.
+- **Lecturas** is capture/manage readings; **Comparar** is freely selecting two meter observations and matching inverter interval, not the official bill audit; **Tarifas** is official evidence acquisition/validity and diagnostic state.
+- Show the interaction sequence `Resumen → Boletas → seleccionar una → Auditar` using one concrete example and clear navigation. Do not duplicate already-implemented sub-tabs or eliminate existing features.
+
+These Grid/Enel details are exploratory until owner approval. **No code, new build, real data operations, backup restore or main merge authorized.**
