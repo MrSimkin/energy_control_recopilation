@@ -28,6 +28,20 @@
     <sys:String x:Key="Backup.ColumnStatus">Integridad</sys:String>
     <sys:String x:Key="Backup.LastCopyPolicy">El borrado requiere confirmación y otra copia completa disponible y verificada. Nunca elimina la copia secundaria junto con la local ni borra datos activos.</sys:String>
 
+    <sys:String x:Key="Nav.SqlExplorer">Explorador SQL</sys:String>
+    <sys:String x:Key="Page.SqlExplorer.Title">Explorador SQL</sys:String>
+    <sys:String x:Key="Page.SqlExplorer.Subtitle">Consultas de solo lectura y exportaciones</sys:String>
+    <sys:String x:Key="SqlExplorer.Heading">Explorador SQL — solo lectura</sys:String>
+    <sys:String x:Key="SqlExplorer.Intro">Consulta la base con SELECT. Las operaciones que escriben, los adjuntos y los cambios de estructura están bloqueados. Vista previa de hasta 200 filas; CSV y Excel ejecutan la consulta completa dentro de límites seguros.</sys:String>
+    <sys:String x:Key="SqlExplorer.Execute">Ejecutar (Ctrl+Enter / F5)</sys:String>
+    <sys:String x:Key="SqlExplorer.Cancel">Cancelar (Esc)</sys:String>
+    <sys:String x:Key="SqlExplorer.ExportCsv">Exportar CSV completo</sys:String>
+    <sys:String x:Key="SqlExplorer.ExportXlsx">Exportar Excel completo</sys:String>
+    <sys:String x:Key="SqlExplorer.RefreshSchema">Actualizar esquema</sys:String>
+    <sys:String x:Key="SqlExplorer.SchemaHeading">Tablas y vistas</sys:String>
+    <sys:String x:Key="SqlExplorer.EditorHeading">Editor de consulta</sys:String>
+    <sys:String x:Key="SqlExplorer.ResultsHeading">Resultados (vista previa)</sys:String>
+
     <sys:String x:Key="Nav.Group.Home">INICIO</sys:String>
     <sys:String x:Key="Nav.Group.Energy">ENERGÍA</sys:String>
     <sys:String x:Key="Nav.Group.Reports">INFORMES</sys:String>
