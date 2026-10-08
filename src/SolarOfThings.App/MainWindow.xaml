@@ -2080,6 +2080,14 @@
                                                 Margin="0,0,0,10"
                                                 Click="UtilityExportBillAnnex_Click"/>
                                     </WrapPanel>
+                                    <ProgressBar x:Name="UtilityAuditExportProgressBar"
+                                                 Height="8" Minimum="0" Maximum="100" Value="0"
+                                                 IsIndeterminate="False" Visibility="Collapsed"
+                                                 Margin="0,0,0,5"/>
+                                    <TextBlock x:Name="UtilityAuditExportProgressText"
+                                               Visibility="Collapsed" TextWrapping="Wrap"
+                                               FontSize="12" Foreground="#495057"
+                                               Margin="0,0,0,8"/>
 
                                     <TextBlock x:Name="UtilityAuditStatusText"
                                                Text="{DynamicResource GridUtility.AuditEvidencePending}"
