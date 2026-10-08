@@ -263,6 +263,85 @@ try
         if (Convert.ToString(check.ExecuteScalar()) != "different-live-value")
             throw new InvalidOperationException("Read-only recovery preview mutated target.");
     }
+    // Additive isolated staging without activation: v17 app_setting only.
+    // The marker is created for the random synthetic test root, NOT user Data.
+    IsolatedRecoveryAdditiveTestService.MarkSyntheticSmokeFixture(root);
+    var additive = new IsolatedRecoveryAdditiveTestService();
+    var stagedOnce = additive.ApplyToNewStagedFixture(
+        complete.Path, previewDatabase.DatabasePath);
+    if (stagedOnce.Status != "STAGED_SYNTHETIC_ONLY" ||
+        stagedOnce.Added < 1 ||
+        stagedOnce.AlreadyPresent < 1 ||
+        stagedOnce.Conflicts < 1 ||
+        !File.Exists(stagedOnce.StagedDatabasePath))
+        throw new InvalidOperationException("Additive synthetic staging did not report expected counters.");
+
+    using (var stagedRead = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = stagedOnce.StagedDatabasePath,
+        Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    {
+        stagedRead.Open();
+        using var check = stagedRead.CreateCommand();
+        check.CommandText =
+            "SELECT value FROM app_setting WHERE key='smoke.preview.source-only';";
+        if (Convert.ToString(check.ExecuteScalar()) != "only-in-backup")
+            throw new InvalidOperationException("Additive staging lost a missing source record.");
+        check.CommandText =
+            "SELECT value FROM app_setting WHERE key='smoke.preview.conflict';";
+        if (Convert.ToString(check.ExecuteScalar()) != "different-live-value")
+            throw new InvalidOperationException("Additive staging overwrote conflicting target values.");
+    }
+
+    // Running the same source again is idempotent: no double insertion.
+    var stagedTwice = additive.ApplyToNewStagedFixture(
+        complete.Path, stagedOnce.StagedDatabasePath);
+    if (stagedTwice.Added != 0 ||
+        stagedTwice.Conflicts != stagedOnce.Conflicts ||
+        stagedTwice.AlreadyPresent <= stagedOnce.AlreadyPresent)
+        throw new InvalidOperationException("Additive staging retry is not idempotent.");
+
+    // Fault just after the first INSERT must roll back and remove its stage.
+    var stageCountBefore = Directory.GetFiles(root,
+        "recovery-additive-staged-*.db", SearchOption.TopDirectoryOnly).Length;
+    var rolledBack = false;
+    try
+    {
+        additive.ApplyToNewStagedFixture(
+            complete.Path, previewDatabase.DatabasePath,
+            simulateFailureAfterFirstInsert: true);
+    }
+    catch (InvalidOperationException ex)
+    {
+        rolledBack = ex.Message == "SYNTHETIC_TEST_INJECTED_BEFORE_COMMIT";
+    }
+    if (!rolledBack || Directory.GetFiles(root,
+        "recovery-additive-staged-*.db", SearchOption.TopDirectoryOnly).Length !=
+        stageCountBefore)
+        throw new InvalidOperationException("Fault injection did not cleanly roll back stage.");
+
+    // Supplying an arbitrary path outside the synthetic fixture is rejected
+    // before the API can inspect a user-owned database.
+    var arbitraryTargetRejected = false;
+    try
+    {
+        additive.ApplyToNewStagedFixture(complete.Path,
+            Path.Combine(Path.GetTempPath(), "UNSAFE-user-database.db"));
+    }
+    catch (InvalidOperationException) { arbitraryTargetRejected = true; }
+    if (!arbitraryTargetRejected)
+        throw new InvalidOperationException("Additive service accepted arbitrary database path.");
+
+    using (var unchangedAgain = previewDatabase.OpenConnection())
+    using (var check = unchangedAgain.CreateCommand())
+    {
+        check.CommandText =
+            "SELECT COUNT(*) FROM app_setting WHERE key='smoke.preview.source-only';";
+        if (Convert.ToInt32(check.ExecuteScalar()) != 0)
+            throw new InvalidOperationException("Original target was modified by staging.");
+    }
+
     // A schema without a tested adapter remains explicitly unsupported.
     using (var legacyTarget = previewDatabase.OpenConnection())
     using (var lower = legacyTarget.CreateCommand())
