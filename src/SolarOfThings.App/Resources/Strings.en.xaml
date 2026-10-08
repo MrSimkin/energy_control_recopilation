@@ -314,6 +314,7 @@
     <sys:String x:Key="GridUtility.SavedBillsIntro">Select a bill to review provenance, correct it, or continue entering charge lines. Legacy bills remain visible but are not treated as reviewed automatically.</sys:String>
     <sys:String x:Key="GridUtility.BillLineEditorHeading">Charges, credits and adjustments</sys:String>
     <sys:String x:Key="GridUtility.AuditCoverageCard">Amount explicitly reconstructed</sys:String>
+    <sys:String x:Key="GridUtility.AuditCoverageBasis">Absolute actual amount of reconstructed lines ÷ absolute amount of all lines. Not a % of the bill total due.</sys:String>
     <sys:String x:Key="GridUtility.AuditVatCard">VAT 19%</sys:String>
     <sys:String x:Key="GridUtility.AuditBalanceCard">Balance and adjustments</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.ActualAmount">Actual amount</sys:String>

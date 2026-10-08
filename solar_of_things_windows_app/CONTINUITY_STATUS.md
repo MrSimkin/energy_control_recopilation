@@ -6811,3 +6811,43 @@ Only:
 4. if screen is correct, export Audit PDF + technical annex ZIP and attach them. Assistant performs the export review; owner does not need to inspect CSV/TXT manually.
 
 If this gate passes, mark Phase 10 COMPLETED and begin Phase 11 SQL Usability / Documentation.
+
+## Build 684 owner QA accepted — follow-up presentation correction (2026-10-07, Chile)
+
+The working branch `work/phase10-12-consolidated-20261007`
+produced Build 684 (GitHub Actions run `37713227484`, PASS;
+source branch tip `c4ade0094dcbbe788a5f6a72547ecd32d7212a0c`).
+The owner reviewed the target-PC Audit screen, the 9-page Audit PDF,
+technical annex ZIP and sanitized phase 10–12 diagnostic ZIP.
+
+**Owner decision:** Phase 10 functional QA PASS. The displayed
+CLP 26,854 actual / CLP 24,693 observed scenario / CLP 2,161
+difference agree with the annex. Electric, Transport and fixed
+Administration CLP 727 are reconstructed, but electricity and
+fixed-charge RED/ETR applicability remain ambiguous, so the
+reconstructed lines must not all be counted as independently verified.
+Real detail residual -3 CLP must not be turned into an invented
+adjustment. This is functional acceptance of the Build 684 economic
+workflow, not a complete tariff-identity certification.
+
+Build 684 already establishes the real Windows baseline. The immediate
+follow-up is a targeted presentation-only adjustment: the PDF scenario
+column labeled "Variable" actually includes the supported fixed charge
+and therefore becomes "Subtotal modelado"; the on-screen 70.4%
+coverage displays its denominator (absolute real reconstructed lines
+over absolute real all lines, not net amount due). No monetary engine
+or database semantics may change for these labels.
+
+Phase 11 SQL remains partial: target-PC diagnostic reports SQLite
+schema 17 and PASS on all seven view checks, but no owner acceptance
+of usefulness or faithful energy-integrated SQL views yet.
+Phase 12 remains partial: owner diagnostic enumerates a verified
+automatic schema-v16 pre-migration snapshot and a verified manual
+schema-v17 backup, with integrity PASS and manifest; restoration,
+DB replacement, destructive imports and automatic retention deletion
+remain explicitly out of scope. Zero-click official Enel import remains
+unproven; the existing one-click fallback imported successfully.
+
+Global phase-10–12 release is not accepted and not ready to merge into
+`main`. See `PHASE_10_12_TRANCHE_STATUS.md` for detailed evidence
+and separated acceptance gates.

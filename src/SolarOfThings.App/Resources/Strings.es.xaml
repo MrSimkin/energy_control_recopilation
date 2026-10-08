@@ -314,6 +314,7 @@
     <sys:String x:Key="GridUtility.SavedBillsIntro">Selecciona una boleta para revisar su trazabilidad, corregirla o continuar con el detalle de cargos. Las boletas legacy quedan visibles pero no se consideran revisadas automáticamente.</sys:String>
     <sys:String x:Key="GridUtility.BillLineEditorHeading">Detalle de cargos, créditos y ajustes</sys:String>
     <sys:String x:Key="GridUtility.AuditCoverageCard">Monto con reconstrucción explícita</sys:String>
+    <sys:String x:Key="GridUtility.AuditCoverageBasis">Monto absoluto real de líneas reconstruidas ÷ monto absoluto de todas las líneas. No es % del total a pagar.</sys:String>
     <sys:String x:Key="GridUtility.AuditVatCard">IVA 19%</sys:String>
     <sys:String x:Key="GridUtility.AuditBalanceCard">Cuadratura y ajustes</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.ActualAmount">Monto real</sys:String>

@@ -1,6 +1,6 @@
 # Consolidated tranche 10–12 — execution and acceptance record
 
-Status: **WORK IN PROGRESS — NOT ACCEPTED, NOT READY FOR MERGE**.
+Status: **PHASE 10 OWNER FUNCTIONAL QA PASS (BUILD 684); PHASE 11/12 PARTIAL — NOT READY FOR MERGE**.
 Owner authorization: combine Phase 10 correction + Phase 11 SQL + Phase 12
 backup/protection plus UI/UX and Enel zero-click improvements, but defer
 **all restore / destructive import / live DB replacement**.
@@ -39,12 +39,57 @@ AMBIGUOUS. Do not call printed-amount matching independent verification.
 Do not mark ambiguous lines as verified, and do not invent any fixed-charge
 proration. Add an anonymous competing-rate regression fixture.
 
-Actual Windows QA after this correction is still PENDING; the build must
-not be labeled Phase 10 PASS until the user verifies the new Audit evidence.
+At the time of this correction the next Windows QA was pending. The subsequent Build 684 owner evidence and functional acceptance are recorded below.
+
+## Build 684 — owner-accepted functional QA (2026-10-07, Chile)
+
+Owner supplied a target-PC Audit screenshot, the nine-page Audit PDF,
+the technical annex ZIP and a sanitized phases 10–12 diagnostic ZIP,
+then explicitly authorized functional Phase 10 acceptance and
+continuation. **Phase 10 functional QA: PASS.** This is not a
+claim of independently established RED/ETR tariff applicability.
+
+Accepted bill evidence (28-Aug to 28-Sep 2026):
+- 97.000 billed kWh; 88.065413 observed inverter kWh;
+  coverage 99.3349%.
+- Actual printed total CLP 26,854; observed comparable scenario
+  CLP 24,693.31; difference CLP 2,160.69 (display CLP 2,161).
+- Official-source mathematical reconstruction: Electricity
+  CLP 21,387.53 vs printed 21,389; Transport + Public Service
+  CLP 2,070.368 vs printed 2,072; monthly fixed Administration
+  CLP 727 vs printed 727.
+- Three reconstructed lines, of which **one is independently
+  marked verified and two retain explicit applicability ambiguity**.
+  Matching printed charges does not establish unique RED/ETR.
+- Printed summary balances; real line-detail residual CLP -3
+  remains disclosed with no fabricated adjustment.
+- Reconstructed line coverage 70.369...% = CLP 24,188 of reconstructed
+  **actual absolute line amounts** / CLP 34,373 of **all actual
+  absolute line amounts**, including the subsidy absolute value.
+  This is *not* a share of net bill total.
+- Audit PDF and annex match the visible estimate and reconstruction.
+  The economic CSV retains supported variable and fixed amounts
+  separately.
+
+Build 684: successful Windows CI run 37713227484 (branch commit
+`c4ade0094dcbbe788a5f6a72547ecd32d7212a0c`).
+The PDF identifies the CI pull-request synthetic merge revision as
+`37c7166d...`; that revision differs from the PR branch tip by design.
+
+Non-blocking presentation refinements included in the next
+work-branch code change: rename PDF scenario column "Variable" to
+"Subtotal modelado" (it includes fixed charge), align explanatory text,
+and show the reconstruction-coverage denominator on screen in both
+languages. CI and any focused checks for that follow-up code are
+separate from the owner acceptance of Build 684.
+
+Phase 10 economic QA has an accepted baseline; do **not** reopen
+earlier manual QA or assert tariff identity unique. Global consolidated
+10–12 tranche is still WIP, and merge to `main` is not authorized.
 
 ## Phase 11 scope
 
-Schema v17 introduces five queryable read-only views with documented
+Schema v17 introduces seven queryable read-only views with documented
 granularity and units. Guide:
 `PHASE_11_SQL_GUIDE.md`.
 
