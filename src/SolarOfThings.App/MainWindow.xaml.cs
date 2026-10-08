@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private readonly CommissioningProfileRepository _profiles;
     private readonly IServiceProvider _services;
     private readonly UiPerformanceRecorder _performance;
+    private int _lastResponsiveColumnCount = -1;
     private readonly DispatcherTimer _dashboardLiveTimer;
     private readonly DispatcherTimer _dashboardProgressTimer;
     private DateTimeOffset _dashboardLiveCycleStartedUtc = DateTimeOffset.UtcNow;
@@ -165,6 +166,15 @@ public partial class MainWindow : Window
             < 1040 => 2,
             _ => 4
         };
+
+        // WPF already resizes Grid children as the window changes width.
+        // Rebuilding RowDefinitions/ColumnDefinitions on every pixel of
+        // SizeChanged causes avoidable measure/arrange passes and flicker.
+        // Only rebuild when the actual responsive breakpoint changes.
+        if (_lastResponsiveColumnCount == columns)
+            return;
+        _lastResponsiveColumnCount = columns;
+        using var measure = _performance.Measure("UI.Layout.BreakpointChange");
 
         ApplyResponsiveCardGrid(DashboardSummaryCards, columns);
         ApplyResponsiveCardGrid(BatterySummaryCards, columns);
