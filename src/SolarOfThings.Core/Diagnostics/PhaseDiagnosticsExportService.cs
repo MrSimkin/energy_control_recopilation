@@ -142,6 +142,7 @@ public sealed class PhaseDiagnosticsExportService
         {
             "reporting_grid_import", "reporting_battery",
             "reporting_utility_bills", "reporting_bill_line_evidence",
+            "reporting_hourly_power_samples", "reporting_daily_power_samples",
             "data_quality_summary"
         };
         var viewChecks = views.ToDictionary(

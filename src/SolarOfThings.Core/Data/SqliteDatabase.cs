@@ -855,6 +855,34 @@ public sealed class SqliteDatabase
             FROM normalized_metric_sample
             WHERE metric_key = 'grid_import_power_w';
 
+            -- Counts and arithmetic averages of measured power samples,
+            -- NOT time-weighted energy/kWh (gaps are not interpolated).
+            CREATE VIEW reporting_hourly_power_samples AS
+            SELECT device_id, substr(recorded_at_utc,1,13) AS utc_hour,
+                   metric_key, COUNT(*) AS sample_count,
+                   AVG(normalized_value) AS sample_average_w,
+                   MIN(normalized_value) AS sample_minimum_w,
+                   MAX(normalized_value) AS sample_maximum_w
+            FROM normalized_metric_sample
+            WHERE metric_key IN (
+                'pv_power_w','house_load_power_w',
+                'grid_import_power_w','battery_power_w'
+            ) AND normalized_value IS NOT NULL
+            GROUP BY device_id, substr(recorded_at_utc,1,13), metric_key;
+
+            CREATE VIEW reporting_daily_power_samples AS
+            SELECT device_id, substr(recorded_at_utc,1,10) AS utc_day,
+                   metric_key, COUNT(*) AS sample_count,
+                   AVG(normalized_value) AS sample_average_w,
+                   MIN(normalized_value) AS sample_minimum_w,
+                   MAX(normalized_value) AS sample_maximum_w
+            FROM normalized_metric_sample
+            WHERE metric_key IN (
+                'pv_power_w','house_load_power_w',
+                'grid_import_power_w','battery_power_w'
+            ) AND normalized_value IS NOT NULL
+            GROUP BY device_id, substr(recorded_at_utc,1,10), metric_key;
+
             CREATE VIEW reporting_battery AS
             SELECT device_id, recorded_at_utc,
                    MAX(CASE WHEN metric_key = 'battery_soc_pct'

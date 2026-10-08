@@ -23,6 +23,8 @@ WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'
 ORDER BY type, name;
 SELECT * FROM data_quality_summary ORDER BY local_date DESC LIMIT 25;
 SELECT * FROM reporting_grid_import ORDER BY recorded_at_utc DESC LIMIT 25;
+SELECT * FROM reporting_hourly_power_samples ORDER BY utc_hour DESC LIMIT 25;
+SELECT * FROM reporting_daily_power_samples ORDER BY utc_day DESC LIMIT 25;
 SELECT * FROM reporting_battery ORDER BY recorded_at_utc DESC LIMIT 25;
 SELECT * FROM reporting_utility_bills ORDER BY period_end_utc DESC LIMIT 25;
 SELECT * FROM reporting_bill_line_evidence ORDER BY bill_id DESC, bill_line_id LIMIT 25;
@@ -33,6 +35,8 @@ SELECT * FROM reporting_bill_line_evidence ORDER BY bill_id DESC, bill_line_id L
 | Vista | Granularidad | Semántica |
 |---|---|---|
 | `reporting_grid_import` | Dispositivo × timestamp | Potencia importada en **W**, valor medido, calidad, confianza; **no** kWh |
+| `reporting_hourly_power_samples` | Dispositivo × hora UTC × métrica | Conteo, media aritmética, mínimo y máximo de muestras **W**, no energía |
+| `reporting_daily_power_samples` | Dispositivo × día UTC × métrica | Estadísticas de muestras **W**, no kWh ni día local |
 | `reporting_battery` | Dispositivo × timestamp | SOC (%), voltaje (V), potencia (W); campos ausentes quedan NULL |
 | `reporting_utility_bills` | Una boleta | Período, kWh facturados, sumario monetario y revisión; datos impresos |
 | `reporting_bill_line_evidence` | Una línea de boleta | Importe real, categoría, origen y estado de evidencia |

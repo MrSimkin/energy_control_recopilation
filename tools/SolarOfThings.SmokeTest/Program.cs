@@ -47,11 +47,17 @@ try
             WHERE type = 'view' AND name IN (
                 'reporting_grid_import', 'reporting_battery',
                 'reporting_utility_bills', 'reporting_bill_line_evidence',
+                'reporting_hourly_power_samples', 'reporting_daily_power_samples',
                 'data_quality_summary');
             """;
-        if (Convert.ToInt32(views.ExecuteScalar()) != 5)
+        if (Convert.ToInt32(views.ExecuteScalar()) != 7)
             throw new InvalidOperationException(
                 "Phase 11 canonical reporting views are missing.");
+
+        views.CommandText = "SELECT COUNT(*) FROM reporting_hourly_power_samples;";
+        if (Convert.ToInt32(views.ExecuteScalar()) != 0)
+            throw new InvalidOperationException(
+                "Empty hourly power-sample view unexpectedly has rows.");
 
         views.CommandText = "SELECT COUNT(*) FROM reporting_grid_import;";
         if (Convert.ToInt32(views.ExecuteScalar()) != 0)
