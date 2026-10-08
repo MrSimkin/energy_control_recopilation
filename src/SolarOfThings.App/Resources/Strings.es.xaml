@@ -28,6 +28,9 @@
     <sys:String x:Key="Backup.ColumnStatus">Integridad</sys:String>
     <sys:String x:Key="Backup.LastCopyPolicy">El borrado requiere confirmación y otra copia completa disponible y verificada. Nunca elimina la copia secundaria junto con la local ni borra datos activos.</sys:String>
 
+    <sys:String x:Key="SqlExplorer.ShortcutExecute">Atajo ejecutar:</sys:String>
+    <sys:String x:Key="SqlExplorer.ShortcutCsv">Atajo CSV:</sys:String>
+    <sys:String x:Key="SqlExplorer.ShortcutExcel">Atajo Excel:</sys:String>
     <sys:String x:Key="Nav.SqlExplorer">Explorador SQL</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Title">Explorador SQL</sys:String>
     <sys:String x:Key="Page.SqlExplorer.Subtitle">Consultas de solo lectura y exportaciones</sys:String>
