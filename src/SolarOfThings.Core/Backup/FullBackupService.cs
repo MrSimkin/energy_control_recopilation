@@ -370,8 +370,9 @@ public sealed class FullBackupService
             {
                 if (!names.Add(entry.FullName) ||
                     !IsSafeZipPath(entry.FullName) ||
-                    !IsAllowedCompleteBackupPath(entry.FullName))
-                    throw new InvalidDataException("Unsafe or duplicate ZIP entry.");
+                    !IsAllowedCompleteBackupPath(entry.FullName) ||
+                    !HasRegularArchiveEntryType(entry))
+                    throw new InvalidDataException("Unsafe, non-file or duplicate ZIP entry.");
             }
             if (names.Count != manifest.Files.Count + 1 ||
                 !names.Contains("manifest.json"))
@@ -485,6 +486,17 @@ public sealed class FullBackupService
                         "Snapshot references an original document missing from its backup category.");
             }
         }
+    }
+
+    // On Unix-originated ZIPs, upper 16 external-attribute bits carry the
+    // POSIX file mode. Only regular files (0x8000) or absent type metadata
+    // are acceptable; symbolic links (0xA000), directories (0x4000) and
+    // devices must never be interpreted as recoverable backup documents.
+    // Windows-created archives commonly omit these high mode bits.
+    private static bool HasRegularArchiveEntryType(ZipArchiveEntry entry)
+    {
+        var unixType = (entry.ExternalAttributes >> 16) & 0xF000;
+        return unixType is 0 or 0x8000;
     }
 
     // Format v1 is a closed archive: one database, one manifest and only

@@ -400,6 +400,30 @@ try
         throw new InvalidOperationException("Complete backup package smoke failed.");
     }
 
+    // Even perfectly valid ZIP paths and checksums are insufficient if the
+    // entry metadata declares a symbolic link or another non-regular file.
+    // No extraction is attempted; only a synthetic package clone is edited.
+    foreach (var (unixType, label) in new[]
+    {
+        (0xA000u, "symlink"),
+        (0x4000u, "directory")
+    })
+    {
+        var disguised = Path.Combine(root, "unsafe-zip-entry-" + label + ".zip");
+        File.Copy(complete.Path, disguised);
+        using (var zip = ZipFile.Open(disguised, ZipArchiveMode.Update))
+        {
+            var entry = zip.GetEntry("documents/Bills/smoke-original-bill.txt")!;
+            entry.ExternalAttributes = unchecked((int)(unixType << 16));
+        }
+        var nonFileRejected = false;
+        try { FullBackupService.VerifyArchive(disguised); }
+        catch (InvalidDataException) { nonFileRejected = true; }
+        if (!nonFileRejected)
+            throw new InvalidOperationException(
+                "Backup verifier accepted non-regular ZIP entry: " + label);
+    }
+
     // Reject an otherwise hash-consistent ZIP with two document names that
     // differ only by case: on Windows they can map to the same physical path.
     var collidingArchive = Path.Combine(root, "case-collision-package.zip");
