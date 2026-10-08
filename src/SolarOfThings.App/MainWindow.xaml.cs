@@ -3498,6 +3498,14 @@ public partial class MainWindow : Window
             _ => status
         };
 
+    private void SetAuditExportProgress(int progress, string label)
+    {
+        UtilityAuditExportProgressBar.Visibility = Visibility.Visible;
+        UtilityAuditExportProgressText.Visibility = Visibility.Visible;
+        UtilityAuditExportProgressBar.Value = progress;
+        UtilityAuditExportProgressText.Text = label;
+    }
+
     private async void UtilityExportBillAudit_Click(
         object sender,
         RoutedEventArgs e)
@@ -3529,6 +3537,9 @@ public partial class MainWindow : Window
             "es",
             StringComparison.OrdinalIgnoreCase);
 
+        SetAuditExportProgress(15, spanish
+            ? "Paso 1/3 · Preparando auditoría"
+            : "Step 1/3 · Preparing audit");
         UtilityExportBillAuditButton.IsEnabled = false;
         UtilityExportBillAnnexButton.IsEnabled = false;
         UtilityAuditStatusText.Text = spanish
@@ -3542,6 +3553,9 @@ public partial class MainWindow : Window
 
         try
         {
+            SetAuditExportProgress(50, spanish
+                ? "Paso 2/3 · Generando archivo"
+                : "Step 2/3 · Generating file");
             var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
                 ? "America/Santiago"
                 : profile.StationTimeZone;
@@ -3558,12 +3572,19 @@ public partial class MainWindow : Window
                     _localization.CurrentLanguage,
                     ReportProducerIdentity()));
 
+            SetAuditExportProgress(100, spanish
+                ? "Paso 3/3 · PDF guardado: " + dialog.FileName
+                : "Step 3/3 · PDF saved: " + dialog.FileName);
+            System.Media.SystemSounds.Asterisk.Play();
             UtilityAuditStatusText.Text = string.Format(
                 _localization.GetString("GridUtility.ExportBillAuditSaved"),
                 dialog.FileName);
         }
         catch (Exception ex)
         {
+            SetAuditExportProgress(100, spanish
+                ? "Error de exportación: " + ex.Message
+                : "Export failed: " + ex.Message);
             UtilityAuditStatusText.Text = ex.Message;
             MessageBox.Show(
                 ex.Message,
@@ -3614,6 +3635,9 @@ public partial class MainWindow : Window
                 "es",
                 StringComparison.OrdinalIgnoreCase);
 
+        SetAuditExportProgress(15, spanish
+            ? "Paso 1/3 · Preparando anexo"
+            : "Step 1/3 · Preparing annex");
         UtilityExportBillAnnexButton.IsEnabled = false;
         UtilityExportBillAuditButton.IsEnabled = false;
         UtilityAuditStatusText.Text =
@@ -3628,6 +3652,9 @@ public partial class MainWindow : Window
 
         try
         {
+            SetAuditExportProgress(50, spanish
+                ? "Paso 2/3 · Generando archivo"
+                : "Step 2/3 · Generating file");
             var timeZone =
                 string.IsNullOrWhiteSpace(
                     profile.StationTimeZone)
@@ -3648,6 +3675,10 @@ public partial class MainWindow : Window
                         _localization.CurrentLanguage,
                         ReportProducerIdentity()));
 
+            SetAuditExportProgress(100, spanish
+                ? "Paso 3/3 · ZIP guardado: " + dialog.FileName
+                : "Step 3/3 · ZIP saved: " + dialog.FileName);
+            System.Media.SystemSounds.Asterisk.Play();
             UtilityAuditStatusText.Text =
                 string.Format(
                     _localization.GetString(
@@ -3656,6 +3687,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            SetAuditExportProgress(100, spanish
+                ? "Error de exportación: " + ex.Message
+                : "Export failed: " + ex.Message);
             UtilityAuditStatusText.Text =
                 ex.Message;
             MessageBox.Show(
