@@ -180,3 +180,9 @@ the tariff engine, numeric calculations, schema, backups or real data.
 remains valid. The Build 685 label/layout refinement is CI-verified but
 its Windows visual output has not yet been checked by the owner. Phases
 11 and 12 remain PARTIAL and are not declared closed. No merge to `main`.
+
+## Next tranche — owner design and development decisions (2026-10-08)
+
+The owner has approved the direction of ongoing UI/UX evolution, performance/refactoring, an integrated **and** externally accessible SQL workflow, and further backup-development work. The owner also postponed Build-685 manual visual QA and is not ready for v1.0; additional Enel-report data are expected on 2026-10-12. **No next-tranche code, schema, backup restore, destructive operation, version bump, merge or new build is authorized merely by this record.**
+
+See [`NEXT_TRANCHE_DECISIONS_2026-10-08.md`](NEXT_TRANCHE_DECISIONS_2026-10-08.md) for confirmed decisions, remaining layperson backup/UI design discussions, and the proposed consolidated QA cadence. Phase 10 Build-684 functional acceptance remains intact; Phases 11 and 12 remain partial.
