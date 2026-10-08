@@ -5,6 +5,29 @@
     <sys:String x:Key="Brand.Title">SOLAR ENERGY</sys:String>
     <sys:String x:Key="Brand.Subtitle">Monitor del hogar</sys:String>
 
+    <sys:String x:Key="Nav.Backup">Protección de datos</sys:String>
+    <sys:String x:Key="Page.Backup.Title">Protección de datos</sys:String>
+    <sys:String x:Key="Page.Backup.Subtitle">Respaldos completos, copias y verificación</sys:String>
+    <sys:String x:Key="Backup.PageHeading">Protección de datos</sys:String>
+    <sys:String x:Key="Backup.PageIntro">Administra copias completas verificables. Las copias SQLite antiguas aparecen solo para información; no equivalen a un respaldo completo.</sys:String>
+    <sys:String x:Key="Backup.WeeklyHeading">Crear respaldo completo</sys:String>
+    <sys:String x:Key="Backup.WeeklyInfo">Puedes crear ahora un paquete completo con la base SQLite, boletas y tarifas. El recordatorio semanal permite crear, posponer u omitir esta semana. No se eliminan copias automáticamente.</sys:String>
+    <sys:String x:Key="Backup.CreateNow">Crear respaldo completo ahora</sys:String>
+    <sys:String x:Key="Backup.DestinationSettings">Configurar ubicación secundaria</sys:String>
+    <sys:String x:Key="Backup.OpenLocal">Abrir carpeta local</sys:String>
+    <sys:String x:Key="Backup.InventoryHeading">Copias físicas reconocidas</sys:String>
+    <sys:String x:Key="Backup.InventoryIntro">Se muestra cada archivo por separado (local y secundario). La presencia de un ZIP no demuestra su integridad: selecciona Verificar para reexaminarlo. El disco secundario desconectado se indica aparte.</sys:String>
+    <sys:String x:Key="Backup.Refresh">Actualizar lista</sys:String>
+    <sys:String x:Key="Backup.Verify">Verificar selección</sys:String>
+    <sys:String x:Key="Backup.DeleteSelected">Eliminar solo esta copia</sys:String>
+    <sys:String x:Key="Backup.ColumnLocation">Ubicación</sys:String>
+    <sys:String x:Key="Backup.ColumnName">Archivo</sys:String>
+    <sys:String x:Key="Backup.ColumnKind">Tipo</sys:String>
+    <sys:String x:Key="Backup.ColumnDate">Fecha</sys:String>
+    <sys:String x:Key="Backup.ColumnSize">Bytes</sys:String>
+    <sys:String x:Key="Backup.ColumnStatus">Integridad</sys:String>
+    <sys:String x:Key="Backup.LastCopyPolicy">El borrado requiere confirmación y otra copia completa disponible y verificada. Nunca elimina la copia secundaria junto con la local ni borra datos activos.</sys:String>
+
     <sys:String x:Key="Nav.Group.Home">INICIO</sys:String>
     <sys:String x:Key="Nav.Group.Energy">ENERGÍA</sys:String>
     <sys:String x:Key="Nav.Group.Reports">INFORMES</sys:String>
