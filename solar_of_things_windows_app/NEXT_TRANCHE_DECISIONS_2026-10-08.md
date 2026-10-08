@@ -334,3 +334,14 @@ These Grid/Enel details were subsequently **approved by the owner** as the next-
 **Additional implementation disciplines:** defer risky DB/schema migrations until complete verified pre-migration backup gate exists; use only synthetic test data for recovery; keep complete-only owner-facing backup policy, additive conflict-aware versioned recovery, isolated QA matrix, safe readonly SQL and CSV/XLSX goals. The real QA `D:\\SolarEnergyMonitorTest\\Data\\energy.db` and existing backups remain untouched by developer work.
 
 **Milestone still open:** the 2026-10-12 owner-provided Enel evidence is not yet available. Final scope/closure of v0.11.0 and target-PC QA is still pending; no background work promise.
+
+## 2026-10-08 — Initial v0.11.0 source implementation checkpoint (NOT BUILD/QA)
+
+**CODE WRITTEN on draft work branch** after explicit owner authorization to develop available parts before Oct 12:
+- `src/SolarOfThings.App/MainWindow.xaml`: sidebar reorganized into five approved groups with a vertical scroll container for short Windows desktop heights. **All 10 existing named buttons, route tags and handlers retained**; new SQL and Protección de datos buttons are intentionally not shown until their respective pages exist.
+- `src/SolarOfThings.App/Resources/Strings.es.xaml`, `Strings.en.xaml`: bilingual group headings and approved clearer menu/page titles. No SQL/schema/energy calculation paths changed.
+- Source commits (sequence): `ab5ee91c36a4132aa3cfbbc5bdd7be1519172e95`, `025d270461ec9f1ae4ac18e6ae21a277aeff98ae`, `e5c6d72036223b6ee2cdf2c43719dd80acda04c4` (each `[skip ci]`).
+- **Static re-fetch check PASS**: all 10 previous navigation named controls and five new group resource labels present exactly once, both locales define headings, draft PR still based on unchanged `main`.
+- **NOT YET VERIFIED:** Windows WPF compilation, interactive rendering, screen-reader/keyboard behavior, user visual QA, regression tests. Do not report CI PASS or claim v0.11.0 executable released.
+
+**Implementation sequencing:** do not remove existing daily/pre-migration SQLite-only protection until verified complete-package replacement is implemented safely; do not expose empty SQL/backup routes. Next code batches must preserve the owner's existing real data and avoid automatic CI artifacts per small commit. Later, run comprehensive CI and one owner-facing consolidated package. Deferring *additional* Enel source content to Oct 12 does not excuse regressions in existing Phase-10 audits.
