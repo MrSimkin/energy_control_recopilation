@@ -4169,6 +4169,98 @@ try
     if (!arbitraryAuditRejected)
         throw new InvalidOperationException("Graph audit accepted a non-fixture target.");
 
+    // Safe SQL explorer integrated smoke: artificial local SQLite only.
+    using (var writeFixture = database.OpenConnection())
+    using (var seed = writeFixture.CreateCommand())
+    {
+        seed.CommandText = """
+            WITH RECURSIVE nums(x) AS
+            (SELECT 1 UNION ALL SELECT x+1 FROM nums WHERE x<215)
+            INSERT INTO app_setting(key,value,updated_utc)
+            SELECT 'smoke.sql.'||x,'value-'||x,'2026-10-08T00:00:00Z'
+            FROM nums;
+            """;
+        seed.ExecuteNonQuery();
+        seed.CommandText = """
+            INSERT INTO app_setting(key,value,updated_utc)
+            VALUES('smoke.sql.formula','=1+1','2026-10-08T00:00:00Z'),
+                  ('smoke.sql.null',NULL,'2026-10-08T00:00:00Z');
+            """;
+        seed.ExecuteNonQuery();
+    }
+
+    var explorer = new SolarOfThings.Core.SqlExplorer.SafeSqlExplorerService(
+        database.DatabasePath);
+    var schema = await explorer.SchemaAsync();
+    if (!schema.Rows.Any(row => row.Any(cell => cell.Text == "reporting_grid_import")))
+        throw new InvalidOperationException("SQL explorer reporting schema discovery failed.");
+    var sqlStatement = """
+        SELECT key,value FROM app_setting WHERE key LIKE 'smoke.sql.%'
+        ORDER BY key;
+        """;
+    var visible = await explorer.PreviewAsync(sqlStatement);
+    if (visible.Rows.Count != 200 || !visible.HasMore ||
+        visible.Columns.Count != 2)
+        throw new InvalidOperationException("SQL preview must be bounded and indicate remaining rows.");
+
+    // Quoted forbidden SQL words are harmless as literals; actual statements are rejected.
+    var quoted = await explorer.PreviewAsync("SELECT 'DELETE' AS safe_word;");
+    if (quoted.Rows.Count != 1 || quoted.Rows[0][0].Text != "DELETE")
+        throw new InvalidOperationException("SQL literal scanning failed.");
+    foreach (var badSql in new[]
+    {
+        "DELETE FROM app_setting;", "PRAGMA query_only=OFF;",
+        "ATTACH DATABASE ':memory:' AS other;", "SELECT 1; DROP TABLE app_setting;",
+        "WITH x AS (DELETE FROM app_setting RETURNING key) SELECT * FROM x;",
+        "SELECT load_extension('x');",
+        "SELECT 1; SELECT 2;"
+    })
+    {
+        var rejected = false;
+        try { await explorer.PreviewAsync(badSql); }
+        catch (ArgumentException) { rejected = true; }
+        catch (SqliteException) { rejected = true; }
+        if (!rejected)
+            throw new InvalidOperationException("Unsafe SQL was accepted: " + badSql);
+    }
+    using (var cancelled = new CancellationTokenSource())
+    {
+        cancelled.Cancel();
+        var cancelObserved = false;
+        try { await explorer.PreviewAsync("SELECT 1", cancellationToken: cancelled.Token); }
+        catch (OperationCanceledException) { cancelObserved = true; }
+        if (!cancelObserved)
+            throw new InvalidOperationException("Cancelled SQL preview did not abort.");
+    }
+
+    var csvOutput = Path.Combine(root, "sql-export-complete.csv");
+    var xlsxOutput = Path.Combine(root, "sql-export-complete.xlsx");
+    var csv = await explorer.ExportAsync(sqlStatement, csvOutput,
+        SolarOfThings.Core.SqlExplorer.SqlExportFormat.Csv);
+    var xlsx = await explorer.ExportAsync(sqlStatement, xlsxOutput,
+        SolarOfThings.Core.SqlExplorer.SqlExportFormat.Xlsx);
+    if (csv.Rows != 217 || xlsx.Rows != 217 ||
+        !File.Exists(csvOutput) || !File.Exists(xlsxOutput))
+        throw new InvalidOperationException("SQL export silently truncated the requested result.");
+    var csvText = File.ReadAllText(csvOutput);
+    if (!csvText.Contains("'=1+1", StringComparison.Ordinal) ||
+        !csvText.Contains("\"\\N\"", StringComparison.Ordinal))
+        throw new InvalidOperationException("CSV formula/NULL safety regression.");
+    using (var exported = new XLWorkbook(xlsxOutput))
+    {
+        var sheet = exported.Worksheet("SQL");
+        if (sheet.LastRowUsed()!.RowNumber() != xlsx.Rows + 1 ||
+            sheet.Cell(1, 1).GetString() != "key")
+            throw new InvalidOperationException("XLSX export range regression.");
+    }
+    using (var checkReadOnly = database.OpenConnection())
+    using (var check = checkReadOnly.CreateCommand())
+    {
+        check.CommandText = "SELECT COUNT(*) FROM app_setting WHERE key LIKE 'smoke.sql.%';";
+        if (Convert.ToInt32(check.ExecuteScalar()) != 217)
+            throw new InvalidOperationException("SQL explorer unexpectedly changed SQLite.");
+    }
+
     Console.WriteLine(
         $"Smoke test passed. Schema v{SqliteDatabase.CurrentSchemaVersion}; " +
         "settings, diagnostics/redaction, production client profile, IOT Open signing/time formatting, " +
