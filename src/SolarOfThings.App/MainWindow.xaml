@@ -2755,7 +2755,7 @@
                                         <DataGridTextColumn Header="{DynamicResource Backup.ColumnLocation}" Binding="{Binding Location}" Width="100"/>
                                         <DataGridTextColumn Header="{DynamicResource Backup.ColumnName}" Binding="{Binding Name}" Width="275"/>
                                         <DataGridTextColumn Header="{DynamicResource Backup.ColumnKind}" Binding="{Binding Kind}" Width="145"/>
-                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnDate}" Binding="{Binding ModifiedUtc, StringFormat=yyyy-MM-dd HH:mm}" Width="145"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnDate}" Binding="{Binding ModifiedUtc}" Width="145"/>
                                         <DataGridTextColumn Header="{DynamicResource Backup.ColumnSize}" Binding="{Binding SizeBytes, StringFormat=N0}" Width="115"/>
                                         <DataGridTextColumn Header="{DynamicResource Backup.ColumnStatus}" Binding="{Binding VerificationStatus}" Width="125"/>
                                     </DataGrid.Columns>
