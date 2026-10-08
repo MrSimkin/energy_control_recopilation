@@ -76,6 +76,8 @@ try
             "Phase 12 WAL-consistent verified backup smoke test failed.");
     }
 
+    EnelBrowserCaptureTelemetry.Record(
+        paths, "ZERO_CLICK_RANGE", "INCOMPLETE", 206, 1024);
     var evidenceZip = new PhaseDiagnosticsExportService(database, paths)
         .Export();
     using (var evidenceArchive = System.IO.Compression.ZipFile.OpenRead(
@@ -84,7 +86,8 @@ try
         var expected = new[]
         {
             "overview.json", "schema_inventory.json",
-            "README.txt", "manifest.json"
+            "README.txt", "manifest.json",
+            "enel_capture_events.json"
         };
         if (expected.Any(name => evidenceArchive.GetEntry(name) is null) ||
             evidenceArchive.Entries.Count != expected.Length)
