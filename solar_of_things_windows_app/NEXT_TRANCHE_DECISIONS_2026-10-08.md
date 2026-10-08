@@ -1,5 +1,7 @@
 # Next consolidated tranche — owner decisions and open design discussions
 
+> **Current consolidated operative baseline (owner-confirmed, 2026-10-08):** [**V011_BASELINE_CONSOLIDADO_2026-10-08.md**](V011_BASELINE_CONSOLIDADO_2026-10-08.md). It records the owner's final confirmation, the 2026-10-12 **evidence-dependent continuity reassessment**, the distinction between approved design / existing partial implementation / QA, and pre-development safety gates. Earlier text below is retained as dated decision history; later explicit approvals supersede older proposals. This linkage is documentation-only, not a new release authorization.
+
 Date: 2026-10-08 (Chile). Status: **DESIGN / PLANNING; NOT AN IMPLEMENTATION AUTHORIZATION**.
 Owner discussion after Build 685. Authority for completed history: `PHASE_10_12_TRANCHE_STATUS.md`, `CONTINUITY_STATUS.md` (latest sections), `PHASE_11_SQL_GUIDE.md` and `BUILD_HANDOFF_RULE.md`.
 
