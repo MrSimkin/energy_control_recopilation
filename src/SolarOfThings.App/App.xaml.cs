@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SolarOfThings.App.Localization;
+using SolarOfThings.Core.Backup;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Data;
 using SolarOfThings.Core.Diagnostics;
@@ -58,6 +59,7 @@ public partial class App : Application
 
         builder.Services.AddSingleton(appPaths);
         builder.Services.AddSingleton<SqliteDatabase>();
+        builder.Services.AddSingleton<DatabaseBackupService>();
         builder.Services.AddSingleton<AppSettingsRepository>();
         builder.Services.AddSingleton<BatteryConfigurationService>();
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
