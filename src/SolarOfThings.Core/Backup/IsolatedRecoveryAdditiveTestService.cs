@@ -161,6 +161,11 @@ public sealed class IsolatedRecoveryAdditiveTestService
         }
     }
 
+    // Shared fail-closed gate for recovery graph auditing. Do not expose
+    // owner database paths to synthetic test-only services.
+    internal static string RequireSyntheticFixtureRoot(string targetPath) =>
+        FindFixtureRoot(targetPath);
+
     private static string FindFixtureRoot(string path)
     {
         var absolute = Path.GetFullPath(path);
