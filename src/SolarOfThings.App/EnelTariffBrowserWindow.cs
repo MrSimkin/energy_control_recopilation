@@ -5,6 +5,7 @@ using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using SolarOfThings.Core.Infrastructure;
+using SolarOfThings.Core.Diagnostics;
 using SolarOfThings.Core.Utility;
 
 namespace SolarOfThings.App;
@@ -373,6 +374,9 @@ public sealed class EnelTariffBrowserWindow : Window
             return;
         }
 
+        EnelBrowserCaptureTelemetry.Record(
+            _paths, "OFFICIAL_PDF_RESPONSE", "OBSERVED",
+            e.Response.StatusCode);
         var responseKey = uri.AbsoluteUri;
         if (_autoCapturedResponseUris.Contains(
                 responseKey))
@@ -437,6 +441,14 @@ public sealed class EnelTariffBrowserWindow : Window
                     return;
                 }
 
+                if (totalLength > PartialPdfCapture.MaxPdfBytes)
+                {
+                    _partialPdfCaptures.Remove(responseKey);
+                    EnelBrowserCaptureTelemetry.Record(
+                        _paths, "ZERO_CLICK_RANGE", "SIZE_LIMIT", 206, totalLength);
+                    return;
+                }
+
                 partial.Add(
                     rangeStart,
                     responseBytes);
@@ -445,11 +457,17 @@ public sealed class EnelTariffBrowserWindow : Window
                     $"PDF oficial recibido por rangos: {partial.CapturedBytes:N0}/{totalLength:N0} bytes. " +
                     "La app lo importará automáticamente si el visor entrega el archivo completo.";
 
-                if (!partial.TryAssemble(
-                        out bytes))
+                if (!partial.TryAssemble(out bytes))
                 {
+                    EnelBrowserCaptureTelemetry.Record(
+                        _paths, "ZERO_CLICK_RANGE", "INCOMPLETE", 206,
+                        partial.CapturedBytes);
                     return;
                 }
+
+                EnelBrowserCaptureTelemetry.Record(
+                    _paths, "ZERO_CLICK_RANGE", "ASSEMBLED", 206,
+                    bytes.LongLength);
 
                 _partialPdfCaptures.Remove(
                     responseKey);
@@ -494,10 +512,16 @@ public sealed class EnelTariffBrowserWindow : Window
                 $"Archivo oficial: {fileName}\n" +
                 "Resultado: respuesta PDF completa recibida en la sesión WebView2; importando automáticamente.";
 
+            EnelBrowserCaptureTelemetry.Record(
+                _paths, "ZERO_CLICK_PDF", "IMPORT_ATTEMPT",
+                e.Response.StatusCode, bytes.LongLength);
             await ImportDownloadedPdfAsync(
                 targetPath,
                 fileName,
                 "CoreWebView2.WebResourceResponseReceived");
+            EnelBrowserCaptureTelemetry.Record(
+                _paths, "ZERO_CLICK_PDF", "IMPORT_RETURNED",
+                e.Response.StatusCode, bytes.LongLength);
         }
         catch (Exception ex)
         {
@@ -505,6 +529,8 @@ public sealed class EnelTariffBrowserWindow : Window
                 responseKey);
             _partialPdfCaptures.Remove(
                 responseKey);
+            EnelBrowserCaptureTelemetry.Record(
+                _paths, "ZERO_CLICK_PDF", "FAILED", e.Response.StatusCode);
             _statusText.Text =
                 "La captura automática del PDF no pudo completarse. " +
                 "Puedes usar el icono Descargar del visor como fallback. " +
@@ -623,6 +649,8 @@ public sealed class EnelTariffBrowserWindow : Window
                     Path.GetFileName(
                         e.ResultFilePath));
 
+        EnelBrowserCaptureTelemetry.Record(
+            _paths, "ONE_CLICK_DOWNLOAD", "OBSERVED");
         _receiptText.Text =
             "CoreWebView2.DownloadStarting capturado.\n" +
             $"Archivo detectado: {suggested}\n" +
@@ -959,6 +987,7 @@ public sealed class EnelTariffBrowserWindow : Window
 
     private sealed class PartialPdfCapture
     {
+        public const long MaxPdfBytes = 64L * 1024 * 1024;
         private readonly SortedDictionary<long, byte[]> _parts =
             new();
 
@@ -983,45 +1012,45 @@ public sealed class EnelTariffBrowserWindow : Window
                 bytes;
         }
 
-        public bool TryAssemble(
-            out byte[] bytes)
+        public bool TryAssemble(out byte[] bytes)
         {
-            bytes =
-                Array.Empty<byte>();
-
-            if (TotalLength <= 0 ||
-                TotalLength > int.MaxValue)
-            {
+            bytes = Array.Empty<byte>();
+            if (TotalLength <= 0 || TotalLength > MaxPdfBytes)
                 return false;
-            }
 
-            var cursor = 0L;
+            // WebView2's native PDF viewer may request overlapping ranges,
+            // including a 0-1023 header probe followed by a full first chunk.
+            // Reject holes or conflicting overlap; never invent missing bytes.
+            var assembled = new byte[(int)TotalLength];
+            long cursor = 0;
             foreach (var part in _parts)
             {
-                if (part.Key != cursor)
+                if (part.Key > cursor ||
+                    part.Key < 0 ||
+                    part.Key + part.Value.LongLength > TotalLength)
                     return false;
 
-                cursor +=
-                    part.Value.LongLength;
+                var overlap = (int)(cursor - part.Key);
+                var overlapLength = Math.Min(overlap, part.Value.Length);
+                for (var index = 0; index < overlapLength; index++)
+                {
+                    if (assembled[(int)part.Key + index] != part.Value[index])
+                        return false;
+                }
+
+                if (overlap >= part.Value.Length)
+                    continue;
+
+                var toCopy = part.Value.Length - overlap;
+                Buffer.BlockCopy(
+                    part.Value, overlap, assembled, (int)cursor, toCopy);
+                cursor += toCopy;
             }
 
             if (cursor != TotalLength)
                 return false;
 
-            bytes =
-                new byte[
-                    (int)TotalLength];
-
-            foreach (var part in _parts)
-            {
-                Buffer.BlockCopy(
-                    part.Value,
-                    0,
-                    bytes,
-                    (int)part.Key,
-                    part.Value.Length);
-            }
-
+            bytes = assembled;
             return true;
         }
     }
