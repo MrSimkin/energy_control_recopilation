@@ -62,6 +62,7 @@ public partial class App : Application
         builder.Services.AddSingleton<SqliteDatabase>();
         builder.Services.AddSingleton<DatabaseBackupService>();
         builder.Services.AddSingleton<FullBackupService>();
+        builder.Services.AddSingleton<CompleteBackupInventoryService>();
         builder.Services.AddSingleton<AppSettingsRepository>();
         builder.Services.AddSingleton<BatteryConfigurationService>();
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
