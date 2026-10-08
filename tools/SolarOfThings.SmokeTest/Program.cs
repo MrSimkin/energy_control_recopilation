@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using SolarOfThings.Core.Backup;
 using Microsoft.Data.Sqlite;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Data;
@@ -30,9 +31,49 @@ try
     }
 
     if (database.GetSchemaVersion() != SqliteDatabase.CurrentSchemaVersion ||
-        SqliteDatabase.CurrentSchemaVersion != 16)
+        SqliteDatabase.CurrentSchemaVersion != 17)
     {
         throw new InvalidOperationException("Unexpected SQLite schema version.");
+    }
+
+    // Phase 11: reporting views must be directly queryable, without
+    // inventing grid-import kWh from potentially discontinuous power frames.
+    using (var reporting = database.OpenConnection())
+    using (var views = reporting.CreateCommand())
+    {
+        views.CommandText =
+            """
+            SELECT COUNT(*) FROM sqlite_master
+            WHERE type = 'view' AND name IN (
+                'reporting_grid_import', 'reporting_battery',
+                'reporting_utility_bills', 'reporting_bill_line_evidence',
+                'data_quality_summary');
+            """;
+        if (Convert.ToInt32(views.ExecuteScalar()) != 5)
+            throw new InvalidOperationException(
+                "Phase 11 canonical reporting views are missing.");
+
+        views.CommandText = "SELECT COUNT(*) FROM reporting_grid_import;";
+        if (Convert.ToInt32(views.ExecuteScalar()) != 0)
+            throw new InvalidOperationException(
+                "Empty Phase 11 grid-import view unexpectedly has rows.");
+    }
+
+    // Phase 12: validate snapshots without restoring or replacing the
+    // source DB. Verify backup bytes are independently readable.
+    var backupService = new DatabaseBackupService(database, paths);
+    var manualBackup = backupService.CreateVerifiedBackup();
+    var automaticBackup = backupService.CreateAutomaticBackupIfDue();
+    if (manualBackup.IntegrityStatus != "PASS" ||
+        manualBackup.SchemaVersion != 17 ||
+        automaticBackup is null ||
+        backupService.CreateAutomaticBackupIfDue() is not null ||
+        !File.Exists(manualBackup.Path + ".manifest.json") ||
+        !File.Exists(automaticBackup.Path + ".manifest.json") ||
+        database.GetSchemaVersion() != 17)
+    {
+        throw new InvalidOperationException(
+            "Phase 12 WAL-consistent verified backup smoke test failed.");
     }
 
     // Regression: a real owner Data\ folder is currently schema v13.
@@ -159,10 +200,10 @@ try
             migration13Paths);
     migration13Database.Initialize();
 
-    if (migration13Database.GetSchemaVersion() != 16)
+    if (migration13Database.GetSchemaVersion() != 17)
     {
         throw new InvalidOperationException(
-            "Schema v13 -> v16 migration did not reach version 16.");
+            "Schema v13 -> v17 migration did not reach version 17.");
     }
 
     var migratedTariffRepository =
