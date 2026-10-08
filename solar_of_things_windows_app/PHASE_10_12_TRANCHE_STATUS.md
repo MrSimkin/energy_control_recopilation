@@ -213,3 +213,15 @@ Implemented on draft work branch after the owner's authorization:
 - The full approved inventory and individually-deletable local/secondary list **is not yet fully wired into end-user UI**; no auto cleanup is permitted.
 - Existing program still displays `v0.10.0` until consolidation; no branch merge. Full-backup secrets/raw SQLite and original bill PDFs are sensitive and must not be shared publicly.
 - Do not rerun pre-migration import/recovery against the owner's real `D:\\SolarEnergyMonitorTest\\Data\\energy.db` or real backup files without later explicit and safe owner action.
+
+## Build 688 — urgent weekly complete backup code CI PASS (2026-10-08)
+
+**Build source commit:** `eae20e1fe9d29210fa685a6b18586fb7b46c9287`; GitHub Actions run `37824066560`, number **688**, result **SUCCESS**. Compilation and SQLite smoke tests PASS; opt-in live Enel/CNE probes skipped (not verified). Portable win-x64 publish and artifact upload PASS.
+
+**Artifact:** `SolarEnergyMonitor-Build-688-win-x64.zip`, artifact id `11570981549`, GitHub artifact name `SolarEnergyMonitor-win-x64-dev`, downloaded SHA-256 `d1839f526d853c66d979c8e09dc09fbf3b648b9a552435a63b08db4e85e21a7d`; ZIP test PASS, 490 entries, executable and portable marker present, **no bundled energy.db**. Direct ZIP provided in chat for optional owner-PC verification. No deployed application/install inferred.
+
+**Functional code included:** verified complete ZIP creation (native WAL-consistent SQLite snapshot, tariffication and bill source directories, SHA manifest and full archive recheck), backup-before-migration gate, voluntary weekly reminder (create now / postpone 24h / skip week), user-triggered Settings and Developer Diagnostics full ZIP, optional second destination and reverified second copy, local recognized package count, no auto daily backup creation. Build 688 product display remains `v0.10.0` (v0.11.0 is later target).
+
+**Smoke testing:** synthetic SQLite/database + synthetic original bill/tariff documents, ZIP provenance and hash integrity, WAL committed-record recovered from packaged SQLite, secondary copy comparison, rejection of invalid archive and protection against deleting last only full package. **No owner-PC backup created or verified, no real database read or write by developer**, and no real Windows GUI visual QA yet.
+
+**Still pending in broader v0.11.0 scope:** first real user-initiated full backup and optionally secondary verified copy, complete user-facing inventory/per-copy deletion UI, version-aware selective additive restore implementation and synthetic safety tests, more SQL/UX/performance tasks, additional Enel evidence on Oct 12. This is an early urgent safety build, not final v0.11.0 acceptance nor permission to merge draft PR to main.
