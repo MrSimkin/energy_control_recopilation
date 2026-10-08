@@ -219,6 +219,19 @@ try
             throw new InvalidOperationException("Full backup lost committed WAL record.");
     }
 
+    // Secondary package copy must verify byte-for-byte; no live DB access.
+    var syntheticSecondary = Path.Combine(root, "other-storage", "backups");
+    var mirrored = completeService.CopyVerifiedToSecondary(complete.Path, syntheticSecondary);
+    if (mirrored.IntegrityStatus != "PASS" ||
+        !File.Exists(mirrored.Path) ||
+        !string.Equals(mirrored.Sha256, complete.Sha256, StringComparison.OrdinalIgnoreCase) ||
+        FullBackupService.VerifyArchive(mirrored.Path).Files.Count != fullManifest.Files.Count)
+    {
+        throw new InvalidOperationException("Secondary backup copy verification failed.");
+    }
+    if (completeService.CopyVerifiedToSecondary(complete.Path, syntheticSecondary).Path != mirrored.Path)
+        throw new InvalidOperationException("Identical secondary copy must be reused safely.");
+
     // A single available complete copy must never be deletable.
     var blocked = false;
     try { completeService.DeleteSelectedLocal(complete.Path); }
