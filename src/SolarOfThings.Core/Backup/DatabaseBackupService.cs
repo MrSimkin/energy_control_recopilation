@@ -95,7 +95,7 @@ public sealed class DatabaseBackupService
 
             var size = new FileInfo(temporary).Length;
             var digest = Convert.ToHexString(
-                SHA256.HashData(File.ReadAllBytes(temporary)))
+                SHA256.HashData(File.OpenRead(temporary)))
                 .ToLowerInvariant();
             File.Move(temporary, backupPath);
             var result = new VerifiedDatabaseBackup(
