@@ -1,5 +1,7 @@
 # Consolidated tranche 10–12 — execution and acceptance record
 
+> **Current consolidated operative baseline (owner-confirmed, 2026-10-08):** [**V011_BASELINE_CONSOLIDADO_2026-10-08.md**](V011_BASELINE_CONSOLIDADO_2026-10-08.md). Use it for the current v0.11.0 implementation scope, the owner-supplied provisional Data copy, Build 688's unaccepted QA status, and the conditional 2026-10-12 reassessment of Enel continuity. Older dated paragraphs below remain factual history and may reflect previously pending decisions; do not infer that today's code is released or owner-accepted.
+
 Status: **PHASE 10 OWNER FUNCTIONAL QA PASS (BUILD 684); PHASE 11/12 PARTIAL — NOT READY FOR MERGE**.
 Owner authorization: combine Phase 10 correction + Phase 11 SQL + Phase 12
 backup/protection plus UI/UX and Enel zero-click improvements, but defer
