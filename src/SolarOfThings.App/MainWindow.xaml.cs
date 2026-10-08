@@ -7266,6 +7266,86 @@ public partial class MainWindow : Window
         }
     }
 
+    private void SqlExplorerFindNext_Click(object sender, RoutedEventArgs e) =>
+        FindNextSqlText();
+
+    private void SqlExplorerFindKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Enter or Key.F3)
+        {
+            e.Handled = true;
+            FindNextSqlText();
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            SqlStatementEditor.Focus();
+        }
+    }
+
+    private void FindNextSqlText()
+    {
+        var text = SqlFindTextBox.Text;
+        var statement = SqlStatementEditor.Text;
+        if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(statement))
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "Escribe un texto para buscar." : "Enter search text.";
+            return;
+        }
+        var from = Math.Clamp(SqlStatementEditor.SelectionStart +
+            SqlStatementEditor.SelectionLength, 0, statement.Length);
+        var found = statement.IndexOf(text, from, StringComparison.OrdinalIgnoreCase);
+        var wrapped = false;
+        if (found < 0)
+        {
+            found = statement.IndexOf(text, 0, StringComparison.OrdinalIgnoreCase);
+            wrapped = found >= 0;
+        }
+        if (found < 0)
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "Texto no encontrado en la consulta."
+                : "Text not found in SQL statement.";
+            return;
+        }
+        SqlStatementEditor.Select(found, text.Length);
+        SqlStatementEditor.ScrollToLine(SqlStatementEditor.Document.GetLineByOffset(found).LineNumber);
+        SqlStatementEditor.Focus();
+        SqlExplorerDiagnosticText.Text = wrapped
+            ? (SqlExplorerSpanish ? "Búsqueda reiniciada desde el principio."
+                                  : "Search wrapped to the start.")
+            : "";
+    }
+
+    private void ShowSqlExplorerError(Exception ex, string statement)
+    {
+        var diagnostic = SqlErrorDiagnostics.Describe(ex, statement);
+        var position = diagnostic.ApproximateOffset;
+        var prefix = SqlExplorerSpanish ? "Diagnóstico SQL" : "SQL diagnostic";
+        var codes = diagnostic.SqliteCode is int sqliteCode
+            ? $" [SQLite {sqliteCode}, extended {diagnostic.SqliteExtendedCode}]"
+            : "";
+        var location = "";
+        if (position.HasValue && diagnostic.ApproximateLine.HasValue &&
+            diagnostic.ApproximateColumn.HasValue &&
+            position.Value >= 0 && position.Value < SqlStatementEditor.Text.Length)
+        {
+            location = SqlExplorerSpanish
+                ? $" Referencia aproximada: línea {diagnostic.ApproximateLine}, " +
+                  $"columna {diagnostic.ApproximateColumn}; no es la ubicación exacta del error."
+                : $" Approximate reference: line {diagnostic.ApproximateLine}, " +
+                  $"column {diagnostic.ApproximateColumn}; not an exact parser error location.";
+            SqlStatementEditor.Select(position.Value, 1);
+            SqlStatementEditor.ScrollToLine(diagnostic.ApproximateLine.Value);
+        }
+        else location = SqlExplorerSpanish
+            ? " SQLite no proporcionó una ubicación verificable."
+            : " SQLite did not provide a reliable error location.";
+        SqlExplorerDiagnosticText.Text =
+            prefix + codes + ": " + diagnostic.Message + location;
+    }
+
     private async void SqlExplorerRefreshSchema_Click(object sender, RoutedEventArgs e) =>
         await RefreshSqlSchemaAsync();
 
@@ -7291,6 +7371,8 @@ public partial class MainWindow : Window
         SqlExplorerStatusText.Text = SqlExplorerSpanish
             ? "Ejecutando SELECT en modo de solo lectura..."
             : "Executing read-only SELECT...";
+        SqlExplorerDiagnosticText.Text = "";
+        SqlExplorerPerformanceText.Text = "";
         try
         {
             var result = await CreateSqlExplorer().PreviewAsync(sql,
@@ -7312,11 +7394,15 @@ public partial class MainWindow : Window
                   (result.HasMore ? " (hay más; exportar para obtener todas)" : "")
                 : $"Preview: {result.Rows.Count} rows" +
                   (result.HasMore ? " (more rows available; export for all)" : "");
-            SqlExplorerStatusText.Text = (SqlExplorerSpanish ? "Consulta completada en " :
-                "Query completed in ") + result.Elapsed.TotalMilliseconds.ToString("F0") +
-                " ms. " + (SqlExplorerSpanish
-                    ? "Sin modificaciones en la base."
-                    : "Database unchanged.");
+            SqlExplorerStatusText.Text = SqlExplorerSpanish
+                ? "Consulta completada. Base de datos sin modificaciones."
+                : "Query completed. Database unchanged.";
+            SqlExplorerPerformanceText.Text =
+                (SqlExplorerSpanish ? "SQLite: " : "SQLite: ") +
+                result.Elapsed.TotalMilliseconds.ToString("N0") + " ms · " +
+                result.Rows.Count.ToString("N0") +
+                (SqlExplorerSpanish ? " filas en vista previa" : " preview rows") +
+                (result.HasMore ? (SqlExplorerSpanish ? " (hay más)" : " (more available)") : "");
         }
         catch (OperationCanceledException)
         {
@@ -7325,10 +7411,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            SqlExplorerStatusText.Text = (cancellation.IsCancellationRequested
-                ? (SqlExplorerSpanish ? "Consulta cancelada: " : "Query cancelled: ")
-                : (SqlExplorerSpanish ? "Error SQL: " : "SQL error: ")) +
-                ex.Message;
+            SqlExplorerStatusText.Text = cancellation.IsCancellationRequested
+                ? (SqlExplorerSpanish ? "Consulta cancelada." : "Query cancelled.")
+                : (SqlExplorerSpanish ? "Error al ejecutar SQL." : "SQL execution error.");
+            ShowSqlExplorerError(ex, sql);
         }
         finally
         {
@@ -7365,6 +7451,8 @@ public partial class MainWindow : Window
         SqlExplorerStatusText.Text = SqlExplorerSpanish
             ? "Exportando consulta completa... No se publicarán archivos parciales."
             : "Exporting full query... Partial files will not be published.";
+        SqlExplorerDiagnosticText.Text = "";
+        SqlExplorerPerformanceText.Text = "";
         try
         {
             var result = await CreateSqlExplorer().ExportAsync(
@@ -7372,12 +7460,19 @@ public partial class MainWindow : Window
             SqlExplorerStatusText.Text = (SqlExplorerSpanish
                 ? "Exportación completa, filas: " : "Full export, rows: ") +
                 result.Rows + " — " + result.Path;
+            SqlExplorerPerformanceText.Text =
+                (SqlExplorerSpanish ? "Duración: " : "Duration: ") +
+                result.Elapsed.TotalSeconds.ToString("N1") + " s · " +
+                result.Rows.ToString("N0") +
+                (SqlExplorerSpanish ? " filas · " : " rows · ") +
+                result.FileSizeBytes.ToString("N0") +
+                (SqlExplorerSpanish ? " bytes escritos" : " bytes written");
         }
         catch (Exception ex)
         {
-            SqlExplorerStatusText.Text = (SqlExplorerSpanish
-                ? "No se completó la exportación: "
-                : "Export was not completed: ") + ex.Message;
+            SqlExplorerStatusText.Text = SqlExplorerSpanish
+                ? "No se completó la exportación." : "Export did not complete.";
+            ShowSqlExplorerError(ex, SqlStatementEditor.Text);
         }
         finally
         {
@@ -7388,6 +7483,19 @@ public partial class MainWindow : Window
 
     private void SqlExplorerEditorPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            SqlFindTextBox.Focus();
+            SqlFindTextBox.SelectAll();
+            return;
+        }
+        if (e.Key == Key.F3 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            FindNextSqlText();
+            return;
+        }
         if (e.Key == Key.Escape && _sqlRunning is not null)
         {
             e.Handled = true;
