@@ -94,6 +94,7 @@ public partial class MainWindow : Window
         // Keep live line/column feedback in sync with the WPF code editor.
         SqlStatementEditor.TextArea.Caret.PositionChanged += (_, _) =>
             UpdateSqlExplorerCaretStatus();
+        LoadSqlExplorerShortcuts();
 
         AnalysisEnergyPlot.Plot.Axes.Link(
             AnalysisBatteryPlot,
@@ -7115,6 +7116,111 @@ public partial class MainWindow : Window
 
     private CancellationTokenSource? _sqlRunning;
     private bool _sqlExplorerBusy;
+    private const string SqlExecuteShortcutKey = "sql.explorer.shortcut.execute";
+    private const string SqlCsvShortcutKey = "sql.explorer.shortcut.csv";
+    private const string SqlExcelShortcutKey = "sql.explorer.shortcut.xlsx";
+    private string _sqlExecuteShortcut = "Ctrl+Enter";
+    private string _sqlCsvShortcut = "Ctrl+Shift+C";
+    private string _sqlExcelShortcut = "Ctrl+Shift+E";
+    private bool _loadingSqlShortcutSelectors;
+
+    private void LoadSqlExplorerShortcuts()
+    {
+        _loadingSqlShortcutSelectors = true;
+        try
+        {
+            var repo = _services.GetRequiredService<AppSettingsRepository>();
+            _sqlExecuteShortcut = SelectAllowedGesture(SqlExecuteShortcutSelector,
+                repo.Get(SqlExecuteShortcutKey), "Ctrl+Enter");
+            _sqlCsvShortcut = SelectAllowedGesture(SqlCsvShortcutSelector,
+                repo.Get(SqlCsvShortcutKey), "Ctrl+Shift+C");
+            _sqlExcelShortcut = SelectAllowedGesture(SqlExcelShortcutSelector,
+                repo.Get(SqlExcelShortcutKey), "Ctrl+Shift+E");
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!seen.Add(_sqlExecuteShortcut) || !seen.Add(_sqlCsvShortcut) ||
+                !seen.Add(_sqlExcelShortcut))
+            {
+                // Invalid persisted configuration must fail closed to distinct defaults.
+                _sqlExecuteShortcut = "Ctrl+Enter";
+                _sqlCsvShortcut = "Ctrl+Shift+C";
+                _sqlExcelShortcut = "Ctrl+Shift+E";
+                SqlExecuteShortcutSelector.SelectedValue = _sqlExecuteShortcut;
+                SqlCsvShortcutSelector.SelectedValue = _sqlCsvShortcut;
+                SqlExcelShortcutSelector.SelectedValue = _sqlExcelShortcut;
+            }
+        }
+        finally { _loadingSqlShortcutSelectors = false; }
+    }
+
+    private static string SelectAllowedGesture(ComboBox selector,
+        string? configured, string fallback)
+    {
+        var valid = selector.Items.OfType<ComboBoxItem>().Any(i =>
+            string.Equals(i.Tag?.ToString(), configured, StringComparison.OrdinalIgnoreCase));
+        var result = valid ? configured! : fallback;
+        selector.SelectedValue = result;
+        return result;
+    }
+
+    private void SqlExplorerShortcutChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingSqlShortcutSelectors || !IsLoaded ||
+            sender is not ComboBox selector || selector.SelectedValue is not string chosen)
+            return;
+
+        string key, previous;
+        if (ReferenceEquals(selector, SqlExecuteShortcutSelector))
+        { key = SqlExecuteShortcutKey; previous = _sqlExecuteShortcut; }
+        else if (ReferenceEquals(selector, SqlCsvShortcutSelector))
+        { key = SqlCsvShortcutKey; previous = _sqlCsvShortcut; }
+        else if (ReferenceEquals(selector, SqlExcelShortcutSelector))
+        { key = SqlExcelShortcutKey; previous = _sqlExcelShortcut; }
+        else return;
+
+        var conflicts = new[]
+        {
+            ReferenceEquals(selector, SqlExecuteShortcutSelector) ? null : _sqlExecuteShortcut,
+            ReferenceEquals(selector, SqlCsvShortcutSelector) ? null : _sqlCsvShortcut,
+            ReferenceEquals(selector, SqlExcelShortcutSelector) ? null : _sqlExcelShortcut
+        }.Any(assigned => string.Equals(assigned, chosen, StringComparison.OrdinalIgnoreCase));
+        if (conflicts)
+        {
+            _loadingSqlShortcutSelectors = true;
+            try { selector.SelectedValue = previous; }
+            finally { _loadingSqlShortcutSelectors = false; }
+            MessageBox.Show(
+                SqlExplorerSpanish
+                    ? "El atajo ya está asignado a otra acción SQL."
+                    : "This shortcut is already assigned to another SQL action.",
+                SqlExplorerSpanish ? "Conflicto de atajos" : "Shortcut conflict",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        _services.GetRequiredService<AppSettingsRepository>().Set(key, chosen);
+        if (key == SqlExecuteShortcutKey) _sqlExecuteShortcut = chosen;
+        else if (key == SqlCsvShortcutKey) _sqlCsvShortcut = chosen;
+        else _sqlExcelShortcut = chosen;
+    }
+
+    private static string? SqlGestureFromKey(KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var normalized = key switch
+        {
+            Key.Enter => "Enter",
+            Key.R => "R",
+            Key.E => "E",
+            Key.C => "C",
+            _ => null
+        };
+        if (normalized is null) return null;
+        var modifiers = Keyboard.Modifiers;
+        if (!modifiers.HasFlag(ModifierKeys.Control)) return null;
+        return "Ctrl+" +
+            (modifiers.HasFlag(ModifierKeys.Shift) ? "Shift+" : "") +
+            (modifiers.HasFlag(ModifierKeys.Alt) ? "Alt+" : "") +
+            normalized;
+    }
 
     private SafeSqlExplorerService CreateSqlExplorer() =>
         new(_paths.DatabasePath);
@@ -7282,16 +7388,30 @@ public partial class MainWindow : Window
 
     private void SqlExplorerEditorPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if ((e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) ||
-            e.Key == Key.F5)
+        if (e.Key == Key.Escape && _sqlRunning is not null)
+        {
+            e.Handled = true;
+            _sqlRunning.Cancel();
+            return;
+        }
+
+        var gesture = SqlGestureFromKey(e);
+        var runAliasF5 = e.Key == Key.F5 && Keyboard.Modifiers == ModifierKeys.None;
+        if (runAliasF5 ||
+            string.Equals(gesture, _sqlExecuteShortcut, StringComparison.OrdinalIgnoreCase))
         {
             e.Handled = true;
             _ = ExecuteSqlExplorerAsync();
         }
-        else if (e.Key == Key.Escape && _sqlRunning is not null)
+        else if (string.Equals(gesture, _sqlCsvShortcut, StringComparison.OrdinalIgnoreCase))
         {
             e.Handled = true;
-            _sqlRunning.Cancel();
+            _ = ExportSqlExplorerAsync(SqlExportFormat.Csv);
+        }
+        else if (string.Equals(gesture, _sqlExcelShortcut, StringComparison.OrdinalIgnoreCase))
+        {
+            e.Handled = true;
+            _ = ExportSqlExplorerAsync(SqlExportFormat.Xlsx);
         }
     }
 
