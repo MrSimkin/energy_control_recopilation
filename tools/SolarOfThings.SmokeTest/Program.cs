@@ -250,9 +250,9 @@ try
     }
     var previewer = new IsolatedRecoveryPreviewService();
     var summary = previewer.Preview(complete.Path, previewDatabase.DatabasePath);
-    var settings = summary.Categories.Single(c => c.Category == "SETTINGS");
+    var previewSettings = summary.Categories.Single(c => c.Category == "SETTINGS");
     if (summary.Status != "READ_ONLY_PREVIEW" ||
-        settings.Missing < 1 || settings.Identical < 1 || settings.Conflicts < 1 ||
+        previewSettings.Missing < 1 || previewSettings.Identical < 1 || previewSettings.Conflicts < 1 ||
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");
