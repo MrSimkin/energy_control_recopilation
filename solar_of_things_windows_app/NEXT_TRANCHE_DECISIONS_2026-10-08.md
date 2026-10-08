@@ -307,3 +307,18 @@ These Grid/Enel details were subsequently **approved by the owner** as the next-
 **Design approval only.** No code changes, active recovery, synthetic tests executed, Build issued or merge authorized yet.
 
 **Next design gate:** measurable UI/startup and SQL acceptance criteria, then planned 2026-10-12 Enel inputs and explicit unified implementation authorization.
+
+## Owner approves baseline-first measurable performance gate (2026-10-08)
+
+**APPROVED:** Owner replied **"sí"** to the measurable-performance approach for v0.11.0. Prefer visible UI responsiveness over synchronous expensive work; compare against a captured **v0.10.0 / Build 685 baseline under identical conditions**; never trade computational correctness, source traceability or data integrity for speed. Numbers/latency targets should be derived from actual measurements rather than guessed before baseline.
+
+**Acceptance/engineering requirements:**
+- Instrument **cold and warm startup** separately: first rendered shell and first user-interactable state, completion of optional dashboard metrics, and where time is spent (DB init/schema gate, UI constructor, repeated refreshes, database reads, WPF render).
+- Instrument key user journeys: navigation across Dashboard/Analysis/Battery/Grid&Enel/Data, changing analysis period/tabs, graph aggregation, report export, SQL editor/SELECT results/cancel, backup creation/copy and recovery preview. Measure time, UI thread availability, query duration, process peak memory and temporary disk usage with appropriately scaled synthetic corpora and repeated comparable runs.
+- Meaningful expensive operations must run without freezing the WPF UI; show accurate loading/progress/cancel/error states, allow ordinary navigation while pending, and avoid stale results displayed as fresh data.
+- Diagnose query plans before adding indexes, avoid duplicated reads/reloads, use lazy noncritical views, virtualized tables/results and bounded/paginated SQL. Avoid caching that changes UTC/local-day, gaps, actual interval-based W→kWh integration, Enel billing/tariff ambiguity or provenance.
+- Have QA compare numerical/report outputs against the **accepted Build 684 baseline** as applicable; no silent reinterpretation of previously certified test cases, missing data converted to zero, or unchecked difference in calculations.
+- Produce a concise before/after performance and regression report that identifies setup, realistic dataset sizes, caveats and any remaining bottlenecks. No promise of universal instantaneous UI or hard numeric milliseconds without evidence.
+- Recovery stress/performance tests use isolated synthetic data; **no touching the owner's real QA DB or backups** for implementation/testing without separate permission. Target-machine usage may be tested by owner later using the usual safe QA handoff.
+
+**Status:** design/acceptance requirements approved, not test evidence and not authorization to begin coding/CI/build. Next scope decision is whether the single consolidated v0.11.0 owner-QA build should incorporate the additional Enel material the owner plans to supply **2026-10-12**, or treat that as a later tranche if delayed. Do not assume what the material contains.
