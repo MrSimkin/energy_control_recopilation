@@ -525,6 +525,9 @@
     <sys:String x:Key="Page.Settings.Placeholder">Application, connection and credential settings.</sys:String>
     <sys:String x:Key="Settings.Heading">Settings</sys:String>
     <sys:String x:Key="Settings.Intro">Normal-use options for this copy of Solar Energy Monitor.</sys:String>
+    <sys:String x:Key="Settings.BackupHeading">Database backups</sys:String>
+    <sys:String x:Key="Settings.BackupDescription">Create a verified, consistent SQLite snapshot in Backups. Does not replace active data. Restore remains deferred.</sys:String>
+    <sys:String x:Key="Settings.BackupNow">Create backup now</sys:String>
     <sys:String x:Key="Settings.ExportFolderHeading">Save exports to</sys:String>
     <sys:String x:Key="Settings.ExportFolderDescription">Starting folder for PDF, Excel, annexes and help exports. Does not move databases or backups.</sys:String>
     <sys:String x:Key="Settings.ChooseExportFolder">Change folder...</sys:String>

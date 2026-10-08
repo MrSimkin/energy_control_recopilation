@@ -18,6 +18,7 @@ using SolarOfThings.Core.Normalization;
 using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Settings;
+using SolarOfThings.Core.Backup;
 using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.Utility;
 
@@ -7080,6 +7081,50 @@ public partial class MainWindow : Window
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
+    }
+
+    private async void SettingsBackupNow_Click(
+        object sender, RoutedEventArgs e)
+    {
+        if (!SettingsBackupNowButton.IsEnabled)
+            return;
+
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        SettingsBackupNowButton.IsEnabled = false;
+        SettingsBackupProgressBar.Visibility = Visibility.Visible;
+        SettingsBackupProgressBar.IsIndeterminate = true;
+        SettingsBackupStatusText.Text = spanish
+            ? "Paso 1/2 · Creando copia SQLite consistente..."
+            : "Step 1/2 · Creating consistent SQLite snapshot...";
+
+        try
+        {
+            var service = _services.GetRequiredService<DatabaseBackupService>();
+            var result = await Task.Run(() =>
+                service.CreateVerifiedBackup("manual"));
+
+            SettingsBackupProgressBar.IsIndeterminate = false;
+            SettingsBackupProgressBar.Value = 100;
+            SettingsBackupStatusText.Text = spanish
+                ? $"Paso 2/2 · Respaldo verificado ({result.IntegrityStatus}). " +
+                  $"SHA-256: {result.Sha256}. Guardado en: {result.Path}"
+                : $"Step 2/2 · Verified backup ({result.IntegrityStatus}). " +
+                  $"SHA-256: {result.Sha256}. Saved to: {result.Path}";
+            System.Media.SystemSounds.Asterisk.Play();
+        }
+        catch (Exception ex)
+        {
+            SettingsBackupProgressBar.IsIndeterminate = false;
+            SettingsBackupProgressBar.Value = 100;
+            SettingsBackupStatusText.Text = spanish
+                ? "Error del respaldo: " + ex.Message
+                : "Backup failed: " + ex.Message;
+        }
+        finally
+        {
+            SettingsBackupNowButton.IsEnabled = true;
+        }
     }
 
     private const string DefaultExportFolderKey = "exports.default-folder";

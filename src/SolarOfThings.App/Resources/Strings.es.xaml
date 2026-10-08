@@ -525,6 +525,9 @@
     <sys:String x:Key="Page.Settings.Placeholder">Configuración de aplicación, conexión y credenciales.</sys:String>
     <sys:String x:Key="Settings.Heading">Configuración</sys:String>
     <sys:String x:Key="Settings.Intro">Opciones de uso normal de esta copia de Solar Energy Monitor.</sys:String>
+    <sys:String x:Key="Settings.BackupHeading">Respaldos de seguridad</sys:String>
+    <sys:String x:Key="Settings.BackupDescription">Crea una copia SQLite consistente y verificada en la carpeta Backups. No reemplaza los datos actuales. La restauración se implementará después.</sys:String>
+    <sys:String x:Key="Settings.BackupNow">Crear respaldo ahora</sys:String>
     <sys:String x:Key="Settings.ExportFolderHeading">Guardar exportaciones en</sys:String>
     <sys:String x:Key="Settings.ExportFolderDescription">Carpeta inicial para PDF, Excel, anexos y ayuda. No mueve los datos ni los respaldos.</sys:String>
     <sys:String x:Key="Settings.ChooseExportFolder">Cambiar carpeta...</sys:String>
