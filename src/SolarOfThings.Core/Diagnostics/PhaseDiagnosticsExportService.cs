@@ -24,6 +24,7 @@ public sealed class PhaseDiagnosticsExportService
     private readonly UtilityBillReconciliationSummaryService? _summary;
     private readonly UtilityMeterRepository? _bills;
     private readonly CommissioningProfileRepository? _profiles;
+    private readonly TariffRateCandidateRepository? _candidateRates;
 
     public PhaseDiagnosticsExportService(
         SqliteDatabase database,
@@ -31,7 +32,8 @@ public sealed class PhaseDiagnosticsExportService
         UtilityBillAuditV2Service? billAudit = null,
         UtilityBillReconciliationSummaryService? summary = null,
         UtilityMeterRepository? bills = null,
-        CommissioningProfileRepository? profiles = null)
+        CommissioningProfileRepository? profiles = null,
+        TariffRateCandidateRepository? candidateRates = null)
     {
         _database = database;
         _paths = paths;
@@ -39,6 +41,7 @@ public sealed class PhaseDiagnosticsExportService
         _summary = summary;
         _bills = bills;
         _profiles = profiles;
+        _candidateRates = candidateRates;
     }
 
     public string Export(long? requestedBillId = null)
@@ -234,6 +237,48 @@ public sealed class PhaseDiagnosticsExportService
                         official_publication_ids = item.PublicationIds,
                         basis = item.CalculationBasis
                     }).ToArray();
+                // Explain why the fixed $/month component did or did
+                // not reconcile against the actual captured publication.
+                // Official rate candidates are public tariff values, not
+                // bill text or user-identifying information.
+                var fixedCandidatesByPeriod = new List<object>();
+                if (_candidateRates is not null)
+                {
+                    foreach (var period in
+                             summary.TariffAnalysis.PublicationPeriods)
+                    {
+                        var fixedRows = _candidateRates.GetForPublication(
+                                period.PublicationId)
+                            .Where(item =>
+                                item.TariffPlan.Equals("BT1",
+                                    StringComparison.OrdinalIgnoreCase) &&
+                                item.ComponentKey == "FIXED_MONTHLY")
+                            .ToArray();
+                        fixedCandidatesByPeriod.Add(new
+                        {
+                            publication_id = period.PublicationId,
+                            applicable_from = period.AppliedFrom,
+                            applicable_to = period.AppliedTo,
+                            fixed_candidate_rows = fixedRows.Length,
+                            fixed_candidate_indices = fixedRows
+                                .Select(item => item.CandidateIndex)
+                                .Distinct().OrderBy(value => value).Take(40),
+                            gross_iva_column_rounded_clp = fixedRows
+                                .Where(item =>
+                                    item.PublishedIvaColumnClp is > 0)
+                                .Select(item => Math.Round(
+                                    item.PublishedIvaColumnClp!.Value, 0,
+                                    MidpointRounding.AwayFromZero))
+                                .Distinct().OrderBy(value => value).Take(40),
+                            net_column_rounded_clp = fixedRows
+                                .Where(item => item.NetRateClp is > 0)
+                                .Select(item => Math.Round(
+                                    item.NetRateClp!.Value, 0,
+                                    MidpointRounding.AwayFromZero))
+                                .Distinct().OrderBy(value => value).Take(40)
+                        });
+                    }
+                }
                 billEvidence = new
                 {
                     status = "COMPUTED_NOT_OWNER_VERIFIED",
@@ -261,7 +306,8 @@ public sealed class PhaseDiagnosticsExportService
                         reconstructed_clp = line.ReconstructedAmountClp,
                         status = line.Status
                     }).ToArray(),
-                    official_components = components
+                    official_components = components,
+                    fixed_tariff_candidate_evidence = fixedCandidatesByPeriod
                 };
             }
         }
