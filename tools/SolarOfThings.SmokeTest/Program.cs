@@ -56,6 +56,24 @@ try
     if (!sensitiveLabelRejected)
         throw new InvalidOperationException("Performance recorder accepted a path as operation label.");
 
+    // Responsive breakpoint regression: same band must preserve layout
+    // definitions even as the WPF window changes width by a pixel.
+    foreach (var (width, columns) in new (double, int)[]
+    {
+        (double.NaN, 1), (double.NegativeInfinity, 1),
+        (0, 1), (619.99, 1), (620, 2), (1039.99, 2),
+        (1040, 4), (2400, 4)
+    })
+    {
+        if (ResponsiveGridLayoutPolicy.ColumnsForUsableWidth(width) != columns)
+            throw new InvalidOperationException(
+                "Responsive WPF grid breakpoint policy unexpectedly changed.");
+    }
+    if (ResponsiveGridLayoutPolicy.ColumnsForUsableWidth(700) !=
+        ResponsiveGridLayoutPolicy.ColumnsForUsableWidth(900))
+        throw new InvalidOperationException(
+            "Layout would be unnecessarily rebuilt within the same breakpoint.");
+
     var paths = new AppPaths(root);
     var database = new SqliteDatabase(paths);
 
