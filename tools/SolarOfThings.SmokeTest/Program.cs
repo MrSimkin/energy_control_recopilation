@@ -248,6 +248,51 @@ try
     if (!badRejected)
         throw new InvalidOperationException("Truncated backup was not rejected.");
 
+    // Physical-copy inventory regression: one visible row per location,
+    // no cascading deletion, last verified available copy cannot be removed.
+    var inventory = new CompleteBackupInventoryService(paths);
+    var bothLocations = inventory.List(syntheticSecondary);
+    if (bothLocations.SecondaryWarning is not null ||
+        bothLocations.Copies.Count(c => c.Kind == "COMPLETE") != 2 ||
+        bothLocations.Copies.Count(c => c.Location == "SECONDARY") != 1 ||
+        !bothLocations.Copies.Any(c => c.Kind == "LEGACY_SQLITE_ONLY"))
+        throw new InvalidOperationException("Physical backup inventory classification failed.");
+    var localPhysical = bothLocations.Copies.Single(c =>
+        c.Kind == "COMPLETE" && c.Location == "LOCAL");
+    var secondaryPhysical = bothLocations.Copies.Single(c =>
+        c.Kind == "COMPLETE" && c.Location == "SECONDARY");
+    if (inventory.Verify(secondaryPhysical, syntheticSecondary).IntegrityStatus != "PASS")
+        throw new InvalidOperationException("Secondary copy integrity verification failed.");
+
+    // The selected secondary copy disappears but the local backup remains untouched.
+    inventory.DeleteOne(secondaryPhysical, syntheticSecondary);
+    if (File.Exists(mirrored.Path) || !File.Exists(complete.Path))
+        throw new InvalidOperationException("Independent secondary delete cascaded or failed.");
+
+    // With only the local full package left, deletion must be blocked.
+    var finalCopyBlocked = false;
+    try { inventory.DeleteOne(localPhysical, syntheticSecondary); }
+    catch (InvalidOperationException) { finalCopyBlocked = true; }
+    if (!finalCopyBlocked || !File.Exists(complete.Path))
+        throw new InvalidOperationException("Final copy protection regression.");
+
+    // Offline secondary must not be treated as a currently available safety copy.
+    var unseen = inventory.List(Path.Combine(root, "offline-secondary-location"));
+    if (unseen.SecondaryWarning is null)
+        throw new InvalidOperationException("Offline secondary location not reported.");
+
+    // Unknown files and paths outside configured backup destinations are never deleted.
+    var unrelated = Path.Combine(root, "user-unrelated.zip");
+    File.WriteAllText(unrelated, "NEVER DELETE");
+    var unrecognizedBlocked = false;
+    try
+    {
+        inventory.DeleteOne(localPhysical with { Path = unrelated }, syntheticSecondary);
+    }
+    catch (InvalidOperationException) { unrecognizedBlocked = true; }
+    if (!unrecognizedBlocked || !File.Exists(unrelated))
+        throw new InvalidOperationException("Unrecognized backup deletion allowed.");
+
     EnelBrowserCaptureTelemetry.Record(
         paths, "ZERO_CLICK_RANGE", "INCOMPLETE", 206, 1024);
     var evidenceZip = new PhaseDiagnosticsExportService(database, paths)
