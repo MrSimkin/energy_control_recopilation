@@ -100,6 +100,7 @@ public sealed class SafeSqlExplorerService
             throw new DirectoryNotFoundException("The selected output folder is unavailable.");
         var temporary = Path.Combine(parent, ".solar-sql-export-" +
             Guid.NewGuid().ToString("N") + Path.GetExtension(output));
+        var operationWatch = Stopwatch.StartNew();
         try
         {
             using var scope = OpenProtected(token, TimeSpan.FromMinutes(10));
@@ -140,7 +141,8 @@ public sealed class SafeSqlExplorerService
             }
             token.ThrowIfCancellationRequested();
             File.Move(temporary, output); // no overwrite; only complete exports published
-            return new SqlExportResult(output, format, count, cols.Count, "COMPLETE");
+            return new SqlExportResult(output, format, count, cols.Count, "COMPLETE",
+                operationWatch.Elapsed, new FileInfo(output).Length);
         }
         finally
         {
@@ -333,4 +335,4 @@ public sealed record SqlCell(string? Text, string Type, bool IsNull);
 public sealed record SqlPreviewResult(IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyList<SqlCell>> Rows, bool HasMore, TimeSpan Elapsed);
 public sealed record SqlExportResult(string Path, SqlExportFormat Format,
-    int Rows, int Columns, string Status);
+    int Rows, int Columns, string Status, TimeSpan Elapsed, long FileSizeBytes);
