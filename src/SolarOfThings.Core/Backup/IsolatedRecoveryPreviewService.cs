@@ -22,8 +22,6 @@ public sealed class IsolatedRecoveryPreviewService
     [
         new("SETTINGS", "app_setting", "key",
             ["key", "value"]),
-        new("METER_READINGS", "utility_meter_reading", "reading_at_utc",
-            ["reading_at_utc", "reading_kwh", "reference", "notes"]),
         new("TARIFF_SOURCES", "tariff_publication", "source_url",
             ["source_url", "provider", "category", "title", "effective_from",
              "is_retroactive", "content_sha256", "content_length", "page_count",
@@ -120,6 +118,8 @@ public sealed class IsolatedRecoveryPreviewService
             }
             // Explicitly refuse any implied import of relationally coupled
             // categories until source identity/foreign keys are mapped.
+            results.Add(new RecoveryCategoryResult("METER_READINGS", 0, 0, 0,
+                "Schema v13+ allows distinct readings at the same timestamp; no stable portable natural key or foreign-key remapping has been approved."));
             results.Add(new RecoveryCategoryResult("BILLS_AND_CHARGES", 0, 0, 0,
                 "Linked bill / reading / charge relationships need a reviewed adapter."));
             results.Add(new RecoveryCategoryResult("ENERGY_TELEMETRY", 0, 0, 0,
