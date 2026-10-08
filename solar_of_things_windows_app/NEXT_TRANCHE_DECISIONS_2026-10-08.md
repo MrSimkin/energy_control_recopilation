@@ -249,3 +249,33 @@ These Grid/Enel details were subsequently **approved by the owner** as the next-
 **NEXT PROPOSALS ONLY (not yet approved):** improve `Datos recopilados` (current `Cobertura` and `Importar` tabs); reorganize `Configuración` (current connection/session, export folder, manual SQLite backup controls) to avoid duplicating the approved first-class `Protección de datos`; keep `Diagnósticos` an advanced troubleshooting tool with source/operational evidence and safe export, not the home of routine backup operations. Present clear concrete wireframes for user review.
 
 **Status:** Documentation-only design approval; no code or build, no restore, no merge, no action on live QA SQLite.
+
+## Owner approves Data, Settings and Diagnostics wireframes (2026-10-08)
+
+**APPROVED UX DESIGN:** Owner replied **"sí"** to all three proposed page wireframes, completing the requested broad navigation/screen UX review. No programming or build authorization is implied.
+
+### Datos recopilados
+- Keep existing **Cobertura** and **Importar / Recopilación** tabs; summarize first/last stored observations, reviewed/problem days, completeness/partial/unavailable days, installation and configuration status, with honest uncertainty and provenance.
+- Separate coverage reporting from user-triggered import/collection; show nonblocking progress, current period and outcomes, with clear errors. Do not substitute restoration-from-backup for normal data collection; recovery lives in Protección de datos.
+- Preserve all prior ingestion behaviors and safety checks.
+
+### Configuración
+- Organize settings by **Conexión al inversor** (secure session and auto-connect), **Exportaciones** (destination folder), **Atajos de teclado** (configurable SQL/editor and other valid shortcut bindings), **Idioma y apariencia** (existing ES/EN and compatible presentation settings), plus a simple link to **Protección de datos**.
+- Do **not** duplicate full backup management in Settings. The current Settings manual SQLite-only backup action must be rerouted/replaced coherently as part of the approved complete-backups-only implementation; no accidental creation of database-only 'complete' backups. Preserve secure credential controls; do not imply existing UI implements theme settings if not verified.
+
+### Diagnósticos
+- Position as **advanced, opt-in investigation**, with system/database/source freshness, connection and sync checks, current diagnostics and evidence/export/log controls, readable statuses, sanitized diagnostics bundles and provenance. Preserve existing investigation tools (general run, capture state/flow, configuration cache/read, grid-energy diagnostics, phase evidence, report/log export).
+- The existing Developer Diagnostics manual database-only backup control must not remain a confusing or contradictory parallel end-user backup path after migration to the approved `Protección de datos` page.
+- Avoid expensive all-check scans and technically detailed fields on routine startup; execute diagnostic actions explicitly and asynchronously with accurate status/error displays.
+
+### UX approval boundaries
+- Previous approvals also cover grouped left sidebar; Dashboard; Analysis; Battery; Grid & Utility six-tab journey; Reports; Protection of Data's backup policy + per-copy deletion requirements; integrated read-only SQL explorer with native XLSX export, keyboard mapping, numbered editor and location-aware errors; transversal responsive/performance principles.
+- The full `Protección de datos` layout was demonstrated, and specific backup behavior was approved; implementation choices/restore safety specifics still require a final engineering gate. Do not falsely claim real database restoration is authorized or tested.
+- **All three wireframes are approved as design direction only**. No schema/data changes, branch merge, app code edits, real backup deletion/restore, CI build or QA started by this consent.
+
+### Remaining pre-implementation gating discussion (not yet user-approved)
+- Next milestone product semantic version: `0.11.0` was previously proposed (current `0.10.0`), while CI build ID remains independent; owner confirmation still needed.
+- Determine compatibility/safety contracts for full backup/restore/import, backup-format manifest and handling app/schema versions, pre-migration complete-backup gate, test-only restore validation, with no active QA database replacement.
+- Agree measurable startup/UI responsiveness acceptance and approach for ~2 GB SQLite without degrading correct aggregation; source-faithful SQL view roadmap and editor/export safety.
+- October 12 additional Enel information is still outstanding and must not be guessed; decide if a consolidated next build waits for it or if new work integrates later.
+- Developer to propose one coherent implementation plan and acceptance matrix, then obtain explicit user authorization **before code/build**.
