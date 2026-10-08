@@ -373,7 +373,7 @@ public sealed class FullBackupService
             {
                 if (item is null || !IsSafeZipPath(item.RelativePath) ||
                     !inventoried.Add(item.RelativePath) || item.Size < 0 ||
-                    item.Sha256.Length != 64 ||
+                    string.IsNullOrWhiteSpace(item.Sha256) || item.Sha256.Length != 64 ||
                     !item.Sha256.All(Uri.IsHexDigit))
                     throw new InvalidDataException("Unsafe or invalid backup inventory.");
                 var entry = zip.GetEntry(item.RelativePath)
@@ -436,7 +436,6 @@ public sealed class FullBackupService
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             if (File.Exists(disposable))
                 TryRemoveFile(disposable);
         }
