@@ -59,11 +59,45 @@ try
                 "Empty Phase 11 grid-import view unexpectedly has rows.");
     }
 
+    // Exercise the backup with a committed write that may still reside
+    // in WAL rather than the main .db file.
+    using (var walSource = database.OpenConnection())
+    using (var walWrite = walSource.CreateCommand())
+    {
+        walWrite.CommandText =
+            """
+            INSERT INTO app_setting(key,value,updated_utc)
+            VALUES ('smoke.wal.snapshot','committed','2026-10-08T00:00:00Z');
+            """;
+        walWrite.ExecuteNonQuery();
+    }
+
     // Phase 12: validate snapshots without restoring or replacing the
     // source DB. Verify backup bytes are independently readable.
     var backupService = new DatabaseBackupService(database, paths);
     var manualBackup = backupService.CreateVerifiedBackup();
     var automaticBackup = backupService.CreateAutomaticBackupIfDue();
+    using (var copied = new SqliteConnection(
+        new SqliteConnectionStringBuilder
+        {
+            DataSource = manualBackup.Path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString()))
+    {
+        copied.Open();
+        using var checkWalCopy = copied.CreateCommand();
+        checkWalCopy.CommandText =
+            "SELECT value FROM app_setting WHERE key = 'smoke.wal.snapshot';";
+        if (!string.Equals(
+            Convert.ToString(checkWalCopy.ExecuteScalar()),
+            "committed", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Phase 12 backup lost a committed WAL-sourced record.");
+        }
+    }
+
     if (manualBackup.IntegrityStatus != "PASS" ||
         manualBackup.SchemaVersion != 17 ||
         automaticBackup is null ||
@@ -87,7 +121,8 @@ try
         {
             "overview.json", "schema_inventory.json",
             "README.txt", "manifest.json",
-            "enel_capture_events.json"
+            "enel_capture_events.json", "schema_columns.csv",
+            "schema_foreign_keys.csv"
         };
         if (expected.Any(name => evidenceArchive.GetEntry(name) is null) ||
             evidenceArchive.Entries.Count != expected.Length)
