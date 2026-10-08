@@ -122,7 +122,7 @@ try
             "overview.json", "schema_inventory.json",
             "README.txt", "manifest.json",
             "enel_capture_events.json", "schema_columns.csv",
-            "schema_foreign_keys.csv"
+            "schema_foreign_keys.csv", "bill_reconciliation.json"
         };
         if (expected.Any(name => evidenceArchive.GetEntry(name) is null) ||
             evidenceArchive.Entries.Count != expected.Length)
