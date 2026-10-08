@@ -365,20 +365,22 @@ public sealed class FullBackupService
                 string.IsNullOrWhiteSpace(manifest.SourceRevision))
                 throw new InvalidDataException("Unsupported or incomplete backup metadata.");
 
-            var names = new HashSet<string>(StringComparer.Ordinal);
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var entry in zip.Entries)
             {
                 if (!names.Add(entry.FullName) ||
-                    !IsSafeZipPath(entry.FullName))
+                    !IsSafeZipPath(entry.FullName) ||
+                    !IsAllowedCompleteBackupPath(entry.FullName))
                     throw new InvalidDataException("Unsafe or duplicate ZIP entry.");
             }
             if (names.Count != manifest.Files.Count + 1 ||
                 !names.Contains("manifest.json"))
                 throw new InvalidDataException("Incomplete or extra ZIP content.");
-            var inventoried = new HashSet<string>(StringComparer.Ordinal);
+            var inventoried = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var item in manifest.Files)
             {
                 if (item is null || !IsSafeZipPath(item.RelativePath) ||
+                    !IsAllowedCompleteBackupPath(item.RelativePath) ||
                     !inventoried.Add(item.RelativePath) || item.Size < 0 ||
                     string.IsNullOrWhiteSpace(item.Sha256) || item.Sha256.Length != 64 ||
                     !item.Sha256.All(Uri.IsHexDigit))
@@ -447,6 +449,15 @@ public sealed class FullBackupService
                 TryRemoveFile(disposable);
         }
     }
+
+    // Format v1 is a closed archive: one database, one manifest and only
+    // original bill/tariff documents. No executable, backup or settings files.
+    private static bool IsAllowedCompleteBackupPath(string name) =>
+        name == "manifest.json" || name == "database/energy.db" ||
+        (name.StartsWith("documents/Bills/", StringComparison.Ordinal) &&
+         name.Length > "documents/Bills/".Length) ||
+        (name.StartsWith("documents/Tariffs/", StringComparison.Ordinal) &&
+         name.Length > "documents/Tariffs/".Length);
 
     private static bool IsSafeZipPath(string name)
     {
