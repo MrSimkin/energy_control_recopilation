@@ -6851,3 +6851,27 @@ unproven; the existing one-click fallback imported successfully.
 Global phase-10–12 release is not accepted and not ready to merge into
 `main`. See `PHASE_10_12_TRANCHE_STATUS.md` for detailed evidence
 and separated acceptance gates.
+
+## Build 685 — post-acceptance presentation correction, CI PASS
+
+Code commit: `b31d97d94f0cba6a18f2ea7e4d0a225470bfac95`.
+Windows Actions: run `37720787982`, Build **685**, completed **SUCCESS**:
+restore, Release build, SQLite smoke, win-x64 portable publish,
+portable marker and artifact upload all PASS. The live Enel/CNE probes
+were conditionally skipped (not a live-validation PASS).
+
+Artifact: `SolarEnergyMonitor-Build-685-win-x64.zip`, GitHub artifact ID
+`11525996688`, SHA-256
+`67f10d350f9c342bc6d759563ef30861ef48311111a146384a02437be7e81ae9`.
+Downloaded ZIP checksum matched GitHub; ZIP integrity PASS, 490 entries,
+`SolarEnergyMonitor.exe` and `portable.mode` present, no bundled `energy.db`.
+
+This code change only corrects the PDF financial-scenario subtotal label
+and explanation and adds a bilingual visible/tooltip denominator hint
+to the on-screen reconstruction-coverage percentage. It does not alter
+the tariff engine, numeric calculations, schema, backups or real data.
+
+**Release gate:** owner acceptance of Build 684 Phase 10 *functionality*
+remains valid. The Build 685 label/layout refinement is CI-verified but
+its Windows visual output has not yet been checked by the owner. Phases
+11 and 12 remain PARTIAL and are not declared closed. No merge to `main`.
