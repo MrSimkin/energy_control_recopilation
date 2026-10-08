@@ -439,6 +439,36 @@ try
         throw new InvalidOperationException(
             "Case-colliding ZIP entries were accepted as a complete backup.");
 
+    // A forged self-consistent ZIP+manifest must be rejected if it drops
+    // a bill document still referenced by the embedded SQLite snapshot.
+    const string originalBillEntry = "documents/Bills/smoke-original-bill.txt";
+    var omittedEvidenceArchive = Path.Combine(root, "omitted-evidence.zip");
+    File.Copy(complete.Path, omittedEvidenceArchive);
+    using (var omittedZip = System.IO.Compression.ZipFile.Open(
+               omittedEvidenceArchive, ZipArchiveMode.Update))
+    {
+        omittedZip.GetEntry(originalBillEntry)!.Delete();
+        var oldManifest = omittedZip.GetEntry("manifest.json")!;
+        CompleteBackupManifest alteredManifest;
+        using (var input = oldManifest.Open())
+            alteredManifest = System.Text.Json.JsonSerializer
+                .Deserialize<CompleteBackupManifest>(input)!;
+        oldManifest.Delete();
+        alteredManifest = alteredManifest with
+        {
+            Files = alteredManifest.Files.Where(x =>
+                x.RelativePath != originalBillEntry).ToArray()
+        };
+        using var output = omittedZip.CreateEntry("manifest.json").Open();
+        System.Text.Json.JsonSerializer.Serialize(output, alteredManifest);
+    }
+    var missingWitnessRejected = false;
+    try { FullBackupService.VerifyArchive(omittedEvidenceArchive); }
+    catch (InvalidDataException) { missingWitnessRejected = true; }
+    if (!missingWitnessRejected)
+        throw new InvalidOperationException(
+            "A valid ZIP/manifest without the SQLite-referenced bill was accepted.");
+
     // The ZIP includes committed WAL records and a structurally readable DB.
     var smokeExtract = Path.Combine(root, "verify-complete-backup.db");
     using (var packageZip = System.IO.Compression.ZipFile.OpenRead(complete.Path))
