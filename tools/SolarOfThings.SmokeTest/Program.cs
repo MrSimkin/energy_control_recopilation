@@ -21,6 +21,41 @@ var root = Path.Combine(
 
 try
 {
+    // Bounded non-sensitive performance recorder smoke. No timing target is
+    // asserted (CI hardware is not a substitute for owner's Windows PC).
+    var perf = new SolarOfThings.Core.Diagnostics.UiPerformanceRecorder();
+    using (var sampled = perf.Measure("UI.Dashboard.Refresh"))
+    {
+        perf.Record("Startup.SQLiteInitialize", TimeSpan.FromMilliseconds(25));
+        sampled.Dispose(); // repeated disposal must not add a second sample
+    }
+    var first = perf.Snapshot();
+    if (first.Count != 2 ||
+        first.Count(x => x.Operation == "UI.Dashboard.Refresh") != 1 ||
+        first.Any(x => x.ElapsedMilliseconds < 0))
+        throw new InvalidOperationException("Performance recorder scope semantics failed.");
+
+    var syntheticTaskGroup = Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+    {
+        for (var sampleIndex = 0; sampleIndex < 50; sampleIndex++)
+            perf.Record("UI.Navigation", TimeSpan.FromMilliseconds(sampleIndex));
+    })).ToArray();
+    await Task.WhenAll(syntheticTaskGroup);
+    var bounded = perf.Snapshot();
+    var stats = perf.Summaries();
+    if (bounded.Count != SolarOfThings.Core.Diagnostics.UiPerformanceRecorder.MaximumSamples ||
+        stats.Single(x => x.Operation == "UI.Navigation").Samples !=
+            SolarOfThings.Core.Diagnostics.UiPerformanceRecorder.MaximumSamples ||
+        stats.Any(x => x.P95Milliseconds > x.MaxMilliseconds ||
+            x.MeanMilliseconds < 0))
+        throw new InvalidOperationException("Performance recorder bounded concurrent stats failed.");
+
+    var sensitiveLabelRejected = false;
+    try { perf.Record("D:\\Users\\Owner\\PrivateSql", TimeSpan.Zero); }
+    catch (ArgumentException) { sensitiveLabelRejected = true; }
+    if (!sensitiveLabelRejected)
+        throw new InvalidOperationException("Performance recorder accepted a path as operation label.");
+
     var paths = new AppPaths(root);
     var database = new SqliteDatabase(paths);
 
