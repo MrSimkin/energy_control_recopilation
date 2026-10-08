@@ -76,6 +76,24 @@ try
             "Phase 12 WAL-consistent verified backup smoke test failed.");
     }
 
+    var evidenceZip = new PhaseDiagnosticsExportService(database, paths)
+        .Export();
+    using (var evidenceArchive = System.IO.Compression.ZipFile.OpenRead(
+        evidenceZip))
+    {
+        var expected = new[]
+        {
+            "overview.json", "schema_inventory.json",
+            "README.txt", "manifest.json"
+        };
+        if (expected.Any(name => evidenceArchive.GetEntry(name) is null) ||
+            evidenceArchive.Entries.Count != expected.Length)
+        {
+            throw new InvalidOperationException(
+                "Phase 10-12 sanitized debug bundle smoke test failed.");
+        }
+    }
+
     // Regression: a real owner Data\ folder is currently schema v13.
     // Verify the in-place v13 -> v16 migration preserves existing tariff
     // evidence, creates the regulatory relation graph metadata and extends
