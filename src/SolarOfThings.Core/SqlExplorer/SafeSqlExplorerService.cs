@@ -12,6 +12,7 @@ public sealed class SafeSqlExplorerService
 {
     public const int PreviewLimit = 200;
     public const int MaxExportRows = 1_000_000;
+    public const int MaxExcelRows = 100_000;
     private const int MaxColumns = 128;
     private const int MaxCellBytes = 4 * 1024 * 1024;
     private readonly string _databasePath;
@@ -137,8 +138,8 @@ public sealed class SafeSqlExplorerService
                 while (reader.Read())
                 {
                     token.ThrowIfCancellationRequested();
-                    if (count >= MaxExportRows)
-                        throw new InvalidOperationException("XLSX row limit exceeded; export not published.");
+                    if (count >= MaxExcelRows)
+                        throw new InvalidOperationException("XLSX exceeds 100,000 rows; no partial file published. For larger results, choose CSV.");
                     var row = GetRow(reader);
                     for (int i = 0; i < row.Count; i++)
                     {
