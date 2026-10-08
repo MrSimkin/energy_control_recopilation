@@ -534,6 +534,8 @@
     <sys:String x:Key="Settings.Intro">Opciones de uso normal de esta copia de Solar Energy Monitor.</sys:String>
     <sys:String x:Key="Settings.BackupHeading">Respaldo completo</sys:String>
     <sys:String x:Key="Settings.BackupDescription">Crea bajo demanda un ZIP verificado con SQLite, boletas y tarifas. No copia secretos ni reemplaza información. Al iniciar, un recordatorio semanal permite crear, posponer u omitir. La recuperación sigue en desarrollo.</sys:String>
+    <sys:String x:Key="Settings.BackupSecondLocation">Segunda ubicación para respaldos</sys:String>
+    <sys:String x:Key="Settings.BackupChooseSecondary">Elegir carpeta secundaria...</sys:String>
     <sys:String x:Key="Settings.BackupNow">Crear respaldo completo ahora</sys:String>
     <sys:String x:Key="Settings.ExportFolderHeading">Guardar exportaciones en</sys:String>
     <sys:String x:Key="Settings.ExportFolderDescription">Carpeta inicial para PDF, Excel, anexos y ayuda. No mueve los datos ni los respaldos.</sys:String>
