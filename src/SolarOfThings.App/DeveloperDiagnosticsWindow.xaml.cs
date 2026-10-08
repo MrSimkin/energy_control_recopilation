@@ -12,18 +12,21 @@ public partial class DeveloperDiagnosticsWindow : Window
     private readonly InvestigationDiagnosticsService _investigation;
     private readonly AppPaths _paths;
     private readonly DatabaseBackupService _backup;
+    private readonly PhaseDiagnosticsExportService _phaseEvidence;
     private bool _busy;
 
     public DeveloperDiagnosticsWindow(
         ApiDiagnosticsStore diagnostics,
         InvestigationDiagnosticsService investigation,
         AppPaths paths,
-        DatabaseBackupService backup)
+        DatabaseBackupService backup,
+        PhaseDiagnosticsExportService phaseEvidence)
     {
         _diagnostics = diagnostics;
         _investigation = investigation;
         _paths = paths;
         _backup = backup;
+        _phaseEvidence = phaseEvidence;
 
         InitializeComponent();
         RefreshReport();
@@ -86,6 +89,17 @@ public partial class DeveloperDiagnosticsWindow : Window
                 ActionStatusText.Text =
                     $"{result.Action}: {result.Outcome} — {result.Detail}";
             });
+    }
+
+    private async void PhaseEvidence_Click(object sender, RoutedEventArgs e)
+    {
+        await RunAsync(async () =>
+        {
+            ActionStatusText.Text = "Paso 1/2: revisando esquema y metadatos...";
+            var path = await Task.Run(() => _phaseEvidence.Export());
+            ActionStatusText.Text = $"Paso 2/2: paquete guardado en {path}";
+            ShowSaved(path);
+        });
     }
 
     private async void Backup_Click(object sender, RoutedEventArgs e)
@@ -151,6 +165,7 @@ public partial class DeveloperDiagnosticsWindow : Window
         GridEnergyButton.IsEnabled = !busy;
         ExportBundleButton.IsEnabled = !busy;
         BackupButton.IsEnabled = !busy;
+        PhaseEvidenceButton.IsEnabled = !busy;
         DiagnosticsBusyBar.Visibility =
             busy ? Visibility.Visible : Visibility.Collapsed;
     }
