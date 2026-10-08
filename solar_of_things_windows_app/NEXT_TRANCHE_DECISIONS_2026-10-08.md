@@ -197,3 +197,16 @@ These Grid/Enel details were subsequently **approved by the owner** as the next-
 **Status:** All four specific UX proposals (Dashboard, Grid/Enel, Reports, transversal criteria) now have owner **design approval**. Detailed implementation remains future work; version bump, build, code changes, real database actions and merge are **NOT** yet authorized.
 
 **Next review:** Design `Protección de datos` screen and `Explorador SQL` screen using equally concrete wireframes, before commencing any new code work.
+
+## Backup inventory: individual-copy deletion APPROVED (2026-10-08)
+
+**OWNER APPROVES OPTION A:** The user deletes **one selected physical copy at a time**, NOT every mirror/destination linked to the same logical full backup. Deleting the local copy must not automatically delete a secondary external copy, and vice versa. The backup list should distinguish logical backup identity, physical copy/destination and most recent integrity verification; it must plainly show the post-deletion protection status.
+
+**Safety guards required by owner:**
+- No deleting the **last known-valid available complete recovery copy**; block that action, explain why, and allow the owner to create and verify a replacement first. Do not assume an unplugged disk still has a healthy copy just because it was formerly verified; label unavailable/last-seen status honestly. Never erase a verified copy solely because a secondary destination is offline.
+- Present specific date/identity, size, location, type, verification status and only the selected target in a confirmation dialog; deletion must be deliberate, with success/failure recorded. Never cascade across separate locations or silently remove unrelated files.
+- Only recognized, safely identified backup-package files and associated manifests may be managed. Validate normalized paths and prevent escape from configured backup directories; handle partial packages, permission failures and interrupted deletes conservatively. Treat legacy SQLite-only backups explicitly as **legacy**, not as full recovery points.
+- No automated retention purge, no mass deletion by default, no deletion of the active DB or user-supplied unrelated files. Development and QA deletion testing must use artificial files, not the owner's real backups.
+- This is an **approved design requirement**, not authorization to program, run backups, delete owner files, restore, merge or issue a build.
+
+**Next UX review:** Integrated read-only SQL explorer and its external-client workflow, with a concrete preview; performance and SQL safety guards remain essential given a nearly 2 GB database.
