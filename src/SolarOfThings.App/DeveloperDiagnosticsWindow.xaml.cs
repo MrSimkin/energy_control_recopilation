@@ -11,7 +11,7 @@ public partial class DeveloperDiagnosticsWindow : Window
     private readonly ApiDiagnosticsStore _diagnostics;
     private readonly InvestigationDiagnosticsService _investigation;
     private readonly AppPaths _paths;
-    private readonly DatabaseBackupService _backup;
+    private readonly FullBackupService _backup;
     private readonly PhaseDiagnosticsExportService _phaseEvidence;
     private bool _busy;
     private long? _selectedBillId;
@@ -23,7 +23,7 @@ public partial class DeveloperDiagnosticsWindow : Window
         ApiDiagnosticsStore diagnostics,
         InvestigationDiagnosticsService investigation,
         AppPaths paths,
-        DatabaseBackupService backup,
+        FullBackupService backup,
         PhaseDiagnosticsExportService phaseEvidence)
     {
         _diagnostics = diagnostics;
@@ -111,11 +111,11 @@ public partial class DeveloperDiagnosticsWindow : Window
     {
         await RunAsync(async () =>
         {
-            ActionStatusText.Text = "Paso 1/2: creando copia SQLite consistente...";
+            ActionStatusText.Text = "Creando respaldo COMPLETO (SQLite, boletas y tarifas)...";
             var result = await Task.Run(() =>
-                _backup.CreateVerifiedBackup());
+                _backup.Create(ProductInfo.ProductVersion, ProductInfo.BuildNumber, ProductInfo.SourceRevision));
             ActionStatusText.Text =
-                $"Paso 2/2: integridad {result.IntegrityStatus}; " +
+                $"Respaldo completo verificado ({result.FileCount} archivos), integridad {result.IntegrityStatus}; " +
                 $"SHA-256 {result.Sha256}; guardado en {result.Path}";
             System.Media.SystemSounds.Asterisk.Play();
         });
