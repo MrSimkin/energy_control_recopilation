@@ -5,13 +5,19 @@
     <sys:String x:Key="Brand.Title">SOLAR ENERGY</sys:String>
     <sys:String x:Key="Brand.Subtitle">Home Monitor</sys:String>
 
-    <sys:String x:Key="Nav.Dashboard">Home</sys:String>
-    <sys:String x:Key="Nav.Analysis">History &amp; charts</sys:String>
+    <sys:String x:Key="Nav.Group.Home">HOME</sys:String>
+    <sys:String x:Key="Nav.Group.Energy">ENERGY</sys:String>
+    <sys:String x:Key="Nav.Group.Reports">REPORTS</sys:String>
+    <sys:String x:Key="Nav.Group.DataTools">DATA &amp; TOOLS</sys:String>
+    <sys:String x:Key="Nav.Group.System">SYSTEM &amp; HELP</sys:String>
+
+    <sys:String x:Key="Nav.Dashboard">Dashboard</sys:String>
+    <sys:String x:Key="Nav.Analysis">Energy analysis</sys:String>
     <sys:String x:Key="Nav.Battery">Battery</sys:String>
-    <sys:String x:Key="Nav.GridUtility">Electric grid</sys:String>
-    <sys:String x:Key="Nav.Reports">Reports</sys:String>
-    <sys:String x:Key="Nav.Data">Data &amp; updates</sys:String>
-    <sys:String x:Key="Nav.Diagnostics">Technical help</sys:String>
+    <sys:String x:Key="Nav.GridUtility">Grid &amp; Enel</sys:String>
+    <sys:String x:Key="Nav.Reports">Reports &amp; exports</sys:String>
+    <sys:String x:Key="Nav.Data">Collected data</sys:String>
+    <sys:String x:Key="Nav.Diagnostics">Diagnostics</sys:String>
     <sys:String x:Key="Nav.Settings">Settings</sys:String>
 
     <sys:String x:Key="Action.UpdateData">Update Data</sys:String>
@@ -34,9 +40,9 @@
     <sys:String x:Key="Language.Spanish">Español</sys:String>
     <sys:String x:Key="Language.English">English</sys:String>
 
-    <sys:String x:Key="Page.Dashboard.Title">Home</sys:String>
+    <sys:String x:Key="Page.Dashboard.Title">Dashboard</sys:String>
     <sys:String x:Key="Page.Dashboard.Subtitle">Local-first Solar of Things energy analysis</sys:String>
-    <sys:String x:Key="Page.Analysis.Title">History &amp; charts</sys:String>
+    <sys:String x:Key="Page.Analysis.Title">Energy analysis</sys:String>
     <sys:String x:Key="Page.Analysis.Subtitle">Interactive metric and period analysis</sys:String>
     <sys:String x:Key="Page.Analysis.Placeholder">This section will be implemented after real telemetry and normalization are proven.</sys:String>
     <sys:String x:Key="Analysis.Heading">Operating history</sys:String>
@@ -169,7 +175,7 @@
     <sys:String x:Key="Tooltip.BatteryRemaining">An estimate of the energy left in the battery. It is calculated from charge percentage and configured usable capacity; it is not a separate measurement.</sys:String>
     <sys:String x:Key="Tooltip.BatteryActivity">Shows whether the battery is receiving energy, supplying energy, or nearly at rest based on inverter readings.</sys:String>
 
-    <sys:String x:Key="Page.GridUtility.Title">Grid &amp; Utility</sys:String>
+    <sys:String x:Key="Page.GridUtility.Title">Grid &amp; Enel</sys:String>
     <sys:String x:Key="Page.GridUtility.Subtitle">Grid import and utility-meter reconciliation</sys:String>
     <sys:String x:Key="Page.GridUtility.Placeholder">Grid and utility functions will be added in later phases.</sys:String>
     <sys:String x:Key="Analysis.Tab.Summary">Summary</sys:String>
@@ -442,7 +448,7 @@
     <sys:String x:Key="GridUtility.Quality.METER_RESET_OR_REPLACEMENT">Review meter</sys:String>
     <sys:String x:Key="GridUtility.Quality.INVALID_INTERVAL">Invalid interval</sys:String>
     <sys:String x:Key="GridUtility.Quality.ASSUMED_TIME">Assumed time</sys:String>
-    <sys:String x:Key="Page.Reports.Title">Reports</sys:String>
+    <sys:String x:Key="Page.Reports.Title">Reports &amp; exports</sys:String>
     <sys:String x:Key="Page.Reports.Subtitle">Saved reports, Excel and PDF</sys:String>
     <sys:String x:Key="Page.Reports.Placeholder">Reusable reports and exports.</sys:String>
     <sys:String x:Key="Reports.Heading">Reports</sys:String>
@@ -490,7 +496,7 @@
     <sys:String x:Key="Reports.ExportComplete">3/3 · Export completed ✓</sys:String>
     <sys:String x:Key="Reports.ExportFailed">The export could not be completed.</sys:String>
 
-    <sys:String x:Key="Page.Data.Title">Data</sys:String>
+    <sys:String x:Key="Page.Data.Title">Collected data</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Local data, synchronization and historical coverage</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">Local historical synchronization is now active through Update Data. Analysis will be built on this validated corpus.</sys:String>
     <sys:String x:Key="Data.CoverageHeading">What information is saved</sys:String>
@@ -518,7 +524,7 @@
     <sys:String x:Key="Tooltip.EmptyDays">This is not an error: Solar of Things responded successfully but returned no readings for that day.</sys:String>
     <sys:String x:Key="Tooltip.UnavailableDays">After repeated failures the app stops retrying automatically to avoid repeated requests. You can deliberately recheck those dates later.</sys:String>
 
-    <sys:String x:Key="Page.Diagnostics.Title">Technical help</sys:String>
+    <sys:String x:Key="Page.Diagnostics.Title">Diagnostics</sys:String>
     <sys:String x:Key="Page.Diagnostics.Subtitle">Technical diagnostics and internal application state</sys:String>
     <sys:String x:Key="Page.Diagnostics.Placeholder">Current diagnostics are written locally; this view will grow as real integrations are added.</sys:String>
     <sys:String x:Key="Page.Settings.Title">Settings</sys:String>
