@@ -167,7 +167,7 @@ The owner requested more concrete per-screen wireframes; these are proposals to 
 
 **APPROVED — proposal 4, transversal product UX/performance criteria:** Lazy/nonblocking screen loading; visible local/global progress and recoverable errors; one clear primary action per task; progressive disclosure for advanced diagnostic details; no loss of controls, mathematical validity, or source traceability; measured query/UI responsiveness and indexing/refactoring based on actual evidence. Preserve bilingual ES/EN and keyboard navigation.
 
-**NOT APPROVED — proposal 2, Grid & Enel:** Owner cannot yet visualize the proposed layout and requests a much more concrete, screen-like representation. A new illustrated/tabbed wireframe and an end-to-end example are needed before approval. Do **not** treat previous Grid/Enel proposals as authorization to rearrange this workflow.
+**RESOLVED, APPROVED LATER — proposal 2, Grid & Enel:** Following a concrete interactive six-tab example and the Boletas→Auditoría journey, the owner approved this design direction. See subsequent dated approval section. The initial difficulty visualizing it has been resolved.
 
 ### Grid/Enel clarification concept to show (proposal, awaiting owner feedback)
 
@@ -178,4 +178,22 @@ Existing six sub-tabs stay: **Resumen / Lecturas / Comparar lecturas / Boletas /
 - **Lecturas** is capture/manage readings; **Comparar** is freely selecting two meter observations and matching inverter interval, not the official bill audit; **Tarifas** is official evidence acquisition/validity and diagnostic state.
 - Show the interaction sequence `Resumen → Boletas → seleccionar una → Auditar` using one concrete example and clear navigation. Do not duplicate already-implemented sub-tabs or eliminate existing features.
 
-These Grid/Enel details are exploratory until owner approval. **No code, new build, real data operations, backup restore or main merge authorized.**
+These Grid/Enel details were subsequently **approved by the owner** as the next-tranche UI/UX direction. **No code, new build, real data operations, backup restore or main merge authorized merely by this approval.**
+
+## Grid & Enel concrete tabbed wireframe APPROVED (2026-10-08)
+
+**OWNER APPROVAL:** After viewing a navigable conceptual wireframe with the six existing tabs and the concrete `Resumen → Boletas → seleccionar boleta → Auditar esta boleta` journey, the owner explicitly replied **"de acuerdo"**. This resolves the prior pending proposal 2.
+
+**Approved screen-level direction:**
+- Preserve six subtabs **Resumen, Lecturas, Comparar, Boletas, Auditoría, Tarifas**, their existing behavior and source-specific semantics; refactor presentation without erasing features.
+- **Resumen**: read-only hub with latest bill, audit status, evidence/readings and tariff shortcuts, avoiding giant editing forms.
+- **Lecturas**: list and detail/editor for meter readings, distinguishing Enel date-only readings from exact-time personal measurements.
+- **Comparar**: two chosen readings, equivalent inverter import, gaps/coverage and a report independent from official bill audit.
+- **Boletas**: saved-bills list (left) + selected-bill details (right), with detail subtabs **Resumen / Lecturas / Cargos** and separate actions to view original PDF, edit fields, and `Auditar esta boleta`. Responsively stack panes where necessary.
+- **Auditoría**: keep selected bill context visible and organize evidence in four logical sections: **1. Original bill; 2. Energy—Enel vs inverter and coverage; 3. Tariff and item-by-item reconstruction, including explicit verified vs ambiguous RED/ETR applicability; 4. Conclusions, PDF and technical annex**. No unproven metrological certification or tariff-applicability claims.
+- **Tarifas**: official document discovery/validity, original-source evidence, parser status and missing-applicability diagnostics, independent of bill audit conclusions.
+- Honor the transversal previously approved goals: nonblocking UI, measured performance, keyboard accessible navigation, ES/EN localization, preserved source traceability and calculations.
+
+**Status:** All four specific UX proposals (Dashboard, Grid/Enel, Reports, transversal criteria) now have owner **design approval**. Detailed implementation remains future work; version bump, build, code changes, real database actions and merge are **NOT** yet authorized.
+
+**Next review:** Design `Protección de datos` screen and `Explorador SQL` screen using equally concrete wireframes, before commencing any new code work.
