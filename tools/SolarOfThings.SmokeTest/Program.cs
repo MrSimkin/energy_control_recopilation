@@ -122,6 +122,26 @@ try
         AnalysisRefreshPolicy.CanReuseChart(-1, -1, true, false, "A", "A"))
         throw new InvalidOperationException("Analysis chart reuse guard regressed.");
 
+    // A delayed Battery navigation snapshot can cause a network request only
+    // if page, device, generation and session remain valid and it is stale.
+    if (!BatteryNavigationRefreshPolicy.ShouldRefresh(
+            4, 4, true, false, "A", "A", true, false) ||
+        BatteryNavigationRefreshPolicy.ShouldRefresh(
+            3, 4, true, false, "A", "A", true, false) ||
+        BatteryNavigationRefreshPolicy.ShouldRefresh(
+            4, 4, false, false, "A", "A", true, false) ||
+        BatteryNavigationRefreshPolicy.ShouldRefresh(
+            4, 4, true, true, "A", "A", true, false) ||
+        BatteryNavigationRefreshPolicy.ShouldRefresh(
+            4, 4, true, false, "A", "B", true, false) ||
+        BatteryNavigationRefreshPolicy.ShouldRefresh(
+            4, 4, true, false, "A", null, true, false) ||
+        BatteryNavigationRefreshPolicy.ShouldRefresh(
+            4, 4, true, false, "A", "A", false, false) ||
+        BatteryNavigationRefreshPolicy.ShouldRefresh(
+            4, 4, true, false, "A", "A", true, true))
+        throw new InvalidOperationException("Battery navigation refresh guard regressed.");
+
     // Responsive breakpoint regression: same band must preserve layout
     // definitions even as the WPF window changes width by a pixel.
     foreach (var (width, columns) in new (double, int)[]

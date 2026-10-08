@@ -2051,14 +2051,34 @@ public partial class MainWindow : Window
             return;
         }
 
-        var current = _services
-            .GetRequiredService<CurrentHouseholdSnapshotService>()
-            .GetLatest(profile.DeviceId);
-
-        if (current?.IsFresh == true)
+        // The navigation handler must not block WPF on a SQLite read.
+        // A battery page load is already in flight; this separate lookup
+        // decides only whether a remote current-state request is needed.
+        var requestedBatteryGeneration = _batteryRefreshGeneration;
+        CurrentHouseholdSnapshot? current;
+        try
         {
+            var reader = _services
+                .GetRequiredService<CurrentHouseholdSnapshotService>();
+            current = await Task.Run(() => MeasureDataCall(
+                "Data.Battery.NavigationSnapshot",
+                () => reader.GetLatest(profile.DeviceId)));
+        }
+        catch (Exception ex)
+        {
+            // Treat an unreadable snapshot conservatively. Never cause an
+            // unhandled async-void navigation exception or expose its content.
+            Debug.WriteLine(
+                $"Battery navigation snapshot failed ({ex.GetType().Name}).");
             return;
         }
+
+        if (!BatteryNavigationRefreshPolicy.ShouldRefresh(
+                requestedBatteryGeneration, _batteryRefreshGeneration,
+                BatteryContent.Visibility == Visibility.Visible,
+                _windowClosed, profile.DeviceId, _profiles.Get()?.DeviceId,
+                _session.HasSession, current?.IsFresh == true))
+            return;
 
         await RefreshCurrentStateAsync(
             profile,
