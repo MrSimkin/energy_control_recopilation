@@ -126,6 +126,35 @@ public partial class App : Application
         _host = builder.Build();
 
         var database = _host.Services.GetRequiredService<SqliteDatabase>();
+        // Before any schema upgrade, make a consistent WAL-aware snapshot.
+        // The first snapshot is retained; subsequent launches reuse a
+        // verified automatic backup from the preceding 24 hours.
+        // Failure stops startup without modifying the existing database.
+        if (File.Exists(database.DatabasePath))
+        {
+            RenderStartupStatus(startupStatus,
+                "Comprobando respaldo automático antes de abrir los datos...");
+            try
+            {
+                var backup = _host.Services
+                    .GetRequiredService<DatabaseBackupService>();
+                await Task.Run(() => backup.CreateAutomaticBackupIfDue());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "No se pudo verificar el respaldo de seguridad. " +
+                    "La base de datos original no ha sido reemplazada.\n\n" +
+                    ex.Message,
+                    "Respaldo de seguridad",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                Shutdown(-1);
+                return;
+            }
+        }
+
+        RenderStartupStatus(startupStatus, "Inicializando base de datos...");
         await Task.Run(database.Initialize);
 
         if (importResult.Applied)
