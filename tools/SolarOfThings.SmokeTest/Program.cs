@@ -406,6 +406,17 @@ try
         throw new InvalidOperationException("Battery stale-result policy regressed.");
 
     // An obsolete Analysis range or device must never replace newer charts.
+    // Reports' background availability must never repaint a closed screen,
+    // a different installation or a superseded report generation.
+    if (!ReportReadinessRefreshPolicy.CanApply(12, 12, true, false, "A", "A") ||
+        ReportReadinessRefreshPolicy.CanApply(11, 12, true, false, "A", "A") ||
+        ReportReadinessRefreshPolicy.CanApply(12, 12, false, false, "A", "A") ||
+        ReportReadinessRefreshPolicy.CanApply(12, 12, true, true, "A", "A") ||
+        ReportReadinessRefreshPolicy.CanApply(12, 12, true, false, "A", "B") ||
+        ReportReadinessRefreshPolicy.CanApply(12, 12, true, false, "A", null) ||
+        ReportReadinessRefreshPolicy.CanApply(12, 12, true, false, "", ""))
+        throw new InvalidOperationException(
+            "Reports background readiness accepted a stale or foreign device.");
     if (!AnalysisRefreshPolicy.CanApply(5, 5, true, false, "device-a", "device-a") ||
         AnalysisRefreshPolicy.CanApply(4, 5, true, false, "device-a", "device-a") ||
         AnalysisRefreshPolicy.CanApply(5, 5, false, false, "device-a", "device-a") ||
