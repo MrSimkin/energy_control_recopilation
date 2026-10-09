@@ -172,6 +172,20 @@ try
         throw new InvalidOperationException(
             "Selected hourly row was not mapped to its own local calendar day.");
 
+    // One selected historical period may feed three distinct report
+    // families without losing hour-to-local-calendar-day expansion.
+    foreach (var kind in new[] { ReportKind.SimpleEnergy, ReportKind.Battery })
+    {
+        var specialized = ReportContextNavigationPolicy.FromSelectedRow(
+            syntheticRow, "America/Santiago", kind);
+        if (specialized.Kind != kind ||
+            specialized.From != selectedDraft.From ||
+            specialized.To != selectedDraft.To ||
+            specialized.Aggregation != AggregationPeriod.Day ||
+            !specialized.ExpandedToCalendarDay)
+            throw new InvalidOperationException(
+                "Selected Analysis row lost its dates in another report family.");
+    }
     var rowWindowRejected = false;
     try
     {

@@ -513,6 +513,8 @@
     <sys:String x:Key="Reports.FromAnalysisDetailed">Detailed report for this range</sys:String>
     <sys:String x:Key="Reports.FromAnalysisSimple">Simple report for this range</sys:String>
     <sys:String x:Key="Reports.FromAnalysisBattery">Battery report for this range</sys:String>
+    <sys:String x:Key="Reports.FromSelectedRowBattery">Battery report from row</sys:String>
+    <sys:String x:Key="Reports.FromSelectedRowSimple">Simple report from row</sys:String>
     <sys:String x:Key="Reports.FromSelectedRow">Prepare report for selected row</sys:String>
     <sys:String x:Key="Reports.BatteryWeekReport">Battery report · last 7 days</sys:String>
     <sys:String x:Key="Reports.BatteryAllReport">Battery report · all history</sys:String>

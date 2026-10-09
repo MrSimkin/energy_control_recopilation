@@ -6645,7 +6645,16 @@ public partial class MainWindow : Window
         OpenContextReportDraft(draft, "Analysis");
     }
 
-    private void AnalysisSelectedRowReport_Click(object sender, RoutedEventArgs e)
+    private void AnalysisSelectedRowReport_Click(object sender, RoutedEventArgs e) =>
+        OpenSelectedAnalysisRowReport(ReportKind.DetailedEnergy);
+
+    private void AnalysisSelectedRowBatteryReport_Click(object sender, RoutedEventArgs e) =>
+        OpenSelectedAnalysisRowReport(ReportKind.Battery);
+
+    private void AnalysisSelectedRowSimpleReport_Click(object sender, RoutedEventArgs e) =>
+        OpenSelectedAnalysisRowReport(ReportKind.SimpleEnergy);
+
+    private void OpenSelectedAnalysisRowReport(ReportKind reportKind)
     {
         if (!IsCurrentAnalysisReadyForReport() ||
             AnalysisAggregationGrid.SelectedItem is not EnergyAggregationRow selected ||
@@ -6658,7 +6667,7 @@ public partial class MainWindow : Window
         var timeZone = _profiles.Get()?.StationTimeZone;
         var draft = ReportContextNavigationPolicy.FromSelectedRow(
             selected, string.IsNullOrWhiteSpace(timeZone)
-                ? "America/Santiago" : timeZone, ReportKind.DetailedEnergy);
+                ? "America/Santiago" : timeZone, reportKind);
         OpenContextReportDraft(draft, "Analysis");
     }
 

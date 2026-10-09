@@ -513,6 +513,8 @@
     <sys:String x:Key="Reports.FromAnalysisDetailed">Informe detallado de este período</sys:String>
     <sys:String x:Key="Reports.FromAnalysisSimple">Informe simple de este período</sys:String>
     <sys:String x:Key="Reports.FromAnalysisBattery">Informe de batería de este período</sys:String>
+    <sys:String x:Key="Reports.FromSelectedRowBattery">Informe de batería de la fila</sys:String>
+    <sys:String x:Key="Reports.FromSelectedRowSimple">Resumen simple de la fila</sys:String>
     <sys:String x:Key="Reports.FromSelectedRow">Preparar informe de la fila seleccionada</sys:String>
     <sys:String x:Key="Reports.BatteryWeekReport">Informe batería · últimos 7 días</sys:String>
     <sys:String x:Key="Reports.BatteryAllReport">Informe batería · todo el historial</sys:String>

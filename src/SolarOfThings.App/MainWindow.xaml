@@ -1137,10 +1137,17 @@
                                                                            Foreground="#6C757D"
                                                                            Margin="0,4,0,10"
                                                                            TextWrapping="Wrap"/>
-                                                                <Button Content="{DynamicResource Reports.FromSelectedRow}"
-                                                                        Click="AnalysisSelectedRowReport_Click"
-                                                                        Padding="10,6" HorizontalAlignment="Left"
-                                                                        Margin="0,0,0,10"/>
+                                                                <WrapPanel Margin="0,0,0,10">
+                                                                    <Button Content="{DynamicResource Reports.FromSelectedRow}"
+                                                                            Click="AnalysisSelectedRowReport_Click"
+                                                                            Padding="10,6" Margin="0,0,8,6"/>
+                                                                    <Button Content="{DynamicResource Reports.FromSelectedRowBattery}"
+                                                                            Click="AnalysisSelectedRowBatteryReport_Click"
+                                                                            Padding="10,6" Margin="0,0,8,6"/>
+                                                                    <Button Content="{DynamicResource Reports.FromSelectedRowSimple}"
+                                                                            Click="AnalysisSelectedRowSimpleReport_Click"
+                                                                            Padding="10,6" Margin="0,0,8,6"/>
+                                                                </WrapPanel>
 
                                                                 <StackPanel Orientation="Horizontal"
                                                                             Margin="0,0,0,10">
