@@ -39,7 +39,17 @@ public sealed class CompleteBackupInventoryService
             warning);
     }
 
-    public CompleteBackupResult Verify(PhysicalBackupCopy copy, string? configuredSecondary)
+    public CompleteBackupResult Verify(PhysicalBackupCopy copy, string? configuredSecondary) =>
+        VerifyDetails(copy, configuredSecondary).Summary;
+
+    /// <summary>
+    /// Independently verifies a selected physical complete package, then
+    /// returns its actual manifest breakdown. Do not trust ZIP inventory
+    /// names or pre-verification file metadata as evidence of recoverability.
+    /// No extraction into app Data or restoration occurs.
+    /// </summary>
+    public VerifiedBackupInspection VerifyDetails(
+        PhysicalBackupCopy copy, string? configuredSecondary)
     {
         var path = ValidateCopy(copy, configuredSecondary);
         if (copy.Kind != "COMPLETE")
@@ -52,8 +62,10 @@ public sealed class CompleteBackupInventoryService
                 .ToLowerInvariant();
         // An item replaced while hashing must not be marked PASS in the UI.
         RequireCurrentSelection(path, copy);
-        return new CompleteBackupResult(path, new FileInfo(path).Length, digest,
+        var result = new CompleteBackupResult(path, new FileInfo(path).Length, digest,
             manifest.CreatedUtc, manifest.SchemaVersion, manifest.Files.Count, "PASS");
+        return new VerifiedBackupInspection(result, manifest,
+            copy.Location, copy.Name);
     }
 
     /// <summary>
@@ -176,3 +188,75 @@ public sealed record PhysicalBackupCopy(
 
 public sealed record BackupInventorySnapshot(
     IReadOnlyList<PhysicalBackupCopy> Copies, string? SecondaryWarning);
+
+/// <summary>
+/// Verified facts for a UI inspection/receipt. This proves integrity of the
+/// selected archive, not real-data restoration or compatibility of all schemas.
+/// </summary>
+public sealed record VerifiedBackupInspection(
+    CompleteBackupResult Summary, CompleteBackupManifest Manifest,
+    string Location, string FileName)
+{
+    public int DatabaseFiles => Manifest.Files.Count(f =>
+        f.RelativePath == "database/energy.db");
+    public int BillDocuments => Manifest.Files.Count(f =>
+        f.RelativePath.StartsWith("documents/Bills/", StringComparison.Ordinal));
+    public int TariffDocuments => Manifest.Files.Count(f =>
+        f.RelativePath.StartsWith("documents/Tariffs/", StringComparison.Ordinal));
+    public long DatabaseBytes => Manifest.Files.Where(f =>
+        f.RelativePath == "database/energy.db").Sum(f => f.Size);
+    public long BillBytes => Manifest.Files.Where(f =>
+        f.RelativePath.StartsWith("documents/Bills/", StringComparison.Ordinal)).Sum(f => f.Size);
+    public long TariffBytes => Manifest.Files.Where(f =>
+        f.RelativePath.StartsWith("documents/Tariffs/", StringComparison.Ordinal)).Sum(f => f.Size);
+
+    public string FormatReceipt(bool spanish)
+    {
+        // Receipt carries verified metadata only, not original document
+        // content, passwords or settings stored in the package.
+        var lines = spanish
+            ? new[]
+            {
+                "SOLAR ENERGY MONITOR — COMPROBANTE DE VERIFICACIÓN",
+                "Resultado: PASS (archivo verificado; restauración NO probada)",
+                "Archivo: " + FileName,
+                "Ubicación: " + Location,
+                "Ruta: " + Summary.Path,
+                "Fecha UTC del paquete: " + Summary.CreatedUtc.ToString("O"),
+                "Aplicación: " + Manifest.AppVersion,
+                "Build: " + Manifest.BuildNumber,
+                "Revisión: " + Manifest.SourceRevision,
+                "Esquema SQLite: " + Summary.SchemaVersion,
+                "Formato ZIP: " + Manifest.FormatVersion,
+                "Tamaño físico bytes: " + Summary.SizeBytes,
+                "SHA-256 del ZIP: " + Summary.Sha256,
+                "Base de datos: " + DatabaseFiles + " archivo(s), " + DatabaseBytes + " bytes",
+                "Boletas: " + BillDocuments + " documento(s), " + BillBytes + " bytes",
+                "Tarifas: " + TariffDocuments + " documento(s), " + TariffBytes + " bytes",
+                "Total de archivos de contenido: " + Summary.FileCount,
+                "IMPORTANTE: este comprobante no habilita recuperación ni acredita una restauración en el equipo."
+            }
+            : new[]
+            {
+                "SOLAR ENERGY MONITOR — VERIFICATION RECEIPT",
+                "Result: PASS (archive verified; restoration NOT tested)",
+                "File: " + FileName,
+                "Location: " + Location,
+                "Path: " + Summary.Path,
+                "Package date UTC: " + Summary.CreatedUtc.ToString("O"),
+                "Application: " + Manifest.AppVersion,
+                "Build: " + Manifest.BuildNumber,
+                "Revision: " + Manifest.SourceRevision,
+                "SQLite schema: " + Summary.SchemaVersion,
+                "ZIP format: " + Manifest.FormatVersion,
+                "Physical size bytes: " + Summary.SizeBytes,
+                "ZIP SHA-256: " + Summary.Sha256,
+                "Database: " + DatabaseFiles + " file(s), " + DatabaseBytes + " bytes",
+                "Bills: " + BillDocuments + " document(s), " + BillBytes + " bytes",
+                "Tariffs: " + TariffDocuments + " document(s), " + TariffBytes + " bytes",
+                "Total content files: " + Summary.FileCount,
+                "IMPORTANT: this receipt does not enable recovery or prove restoration on this computer."
+            };
+        return string.Join(Environment.NewLine, lines) + Environment.NewLine;
+    }
+}
