@@ -94,6 +94,7 @@ public sealed class IsolatedRecoveryPreviewService
                     var missing = 0;
                     var identical = 0;
                     var conflicts = 0;
+                    var changedFields = new Dictionary<string, int>(StringComparer.Ordinal);
                     foreach (var (id, body) in originals)
                     {
                         if (!active.TryGetValue(id, out var existing))
@@ -101,7 +102,23 @@ public sealed class IsolatedRecoveryPreviewService
                         else if (string.Equals(existing, body, StringComparison.Ordinal))
                             identical++;
                         else
+                        {
                             conflicts++;
+                            var sourceValues = JsonSerializer.Deserialize<string?[]>(body)
+                                ?? throw new InvalidDataException("Unreadable source row.");
+                            var targetValues = JsonSerializer.Deserialize<string?[]>(existing)
+                                ?? throw new InvalidDataException("Unreadable target row.");
+                            if (sourceValues.Length != specification.Fields.Length ||
+                                targetValues.Length != specification.Fields.Length)
+                                throw new InvalidDataException("Unsupported preview field shape.");
+                            for (var field = 0; field < specification.Fields.Length; field++)
+                                if (!string.Equals(sourceValues[field], targetValues[field],
+                                        StringComparison.Ordinal))
+                                {
+                                    var name = specification.Fields[field];
+                                    changedFields[name] = changedFields.GetValueOrDefault(name) + 1;
+                                }
+                        }
                     }
                     var targetOnly = active.Keys.Count(id => !originals.ContainsKey(id));
                     results.Add(new RecoveryCategoryResult(specification.Name,
@@ -109,7 +126,8 @@ public sealed class IsolatedRecoveryPreviewService
                     {
                         TargetOnly = targetOnly,
                         SourceRecords = originals.Count,
-                        TargetRecords = active.Count
+                        TargetRecords = active.Count,
+                        ChangedFields = changedFields
                     });
                 }
                 catch (SqliteException ex)
@@ -209,6 +227,10 @@ public sealed record RecoveryCategoryResult(string Category, int Missing,
     public int TargetOnly { get; init; }
     public int SourceRecords { get; init; }
     public int TargetRecords { get; init; }
+    // Field names and aggregate counts only; never surface source/target
+    // values, paths, or settings keys in the preview.
+    public IReadOnlyDictionary<string, int> ChangedFields { get; init; } =
+        new Dictionary<string, int>();
 }
 
 public sealed record RecoveryPreviewResult(int BackupSchemaVersion, int TargetSchemaVersion,

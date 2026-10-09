@@ -635,6 +635,8 @@ try
             previewSettings.Identical + previewSettings.Conflicts ||
         previewSettings.TargetRecords != previewSettings.Identical +
             previewSettings.Conflicts + previewSettings.TargetOnly ||
+        !previewSettings.ChangedFields.TryGetValue("value", out var changedValues) ||
+        changedValues < 1 ||
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");
