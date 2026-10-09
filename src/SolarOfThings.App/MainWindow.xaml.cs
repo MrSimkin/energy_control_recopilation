@@ -2228,6 +2228,8 @@ public partial class MainWindow : Window
         if (!isBattery) _batteryRefreshGeneration++;
         if (!isReports)
         {
+            _reportReadGeneration++; // Invalidate background report availability read.
+            _pendingBatteryReportPreset = null;
             InvalidateReportPreview();
             RequestReportExportCancellation();
         }
@@ -6597,6 +6599,11 @@ public partial class MainWindow : Window
     private long? _reportExportCancellationRequestedAt;
     private int _reportPreviewGeneration;
     private CancellationTokenSource? _reportPreviewCancellation;
+    private int _reportReadGeneration;
+    private bool _reportCoverageLoading;
+    private bool _reportRangeInitializationPending;
+    private string? _reportReadDeviceId;
+    private string? _pendingBatteryReportPreset;
     private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
 
     private void AnalysisToDetailedReport_Click(object sender, RoutedEventArgs e) =>
@@ -6686,34 +6693,12 @@ public partial class MainWindow : Window
         if (_windowClosed || BatteryContent.Visibility != Visibility.Visible ||
             _profiles.Get() is null)
             return;
+        // Preserve the intended draft until the background coverage check
+        // completes. Do NOT synchronously query large SQLite on navigation.
         ShowPage("Reports");
-        if (!ReportExportExcelButton.IsEnabled) return;
-
-        // Ranges are anchored in STORED data rather than today's date.
-        _suppressReportRangeSelection = true;
-        try
-        {
-            ReportTypeSelector.SelectedValue = ReportKind.Battery.ToString();
-            ReportRangePresetSelector.SelectedValue = preset;
-            ReportAggregationSelector.SelectedValue = AggregationPeriod.Day.ToString();
-        }
-        finally { _suppressReportRangeSelection = false; }
-
-        if (!ApplyReportRangePreset())
-        {
-            ReportStatusText.Text = _localization.GetString("Reports.NoData");
-            return;
-        }
-        SyncReportDatePartSelectorsFromDates();
-        ReportTitleTextBox.Text = GetDefaultReportTitle(ReportKind.Battery);
-        UpdateReportSelectionSummary();
-        var bannerKey = preset switch
-        {
-            "rolling-7" => "Reports.DraftFromBatteryWeek",
-            "all" => "Reports.DraftFromBatteryAll",
-            _ => "Reports.DraftFromBattery"
-        };
-        ShowReportDraftSource("Battery", false, bannerKey);
+        _pendingBatteryReportPreset = preset;
+        if (!_reportCoverageLoading)
+            RefreshReportsView();
     }
 
     private void BatteryToAnalysis_Click(object sender, RoutedEventArgs e) =>
@@ -6740,7 +6725,8 @@ public partial class MainWindow : Window
         if (_windowClosed || _profiles.Get() is null)
             return;
         ShowPage("Reports");
-        if (!ReportExportExcelButton.IsEnabled) return;
+        _pendingBatteryReportPreset = null;
+        _reportRangeInitializationPending = false;
 
         // A programmatic context should update all selectors atomically.
         // It deliberately only PREFILLS; exporting still requires a click.
@@ -6786,29 +6772,103 @@ public partial class MainWindow : Window
         ShowPage(source);
     }
 
+    // Reports' coverage lookup used to run SQLite synchronously on the WPF
+    // navigation thread. Keep one background worker, coalesce repeated
+    // requests, and refuse a stale result after a device/page switch.
     private void RefreshReportsView(bool initializeRange = false)
     {
-        if (!IsInitialized || ReportsContent is null)
-        {
+        if (!IsInitialized || ReportsContent is null || _windowClosed)
             return;
-        }
-
-        var profile = _profiles.Get();
-        if (profile is null)
+        var device = _profiles.Get()?.DeviceId;
+        if (!string.Equals(device, _reportReadDeviceId, StringComparison.Ordinal))
         {
-            ReportStatusText.Text = _localization.GetString("Reports.NoProfile");
-            ReportExportExcelButton.IsEnabled = false;
-            ReportExportPdfButton.IsEnabled = false;
-            LoadSavedReportPresets();
-            return;
+            _reportReadDeviceId = device;
+            initializeRange = true;
         }
+        if (initializeRange) _reportRangeInitializationPending = true;
+        _reportReadGeneration++;
+        ReportExportExcelButton.IsEnabled = false;
+        ReportExportPdfButton.IsEnabled = false;
+        ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase)
+            ? "Leyendo disponibilidad histórica..."
+            : "Reading historical availability...";
+        if (!_reportCoverageLoading && ReportsContent.Visibility == Visibility.Visible)
+            _ = LoadReportsCoverageAsync();
+    }
 
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
+    private async Task LoadReportsCoverageAsync()
+    {
+        _reportCoverageLoading = true;
+        try
+        {
+            while (!_windowClosed && ReportsContent.Visibility == Visibility.Visible)
+            {
+                var generation = _reportReadGeneration;
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        ReportStatusText.Text = _localization.GetString("Reports.NoProfile");
+                        LoadSavedReportPresets();
+                        return;
+                    }
 
+                    var history = _services.GetRequiredService<HistoryRepository>();
+                    // Repository and device key are immutable worker inputs.
+                    var coverage = await Task.Run(() => MeasureDataCall(
+                        "Data.Reports.Coverage",
+                        () => history.GetCoverageSummary(profile.DeviceId)));
+
+                    if (_windowClosed || ReportsContent.Visibility != Visibility.Visible)
+                        return;
+                    if (generation != _reportReadGeneration)
+                        continue;
+                    if (!ReportReadinessRefreshPolicy.CanApply(
+                            generation, _reportReadGeneration, true, _windowClosed,
+                            profile.DeviceId, _profiles.Get()?.DeviceId))
+                    {
+                        _reportReadGeneration++;
+                        _reportRangeInitializationPending = true;
+                        continue;
+                    }
+
+                    using var measure = _performance.Measure("UI.Reports.Readiness");
+                    ApplyReportsCoverage(profile, coverage, _reportRangeInitializationPending);
+                    _reportRangeInitializationPending = false;
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (generation != _reportReadGeneration) continue;
+                    if (_windowClosed || ReportsContent.Visibility != Visibility.Visible)
+                        return;
+                    ReportExportExcelButton.IsEnabled = false;
+                    ReportExportPdfButton.IsEnabled = false;
+                    ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible leer la disponibilidad para informes."
+                        : "Report availability could not be loaded.";
+                    Debug.WriteLine($"Reports coverage read failed ({ex.GetType().Name}).");
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _reportCoverageLoading = false;
+        }
+    }
+
+    private void ApplyReportsCoverage(
+        CommissioningProfile profile, HistoryCoverageSummary coverage,
+        bool initializeRange)
+    {
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
         {
+            _pendingBatteryReportPreset = null;
             ReportStatusText.Text = _localization.GetString("Reports.NoData");
             ReportExportExcelButton.IsEnabled = false;
             ReportExportPdfButton.IsEnabled = false;
@@ -6816,6 +6876,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Don't overwrite a draft selected from Analysis/Battery/Data while
+        // the independent availability read was running.
         if (initializeRange ||
             !ReportFromDatePicker.SelectedDate.HasValue ||
             !ReportToDatePicker.SelectedDate.HasValue)
@@ -6823,32 +6885,54 @@ public partial class MainWindow : Window
             var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
                 ? "America/Santiago"
                 : profile.StationTimeZone;
-
             var first = SolarApiTime.GetLocalDate(
-                coverage.FirstSampleAtUtc.Value,
-                timeZone);
+                coverage.FirstSampleAtUtc.Value, timeZone);
             var last = SolarApiTime.GetLocalDate(
-                coverage.LastSampleAtUtc.Value,
-                timeZone);
-
+                coverage.LastSampleAtUtc.Value, timeZone);
             _suppressReportRangeSelection = true;
-            ReportRangePresetSelector.SelectedValue = "all";
-            ReportFromDatePicker.SelectedDate =
-                first.ToDateTime(TimeOnly.MinValue);
-            ReportToDatePicker.SelectedDate =
-                last.ToDateTime(TimeOnly.MinValue);
-            _suppressReportRangeSelection = false;
+            try
+            {
+                ReportRangePresetSelector.SelectedValue = "all";
+                ReportFromDatePicker.SelectedDate = first.ToDateTime(TimeOnly.MinValue);
+                ReportToDatePicker.SelectedDate = last.ToDateTime(TimeOnly.MinValue);
+            }
+            finally { _suppressReportRangeSelection = false; }
         }
 
-        ReportExportExcelButton.IsEnabled = true;
-        ReportExportPdfButton.IsEnabled = true;
+        ReportExportExcelButton.IsEnabled = !_reportExportInProgress;
+        ReportExportPdfButton.IsEnabled = !_reportExportInProgress;
         InitializeReportDatePartSelectors(profile, coverage);
         SyncReportDatePartSelectorsFromDates();
         if (string.IsNullOrWhiteSpace(ReportTitleTextBox.Text))
-        {
             ReportTitleTextBox.Text = GetDefaultReportTitle(GetReportKind());
-        }
         LoadSavedReportPresets();
+        if (_pendingBatteryReportPreset is string preset)
+        {
+            _pendingBatteryReportPreset = null;
+            _suppressReportRangeSelection = true;
+            try
+            {
+                ReportTypeSelector.SelectedValue = ReportKind.Battery.ToString();
+                ReportRangePresetSelector.SelectedValue = preset;
+                ReportAggregationSelector.SelectedValue = AggregationPeriod.Day.ToString();
+            }
+            finally { _suppressReportRangeSelection = false; }
+
+            if (!ApplyReportRangePreset(profile, coverage))
+            {
+                ReportStatusText.Text = _localization.GetString("Reports.NoData");
+                return;
+            }
+            SyncReportDatePartSelectorsFromDates();
+            ReportTitleTextBox.Text = GetDefaultReportTitle(ReportKind.Battery);
+            var bannerKey = preset switch
+            {
+                "rolling-7" => "Reports.DraftFromBatteryWeek",
+                "all" => "Reports.DraftFromBatteryAll",
+                _ => "Reports.DraftFromBattery"
+            };
+            ShowReportDraftSource("Battery", false, bannerKey);
+        }
         UpdateReportSelectionSummary();
     }
 
@@ -7082,11 +7166,15 @@ public partial class MainWindow : Window
 
         var history = _services.GetRequiredService<HistoryRepository>();
         var coverage = history.GetCoverageSummary(profile.DeviceId);
+        return ApplyReportRangePreset(profile, coverage);
+    }
+
+    private bool ApplyReportRangePreset(
+        CommissioningProfile profile, HistoryCoverageSummary coverage)
+    {
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
-        {
             return false;
-        }
 
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
@@ -8235,6 +8323,7 @@ public partial class MainWindow : Window
         _dashboardRefreshGeneration++;
         _batteryRefreshGeneration++;
         _analysisRefreshGeneration++;
+        _reportReadGeneration++;
         _analysisPresetGeneration++;
         _analysisPresetLoading = false;
         _analysisRenderedAggregation = null;
