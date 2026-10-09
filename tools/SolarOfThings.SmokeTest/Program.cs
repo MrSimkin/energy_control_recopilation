@@ -5438,6 +5438,11 @@ try
     if (documentStage.VerifyAgainstArchive(
             forgedPackageSha, graphZip.Path, graphTarget.DatabasePath))
         throw new InvalidOperationException("Document stage accepted a forged SHA format.");
+    // A different fully valid ZIP may not substitute for the exact archive
+    // used to stage the evidence; same fixture root is insufficient.
+    if (documentStage.VerifyAgainstArchive(
+            selectedBillEvidence, complete.Path, graphTarget.DatabasePath))
+        throw new InvalidOperationException("Staged document receipt accepted another ZIP.");
     Directory.Delete(selectedBillEvidence.StageDirectory, recursive: true);
     var missingSelectedHashBlocked = false;
     try
