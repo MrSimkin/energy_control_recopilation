@@ -5696,6 +5696,220 @@ try
             throw new InvalidOperationException("Precancelled recovery bundle ran.");
     }
 
+    // Relational recovery: only a uniquely PDF-backed bill without reading
+    // dependencies may stage its bill row, charges and field provenance.
+    // Original source/target remain untouched; all work uses marked fixtures.
+    var isolatedBillPaths = new AppPaths(Path.Combine(root, "linked-bill-graph-source"));
+    var isolatedBillDb = new SqliteDatabase(isolatedBillPaths);
+    isolatedBillDb.Initialize();
+    var isolatedBillPdf = Path.Combine(isolatedBillPaths.UtilityBillEnelDirectory,
+        "uniquely-linked-test-bill.pdf");
+    File.WriteAllText(isolatedBillPdf, "SYNTHETIC UNIQUE BILL CHARGES AND FIELD PROVENANCE");
+    var isolatedBillDigest = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(isolatedBillPdf)));
+    long sourceLinkedBillId;
+    using (var conn = isolatedBillDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_bill_document(
+                provider,original_file_name,local_pdf_path,content_sha256,
+                content_length,page_count,parser_version,imported_utc)
+            VALUES('ENEL','uniquely-linked-test-bill.pdf',$path,$sha,$size,1,
+                   'synthetic-test','2026-10-09T00:00:00Z');
+            INSERT INTO utility_bill(
+                period_start_utc,period_end_utc,billed_consumption_kwh,
+                gross_bill_amount_clp,created_utc,updated_utc,source_kind,
+                source_document_id,review_state)
+            VALUES('2026-08-01T00:00:00Z','2026-08-31T00:00:00Z',
+                   120,5099,'2026-10-09T00:00:00Z','2026-10-09T00:00:00Z',
+                   'PDF_IMPORTED',(SELECT document_id FROM utility_bill_document
+                    WHERE content_sha256=$sha),'REVIEW_REQUIRED');
+            """;
+        cmd.Parameters.AddWithValue("$path", isolatedBillPdf);
+        cmd.Parameters.AddWithValue("$sha", isolatedBillDigest);
+        cmd.Parameters.AddWithValue("$size", new FileInfo(isolatedBillPdf).Length);
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = "SELECT last_insert_rowid();";
+        sourceLinkedBillId = Convert.ToInt64(cmd.ExecuteScalar());
+        cmd.Parameters.AddWithValue("$id", sourceLinkedBillId);
+        cmd.CommandText = """
+            INSERT INTO utility_bill_line(
+                bill_id,section_key,description,amount_clp,created_utc,updated_utc,
+                source_kind,evidence_state,source_page,source_text)
+            VALUES($id,'ELECTRICITY','Synthetic energy charge',4300,
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z',
+                   'PDF','OBSERVED',1,'4300');
+            INSERT INTO utility_bill_line(
+                bill_id,section_key,description,amount_clp,created_utc,updated_utc)
+            VALUES($id,'TAX','Synthetic tax charge',799,
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z');
+            INSERT INTO utility_bill_field_evidence(
+                bill_id,field_key,source_kind,evidence_state,printed_value_text,
+                normalized_value_text,source_page,created_utc,updated_utc)
+            VALUES($id,'TOTAL','PDF','OBSERVED','5.099','5099',1,
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var isolatedBillZip = new FullBackupService(isolatedBillDb, isolatedBillPaths)
+        .Create("0.11.0-test", "synthetic", "unique-linked-bill");
+    var isolatedTargetPaths = new AppPaths(Path.Combine(root, "linked-bill-graph-target"));
+    var isolatedTargetDb = new SqliteDatabase(isolatedTargetPaths);
+    isolatedTargetDb.Initialize();
+    // A real destination-only bill and document must survive. Surrogate ID=1
+    // intentionally collides with the source and must NOT be reused.
+    long existingTargetBillId;
+    using (var conn = isolatedTargetDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_bill_document(
+                provider,original_file_name,local_pdf_path,content_sha256,
+                content_length,page_count,parser_version,imported_utc)
+            VALUES('ENEL','existing-target.pdf','synthetic-existing',
+                   'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                   1,1,'synthetic-test','2026-10-09T00:00:00Z');
+            INSERT INTO utility_bill(
+                period_start_utc,period_end_utc,created_utc,updated_utc,
+                source_document_id)
+            VALUES('2026-07-01T00:00:00Z','2026-07-31T00:00:00Z',
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z',
+                   (SELECT document_id FROM utility_bill_document
+                    WHERE original_file_name='existing-target.pdf'));
+            """;
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = "SELECT last_insert_rowid();";
+        existingTargetBillId = Convert.ToInt64(cmd.ExecuteScalar());
+    }
+    var isolatedBillPlan = planner.CreatePlan(isolatedBillZip.Path,
+        isolatedTargetDb.DatabasePath);
+    var isolatedBillBundle = bundleService.Stage(isolatedBillPlan, isolatedBillZip.Path,
+        isolatedTargetDb.DatabasePath, selectedDocumentHashes: new[] { isolatedBillDigest });
+    var linkedGraphStage = new IsolatedRecoveryLinkedBillGraphTestService();
+    var beforeLinkedInterrupt = Directory.GetFiles(root,
+        "recovery-linked-bills-staged-*.db").Length;
+    var linkedInterruptCaught = false;
+    try
+    {
+        linkedGraphStage.Stage(isolatedBillPlan, isolatedBillBundle,
+            isolatedBillZip.Path, isolatedTargetDb.DatabasePath,
+            simulateInterruptionAfterFirstBill: true);
+    }
+    catch (InvalidOperationException ex) when (
+        ex.Message == "SYNTHETIC_LINKED_BILL_INTERRUPTION")
+    {
+        linkedInterruptCaught = true;
+    }
+    if (!linkedInterruptCaught || Directory.GetFiles(root,
+            "recovery-linked-bills-staged-*.db").Length != beforeLinkedInterrupt)
+        throw new InvalidOperationException("Linked-bill rollback left partial test data.");
+    using (var stopLinked = new CancellationTokenSource())
+    {
+        stopLinked.Cancel();
+        var refused = false;
+        try { linkedGraphStage.Stage(isolatedBillPlan, isolatedBillBundle,
+            isolatedBillZip.Path, isolatedTargetDb.DatabasePath, stopLinked.Token); }
+        catch (OperationCanceledException) { refused = true; }
+        if (!refused)
+            throw new InvalidOperationException("Precancelled bill graph was staged.");
+    }
+    var forgedLinkedBundle = isolatedBillBundle with
+    {
+        Evidence = isolatedBillBundle.Evidence with
+        {
+            SourcePackageSha256 = new string('F', 64)
+        }
+    };
+    var forgedLinkedBlocked = false;
+    try { linkedGraphStage.Stage(isolatedBillPlan, forgedLinkedBundle,
+        isolatedBillZip.Path, isolatedTargetDb.DatabasePath); }
+    catch (InvalidDataException) { forgedLinkedBlocked = true; }
+    if (!forgedLinkedBlocked)
+        throw new InvalidOperationException("Forged linked-bill PDF evidence accepted.");
+
+    var importedLinkedGraph = linkedGraphStage.Stage(isolatedBillPlan,
+        isolatedBillBundle, isolatedBillZip.Path, isolatedTargetDb.DatabasePath);
+    if (importedLinkedGraph.RealRestoreAuthorized ||
+        importedLinkedGraph.AddedBills != 1 ||
+        importedLinkedGraph.AddedLines != 2 ||
+        importedLinkedGraph.AddedFieldEvidence != 1 ||
+        importedLinkedGraph.IdMap.Count != 1 ||
+        importedLinkedGraph.IdMap[0].SourceBillId != sourceLinkedBillId ||
+        importedLinkedGraph.IdMap[0].StagedBillId == existingTargetBillId ||
+        importedLinkedGraph.IdMap[0].StagedDocumentId == 1 ||
+        !File.Exists(importedLinkedGraph.StagedDatabasePath) ||
+        planner.CreatePlan(isolatedBillZip.Path, isolatedTargetDb.DatabasePath).PlanId !=
+            isolatedBillPlan.PlanId)
+        throw new InvalidOperationException("Linked synthetic bill graph remapping failed.");
+    using (var check = new Microsoft.Data.Sqlite.SqliteConnection(
+        new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+        {
+            DataSource = importedLinkedGraph.StagedDatabasePath,
+            Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString()))
+    {
+        check.Open();
+        using var cmd = check.CreateCommand();
+        cmd.CommandText = """
+            SELECT b.gross_bill_amount_clp,d.content_sha256,d.local_pdf_path
+            FROM utility_bill b
+            JOIN utility_bill_document d ON d.document_id=b.source_document_id
+            WHERE b.bill_id=$id;
+            """;
+        cmd.Parameters.AddWithValue("$id", importedLinkedGraph.IdMap[0].StagedBillId);
+        using (var reader = cmd.ExecuteReader())
+            if (!reader.Read() || reader.GetDouble(0) != 5099 ||
+                reader.GetString(1) != isolatedBillDigest ||
+                !File.Exists(reader.GetString(2)) || reader.Read())
+                throw new InvalidOperationException("Staged bill lost amount or PDF provenance.");
+        cmd.CommandText = "SELECT COUNT(*) FROM utility_bill WHERE bill_id=$id;";
+        cmd.Parameters.Clear();
+        cmd.Parameters.AddWithValue("$id", existingTargetBillId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) != 1)
+            throw new InvalidOperationException("Staging damaged destination-only bill.");
+    }
+
+    // Readings cannot be carried by numerical or timestamp coincidence;
+    // even an otherwise unique PDF-backed bill is rejected with reading FKs.
+    using (var conn = isolatedBillDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_meter_reading(
+                reading_at_utc,reading_kwh,created_utc,updated_utc)
+            VALUES('2026-08-31T00:00:00Z',1120,
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z');
+            UPDATE utility_bill SET to_reading_id=(
+                SELECT reading_id FROM utility_meter_reading
+                WHERE reading_at_utc='2026-08-31T00:00:00Z')
+            WHERE bill_id=$id;
+            """;
+        cmd.Parameters.AddWithValue("$id", sourceLinkedBillId);
+        cmd.ExecuteNonQuery();
+    }
+    var readingLinkedZip = new FullBackupService(isolatedBillDb, isolatedBillPaths)
+        .Create("0.11.0-test", "synthetic", "reading-linked-blocked");
+    var readingLinkedPlan = planner.CreatePlan(readingLinkedZip.Path,
+        isolatedTargetDb.DatabasePath);
+    var readingLinkedBundle = bundleService.Stage(readingLinkedPlan,
+        readingLinkedZip.Path, isolatedTargetDb.DatabasePath,
+        selectedDocumentHashes: new[] { isolatedBillDigest });
+    var blockedReadingLink = false;
+    try { linkedGraphStage.Stage(readingLinkedPlan, readingLinkedBundle,
+        readingLinkedZip.Path, isolatedTargetDb.DatabasePath); }
+    catch (InvalidDataException) { blockedReadingLink = true; }
+    if (!blockedReadingLink)
+        throw new InvalidOperationException("Unreviewed meter-reading FK restored.");
+
+    File.Delete(importedLinkedGraph.StagedDatabasePath);
+    foreach (var bundled in new[] { isolatedBillBundle, readingLinkedBundle })
+    {
+        File.Delete(bundled.Settings.StagedDatabasePath);
+        Directory.Delete(bundled.Evidence.StageDirectory, recursive: true);
+    }
+
     var linkPreviewer = new IsolatedRecoveryDocumentLinkPreviewService();
     var graphEvidence = documentStage.Stage(graphZip.Path, graphTarget.DatabasePath);
     var documentLinks = linkPreviewer.Analyze(
