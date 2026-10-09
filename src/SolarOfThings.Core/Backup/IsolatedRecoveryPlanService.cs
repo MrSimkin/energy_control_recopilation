@@ -14,6 +14,7 @@ namespace SolarOfThings.Core.Backup;
 public sealed class IsolatedRecoveryPlanService
 {
     private const int MaxFingerprintSettings = 100_000;
+    private const int MaxFingerprintOtherRows = 150_000;
     private readonly IsolatedRecoveryPreviewService _preview = new();
     private readonly IsolatedRecoveryRelationAuditService _relations = new();
     private readonly IsolatedRecoveryAdditiveTestService _staging = new();
@@ -51,8 +52,11 @@ public sealed class IsolatedRecoveryPlanService
                     ? "Add missing settings only to a new synthetic DB; preserve conflicts and destination-only keys."
                     : "No settings stage unless both schemas and every supported comparison are valid."),
             new(3, "BILL_SOURCE_DOCUMENTS", "REVIEW_ONLY",
-                graph is null ? 0 : graph.UnlinkedBillDocuments.Count + graph.Bills.Count,
-                "Source bill documents require identity/document linkage review; no files are copied."),
+                graph is null ? 0 : graph.UnlinkedBillDocuments.Count +
+                    graph.Bills.Where(b => !string.IsNullOrWhiteSpace(b.OriginalDocumentSha256))
+                        .Select(b => b.OriginalDocumentSha256)
+                        .Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+                "Count unique original document hashes plus unlinked documents; no files are copied."),
             new(4, "BILLS_AND_CHARGES", "BLOCKED_DEPENDENCIES",
                 graph?.Bills.Count ?? 0,
                 "Original-document linkage, charge IDs and field evidence require an adapter."),
@@ -63,9 +67,8 @@ public sealed class IsolatedRecoveryPlanService
                 graph?.Tariffs.Count ?? 0,
                 "Matching source URLs or PDF hashes never authorize changing target publications."),
             new(7, "TARIFF_RELATIONS", "BLOCKED_DEPENDENCIES",
-                graph is null ? 0 : graph.Totals.OutgoingTariffLinks +
-                    graph.Totals.IncomingTariffLinks,
-                "Correction and supersession graph requires reviewed FK remapping."),
+                graph?.Totals.OutgoingTariffLinks ?? 0,
+                "Count source relations once; incoming links refer to the same edges. FK remapping still blocked."),
             new(8, "ENERGY_TELEMETRY", "BLOCKED_UNSUPPORTED", 0,
                 "Historical samples and device identity adapters are not implemented.")
         };
@@ -74,9 +77,13 @@ public sealed class IsolatedRecoveryPlanService
         // this plan to the source and target at the time it is created.
         var packageFingerprint = Sha256File(package);
         var settingsFingerprint = settingsReady ? FingerprintSettings(target) : "";
+        // Also bind to every NON-settings SQLite table (including schema
+        // migrations, relational evidence and telemetry). A user could change
+        // linked data without altering app_setting; plans then become stale.
+        var otherTablesFingerprint = settingsReady ? FingerprintOtherTables(target) : "";
         var planId = Sha256Text(JsonSerializer.Serialize(new[]
         {
-            packageFingerprint, settingsFingerprint, status,
+            packageFingerprint, settingsFingerprint, otherTablesFingerprint, status,
             settings?.Missing.ToString() ?? "0",
             settings?.Conflicts.ToString() ?? "0",
             settings?.TargetOnly.ToString() ?? "0"
@@ -86,7 +93,10 @@ public sealed class IsolatedRecoveryPlanService
             settings?.Missing ?? 0, settings?.Conflicts ?? 0,
             settings?.Identical ?? 0, settings?.TargetOnly ?? 0,
             "Synthetic fixture only. Every stage except SETTINGS is review-only or blocked. " +
-            "This plan never authorizes owner-data restoration or activation.");
+            "This plan never authorizes owner-data restoration or activation.")
+        {
+            TargetOtherTablesSha256 = otherTablesFingerprint
+        };
     }
 
     /// <summary>
@@ -96,7 +106,8 @@ public sealed class IsolatedRecoveryPlanService
     /// </summary>
     public SyntheticAdditiveImportResult StageSettingsOnly(
         SyntheticRecoveryPlan plan, string backupZip, string targetDatabasePath,
-        bool simulateFailureAfterFirstInsert = false)
+        bool simulateFailureAfterFirstInsert = false,
+        bool simulateFailureAfterStagedCopy = false)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentException.ThrowIfNullOrWhiteSpace(backupZip);
@@ -114,6 +125,10 @@ public sealed class IsolatedRecoveryPlanService
             current.PlanId != plan.PlanId ||
             current.SourcePackageSha256 != plan.SourcePackageSha256 ||
             current.TargetSettingsSha256 != plan.TargetSettingsSha256 ||
+            current.TargetOtherTablesSha256 != plan.TargetOtherTablesSha256 ||
+            // Verify the ENTIRE policy checklist, not only the SETTINGS row.
+            // Synthetic callers can construct records with modified stages.
+            !current.Steps.SequenceEqual(plan.Steps) ||
             current.MissingSettings != plan.MissingSettings ||
             current.ConflictingSettings != plan.ConflictingSettings ||
             current.TargetOnlySettings != plan.TargetOnlySettings ||
@@ -127,6 +142,9 @@ public sealed class IsolatedRecoveryPlanService
         {
             staged = _staging.ApplyToNewStagedFixture(
                 package, target, simulateFailureAfterFirstInsert);
+            if (simulateFailureAfterStagedCopy)
+                throw new InvalidOperationException(
+                    "SYNTHETIC_TEST_INJECTED_AFTER_STAGED_COPY");
             if (staged.Added != current.MissingSettings ||
                 staged.Conflicts != current.ConflictingSettings ||
                 staged.AlreadyPresent != current.IdenticalSettings)
@@ -141,7 +159,11 @@ public sealed class IsolatedRecoveryPlanService
                 settings.Missing != 0 ||
                 settings.Conflicts != current.ConflictingSettings ||
                 settings.TargetOnly != current.TargetOnlySettings ||
-                FingerprintSettings(target) != current.TargetSettingsSha256)
+                FingerprintSettings(target) != current.TargetSettingsSha256 ||
+                FingerprintOtherTables(target) != current.TargetOtherTablesSha256 ||
+                FingerprintOtherTables(staged.StagedDatabasePath) !=
+                    current.TargetOtherTablesSha256 ||
+                !PreservedOriginalSettings(target, staged.StagedDatabasePath))
                 throw new InvalidDataException(
                     "Post-stage checks failed or the original synthetic target changed.");
             return staged;
@@ -156,6 +178,98 @@ public sealed class IsolatedRecoveryPlanService
             }
             throw;
         }
+    }
+
+    // All existing target settings, including updated_utc and null values,
+    // must survive the additive synthetic stage byte-for-byte at field level.
+    // A preview that compares key/value alone does not prove this invariant.
+    private static bool PreservedOriginalSettings(string original, string staged)
+    {
+        static Dictionary<string, (string? Value, string Stamp)> Read(string path)
+        {
+            using var conn = OpenReadOnlyFixture(path);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT key,value,updated_utc FROM app_setting;";
+            using var rows = cmd.ExecuteReader();
+            var records = new Dictionary<string, (string?, string)>(StringComparer.Ordinal);
+            while (rows.Read())
+            {
+                if (records.Count >= MaxFingerprintSettings)
+                    throw new InvalidDataException("Synthetic target settings exceed limit.");
+                if (!records.TryAdd(rows.GetString(0),
+                        (rows.IsDBNull(1) ? null : rows.GetString(1), rows.GetString(2))))
+                    throw new InvalidDataException("Duplicate synthetic setting key.");
+            }
+            return records;
+        }
+        var earlier = Read(original);
+        var later = Read(staged);
+        return earlier.All(pair => later.TryGetValue(pair.Key, out var value) &&
+                                   value == pair.Value);
+    }
+
+    private static SqliteConnection OpenReadOnlyFixture(string path)
+    {
+        var conn = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false
+        }.ToString());
+        conn.Open();
+        using var pragma = conn.CreateCommand();
+        pragma.CommandText = "PRAGMA query_only=ON;";
+        pragma.ExecuteNonQuery();
+        return conn;
+    }
+
+    // Hash the actual, WAL-visible contents of ALL ordinary non-settings
+    // tables. Bound row counts prevent accidental unbounded scans, and the
+    // marked synthetic-root gate precedes every caller of this function.
+    private static string FingerprintOtherTables(string path)
+    {
+        using var connection = OpenReadOnlyFixture(path);
+        using var schema = connection.CreateCommand();
+        schema.CommandText = """
+            SELECT name,sql FROM sqlite_schema
+            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+            ORDER BY name;
+            """;
+        var tables = new List<(string Name, string Sql)>();
+        using (var records = schema.ExecuteReader())
+            while (records.Read())
+                tables.Add((records.GetString(0),
+                    records.IsDBNull(1) ? "" : records.GetString(1)));
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var scanned = 0;
+        foreach (var (table, definition) in tables)
+        {
+            if (table == "app_setting") continue;
+            hash.AppendData(Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(new[] { table, definition }) + "\n"));
+            using var cmd = connection.CreateCommand();
+            // The table name comes only from sqlite_schema, never directly
+            // from a caller; quote defensively for arbitrary identifier text.
+            var quoted = table.Replace("\"", "\"\"", StringComparison.Ordinal);
+            cmd.CommandText = "SELECT * FROM \"" + quoted + "\" ORDER BY rowid;";
+            using var rows = cmd.ExecuteReader();
+            while (rows.Read())
+            {
+                if (++scanned > MaxFingerprintOtherRows)
+                    throw new InvalidDataException(
+                        "Synthetic dependency fingerprint exceeds safe row limit.");
+                var cells = new string?[rows.FieldCount];
+                for (var col = 0; col < cells.Length; col++)
+                {
+                    if (rows.IsDBNull(col)) continue;
+                    var value = rows.GetValue(col);
+                    cells[col] = value is byte[] bytes
+                        ? Convert.ToBase64String(bytes)
+                        : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture);
+                }
+                hash.AppendData(Encoding.UTF8.GetBytes(
+                    JsonSerializer.Serialize(cells) + "\n"));
+            }
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
     }
 
     private static string FingerprintSettings(string path)
@@ -204,7 +318,10 @@ public sealed record SyntheticRecoveryPlan(
     string SourcePackageSha256, string TargetSettingsSha256,
     IReadOnlyList<SyntheticRecoveryPlanStep> Steps, int MissingSettings,
     int ConflictingSettings, int IdenticalSettings, int TargetOnlySettings,
-    string SafetyDisclaimer);
+    string SafetyDisclaimer)
+{
+    public string TargetOtherTablesSha256 { get; init; } = "";
+}
 
 public sealed record SyntheticRecoveryPlanStep(
     int Order, string Category, string Status, long Records, string Explanation);
