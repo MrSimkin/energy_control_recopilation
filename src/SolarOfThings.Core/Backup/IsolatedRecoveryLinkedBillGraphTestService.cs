@@ -53,7 +53,8 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
         CancellationToken cancellationToken = default,
         bool simulateInterruptionAfterFirstBill = false,
         bool allowExactReadingRemap = false,
-        bool allowExactDuplicateSkip = false)
+        bool allowExactDuplicateSkip = false,
+        bool allowAllExactNoOp = false)
     {
         ArgumentNullException.ThrowIfNull(approvedPlan);
         ArgumentNullException.ThrowIfNull(bundle);
@@ -185,8 +186,39 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
             }
 
             if (graphs.Count == 0)
-                throw new InvalidOperationException(
-                    "All selected graphs were identical; use read-only exact-repeat audit, not a staged write.");
+            {
+                // This API has already used temporary source/document fixtures.
+                // An all-exact receipt NEVER creates another target database
+                // or issues graph INSERT/UPDATE/DELETE, and has NO output path
+                // that a caller could mistake for a restorable SQLite stage.
+                if (!allowAllExactNoOp || !allowExactDuplicateSkip ||
+                    skippedExactBills != selected.Length)
+                    throw new InvalidOperationException(
+                        "All selected graphs are exact; explicit no-op review is required.");
+                cancellationToken.ThrowIfCancellationRequested();
+                var currentOriginal = _planner.CreatePlan(verifiedArchive, original);
+                if (currentOriginal.PlanId != approvedPlan.PlanId ||
+                    currentOriginal.SourcePackageSha256 != approvedPlan.SourcePackageSha256 ||
+                    currentOriginal.TargetSettingsSha256 != approvedPlan.TargetSettingsSha256 ||
+                    currentOriginal.TargetOtherTablesSha256 != approvedPlan.TargetOtherTablesSha256 ||
+                    !_documents.VerifyAgainstArchive(bundle.Evidence, verifiedArchive, input))
+                    throw new InvalidDataException(
+                        "Original package, target or document evidence changed during no-op review.");
+                // Only a diagnostic receipt: no generated graph SQLite and
+                // no permission to activate/recover from the existing target.
+                success = true;
+                return new SyntheticLinkedBillGraphImport(
+                    "", 0, 0, 0, Array.Empty<SyntheticLinkedBillIdMap>(),
+                    "ALREADY_PRESENT_EXACT_BILL_GRAPHS_SYNTHETIC_NO_OP", false,
+                    "Every selected bill is proven exact in the existing isolated " +
+                    "synthetic target. This call staged no new bill-graph database " +
+                    "and applied zero bill graph writes; source analysis uses " +
+                    "temporary fixtures. No live import or restore is authorized.")
+                {
+                    SkippedIdenticalBills = skippedExactBills,
+                    SourcePackageSha256 = approvedPlan.SourcePackageSha256
+                };
+            }
             cancellationToken.ThrowIfCancellationRequested();
             using (var copy = Open(output, writable: true))
                 destination.BackupDatabase(copy);
