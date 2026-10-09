@@ -86,6 +86,9 @@ public sealed class IsolatedRecoveryReplayAuditService
                 if (stage.IdMap.Count == 0 || stage.IdMap.Count != stage.AddedPublications)
                     throw new InvalidDataException("Tariff replay receipt count is unreliable.");
                 var idMap = stage.IdMap.ToDictionary(x => x.SourceId, x => x.StagedId);
+                var pagesCompared = 0;
+                var candidatesCompared = 0;
+                var relationsCompared = 0;
                 foreach (var map in stage.IdMap)
                 {
                     token.ThrowIfCancellationRequested();
@@ -103,12 +106,35 @@ public sealed class IsolatedRecoveryReplayAuditService
                             ["publication_id", "rate_candidate_id"], expectedCount: null))
                         throw new InvalidDataException("Tariff document, page or candidate replay differs.");
 
+                    pagesCompared += Rows(source, "tariff_publication_page_text",
+                        "publication_id", map.SourceId).Count;
+                    candidatesCompared += Rows(source, "tariff_rate_candidate",
+                        "publication_id", map.SourceId).Count;
                     var outgoing = Rows(source, "tariff_publication_relation",
                         "source_publication_id", map.SourceId);
                     var mappedOutgoing = Rows(target, "tariff_publication_relation",
                         "source_publication_id", map.StagedId);
                     if (outgoing.Count != mappedOutgoing.Count)
                         throw new InvalidDataException("Tariff correction graph changed.");
+                    relationsCompared += outgoing.Count;
+                    var incoming = Rows(source, "tariff_publication_relation",
+                        "target_publication_id", map.SourceId);
+                    var mappedIncoming = Rows(target, "tariff_publication_relation",
+                        "target_publication_id", map.StagedId);
+                    if (incoming.Count != mappedIncoming.Count ||
+                        incoming.Any(x =>
+                            !long.TryParse(x["source_publication_id"], out var priorSource) ||
+                            !idMap.TryGetValue(priorSource, out var mappedFrom) ||
+                            !mappedIncoming.Any(y =>
+                                y["source_publication_id"] ==
+                                    mappedFrom.ToString(CultureInfo.InvariantCulture) &&
+                                x.Where(k => k.Key != "relation_id" &&
+                                             k.Key != "source_publication_id" &&
+                                             k.Key != "target_publication_id")
+                                 .All(k => y.TryGetValue(k.Key, out var value) &&
+                                           k.Value == value))))
+                        throw new InvalidDataException(
+                            "Inbound tariff corrections differ from verified source graph.");
                     foreach (var relation in outgoing)
                     {
                         if (!long.TryParse(relation["target_publication_id"], out var sourceTarget) ||
@@ -130,6 +156,10 @@ public sealed class IsolatedRecoveryReplayAuditService
                             throw new InvalidDataException("Tariff FK or official correction metadata changed.");
                     }
                 }
+                if (pagesCompared != stage.AddedPages ||
+                    candidatesCompared != stage.AddedRateCandidates ||
+                    relationsCompared != stage.AddedRelations)
+                    throw new InvalidDataException("Tariff replay receipt totals disagree with actual graph.");
                 return stage.IdMap.Count;
             }, token);
     }
