@@ -631,6 +631,10 @@ try
     if (summary.Status != "READ_ONLY_PREVIEW" ||
         previewSettings.Missing < 1 || previewSettings.Identical < 1 ||
         previewSettings.Conflicts < 1 || previewSettings.TargetOnly < 1 ||
+        previewSettings.SourceRecords != previewSettings.Missing +
+            previewSettings.Identical + previewSettings.Conflicts ||
+        previewSettings.TargetRecords != previewSettings.Identical +
+            previewSettings.Conflicts + previewSettings.TargetOnly ||
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");

@@ -107,7 +107,9 @@ public sealed class IsolatedRecoveryPreviewService
                     results.Add(new RecoveryCategoryResult(specification.Name,
                         missing, identical, conflicts, null)
                     {
-                        TargetOnly = targetOnly
+                        TargetOnly = targetOnly,
+                        SourceRecords = originals.Count,
+                        TargetRecords = active.Count
                     });
                 }
                 catch (SqliteException ex)
@@ -205,6 +207,8 @@ public sealed record RecoveryCategoryResult(string Category, int Missing,
     // Records present ONLY in the synthetic destination must not be
     // silently treated as equivalent or candidates for deletion.
     public int TargetOnly { get; init; }
+    public int SourceRecords { get; init; }
+    public int TargetRecords { get; init; }
 }
 
 public sealed record RecoveryPreviewResult(int BackupSchemaVersion, int TargetSchemaVersion,
