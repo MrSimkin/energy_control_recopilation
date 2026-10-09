@@ -12,11 +12,13 @@ public sealed class IsolatedRecoveryDocumentLinkPreviewService
     public SyntheticDocumentLinkPreview Analyze(
         SyntheticDocumentStageReceipt receipt,
         RecoveryRelationAudit graph,
-        string syntheticTargetDatabase)
+        string syntheticTargetDatabase,
+        string verifiedSourceArchive)
     {
         ArgumentNullException.ThrowIfNull(receipt);
         ArgumentNullException.ThrowIfNull(graph);
-        if (!_stages.Verify(receipt, syntheticTargetDatabase) ||
+        if (!_stages.VerifyAgainstArchive(
+                receipt, verifiedSourceArchive, syntheticTargetDatabase) ||
             graph.Status != "READ_ONLY_GRAPH_AUDIT" ||
             graph.SourceSchemaVersion != graph.TargetSchemaVersion)
             throw new InvalidOperationException(

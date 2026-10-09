@@ -5382,7 +5382,9 @@ try
         graphZip.Path, graphTarget.DatabasePath).PlanId;
     var stagedEvidence = documentStage.Stage(graphZip.Path,
         graphTarget.DatabasePath);
-    if (stagedEvidence.Status != "STAGED_SYNTHETIC_DOCUMENT_EVIDENCE_ONLY" ||
+    if (!documentStage.VerifyAgainstArchive(
+            stagedEvidence, graphZip.Path, graphTarget.DatabasePath) ||
+        stagedEvidence.Status != "STAGED_SYNTHETIC_DOCUMENT_EVIDENCE_ONLY" ||
         stagedEvidence.RealRestoreAuthorized ||
         stagedEvidence.Documents.Count != 3 ||
         stagedEvidence.Documents.Count(x => x.Category == "Bills") != 2 ||
@@ -5401,7 +5403,8 @@ try
         selectedBillEvidence.AvailableArchiveDocuments != 3 ||
         selectedBillEvidence.Documents.Count != 1 ||
         selectedBillEvidence.Documents[0].Category != "Bills" ||
-        !documentStage.Verify(selectedBillEvidence, graphTarget.DatabasePath))
+        !documentStage.VerifyAgainstArchive(
+            selectedBillEvidence, graphZip.Path, graphTarget.DatabasePath))
         throw new InvalidOperationException("Selective document stage included an unrelated document.");
     var forgedStageTarget = selectedBillEvidence with
     {
@@ -5410,7 +5413,8 @@ try
     if (documentStage.Verify(forgedStageTarget, graphTarget.DatabasePath))
         throw new InvalidOperationException("Document stage accepted a forged target binding.");
     var forgedPackageSha = selectedBillEvidence with { SourcePackageSha256 = "fake" };
-    if (documentStage.Verify(forgedPackageSha, graphTarget.DatabasePath))
+    if (documentStage.VerifyAgainstArchive(
+            forgedPackageSha, graphZip.Path, graphTarget.DatabasePath))
         throw new InvalidOperationException("Document stage accepted a forged SHA format.");
     Directory.Delete(selectedBillEvidence.StageDirectory, recursive: true);
     var missingSelectedHashBlocked = false;
@@ -5480,7 +5484,8 @@ try
     var linkPreviewer = new IsolatedRecoveryDocumentLinkPreviewService();
     var graphEvidence = documentStage.Stage(graphZip.Path, graphTarget.DatabasePath);
     var documentLinks = linkPreviewer.Analyze(
-        graphEvidence, graphAudit, graphTarget.DatabasePath);
+        graphEvidence, graphAudit, graphTarget.DatabasePath,
+        graphZip.Path);
     if (documentLinks.RelationalRestoreAuthorized ||
         documentLinks.Candidates.Count != 5 ||
         documentLinks.SharedSourceDocumentCandidates != 2 ||
@@ -5493,7 +5498,8 @@ try
     var selectedGraphEvidence = documentStage.Stage(graphZip.Path, graphTarget.DatabasePath,
         selectedDocumentHashes: new[] { billHash });
     var selectedGraphLinks = linkPreviewer.Analyze(
-        selectedGraphEvidence, graphAudit, graphTarget.DatabasePath);
+        selectedGraphEvidence, graphAudit, graphTarget.DatabasePath,
+        graphZip.Path);
     if (!selectedGraphEvidence.Selective ||
         selectedGraphLinks.CandidatesWithUniqueStagedBytes != 0 ||
         selectedGraphLinks.SharedSourceDocumentCandidates != 2 ||
@@ -5510,7 +5516,7 @@ try
     try
     {
         linkPreviewer.Analyze(tamperedGraphReceipt, graphAudit,
-            graphTarget.DatabasePath);
+            graphTarget.DatabasePath, graphZip.Path);
     }
     catch (InvalidOperationException) { tamperedGraphBlocked = true; }
     Directory.Delete(selectedGraphEvidence.StageDirectory, recursive: true);
