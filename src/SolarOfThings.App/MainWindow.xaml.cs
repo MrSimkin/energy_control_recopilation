@@ -2261,7 +2261,10 @@ public partial class MainWindow : Window
         if (!isReports)
         {
             _reportReadGeneration++; // Invalidate background report availability read.
+            _pendingReportRangePreset = null;
             _pendingBatteryReportPreset = null;
+            _reportAvailableCoverage = null;
+            _reportAvailableCoverageDeviceId = null;
             InvalidateReportPreview();
             RequestReportExportCancellation();
         }
@@ -6636,6 +6639,11 @@ public partial class MainWindow : Window
     private int _reportReadAppliedGeneration = -1;
     private bool _reportRangeInitializationPending;
     private string? _reportReadDeviceId;
+    // UI-only last completed coverage; never persisted, never shared across
+    // device changes or history refresh. Preset controls must not read SQLite.
+    private HistoryCoverageSummary? _reportAvailableCoverage;
+    private string? _reportAvailableCoverageDeviceId;
+    private string? _pendingReportRangePreset;
     private string? _pendingBatteryReportPreset;
     private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
 
@@ -6819,6 +6827,8 @@ public partial class MainWindow : Window
             initializeRange = true;
         }
         if (initializeRange) _reportRangeInitializationPending = true;
+        _reportAvailableCoverage = null;
+        _reportAvailableCoverageDeviceId = null;
         _reportReadGeneration++;
         ReportExportExcelButton.IsEnabled = false;
         ReportExportPdfButton.IsEnabled = false;
@@ -6870,6 +6880,8 @@ public partial class MainWindow : Window
 
                     using var measure = _performance.Measure("UI.Reports.Readiness");
                     ApplyReportsCoverage(profile, coverage, _reportRangeInitializationPending);
+                    _reportAvailableCoverage = coverage;
+                    _reportAvailableCoverageDeviceId = profile.DeviceId;
                     _reportRangeInitializationPending = false;
                     _reportReadAppliedGeneration = generation;
                     return;
@@ -6909,6 +6921,7 @@ public partial class MainWindow : Window
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
         {
+            _pendingReportRangePreset = null;
             _pendingBatteryReportPreset = null;
             _suppressReportRangeSelection = true;
             try
@@ -6926,7 +6939,8 @@ public partial class MainWindow : Window
 
         // Don't overwrite a draft selected from Analysis/Battery/Data while
         // the independent availability read was running.
-        if (initializeRange ||
+        if ((initializeRange && _pendingReportRangePreset is null &&
+             _pendingBatteryReportPreset is null) ||
             !ReportFromDatePicker.SelectedDate.HasValue ||
             !ReportToDatePicker.SelectedDate.HasValue)
         {
@@ -6954,6 +6968,15 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(ReportTitleTextBox.Text))
             ReportTitleTextBox.Text = GetDefaultReportTitle(GetReportKind());
         LoadSavedReportPresets();
+        if (_pendingReportRangePreset is string requestedPreset)
+        {
+            _pendingReportRangePreset = null;
+            _suppressReportRangeSelection = true;
+            try { ReportRangePresetSelector.SelectedValue = requestedPreset; }
+            finally { _suppressReportRangeSelection = false; }
+            ApplyReportRangePreset(profile, coverage);
+            SyncReportDatePartSelectorsFromDates();
+        }
         if (_pendingBatteryReportPreset is string preset)
         {
             _pendingBatteryReportPreset = null;
@@ -7028,8 +7051,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyReportRangePreset();
-        SyncReportDatePartSelectorsFromDates();
+        if (ApplyReportRangePreset())
+            SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
     }
 
@@ -7203,22 +7226,42 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        ApplyReportRangePreset();
-        SyncReportDatePartSelectorsFromDates();
+        if (ApplyReportRangePreset())
+            SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
     }
 
     private bool ApplyReportRangePreset()
     {
         var profile = _profiles.Get();
-        if (profile is null)
+        if (profile is null || _windowClosed ||
+            ReportsContent.Visibility != Visibility.Visible)
+            return false;
+
+        // The user can choose an exact historical preset without making the
+        // WPF event handler wait for sqlite3. A missing/currently invalidated
+        // coverage cache is resolved by the existing coalesced async reader.
+        if (_reportAvailableCoverage is null ||
+            !string.Equals(_reportAvailableCoverageDeviceId, profile.DeviceId,
+                StringComparison.Ordinal))
         {
+            _pendingReportRangePreset =
+                ReportRangePresetSelector.SelectedValue?.ToString();
+            if (_pendingReportRangePreset is not null &&
+                _pendingReportRangePreset != "custom")
+            {
+                ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                    "es", StringComparison.OrdinalIgnoreCase)
+                    ? "Consultando disponibilidad para el período seleccionado..."
+                    : "Loading availability for selected period...";
+                if (!_reportCoverageLoading)
+                    RefreshReportsView();
+            }
             return false;
         }
 
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
-        return ApplyReportRangePreset(profile, coverage);
+        _pendingReportRangePreset = null;
+        return ApplyReportRangePreset(profile, _reportAvailableCoverage);
     }
 
     private bool ApplyReportRangePreset(
