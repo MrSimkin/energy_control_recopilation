@@ -1542,9 +1542,54 @@ try
     // secondary package. The local verified package remains untouched.
     var latestSecondary = inventory.List(syntheticSecondary).Copies.Single(c =>
         c.Kind == "COMPLETE" && c.Location == "SECONDARY");
-    inventory.DeleteOne(latestSecondary, syntheticSecondary);
+    // Two distinct, independently verified actual bytes before visible user
+    // confirmation. A no-click result cannot delete a single physical file.
+    var reviewService = new CompleteBackupDeletionReviewService(paths);
+    var deleteReview = reviewService.Prepare(latestSecondary, syntheticSecondary);
+    if (deleteReview.Status != "REVIEW_REQUIRED_TWO_VERIFIED_PHYSICAL_PACKAGES" ||
+        deleteReview.SelectedSha256.Length != 64 ||
+        deleteReview.SurvivorSha256.Length != 64 ||
+        deleteReview.Survivor.Path != complete.Path)
+        throw new InvalidOperationException("Backup deletion review lacks independently verified survivor.");
+    var userNoBlocked = false;
+    try { reviewService.DeleteAfterExplicitConfirmation(deleteReview,
+        userConfirmed: false); }
+    catch (InvalidOperationException) { userNoBlocked = true; }
+    if (!userNoBlocked || !File.Exists(mirrored.Path))
+        throw new InvalidOperationException("Declining physical-backup deletion still deleted data.");
+
+    // Digest proof must detect replacement even if the file is deliberately
+    // rewritten while keeping EXACTLY the same length and selected timestamp.
+    var originalZipStamp = File.GetLastWriteTimeUtc(mirrored.Path);
+    using (var changed = File.Open(mirrored.Path, FileMode.Open, FileAccess.ReadWrite,
+               FileShare.None))
+    {
+        var first = changed.ReadByte();
+        if (first < 0) throw new InvalidOperationException("Empty test backup.");
+        changed.Position = 0;
+        changed.WriteByte((byte)(first ^ 0xFF));
+    }
+    File.SetLastWriteTimeUtc(mirrored.Path, originalZipStamp);
+    var digestReplacementBlocked = false;
+    try { reviewService.DeleteAfterExplicitConfirmation(deleteReview,
+        userConfirmed: true); }
+    catch (Exception ex) when (ex is InvalidOperationException ||
+                               ex is InvalidDataException || ex is IOException)
+    {
+        digestReplacementBlocked = true;
+    }
+    if (!digestReplacementBlocked || !File.Exists(mirrored.Path) ||
+        !File.Exists(complete.Path))
+        throw new InvalidOperationException("Modified selected ZIP bypassed verified deletion review.");
+
+    // Original ZIP is restored from the TEST fixture's good LOCAL copy.
+    File.Copy(complete.Path, mirrored.Path, overwrite: true);
+    var readySelection = inventory.List(syntheticSecondary).Copies.Single(c =>
+        c.Kind == "COMPLETE" && c.Location == "SECONDARY");
+    var readyPlan = reviewService.Prepare(readySelection, syntheticSecondary);
+    reviewService.DeleteAfterExplicitConfirmation(readyPlan, userConfirmed: true);
     if (File.Exists(mirrored.Path) || !File.Exists(complete.Path))
-        throw new InvalidOperationException("Independent secondary delete cascaded or failed.");
+        throw new InvalidOperationException("Reviewed one-file deletion cascaded or failed.");
 
     // With only the local full package left, deletion must be blocked.
     var finalCopyBlocked = false;
