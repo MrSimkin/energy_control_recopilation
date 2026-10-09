@@ -177,3 +177,37 @@ técnico; el SQL de boletas muestra los hechos originales almacenados.
 Migración v16→v17 reproducible; consultas de vistas PASS en CI; revisión
 de base real por QA sin alteración destructiva; completar vistas energéticas
 solo cuando sean demostrablemente equivalentes al motor estadístico.
+
+## Navegación del Explorador SQL — paginación limitada (Build 774, código 2026-10-09)
+
+La pantalla **Datos y herramientas → Explorador SQL** ya dispone de editor de SELECT/WITH
+de solo lectura, resaltado de sintaxis, resultados tabulares y exportación
+**CSV UTF-8 / XLSX**. La ampliación añade navegación **Anterior/Siguiente**:
+
+- **200 filas por página**, con indicador del rango mostrado. El máximo
+  desplazamiento inicial es **50.000 filas**; si existen más filas al alcanzar
+  ese límite, se indica claramente **límite de navegación** y se ofrece exportar
+  el SELECT completo. No se anuncia falsamente «fin de resultados».
+- El texto SQL ejecutado se conserva para la página actual; al **editar**
+  la consulta se invalidan los botones y los desplazamientos anteriores.
+  Ejecutar una consulta nueva reinicia la navegación en la primera página.
+- Las páginas se ejecutan con conexión SQLite **read-only**, autorizador nativo
+  de operaciones permitidas, cancelación y presupuesto temporal. La
+  aplicación no almacena 50.000 filas para navegar: descarta las previas
+  durante la lectura, mantiene únicamente la página solicitada en memoria
+  y no modifica SQLite.
+- **Recomendación:** incluir un `ORDER BY` suficientemente específico para
+  que la paginación tenga orden reproducible. Las páginas son consultas
+  separadas contra una base potencialmente cambiante: no se promete
+  un «snapshot» consistente entre una página y la siguiente.
+- **Exportar CSV/XLSX** sigue volviendo a ejecutar el SELECT **completo**,
+  independiente de la página visible. Mantiene el archivo temporal no
+  publicado en caso de error o cancelación, los límites de exportación y
+  la neutralización existente de fórmulas al exportar.
+
+Pruebas sintéticas agregadas: página de 200 y cola de 17 registros, página
+vacía posterior, desplazamientos inválidos, cancelación de página y página
+del límite de 50.000 con más datos todavía existentes. Ninguna prueba
+usa la base de datos ni el Windows del propietario. El QA visual y de
+rendimiento con base real se reserva para la **única prueba consolidada**
+posterior; esta funcionalidad todavía no equivale a aceptación del producto.
