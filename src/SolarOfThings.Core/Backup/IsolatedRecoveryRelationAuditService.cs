@@ -104,7 +104,10 @@ public sealed class IsolatedRecoveryRelationAuditService
             SELECT b.bill_id, b.source_document_id, d.content_sha256,
                    b.from_reading_id, b.to_reading_id,
                    (SELECT COUNT(*) FROM utility_bill_line l WHERE l.bill_id=b.bill_id),
-                   (SELECT COUNT(*) FROM utility_bill_field_evidence e WHERE e.bill_id=b.bill_id)
+                   (SELECT COUNT(*) FROM utility_bill_field_evidence e WHERE e.bill_id=b.bill_id),
+                   (SELECT COUNT(*) FROM utility_bill b2
+                    WHERE b2.source_document_id=b.source_document_id
+                      AND b.source_document_id IS NOT NULL)
               FROM utility_bill b
               LEFT JOIN utility_bill_document d ON d.document_id=b.source_document_id
              ORDER BY b.bill_id LIMIT $limit;
@@ -122,6 +125,13 @@ public sealed class IsolatedRecoveryRelationAuditService
             var to = rows.IsDBNull(4) ? (long?)null : rows.GetInt64(4);
             var lineCount = rows.GetInt64(5);
             var evidenceCount = rows.GetInt64(6);
+            // A source document is not necessarily one-to-one with a bill.
+            // Identical source document IDs are not portable target bill IDs.
+            var sourceBillsForDocument = rows.GetInt64(7);
+            var targetBillsForDocument = !string.IsNullOrWhiteSpace(sha)
+                ? CountTargetBillsByDocument(target, sha) : 0;
+            var fromCandidates = ReadingCandidateCounts(source, target, from);
+            var toCandidates = ReadingCandidateCounts(source, target, to);
             // Overlap is relevant even when a meter-reading foreign key
             // forces the bill itself into a blocked recovery category.
             var targetHasDocument = !string.IsNullOrWhiteSpace(sha) &&
@@ -173,7 +183,13 @@ public sealed class IsolatedRecoveryRelationAuditService
             result.Add(new BillGraphPreview(billId, sha, lineCount, evidenceCount,
                 from.HasValue, to.HasValue, status, explanation)
             {
-                TargetHasOriginalDocument = targetHasDocument
+                TargetHasOriginalDocument = targetHasDocument,
+                SourceBillsForDocument = sourceBillsForDocument,
+                TargetBillsForDocument = targetBillsForDocument,
+                FromReadingExactCandidates = fromCandidates.Exact,
+                ToReadingExactCandidates = toCandidates.Exact,
+                FromReadingTimestampCandidates = fromCandidates.Timestamp,
+                ToReadingTimestampCandidates = toCandidates.Timestamp
             });
         }
         return result;
@@ -329,6 +345,49 @@ public sealed class IsolatedRecoveryRelationAuditService
         return result;
     }
 
+    private static long CountTargetBillsByDocument(SqliteConnection target, string digest)
+    {
+        using var cmd = target.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM utility_bill b
+            JOIN utility_bill_document d ON d.document_id=b.source_document_id
+            WHERE d.content_sha256=$hash;
+            """;
+        cmd.Parameters.AddWithValue("$hash", digest);
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    // Exact timestamp and numeric reading candidates are diagnostic only.
+    // A reading_id, source_kind, time precision and provenance still require
+    // independent identity review; these counters never authorize remapping.
+    private static (long Exact, long Timestamp) ReadingCandidateCounts(
+        SqliteConnection source, SqliteConnection target, long? sourceReadingId)
+    {
+        if (!sourceReadingId.HasValue)
+            return (0, 0);
+        using var original = source.CreateCommand();
+        original.CommandText = """
+            SELECT reading_at_utc, reading_kwh
+              FROM utility_meter_reading WHERE reading_id=$id;
+            """;
+        original.Parameters.AddWithValue("$id", sourceReadingId.Value);
+        using var sourceRow = original.ExecuteReader();
+        if (!sourceRow.Read())
+            return (0, 0);
+        var stamp = sourceRow.GetString(0);
+        var value = sourceRow.GetDouble(1);
+        using var candidates = target.CreateCommand();
+        candidates.CommandText = """
+            SELECT COUNT(*), COALESCE(SUM(CASE WHEN reading_kwh=$kwh
+                THEN 1 ELSE 0 END), 0)
+              FROM utility_meter_reading WHERE reading_at_utc=$stamp;
+            """;
+        candidates.Parameters.AddWithValue("$stamp", stamp);
+        candidates.Parameters.AddWithValue("$kwh", value);
+        using var counts = candidates.ExecuteReader();
+        return counts.Read() ? (counts.GetInt64(1), counts.GetInt64(0)) : (0, 0);
+    }
+
     private static bool HasId(SqliteConnection conn, string table, string field, long id)
     {
         using var command = conn.CreateCommand();
@@ -388,6 +447,12 @@ public sealed record BillGraphPreview(long SourceBillId, string? OriginalDocumen
     string State, string Explanation)
 {
     public bool TargetHasOriginalDocument { get; init; }
+    public long SourceBillsForDocument { get; init; }
+    public long TargetBillsForDocument { get; init; }
+    public long FromReadingExactCandidates { get; init; }
+    public long ToReadingExactCandidates { get; init; }
+    public long FromReadingTimestampCandidates { get; init; }
+    public long ToReadingTimestampCandidates { get; init; }
 }
 
 public sealed record TariffGraphPreview(long SourcePublicationId, string SourceUrl,

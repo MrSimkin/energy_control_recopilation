@@ -4712,6 +4712,32 @@ try
             """;
         cmd.ExecuteNonQuery();
     }
+    // Bill-document reuse and two independent reading foreign keys must
+    // remain visible independently; no surrogate-ID mapping is inferred.
+    using (var connection = graphDb.OpenConnection())
+    using (var cmd = connection.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_meter_reading(
+                reading_at_utc,reading_kwh,created_utc,updated_utc)
+            VALUES('2026-09-30T00:00:00Z',1097,
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            UPDATE utility_bill SET to_reading_id=(
+                SELECT reading_id FROM utility_meter_reading
+                WHERE reading_at_utc='2026-09-30T00:00:00Z')
+            WHERE bill_id=$billId;
+            INSERT INTO utility_bill(
+                period_start_utc,period_end_utc,billed_consumption_kwh,
+                created_utc,updated_utc,source_document_id)
+            VALUES('2026-09-01T00:00:00Z','2026-09-30T00:00:00Z',97,
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z',
+                   (SELECT document_id FROM utility_bill_document
+                    WHERE content_sha256=$billHash));
+            """;
+        cmd.Parameters.AddWithValue("$billId", graphBillId);
+        cmd.Parameters.AddWithValue("$billHash", billHash);
+        cmd.ExecuteNonQuery();
+    }
     var graphZip = new FullBackupService(graphDb, graphPaths)
         .Create("0.11.0-test", "synthetic", "linked-graph");
     var graphTargetPaths = new AppPaths(Path.Combine(root, "relational-graph-target"));
@@ -4725,7 +4751,12 @@ try
     if (graphAudit.Status != "READ_ONLY_GRAPH_AUDIT" ||
         linkedBill.State != "READING_REMAP_REQUIRED" ||
         linkedBill.ChargeLineCount != 1 || linkedBill.FieldEvidenceCount != 1 ||
-        !linkedBill.HasFromReading || linkedBill.OriginalDocumentSha256 != billHash ||
+        !linkedBill.HasFromReading || !linkedBill.HasToReading ||
+        linkedBill.OriginalDocumentSha256 != billHash ||
+        linkedBill.SourceBillsForDocument != 2 ||
+        linkedBill.TargetBillsForDocument != 0 ||
+        linkedBill.FromReadingExactCandidates != 0 ||
+        linkedBill.ToReadingExactCandidates != 0 ||
         linkedTariff.State != "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED" ||
         linkedTariff.RateCandidates != 1 || linkedTariff.SourceTextPages != 1 ||
         linkedTariff.IncomingRelations != 1 ||
@@ -4813,6 +4844,40 @@ try
         if (Convert.ToInt32(check.ExecuteScalar()) != 0)
             throw new InvalidOperationException("Read-only graph audit wrote an active bill.");
     }
+    // Inspect both meter endpoints with matching, conflicting and ambiguous
+    // timestamp evidence; the candidate count must NOT imply auto identity.
+    using (var conn = graphTarget.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_bill(
+                period_start_utc,period_end_utc,created_utc,updated_utc,
+                source_document_id)
+            VALUES('2026-09-01T00:00:00Z','2026-09-30T00:00:00Z',
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z',
+                   (SELECT document_id FROM utility_bill_document WHERE content_sha256=$billHash));
+            INSERT INTO utility_meter_reading(
+                reading_at_utc,reading_kwh,created_utc,updated_utc)
+            VALUES
+                ('2026-09-01T00:00:00Z',1000,'2026-10-08T00:00:00Z','2026-10-08T00:00:00Z'),
+                ('2026-09-01T00:00:00Z',1001,'2026-10-08T00:00:00Z','2026-10-08T00:00:00Z'),
+                ('2026-09-30T00:00:00Z',1097,'2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            """;
+        cmd.Parameters.AddWithValue("$billHash", billHash);
+        cmd.ExecuteNonQuery();
+    }
+    var candidatesAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+    var billCandidates = candidatesAudit.Bills.Single(b => b.SourceBillId == graphBillId);
+    if (billCandidates.TargetBillsForDocument != 1 ||
+        billCandidates.SourceBillsForDocument != 2 ||
+        billCandidates.FromReadingExactCandidates != 1 ||
+        billCandidates.FromReadingTimestampCandidates != 2 ||
+        billCandidates.ToReadingExactCandidates != 1 ||
+        billCandidates.ToReadingTimestampCandidates != 1 ||
+        billCandidates.State != "READING_REMAP_REQUIRED")
+        throw new InvalidOperationException(
+            "Bill recovery diagnostics mistook shared documents or readings for portable identities.");
+
     // A bad destination FK must never produce apparently trustworthy
     // bill/tariff graph classifications or write any copied records.
     var brokenRelationRejected = false;
