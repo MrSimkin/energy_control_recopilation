@@ -13,6 +13,7 @@ public sealed class IsolatedRecoveryRelationAuditService
 {
     private const int MaxBills = 10_000;
     private const int MaxTariffs = 10_000;
+    private const int MaxUnlinkedDocuments = 10_000;
 
     public RecoveryRelationAudit Audit(string fullPackage, string syntheticTargetDatabase)
     {
@@ -71,13 +72,20 @@ public sealed class IsolatedRecoveryRelationAuditService
                 .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
             var bills = AuditBills(source, target, billsByDigest);
             var tariffs = AuditTariffs(source, target, tariffsByDigest);
+            // An original source document may be valid yet not linked to a
+            // bill. This separate bounded inventory prevents silently
+            // omitting its evidence from a potential selective recovery.
+            var unlinked = AuditUnlinkedBillDocuments(source, target, billsByDigest);
             var reviewCount = bills.Count(b => b.State != "DOCUMENT_ONLY_NEW_CANDIDATE") +
                               tariffs.Count(t => t.State != "NEW_TARIFF_SOURCE_CANDIDATE");
             return new RecoveryRelationAudit("READ_ONLY_GRAPH_AUDIT",
                 sourceVersion, targetVersion, bills, tariffs,
                 $"All bill/tariff graph groups require adapter review before import. " +
                 $"{reviewCount} groups have explicit additional blockers or overlapping evidence. " +
-                "No identity merge, file extraction, database write or activation occurred.");
+                "No identity merge, file extraction, database write or activation occurred.")
+            {
+                UnlinkedBillDocuments = unlinked
+            };
         }
         finally
         {
@@ -167,6 +175,62 @@ public sealed class IsolatedRecoveryRelationAuditService
             {
                 TargetHasOriginalDocument = targetHasDocument
             });
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<UnlinkedBillDocumentPreview> AuditUnlinkedBillDocuments(
+        SqliteConnection source, SqliteConnection target,
+        IReadOnlyDictionary<string, int> archived)
+    {
+        var result = new List<UnlinkedBillDocumentPreview>();
+        using var cmd = source.CreateCommand();
+        cmd.CommandText = """
+            SELECT d.document_id, d.content_sha256
+              FROM utility_bill_document d
+             WHERE NOT EXISTS (SELECT 1 FROM utility_bill b
+                                WHERE b.source_document_id=d.document_id)
+             ORDER BY d.document_id LIMIT $limit;
+            """;
+        cmd.Parameters.AddWithValue("$limit", MaxUnlinkedDocuments + 1);
+        using var rows = cmd.ExecuteReader();
+        while (rows.Read())
+        {
+            if (result.Count >= MaxUnlinkedDocuments)
+                throw new InvalidDataException(
+                    "Too many unlinked source documents for bounded recovery audit.");
+            var id = rows.GetInt64(0);
+            var hash = rows.IsDBNull(1) ? null : rows.GetString(1);
+            var inTarget = !string.IsNullOrWhiteSpace(hash) &&
+                HasDocumentHash(target, "utility_bill_document", hash);
+            string state, reason;
+            if (string.IsNullOrWhiteSpace(hash))
+            {
+                state = "UNLINKED_DOCUMENT_NO_HASH";
+                reason = "No portable original-document digest is available.";
+            }
+            else if (!archived.TryGetValue(hash, out var archivedCount))
+            {
+                state = "UNLINKED_DOCUMENT_MISSING_ARCHIVE";
+                reason = "Source document bytes are not included in the verified Bills archive.";
+            }
+            else if (archivedCount != 1)
+            {
+                state = "UNLINKED_DOCUMENT_AMBIGUOUS_ARCHIVE";
+                reason = "Several archived Bills files share this digest.";
+            }
+            else if (inTarget)
+            {
+                state = "UNLINKED_DOCUMENT_ALREADY_IN_TARGET";
+                reason = "Original document bytes already exist in destination; linked identity not inferred.";
+            }
+            else
+            {
+                state = "UNLINKED_DOCUMENT_CANDIDATE";
+                reason = "Unique archived original with no bill association; document-only preview, NOT authorization to import.";
+            }
+            result.Add(new UnlinkedBillDocumentPreview(id, hash, inTarget,
+                state, reason));
         }
         return result;
     }
@@ -335,4 +399,11 @@ public sealed record TariffGraphPreview(long SourcePublicationId, string SourceU
 
 public sealed record RecoveryRelationAudit(string Status, int SourceSchemaVersion,
     int TargetSchemaVersion, IReadOnlyList<BillGraphPreview> Bills,
-    IReadOnlyList<TariffGraphPreview> Tariffs, string SafetyDisclaimer);
+    IReadOnlyList<TariffGraphPreview> Tariffs, string SafetyDisclaimer)
+{
+    public IReadOnlyList<UnlinkedBillDocumentPreview> UnlinkedBillDocuments { get; init; } = [];
+}
+
+public sealed record UnlinkedBillDocumentPreview(long SourceDocumentId,
+    string? OriginalDocumentSha256, bool TargetHasOriginalDocument,
+    string State, string Explanation);

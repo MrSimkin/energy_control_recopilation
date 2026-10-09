@@ -4590,6 +4590,12 @@ try
         "test-linked-bill.pdf");
     var tariffFile = Path.Combine(graphPaths.TariffEnelDirectory,
         "test-tariff.pdf");
+    var unlinkedBillFile = Path.Combine(graphPaths.UtilityBillEnelDirectory,
+        "test-unlinked-bill.pdf");
+    File.WriteAllText(unlinkedBillFile, "SYNTHETIC UNLINKED BILL DOCUMENT");
+    var unlinkedBillHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(unlinkedBillFile)))
+        .ToLowerInvariant();
     File.WriteAllText(billFile, "SYNTHETIC BILL EVIDENCE");
     File.WriteAllText(tariffFile, "SYNTHETIC TARIFF EVIDENCE");
     var billHash = Convert.ToHexString(
@@ -4612,6 +4618,16 @@ try
             """;
         cmd.Parameters.AddWithValue("$billFile", billFile);
         cmd.Parameters.AddWithValue("$billHash", billHash);
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO utility_bill_document(
+                provider,original_file_name,local_pdf_path,content_sha256,
+                content_length,page_count,parser_version,imported_utc)
+            VALUES('ENEL','test-unlinked-bill.pdf',$unlinkedFile,$unlinkedHash,
+                   32,1,'smoke-v1','2026-10-08T00:00:00Z');
+            """;
+        cmd.Parameters.AddWithValue("$unlinkedFile", unlinkedBillFile);
+        cmd.Parameters.AddWithValue("$unlinkedHash", unlinkedBillHash);
         cmd.ExecuteNonQuery();
         cmd.CommandText = """
             INSERT INTO utility_meter_reading(
@@ -4713,7 +4729,10 @@ try
         linkedTariff.State != "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED" ||
         linkedTariff.RateCandidates != 1 || linkedTariff.SourceTextPages != 1 ||
         linkedTariff.IncomingRelations != 1 ||
-        linkedBill.TargetHasOriginalDocument)
+        linkedBill.TargetHasOriginalDocument ||
+        graphAudit.UnlinkedBillDocuments.Single(d =>
+            d.OriginalDocumentSha256 == unlinkedBillHash).State !=
+            "UNLINKED_DOCUMENT_CANDIDATE")
         throw new InvalidOperationException("Linked source graph dependency audit failed.");
 
     // The destination can contain the identical source document bytes while
@@ -4740,8 +4759,25 @@ try
             """;
         cmd.Parameters.AddWithValue("$url", testSourceUrl);
         cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO utility_bill_document(
+                provider,original_file_name,local_pdf_path,content_sha256,
+                content_length,page_count,parser_version,imported_utc)
+            VALUES('ENEL','target-unlinked-alias.pdf',$unlinkedTargetPath,
+                   $unlinkedHash,32,1,'smoke-v1','2026-10-08T00:00:00Z');
+            """;
+        cmd.Parameters.AddWithValue("$unlinkedTargetPath",
+            Path.Combine(graphTargetPaths.UtilityBillDirectory,
+                "target-unlinked-alias.pdf"));
+        cmd.Parameters.AddWithValue("$unlinkedHash", unlinkedBillHash);
+        cmd.ExecuteNonQuery();
     }
     graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+    if (graphAudit.UnlinkedBillDocuments.Single(d =>
+            d.OriginalDocumentSha256 == unlinkedBillHash).State !=
+        "UNLINKED_DOCUMENT_ALREADY_IN_TARGET")
+        throw new InvalidOperationException(
+            "Unlinked source document overlap was not detected by original hash.");
     if (graphAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId).State !=
         "TARIFF_SOURCE_OVERLAP_REVIEW")
         throw new InvalidOperationException("Source URL overlap without PDF must require review.");
