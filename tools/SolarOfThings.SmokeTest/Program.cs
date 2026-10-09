@@ -1564,10 +1564,10 @@ try
     using (var changed = File.Open(mirrored.Path, FileMode.Open, FileAccess.ReadWrite,
                FileShare.None))
     {
-        var first = changed.ReadByte();
-        if (first < 0) throw new InvalidOperationException("Empty test backup.");
+        var originalFirstByte = changed.ReadByte();
+        if (originalFirstByte < 0) throw new InvalidOperationException("Empty test backup.");
         changed.Position = 0;
-        changed.WriteByte((byte)(first ^ 0xFF));
+        changed.WriteByte((byte)(originalFirstByte ^ 0xFF));
     }
     File.SetLastWriteTimeUtc(mirrored.Path, originalZipStamp);
     var digestReplacementBlocked = false;
