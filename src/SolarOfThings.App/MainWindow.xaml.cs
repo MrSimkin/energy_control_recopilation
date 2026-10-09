@@ -8112,6 +8112,86 @@ public partial class MainWindow : Window
     }
 
     private bool _backupInventoryBusy;
+    private VerifiedBackupInspection? _verifiedBackupInspection;
+
+    private void BackupInventorySelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        RefreshBackupSelectionDetails();
+
+    private void RefreshBackupSelectionDetails()
+    {
+        if (BackupInventoryGrid is null || BackupSelectionDetailsText is null ||
+            BackupVerifiedContentsText is null)
+            return;
+
+        var selected = BackupInventoryGrid.SelectedItem as PhysicalBackupCopy;
+        if (selected is null)
+        {
+            BackupSelectionDetailsText.Text = _localization.GetString("Backup.SelectionNone");
+            BackupVerifiedContentsText.Text = "";
+        }
+        else
+        {
+            BackupSelectionDetailsText.Text =
+                selected.Name + Environment.NewLine +
+                selected.Location + " · " + selected.Kind + " · " +
+                selected.SizeBytes.ToString("N0") + " bytes · " +
+                selected.ModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") +
+                Environment.NewLine + selected.Path;
+            var verified = _verifiedBackupInspection;
+            if (verified is not null &&
+                selected.VerificationStatus == "PASS" &&
+                string.Equals(selected.Path, verified.Summary.Path,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                BackupVerifiedContentsText.Text =
+                    _localization.GetString("Backup.VerifiedHeading") +
+                    Environment.NewLine +
+                    "SHA-256: " + verified.Summary.Sha256 + Environment.NewLine +
+                    "UTC: " + verified.Summary.CreatedUtc.ToString("u") +
+                    " · App: " + verified.Manifest.AppVersion +
+                    " · Build: " + verified.Manifest.BuildNumber +
+                    " · SQLite schema: " + verified.Summary.SchemaVersion +
+                    Environment.NewLine +
+                    "SQLite: " + verified.DatabaseFiles + " file(s), " +
+                    verified.DatabaseBytes.ToString("N0") + " bytes" +
+                    Environment.NewLine +
+                    "Bills: " + verified.BillDocuments + " document(s), " +
+                    verified.BillBytes.ToString("N0") + " bytes" +
+                    Environment.NewLine +
+                    "Tariffs: " + verified.TariffDocuments + " document(s), " +
+                    verified.TariffBytes.ToString("N0") + " bytes";
+            }
+            else
+            {
+                BackupVerifiedContentsText.Text = selected.Kind == "COMPLETE"
+                    ? selected.VerificationStatus == "FAIL"
+                        ? _localization.GetString("Backup.VerificationFailed")
+                        : _localization.GetString("Backup.SelectionUnverified")
+                    : _localization.GetString("Backup.SelectionLegacy");
+            }
+        }
+        BackupVerifyButton.IsEnabled = !_backupInventoryBusy && selected?.Kind == "COMPLETE";
+        BackupDeleteButton.IsEnabled = !_backupInventoryBusy && selected?.Kind == "COMPLETE";
+        BackupOpenSelectedButton.IsEnabled = !_backupInventoryBusy && selected is not null;
+        BackupSaveReceiptButton.IsEnabled = !_backupInventoryBusy &&
+            selected?.Kind == "COMPLETE" && selected.VerificationStatus == "PASS" &&
+            _verifiedBackupInspection is not null &&
+            string.Equals(selected.Path, _verifiedBackupInspection.Summary.Path,
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void UpdateBackupRowStatus(PhysicalBackupCopy selected, string status)
+    {
+        var rows = (BackupInventoryGrid.ItemsSource as IEnumerable<PhysicalBackupCopy>)?.ToList()
+            ?? new List<PhysicalBackupCopy>();
+        var index = rows.FindIndex(r => string.Equals(r.Path, selected.Path,
+            StringComparison.OrdinalIgnoreCase) && r.Location == selected.Location);
+        if (index < 0) return;
+        rows[index] = selected with { VerificationStatus = status };
+        BackupInventoryGrid.ItemsSource = rows;
+        BackupInventoryGrid.SelectedItem = rows[index];
+        RefreshBackupSelectionDetails();
+    }
 
     private string? ConfiguredSecondaryBackupFolder() =>
         _services.GetRequiredService<AppSettingsRepository>().Get(BackupSecondaryPathKey);
@@ -8121,8 +8201,8 @@ public partial class MainWindow : Window
         _backupInventoryBusy = busy;
         BackupInventoryProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         BackupRefreshButton.IsEnabled = !busy;
-        BackupVerifyButton.IsEnabled = !busy;
-        BackupDeleteButton.IsEnabled = !busy;
+        BackupInventoryGrid.IsEnabled = !busy;
+        RefreshBackupSelectionDetails();
     }
 
     private async Task RefreshBackupInventoryAsync()
@@ -8133,8 +8213,17 @@ public partial class MainWindow : Window
         try
         {
             var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            var previousSelection = (BackupInventoryGrid.SelectedItem as PhysicalBackupCopy);
             var snapshot = await Task.Run(() => service.List(ConfiguredSecondaryBackupFolder()));
+            // A refreshed inventory invalidates any previous PASS: the files
+            // must be explicitly verified again, even if their names match.
+            _verifiedBackupInspection = null;
             BackupInventoryGrid.ItemsSource = snapshot.Copies;
+            if (previousSelection is not null)
+                BackupInventoryGrid.SelectedItem = snapshot.Copies.FirstOrDefault(c =>
+                    c.Location == previousSelection.Location &&
+                    string.Equals(c.Path, previousSelection.Path, StringComparison.OrdinalIgnoreCase));
+            RefreshBackupSelectionDetails();
             var spanish = _localization.CurrentLanguage.StartsWith(
                 "es", StringComparison.OrdinalIgnoreCase);
             BackupInventoryStatusText.Text = (spanish
@@ -8182,6 +8271,68 @@ public partial class MainWindow : Window
         }
     }
 
+    private void BackupPageOpenSelected_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen)
+            return;
+        try
+        {
+            if (!File.Exists(chosen.Path))
+                throw new FileNotFoundException("The selected backup is no longer available.");
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = Path.GetDirectoryName(chosen.Path)!,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = "Error: " + ex.Message;
+        }
+    }
+
+    private async void BackupPageSaveReceipt_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen ||
+            chosen.Kind != "COMPLETE" || chosen.VerificationStatus != "PASS" ||
+            _verifiedBackupInspection is null ||
+            !string.Equals(_verifiedBackupInspection.Summary.Path, chosen.Path,
+                StringComparison.OrdinalIgnoreCase))
+            return;
+        var dialog = new SaveFileDialog
+        {
+            Title = _localization.GetString("Backup.ReceiptTitle"),
+            FileName = Path.GetFileNameWithoutExtension(chosen.Name) + "-verification.txt",
+            Filter = "Text (*.txt)|*.txt|All files (*.*)|*.*",
+            DefaultExt = ".txt"
+        };
+        PrepareExportDialog(dialog);
+        if (dialog.ShowDialog(this) != true) return;
+        SetBackupInventoryBusy(true);
+        try
+        {
+            // Reverify independently BEFORE issuing a receipt, so an archive
+            // modified since the prior PASS cannot generate stale evidence.
+            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            var details = await Task.Run(() =>
+                service.VerifyDetails(chosen, ConfiguredSecondaryBackupFolder()));
+            var spanish = _localization.CurrentLanguage.StartsWith("es",
+                StringComparison.OrdinalIgnoreCase);
+            await File.WriteAllTextAsync(dialog.FileName, details.FormatReceipt(spanish));
+            _verifiedBackupInspection = details;
+            BackupInventoryStatusText.Text =
+                _localization.GetString("Backup.ReceiptSaved") + dialog.FileName;
+        }
+        catch (Exception ex)
+        {
+            _verifiedBackupInspection = null;
+            UpdateBackupRowStatus(chosen, "FAIL");
+            BackupInventoryStatusText.Text =
+                _localization.GetString("Backup.ReceiptError") + ex.Message;
+        }
+        finally { SetBackupInventoryBusy(false); }
+    }
+
     private async void BackupPageVerify_Click(object sender, RoutedEventArgs e)
     {
         if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen)
@@ -8190,25 +8341,21 @@ public partial class MainWindow : Window
         try
         {
             var service = _services.GetRequiredService<CompleteBackupInventoryService>();
-            var result = await Task.Run(() => service.Verify(chosen, ConfiguredSecondaryBackupFolder()));
-            var rows = (BackupInventoryGrid.ItemsSource as IEnumerable<PhysicalBackupCopy>)?.ToList()
-                ?? new List<PhysicalBackupCopy>();
-            var updated = chosen with { VerificationStatus = "PASS" };
-            var index = rows.FindIndex(r => r.Path == chosen.Path);
-            if (index >= 0)
-            {
-                rows[index] = updated;
-                BackupInventoryGrid.ItemsSource = rows;
-                BackupInventoryGrid.SelectedItem = updated;
-            }
-            BackupInventoryStatusText.Text = "PASS — " + result.Path +
-                " · SHA-256 " + result.Sha256 +
-                " · schema " + result.SchemaVersion +
-                " · files " + result.FileCount;
+            var details = await Task.Run(() =>
+                service.VerifyDetails(chosen, ConfiguredSecondaryBackupFolder()));
+            _verifiedBackupInspection = details;
+            UpdateBackupRowStatus(chosen, "PASS");
+            BackupInventoryStatusText.Text = "PASS — " + details.Summary.Path +
+                " · SHA-256 " + details.Summary.Sha256 +
+                " · schema " + details.Summary.SchemaVersion +
+                " · files " + details.Summary.FileCount;
         }
         catch (Exception ex)
         {
-            BackupInventoryStatusText.Text = "Verification FAILED: " + ex.Message;
+            _verifiedBackupInspection = null;
+            UpdateBackupRowStatus(chosen, "FAIL");
+            BackupInventoryStatusText.Text =
+                _localization.GetString("Backup.VerificationFailed") + " " + ex.Message;
         }
         finally
         {
