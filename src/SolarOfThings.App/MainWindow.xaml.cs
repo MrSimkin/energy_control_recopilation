@@ -7274,6 +7274,7 @@ public partial class MainWindow : Window
         ReportPreviewResultPanel.Visibility = Visibility.Collapsed;
         ReportPreviewStatusText.Text = string.Empty;
         ReportPreviewCoverageText.Text = string.Empty;
+        ReportPreviewPeriodCoverageText.Text = string.Empty;
     }
 
     private void ReportInspectAnalysis_Click(object sender, RoutedEventArgs e)
@@ -7353,10 +7354,20 @@ public partial class MainWindow : Window
         {
             // Run only the existing report-equivalent range integrator.
             // Preview never saves or exports a file.
-            var summary = await Task.Run(() =>
-                _services.GetRequiredService<EnergyRangeStatisticsService>()
-                    .Get(request.DeviceId, request.StartUtc, request.EndUtc, cancellation.Token),
-                cancellation.Token);
+            var rangeService = _services.GetRequiredService<EnergyRangeStatisticsService>();
+            var aggregationService =
+                _services.GetRequiredService<EnergyAggregationTableService>();
+            var evidence = await Task.Run(() =>
+            {
+                var totals = rangeService.Get(
+                    request.DeviceId, request.StartUtc, request.EndUtc,
+                    cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                var buckets = aggregationService.Get(
+                    request.DeviceId, request.StartUtc, request.EndUtc,
+                    request.TimeZoneId, request.Aggregation, cancellation.Token);
+                return (Summary: totals, Buckets: buckets);
+            }, cancellation.Token);
             if (!ReportPreviewEvidencePolicy.CanApply(
                     generation, _reportPreviewGeneration,
                     !_windowClosed && ReportsContent.Visibility == Visibility.Visible,
@@ -7364,11 +7375,18 @@ public partial class MainWindow : Window
                 request != GetCurrentReportRequest())
                 return;
 
-            ReportPreviewSolarText.Text = FormatReportPreviewMetric(summary.PvPower);
-            ReportPreviewHouseText.Text = FormatReportPreviewMetric(summary.HouseLoadPower);
-            ReportPreviewGridText.Text = FormatReportPreviewMetric(summary.GridImportPower);
-            ReportPreviewBatteryText.Text = FormatReportPreviewMetric(summary.BatteryPower, true);
-            var quality = ReportPreviewEvidencePolicy.Summarize(summary);
+            ReportPreviewSolarText.Text = FormatReportPreviewMetric(evidence.Summary.PvPower);
+            ReportPreviewHouseText.Text = FormatReportPreviewMetric(evidence.Summary.HouseLoadPower);
+            ReportPreviewGridText.Text = FormatReportPreviewMetric(evidence.Summary.GridImportPower);
+            ReportPreviewBatteryText.Text = FormatReportPreviewMetric(evidence.Summary.BatteryPower, true);
+            var quality = ReportPreviewEvidencePolicy.Summarize(evidence.Summary);
+            var periodQuality = ReportPeriodQualityPolicy.Summarize(evidence.Buckets);
+            ReportPreviewPeriodCoverageText.Text = string.Format(
+                _localization.GetString("Reports.PreviewPeriodQuality"),
+                periodQuality.AggregatedPeriods,
+                periodQuality.PeriodsWithAnyEnergyEvidence,
+                periodQuality.PeriodsWithAllFourEnergySignals,
+                periodQuality.PeriodsWithoutUsableEnergyEvidence);
             ReportPreviewCoverageText.Text = quality.EligibleStreams switch
             {
                 0 => _localization.GetString("Reports.PreviewQualityNone"),

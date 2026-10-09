@@ -206,6 +206,27 @@ try
         DataCoverageRefreshPolicy.CanApply(4, 4, true, null, "A"))
         throw new InvalidOperationException("Data coverage stale-result policy regressed.");
 
+    // The report's grouped timeline distinguishes total gaps, partial
+    // measured evidence and all-four-source evidence. It is not a claim
+    // of 100% continuous coverage within any bucket.
+    var qualityRows = new[]
+    {
+        syntheticRow,
+        syntheticRow with { HouseCoveragePercent = 0 },
+        syntheticRow with {
+            PvCoveragePercent = 0, HouseCoveragePercent = 0,
+            GridCoveragePercent = 0, BatteryCoveragePercent = 0 },
+    };
+    var qualityTable = new EnergyAggregationTable("quality", AggregationPeriod.Day,
+        "America/Santiago", rowStart, rowEnd, qualityRows);
+    var timeBucketQuality = ReportPeriodQualityPolicy.Summarize(qualityTable);
+    if (timeBucketQuality.AggregatedPeriods != 3 ||
+        timeBucketQuality.PeriodsWithAnyEnergyEvidence != 2 ||
+        timeBucketQuality.PeriodsWithAllFourEnergySignals != 1 ||
+        timeBucketQuality.PeriodsWithoutUsableEnergyEvidence != 1)
+        throw new InvalidOperationException(
+            "Aggregated report preview concealed missing time buckets.");
+
     // Data coverage context uses actual UTC sample bounds and the station's
     // local civil dates, not the runner's timezone or today's date.
     var firstCoverage = DateTimeOffset.Parse("2026-10-08T02:30:00Z",

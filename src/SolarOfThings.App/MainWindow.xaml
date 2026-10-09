@@ -2727,6 +2727,9 @@
                                             <TextBlock x:Name="ReportPreviewCoverageText"
                                                        FontWeight="SemiBold" Foreground="#495057"
                                                        TextWrapping="Wrap" Margin="0,8,0,6"/>
+                                            <TextBlock x:Name="ReportPreviewPeriodCoverageText"
+                                                       FontSize="12" Foreground="#495057"
+                                                       TextWrapping="Wrap" Margin="0,6,0,8"/>
                                             <TextBlock Text="{DynamicResource Reports.PreviewSolar}" FontWeight="SemiBold" Margin="0,8,0,0"/>
                                             <TextBlock x:Name="ReportPreviewSolarText" TextWrapping="Wrap"/>
                                             <TextBlock Text="{DynamicResource Reports.PreviewHouse}" FontWeight="SemiBold" Margin="0,8,0,0"/>

@@ -558,6 +558,7 @@
     <sys:String x:Key="Reports.PresetsIntro">Un preset guarda sólo la configuración (tipo, período y agrupación) para reutilizarla después. El nombre del informe se define arriba y no depende del preset.</sys:String>
     <sys:String x:Key="Reports.SavePreset">Guardar preset</sys:String>
     <sys:String x:Key="Reports.DeletePreset">Eliminar</sys:String>
+    <sys:String x:Key="Reports.PreviewPeriodQuality">Períodos agrupados: {0:N0}; con alguna fuente de energía integrable: {1:N0}; con las cuatro: {2:N0}; sin energía integrable: {3:N0}. Un período sin evidencia no representa energía cero.</sys:String>
     <sys:String x:Key="Reports.PreviewQualityNone">Ninguna de las 4 fuentes tiene intervalos válidos para integrar energía; esto no significa consumo cero.</sys:String>
     <sys:String x:Key="Reports.PreviewQualityPartial">Fuentes con datos integrables: {0}/4; sin datos suficientes: {1}. Cobertura mínima entre las disponibles: {2:N1}%. No equivale a cobertura completa del período.</sys:String>
     <sys:String x:Key="Reports.PreviewQualityAll">Las 4 fuentes tienen algún intervalo integrable; cobertura mínima temporal: {0:N1}%. No equivale a cobertura completa del período.</sys:String>
