@@ -6875,3 +6875,11 @@ the tariff engine, numeric calculations, schema, backups or real data.
 remains valid. The Build 685 label/layout refinement is CI-verified but
 its Windows visual output has not yet been checked by the owner. Phases
 11 and 12 remain PARTIAL and are not declared closed. No merge to `main`.
+
+## Latest continuation checkpoint — Builds 784–792 (2026-10-09 Chile)
+
+**Authoritative detail:** [PHASE_10_12_TRANCHE_STATUS.md](PHASE_10_12_TRANCHE_STATUS.md), newest section “Builds 784–792”. [Build 792](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/37995394249) **Windows CI SUCCESS** at code `636d387abc13a31dda2caace9a096dbff91c8c38`, including SQLite smoke, synthetic 24k/96k performance, and portable Windows artifact `SolarEnergyMonitor-win-x64-dev` (ID `11646653460`). Live Enel/CNE optional CI **SKIPPED**.
+
+**Combined progress:** Reports period selectors and refresh now reuse same-device async coverage instead of synchronously querying SQLite on WPF; stale report previews are disabled pending availability, and user date edits override pending presets. Backup inventory gained an ES/EN, explicitly clicked **copy/retry selected verified LOCAL complete archive to configured SECONDARY** action with stale-row guard, SHA/ZIP revalidation, collision/no-overwrite protection, conditional symlink defense and preserved failure/success receipt in UI. Automatic backup purge or owner-data restore is NOT authorized or implemented.
+
+**Unchanged gates:** `work/phase10-12-consolidated-20261007` only, PR #1 Draft/open/unmerged, immutable `main` `59120a630b0f56684ba7672d960673f5c5c1797b`. No owner Data accessed and no QA on owner's Windows yet. Phase 11/12 and full v0.11.0 remain **PARTIAL**. One consolidated future owner QA; no release, merge or new public-data conclusions. The approximate ~65% project figure is still only a historic provisional estimate. Await real Enel/CNE updates only if owner actually provides them.
