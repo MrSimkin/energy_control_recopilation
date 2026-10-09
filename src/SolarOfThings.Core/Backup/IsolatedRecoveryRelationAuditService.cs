@@ -379,7 +379,7 @@ public sealed class IsolatedRecoveryRelationAuditService
         cmd.CommandText = """
             SELECT COUNT(*) FROM utility_bill b
             JOIN utility_bill_document d ON d.document_id=b.source_document_id
-            WHERE d.content_sha256=$hash;
+            WHERE d.content_sha256=$hash COLLATE NOCASE;
             """;
         cmd.Parameters.AddWithValue("$hash", digest);
         return Convert.ToInt64(cmd.ExecuteScalar());
@@ -440,7 +440,7 @@ public sealed class IsolatedRecoveryRelationAuditService
     private static bool HasDocumentHash(SqliteConnection conn, string table, string hash)
     {
         using var command = conn.CreateCommand();
-        command.CommandText = $"SELECT 1 FROM {table} WHERE content_sha256=$hash LIMIT 1;";
+        command.CommandText = $"SELECT 1 FROM {table} WHERE content_sha256=$hash COLLATE NOCASE LIMIT 1;";
         command.Parameters.AddWithValue("$hash", hash);
         return command.ExecuteScalar() is not null;
     }

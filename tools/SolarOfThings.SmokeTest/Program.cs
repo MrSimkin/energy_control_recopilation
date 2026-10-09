@@ -6106,7 +6106,7 @@ try
             """;
         command.ExecuteNonQuery();
     }
-    var collisionPlan = planner.CreatePlan(isolatedBillZip.Path,
+    var periodCollisionPlan = planner.CreatePlan(isolatedBillZip.Path,
         collisionDatabase.DatabasePath);
     var collisionReview = mixedPreview.Audit(isolatedBillZip.Path,
         collisionDatabase.DatabasePath).Bills.Single();
@@ -6115,26 +6115,53 @@ try
         collisionReview.TargetHasOriginalDocument)
         throw new InvalidOperationException(
             "Same-period different-PDF invoice not disclosed as a conflict.");
-    var collisionBundle = bundleService.Stage(collisionPlan, isolatedBillZip.Path,
+    var periodCollisionBundle = bundleService.Stage(periodCollisionPlan, isolatedBillZip.Path,
         collisionDatabase.DatabasePath, selectedDocumentHashes: new[] { isolatedBillDigest });
     var collisionStageBefore = Directory.GetFiles(root,
         "recovery-linked-bills-staged-*.db").Length;
     var collisionRefused = false;
     try
     {
-        new IsolatedRecoveryLinkedBillGraphTestService().Stage(collisionPlan,
-            collisionBundle, isolatedBillZip.Path, collisionDatabase.DatabasePath);
+        new IsolatedRecoveryLinkedBillGraphTestService().Stage(periodCollisionPlan,
+            periodCollisionBundle, isolatedBillZip.Path, collisionDatabase.DatabasePath);
     }
     catch (InvalidDataException) { collisionRefused = true; }
     if (!collisionRefused ||
         Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length !=
             collisionStageBefore ||
         planner.CreatePlan(isolatedBillZip.Path, collisionDatabase.DatabasePath).PlanId !=
-            collisionPlan.PlanId)
+            periodCollisionPlan.PlanId)
         throw new InvalidOperationException(
             "Same-period synthetic import failed closed or changed its target.");
-    File.Delete(collisionBundle.Settings.StagedDatabasePath);
-    Directory.Delete(collisionBundle.Evidence.StageDirectory, recursive: true);
+    File.Delete(periodCollisionBundle.Settings.StagedDatabasePath);
+    Directory.Delete(periodCollisionBundle.Evidence.StageDirectory, recursive: true);
+
+    // Case differences in persisted SHA-256 text do not create new physical
+    // evidence: the old target record must now count as an existing PDF.
+    using (var connection = collisionDatabase.OpenConnection())
+    using (var command = connection.CreateCommand())
+    {
+        command.CommandText = """
+            INSERT INTO utility_bill_document(provider,original_file_name,
+                local_pdf_path,content_sha256,content_length,page_count,
+                parser_version,imported_utc)
+            VALUES('ENEL','same-hash-existing.pdf','synthetic-existing',
+                   $sha,1,1,'synthetic-test','2026-10-09T00:00:00Z');
+            UPDATE utility_bill SET source_document_id=(
+                SELECT document_id FROM utility_bill_document
+                WHERE content_sha256=$sha);
+            """;
+        command.Parameters.AddWithValue("$sha", isolatedBillDigest.ToUpperInvariant());
+        command.ExecuteNonQuery();
+    }
+    var caseInsensitiveReview = mixedPreview.Audit(isolatedBillZip.Path,
+        collisionDatabase.DatabasePath).Bills.Single();
+    if (caseInsensitiveReview.State != "DOCUMENT_ALREADY_IN_TARGET_REVIEW" ||
+        !caseInsensitiveReview.TargetHasOriginalDocument ||
+        caseInsensitiveReview.TargetBillsForDocument != 1 ||
+        caseInsensitiveReview.TargetSamePeriodBills != 1)
+        throw new InvalidOperationException(
+            "Upper/lowercase source SHA mismatch concealed an existing PDF/bill.");
 
     var isolatedBillPlan = planner.CreatePlan(isolatedBillZip.Path,
         isolatedTargetDb.DatabasePath);
