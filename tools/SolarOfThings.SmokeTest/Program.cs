@@ -5890,6 +5890,19 @@ try
             isolatedBillPlan.PlanId)
         throw new InvalidOperationException("Linked synthetic bill graph remapping failed.");
     var replayVerifier = new IsolatedRecoveryReplayAuditService();
+    var noOpReapply = new IsolatedRecoveryExactRepeatNoOpTestService();
+    var billBeforeReapply = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(importedLinkedGraph.StagedDatabasePath)));
+    var billNoOp = noOpReapply.ReapplyExistingBillGraph(
+        isolatedBillZip.Path, importedLinkedGraph);
+    if (billNoOp.Status != "ALREADY_APPLIED_EXACT_SYNTHETIC_NO_OP" ||
+        billNoOp.AddedRows != 0 || billNoOp.ModifiedRows != 0 ||
+        billNoOp.RealRestoreAuthorized || billNoOp.VerifiedGraphs != 1 ||
+        billNoOp.OriginalDatabaseSha256 != billBeforeReapply ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(importedLinkedGraph.StagedDatabasePath))) != billBeforeReapply)
+        throw new InvalidOperationException("Exact invoice graph repeat was not a genuine zero-write no-op.");
     var invoiceReplay = replayVerifier.InspectBills(isolatedBillZip.Path, importedLinkedGraph);
     if (invoiceReplay.RealRestoreAuthorized ||
         invoiceReplay.Status != "EXACT_SYNTHETIC_REPLAY_PREVIEW_ONLY" ||
@@ -6049,6 +6062,18 @@ try
             row.GetString(1) != "SMOKE-METER-END-2026" || row.Read())
             throw new InvalidOperationException("Exact staged bill lost verified reading references.");
     }
+    var reapplyMeters = noOpReapply.ReapplyExistingBillGraph(
+        exactReadingZip.Path, exactStage);
+    if (reapplyMeters.Status != "ALREADY_APPLIED_EXACT_SYNTHETIC_NO_OP" ||
+        reapplyMeters.AddedRows != 0 || reapplyMeters.VerifiedGraphs != 1)
+        throw new InvalidOperationException("Exact remapped meter graph cannot be re-applied safely.");
+    // Another valid ZIP for the same synthetic PDF does not certify identical
+    // bill/reading provenance. Source-package SHA binds the repeat decision.
+    var wrongSourceRejected = false;
+    try { noOpReapply.ReapplyExistingBillGraph(isolatedBillZip.Path, exactStage); }
+    catch (InvalidDataException) { wrongSourceRejected = true; }
+    if (!wrongSourceRejected)
+        throw new InvalidOperationException("Distinct source ZIP incorrectly identified as the prior recovery.");
     var meterReplay = replayVerifier.InspectBills(exactReadingZip.Path, exactStage);
     if (meterReplay.Status != "EXACT_SYNTHETIC_REPLAY_PREVIEW_ONLY" ||
         meterReplay.ExactGraphs != 1)
@@ -6328,6 +6353,12 @@ try
         if (Convert.ToInt64(cmd.ExecuteScalar()) != 1)
             throw new InvalidOperationException("Original target tariff page was overwritten.");
     }
+    var tariffNoOp = noOpReapply.ReapplyExistingTariffGraph(
+        tariffGraphZip.Path, tariffImported);
+    if (tariffNoOp.Status != "ALREADY_APPLIED_EXACT_SYNTHETIC_NO_OP" ||
+        tariffNoOp.AddedRows != 0 || tariffNoOp.ModifiedRows != 0 ||
+        tariffNoOp.VerifiedGraphs != 2 || tariffNoOp.RealRestoreAuthorized)
+        throw new InvalidOperationException("Same tariff graph was not recognized as safe zero-change repeat.");
     var exactTariffReplay = replayVerifier.InspectTariffs(tariffGraphZip.Path, tariffImported);
     if (exactTariffReplay.RealRestoreAuthorized ||
         exactTariffReplay.Status != "EXACT_SYNTHETIC_REPLAY_PREVIEW_ONLY" ||
@@ -6463,6 +6494,11 @@ try
     catch (InvalidDataException) { alteredTariffBlocked = true; }
     if (!alteredTariffBlocked)
         throw new InvalidOperationException("Changed staged tariff rate passed replay identity check.");
+    var changedRateReplayBlocked = false;
+    try { noOpReapply.ReapplyExistingTariffGraph(tariffGraphZip.Path, tariffImported); }
+    catch (InvalidDataException) { changedRateReplayBlocked = true; }
+    if (!changedRateReplayBlocked)
+        throw new InvalidOperationException("Changed tariff rate was treated as an identical no-op.");
     File.Delete(tariffImported.StagedDatabasePath);
     foreach (var bundled in new[] { tariffGraphBundle, incompleteTariffBundle, tariffConflictBundle })
     {
@@ -6775,8 +6811,7 @@ try
     // or offset drift must never contaminate the result navigation.
     var pageTwo = await explorer.PreviewPageAsync(sqlStatement, 200);
     if (pageTwo.Rows.Count != 17 || pageTwo.HasMore ||
-        pageTwo.Rows[0][0].Text != visible.Rows[^1][0].Text &&
-            string.CompareOrdinal(pageTwo.Rows[0][0].Text, visible.Rows[^1][0].Text) <= 0)
+        string.CompareOrdinal(pageTwo.Rows[0][0].Text, visible.Rows[^1][0].Text) <= 0)
         throw new InvalidOperationException("SQL preview page 2 offset/order or end-of-results failed.");
     var emptyPage = await explorer.PreviewPageAsync(sqlStatement, 400);
     if (emptyPage.Rows.Count != 0 || emptyPage.HasMore)

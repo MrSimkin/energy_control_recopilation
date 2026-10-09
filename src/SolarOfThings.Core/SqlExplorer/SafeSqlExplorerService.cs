@@ -83,7 +83,7 @@ public sealed class SafeSqlExplorerService
             }
             // Do not scan beyond the configured upper offset, and do not
             // read a potentially large extra cell merely to find next page.
-            var more = offset + rows.Count < MaxPreviewOffset &&
+            var more = offset + maxRows <= MaxPreviewOffset &&
                        rows.Count == maxRows && reader.Read();
             return new SqlPreviewResult(names, rows, more, watch.Elapsed);
         }, cancellationToken);
