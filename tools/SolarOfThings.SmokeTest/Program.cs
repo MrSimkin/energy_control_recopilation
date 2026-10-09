@@ -5354,6 +5354,35 @@ try
             "BLOCKED_UNSUPPORTED")
         throw new InvalidOperationException(
             "Synthetic plan double-counted shared bill evidence or tariff graph edges.");
+    // No diagnostic implies permission to import IDs, referenced PDFs,
+    // meter readings or bill/tariff graphs into any target.
+    var graphReadiness = IsolatedRecoveryReadinessReceiptService.Evaluate(
+        graphPlan, graphAudit);
+    if (!graphReadiness.SyntheticSettingsStageEligible ||
+        graphReadiness.RealOrRelationalImportAuthorized ||
+        graphReadiness.BlockedBillGroups != graphAudit.Bills.Count ||
+        graphReadiness.BlockedTariffGroups != graphAudit.Tariffs.Count ||
+        graphReadiness.UnlinkedBillDocumentsForReview !=
+            graphAudit.UnlinkedBillDocuments.Count ||
+        graphReadiness.BillGroupsWithMeterLinks != 1 ||
+        graphReadiness.OutgoingTariffRelationEdges != 3 ||
+        graphReadiness.UnresolvedTariffRelationEdges != 1)
+        throw new InvalidOperationException(
+            "Synthetic relational recovery diagnostic concealed blocking dependencies.");
+    var forgedReadiness = IsolatedRecoveryReadinessReceiptService.Evaluate(
+        graphPlan with { Steps = graphPlan.Steps.Select(step =>
+            step.Category == "TARIFF_RELATIONS"
+                ? step with { Status = "SYNTHETIC_STAGE_ONLY" } : step).ToArray() },
+        graphAudit);
+    var mismatchedSchemaReadiness = IsolatedRecoveryReadinessReceiptService.Evaluate(
+        graphPlan, graphAudit with { TargetSchemaVersion = -1 });
+    if (forgedReadiness.SyntheticSettingsStageEligible ||
+        mismatchedSchemaReadiness.SyntheticSettingsStageEligible ||
+        forgedReadiness.RealOrRelationalImportAuthorized ||
+        mismatchedSchemaReadiness.RealOrRelationalImportAuthorized)
+        throw new InvalidOperationException(
+            "Forged or mismatched synthetic relation plan appeared eligible.");
+
     var linkedBill = graphAudit.Bills.Single(b => b.SourceBillId == graphBillId);
     var linkedTariff = graphAudit.Tariffs.Single(t =>
         t.SourcePublicationId == graphPublicationId);
