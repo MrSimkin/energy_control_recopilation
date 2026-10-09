@@ -422,6 +422,36 @@ try
             throw new InvalidOperationException("Verified XLSX was not published properly.");
     }
     File.Delete(xlsxDestination);
+
+    // A ZIP can have valid directory entries but malformed OOXML payload.
+    // Reject it without replacing an existing user-selected workbook.
+    File.WriteAllText(xlsxDestination, "LAST ACCEPTED XLSX");
+    var malformedXmlStage =
+        ReportFilePublicationService.CreateStagingPath(xlsxDestination);
+    using (var syntheticWorkbook = new XLWorkbook())
+    {
+        syntheticWorkbook.AddWorksheet("Valid").Cell(1, 1).Value = 1;
+        syntheticWorkbook.SaveAs(malformedXmlStage);
+    }
+    using (var archive = ZipFile.Open(malformedXmlStage, ZipArchiveMode.Update))
+    {
+        var workbookEntry = archive.GetEntry("xl/workbook.xml")
+            ?? throw new InvalidOperationException("Fixture lacks workbook metadata.");
+        workbookEntry.Delete();
+        var bad = archive.CreateEntry("xl/workbook.xml");
+        using var stream = new StreamWriter(bad.Open());
+        stream.Write("<workbook><broken></workbook>");
+    }
+    var malformedMetadataBlocked = false;
+    try { ReportFilePublicationService.Publish(malformedXmlStage, xlsxDestination); }
+    catch (InvalidDataException) { malformedMetadataBlocked = true; }
+    if (!malformedMetadataBlocked ||
+        File.ReadAllText(xlsxDestination) != "LAST ACCEPTED XLSX")
+        throw new InvalidOperationException(
+            "Malformed OOXML workbook metadata replaced accepted output.");
+    ReportFilePublicationService.DiscardStaging(malformedXmlStage);
+    File.Delete(xlsxDestination);
+
     var invalidReportExtension = false;
     try { ReportFilePublicationService.CreateStagingPath(
         Path.Combine(root, "script.exe")); }
