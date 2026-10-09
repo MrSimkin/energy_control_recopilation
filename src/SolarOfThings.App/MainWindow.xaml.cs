@@ -7598,6 +7598,8 @@ public partial class MainWindow : Window
         _reportExportCancellation = cancellation;
         var cancellationToken = cancellation.Token;
         string? stagedPath = null;
+        var overallWatch = Stopwatch.StartNew();
+        var stageWatch = Stopwatch.StartNew();
         ReportExportCancelButton.IsEnabled = true;
         ReportExportExcelButton.IsEnabled = false;
         ReportExportPdfButton.IsEnabled = false;
@@ -7610,6 +7612,7 @@ public partial class MainWindow : Window
         ReportExportProgressLabel.Text =
             _localization.GetString("Reports.ExportPreparing");
         ReportStatusText.Text = string.Empty;
+        ReportExportTimingText.Text = string.Empty;
         SetGlobalOperation(
             true,
             _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
@@ -7624,6 +7627,9 @@ public partial class MainWindow : Window
             var report = await Task.Run(() => exporter.Build(request, cancellationToken),
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
+            var readElapsed = stageWatch.Elapsed;
+            _performance.Record("Data.Reports.Build", readElapsed);
+            stageWatch.Restart();
 
             ReportExportProgressLabel.Text =
                 _localization.GetString("Reports.ExportGenerating");
@@ -7643,6 +7649,10 @@ public partial class MainWindow : Window
             });
 
             cancellationToken.ThrowIfCancellationRequested();
+            var renderElapsed = stageWatch.Elapsed;
+            _performance.Record(format == "xlsx" ? "Data.Reports.ExcelRender" :
+                "Data.Reports.PdfRender", renderElapsed);
+            stageWatch.Restart();
             if (_windowClosed ||
                 !string.Equals(request.DeviceId, _profiles.Get()?.DeviceId,
                     StringComparison.Ordinal))
@@ -7650,6 +7660,12 @@ public partial class MainWindow : Window
                     _localization.GetString("Reports.ExportDeviceChanged"));
             ReportFilePublicationService.Publish(outputStage, dialog.FileName);
             stagedPath = null;
+            _performance.Record("Data.Reports.Publish", stageWatch.Elapsed);
+            _performance.Record("Data.Reports.Total", overallWatch.Elapsed);
+            ReportExportTimingText.Text = string.Format(
+                _localization.GetString("Reports.ExportTiming"),
+                readElapsed.TotalSeconds, renderElapsed.TotalSeconds,
+                overallWatch.Elapsed.TotalSeconds);
             ReportExportProgressBar.IsIndeterminate = false;
             ReportExportProgressBar.Value = 100;
             ReportExportProgressLabel.Text =
@@ -7663,6 +7679,10 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
+            _performance.Record("Data.Reports.CancelObserved", overallWatch.Elapsed);
+            ReportExportTimingText.Text = string.Format(
+                _localization.GetString("Reports.ExportCancelTiming"),
+                overallWatch.Elapsed.TotalSeconds);
             ReportExportProgressBar.IsIndeterminate = false;
             ReportExportProgressBar.Value = 0;
             ReportExportProgressLabel.Text =
@@ -7672,6 +7692,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            _performance.Record("Data.Reports.Failed", overallWatch.Elapsed);
+            ReportExportTimingText.Text = string.Format(
+                _localization.GetString("Reports.ExportFailedTiming"),
+                overallWatch.Elapsed.TotalSeconds);
             ReportExportProgressBar.IsIndeterminate = false;
             ReportExportProgressBar.Value = 0;
             ReportExportProgressLabel.Text =

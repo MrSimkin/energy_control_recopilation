@@ -580,6 +580,9 @@
     <sys:String x:Key="Reports.PreviewBattery">Batería</sys:String>
     <sys:String x:Key="Reports.InvalidRange">La fecha inicial es posterior a la final. Corrige el período antes de continuar.</sys:String>
     <sys:String x:Key="Reports.InvalidSelection">Selecciona un período válido con un equipo configurado antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.ExportTiming">Tiempos medidos en esta exportación: cálculo {0:N1} s · archivo {1:N1} s · total {2:N1} s. No son porcentajes ni una predicción.</sys:String>
+    <sys:String x:Key="Reports.ExportCancelTiming">La operación se detuvo tras {0:N1} s desde su inicio; la cancelación puede depender del paso en curso.</sys:String>
+    <sys:String x:Key="Reports.ExportFailedTiming">La operación terminó con error tras {0:N1} s. El destino anterior permanece protegido.</sys:String>
     <sys:String x:Key="Reports.ExportCancel">Cancelar exportación</sys:String>
     <sys:String x:Key="Reports.ExportCancelPending">Cancelación solicitada. El proceso puede terminar el paso actual antes de detenerse.</sys:String>
     <sys:String x:Key="Reports.ExportCancelled">Exportación cancelada</sys:String>

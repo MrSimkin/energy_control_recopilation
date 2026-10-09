@@ -580,6 +580,9 @@
     <sys:String x:Key="Reports.PreviewBattery">Battery</sys:String>
     <sys:String x:Key="Reports.InvalidRange">The start date is later than the end date. Correct the range before continuing.</sys:String>
     <sys:String x:Key="Reports.InvalidSelection">Select a valid date range and configured device before exporting.</sys:String>
+    <sys:String x:Key="Reports.ExportTiming">Measured this run: data {0:N1}s · file {1:N1}s · total {2:N1}s. These are not progress percentages or a forecast.</sys:String>
+    <sys:String x:Key="Reports.ExportCancelTiming">Operation stopped {0:N1}s after it began; cancellation latency depends on the current step.</sys:String>
+    <sys:String x:Key="Reports.ExportFailedTiming">Operation failed after {0:N1}s. Any existing destination remains protected.</sys:String>
     <sys:String x:Key="Reports.ExportCancel">Cancel export</sys:String>
     <sys:String x:Key="Reports.ExportCancelPending">Cancellation requested. The current operation may finish before stopping.</sys:String>
     <sys:String x:Key="Reports.ExportCancelled">Export cancelled</sys:String>

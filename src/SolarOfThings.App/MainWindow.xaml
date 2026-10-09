@@ -2780,6 +2780,10 @@
                                                                              Maximum="100"
                                                                              Value="0"
                                                                              Visibility="Collapsed"/>
+                                                                <TextBlock x:Name="ReportExportTimingText"
+                                                                           FontSize="12"
+                                                                           Foreground="#6C757D"
+                                                                           TextWrapping="Wrap" Margin="0,6,0,0"/>
                                                                 <TextBlock x:Name="ReportStatusText"
                                                                            FontSize="12"
                                                                            Foreground="#6C757D"

@@ -2247,6 +2247,18 @@ try
         }
     }
 
+    // Operational timings must stay short, bounded and free of sensitive
+    // payloads. Report timing categories have only constant event names.
+    var reportTimer = new UiPerformanceRecorder();
+    reportTimer.Record("Data.Reports.Build", TimeSpan.FromMilliseconds(123));
+    reportTimer.Record("Data.Reports.PdfRender", TimeSpan.FromMilliseconds(456));
+    reportTimer.Record("Data.Reports.Publish", TimeSpan.FromMilliseconds(3));
+    var reportTimingSamples = reportTimer.Snapshot();
+    if (reportTimingSamples.Count != 3 ||
+        reportTimer.Summaries().Any(x => x.Samples != 1) ||
+        reportTimingSamples.Any(x => !x.Operation.StartsWith("Data.Reports.", StringComparison.Ordinal)))
+        throw new InvalidOperationException("Report performance instrumentation regressed.");
+
     var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
     reportExporter.ExportExcel(xlsxPath, reportData);
 
