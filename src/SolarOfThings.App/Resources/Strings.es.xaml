@@ -571,6 +571,8 @@
     <sys:String x:Key="Page.Data.Title">Datos recopilados</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">La sincronización histórica local ya está activa mediante “Actualizar datos”. El análisis se construirá sobre este corpus validado.</sys:String>
+    <sys:String x:Key="Data.CoverageLoading">Cargando cobertura del historial guardado…</sys:String>
+    <sys:String x:Key="Data.CoverageLoadFailed">No se pudo cargar la cobertura. Los accesos al historial permanecen deshabilitados hasta actualizar los datos.</sys:String>
     <sys:String x:Key="Data.CoverageAnalyze">Analizar historial guardado</sys:String>
     <sys:String x:Key="Data.CoverageReport">Preparar informe del historial</sys:String>
     <sys:String x:Key="Data.CoverageActionsHint">Estos accesos se habilitan al encontrar muestras guardadas. No implican días completos ni generan archivos automáticamente.</sys:String>

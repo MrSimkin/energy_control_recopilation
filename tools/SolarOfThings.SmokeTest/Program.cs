@@ -183,6 +183,15 @@ try
     if (!rowWindowRejected)
         throw new InvalidOperationException("Invalid report row interval was accepted.");
 
+    // Coverage must never paint a stale or different-device result after
+    // navigating away, changing the current profile or starting a newer fetch.
+    if (!DataCoverageRefreshPolicy.CanApply(4, 4, true, "A", "A") ||
+        DataCoverageRefreshPolicy.CanApply(3, 4, true, "A", "A") ||
+        DataCoverageRefreshPolicy.CanApply(4, 4, false, "A", "A") ||
+        DataCoverageRefreshPolicy.CanApply(4, 4, true, "A", "B") ||
+        DataCoverageRefreshPolicy.CanApply(4, 4, true, null, "A"))
+        throw new InvalidOperationException("Data coverage stale-result policy regressed.");
+
     // Data coverage context uses actual UTC sample bounds and the station's
     // local civil dates, not the runner's timezone or today's date.
     var firstCoverage = DateTimeOffset.Parse("2026-10-08T02:30:00Z",

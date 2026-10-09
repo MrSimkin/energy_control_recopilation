@@ -73,6 +73,7 @@ public partial class MainWindow : Window
     private int _analysisRenderedGeneration = -1;
     private int _dashboardRefreshGeneration;
     private bool _dashboardDataLoading;
+    private int _dataCoverageRefreshGeneration;
     private bool _windowClosed;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
@@ -2225,6 +2226,7 @@ public partial class MainWindow : Window
             _analysisRenderedThresholds = null;
         }
         if (!isBattery) _batteryRefreshGeneration++;
+        if (!isData) _dataCoverageRefreshGeneration++; // Discard stale coverage reads.
         if (!isDashboard)
             _dashboardRefreshGeneration++; // Discard in-flight Dashboard results.
         if (isDashboard)
@@ -9062,143 +9064,178 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private void RefreshDataCoverageView()
+    private sealed record DataCoverageSnapshot(
+        DateTimeOffset? FirstSampleAtUtc,
+        DateTimeOffset? LastSampleAtUtc,
+        string ReviewedDays,
+        string IssueDays,
+        string EmptyDays,
+        string PartialDays,
+        string UnavailableDays,
+        string SavedReadings,
+        string ReadyReadings,
+        string InstallationDate,
+        string NextDownloadDate,
+        string? HealthStatus,
+        string HealthConfirmed,
+        string HealthDrift,
+        string HealthUnresolved);
+
+    // Data queries can be expensive on multi-GB SQLite histories. Only the
+    // current visible page and matching device may receive an async result.
+    private async void RefreshDataCoverageView()
     {
         using var measure = _performance.Measure("UI.DataCoverage.Refresh");
-        if (!IsInitialized || DataContent is null)
-        {
+        if (!IsInitialized || DataContent is null || _windowClosed ||
+            DataContent.Visibility != Visibility.Visible)
             return;
-        }
 
+        var generation = ++_dataCoverageRefreshGeneration;
         _dataCoverageContext = null;
         DataCoverageAnalyzeButton.IsEnabled = false;
         DataCoverageReportButton.IsEnabled = false;
-
+        var none = _localization.GetString("Data.None");
         var profile = _profiles.Get();
+
+        DataStoredFromText.Text = none;
+        DataStoredToText.Text = none;
+        DataInstallationDateText.Text = none;
+        DataNextDownloadText.Text = none;
+        DataReviewedDaysText.Text = "—";
+        DataIssueDaysText.Text = "—";
+        DataEmptyDaysText.Text = "—";
+        DataPartialDaysText.Text = "—";
+        DataUnavailableDaysText.Text = "—";
+        DataSavedReadingsText.Text = "—";
+        DataReadyReadingsText.Text = "—";
+        ConfigurationHealthText.SetResourceReference(
+            TextBlock.TextProperty, "Data.ConfigurationUnresolved");
+        ConfigurationHealthDetailText.Text = string.Empty;
+        ConfigurationHealthText.Foreground = Brushes.Gray;
+
         if (profile is null)
         {
-            var none = _localization.GetString("Data.None");
-            DataStoredFromText.Text = none;
-            DataStoredToText.Text = none;
-            DataReviewedDaysText.Text = "0";
-            DataIssueDaysText.Text = "0";
-            DataInstallationDateText.Text = none;
-            DataNextDownloadText.Text = none;
-            DataEmptyDaysText.Text = "0";
-            DataPartialDaysText.Text = "0";
-            DataUnavailableDaysText.Text = "0";
-            DataSavedReadingsText.Text = "0";
-            DataReadyReadingsText.Text = "0";
-            ConfigurationHealthText.SetResourceReference(
-                TextBlock.TextProperty,
-                "Data.ConfigurationUnresolved");
-            ConfigurationHealthDetailText.Text = string.Empty;
-            ConfigurationHealthText.Foreground = Brushes.Gray;
+            DataCoverageStatusText.Text = none;
             return;
         }
 
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var normalized = _services.GetRequiredService<NormalizationRepository>();
-        var ingestion = _services.GetRequiredService<HistoryIngestionService>();
-        var coverage = MeasureDataCall(
-            "Data.Coverage.Summary",
-            () => history.GetCoverageSummary(profile.DeviceId));
-
+        var deviceId = profile.DeviceId;
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
             : profile.StationTimeZone;
-
-        if (coverage.FirstSampleAtUtc is { } firstStored &&
-            coverage.LastSampleAtUtc is { } lastStored &&
-            firstStored <= lastStored)
+        DataCoverageStatusText.Text = _localization.GetString("Data.CoverageLoading");
+        try
         {
-            _dataCoverageContext = (profile.DeviceId,
-                ReportContextNavigationPolicy.FromStoredCoverage(
-                    firstStored, lastStored, timeZone, ReportKind.DetailedEnergy));
-            DataCoverageAnalyzeButton.IsEnabled = true;
-            DataCoverageReportButton.IsEnabled = true;
-        }
-
-        DataStoredFromText.Text = coverage.FirstSampleAtUtc.HasValue
-            ? SolarApiTime.GetLocalDate(
-                coverage.FirstSampleAtUtc.Value,
-                timeZone).ToString("dd-MM-yyyy")
-            : _localization.GetString("Data.None");
-
-        DataStoredToText.Text = coverage.LastSampleAtUtc.HasValue
-            ? SolarApiTime.GetLocalDate(
-                coverage.LastSampleAtUtc.Value,
-                timeZone).ToString("dd-MM-yyyy")
-            : _localization.GetString("Data.None");
-
-        var reviewedDays =
-            coverage.CompleteDays +
-            coverage.EmptyDays +
-            coverage.OpenDays;
-
-        var issueDays =
-            coverage.PartialDays +
-            coverage.UnavailableDays;
-
-        DataReviewedDaysText.Text = reviewedDays.ToString("N0");
-        DataIssueDaysText.Text = issueDays.ToString("N0");
-
-        var installationDate = ingestion.GetInstallationDate(profile);
-        DataInstallationDateText.Text = installationDate.HasValue
-            ? installationDate.Value.ToString("dd-MM-yyyy")
-            : _localization.GetString("Data.None");
-
-        DataNextDownloadText.Text =
-            ingestion.GetSuggestedAutomaticStartDate(profile)
-                .ToString("dd-MM-yyyy");
-
-        DataEmptyDaysText.Text = coverage.EmptyDays.ToString("N0");
-        DataPartialDaysText.Text = coverage.PartialDays.ToString("N0");
-        DataUnavailableDaysText.Text = coverage.UnavailableDays.ToString("N0");
-        DataSavedReadingsText.Text = coverage.RawSampleCount.ToString("N0");
-        DataReadyReadingsText.Text =
-            MeasureDataCall("Data.Coverage.NormalizedCount",
-                () => normalized.GetNormalizedSampleCount(profile.DeviceId)).ToString("N0");
-
-        var healthRepository =
-            _services.GetRequiredService<InstallationHealthRepository>();
-        var health = MeasureDataCall(
-            "Data.Coverage.Health",
-            () => healthRepository.GetSummary(profile.DeviceId));
-
-        if (health is null)
-        {
-            ConfigurationHealthText.SetResourceReference(
-                TextBlock.TextProperty,
-                "Data.ConfigurationUnresolved");
-            ConfigurationHealthDetailText.Text = string.Empty;
-            ConfigurationHealthText.Foreground = Brushes.Gray;
-        }
-        else
-        {
-            var resourceKey = health.OverallStatus switch
+            var result = await Task.Run(() =>
             {
-                "CONFIG_CONFIRMED" => "Data.ConfigurationConfirmed",
-                "CONFIG_DRIFT" => "Data.ConfigurationDrift",
-                _ => "Data.ConfigurationUnresolved"
-            };
+                var history = _services.GetRequiredService<HistoryRepository>();
+                var normalized = _services.GetRequiredService<NormalizationRepository>();
+                var ingestion = _services.GetRequiredService<HistoryIngestionService>();
+                var coverage = MeasureDataCall(
+                    "Data.Coverage.Summary",
+                    () => history.GetCoverageSummary(deviceId));
+                var ready = MeasureDataCall(
+                    "Data.Coverage.NormalizedCount",
+                    () => normalized.GetNormalizedSampleCount(deviceId));
+                var installation = ingestion.GetInstallationDate(profile);
+                var nextDownload = ingestion.GetSuggestedAutomaticStartDate(profile);
+                var healthRepository =
+                    _services.GetRequiredService<InstallationHealthRepository>();
+                var health = MeasureDataCall(
+                    "Data.Coverage.Health",
+                    () => healthRepository.GetSummary(deviceId));
 
-            ConfigurationHealthText.SetResourceReference(
-                TextBlock.TextProperty,
-                resourceKey);
+                return new DataCoverageSnapshot(
+                    coverage.FirstSampleAtUtc,
+                    coverage.LastSampleAtUtc,
+                    (coverage.CompleteDays + coverage.EmptyDays + coverage.OpenDays)
+                        .ToString("N0"),
+                    (coverage.PartialDays + coverage.UnavailableDays).ToString("N0"),
+                    coverage.EmptyDays.ToString("N0"),
+                    coverage.PartialDays.ToString("N0"),
+                    coverage.UnavailableDays.ToString("N0"),
+                    coverage.RawSampleCount.ToString("N0"),
+                    ready.ToString("N0"),
+                    installation?.ToString("dd-MM-yyyy") ?? string.Empty,
+                    nextDownload.ToString("dd-MM-yyyy"),
+                    health?.OverallStatus,
+                    health?.ConfirmedCount.ToString() ?? "0",
+                    health?.DriftCount.ToString() ?? "0",
+                    health?.UnresolvedCount.ToString() ?? "0");
+            });
 
-            ConfigurationHealthText.Foreground = health.OverallStatus switch
+            if (!DataCoverageRefreshPolicy.CanApply(
+                    generation, _dataCoverageRefreshGeneration,
+                    DataContent.Visibility == Visibility.Visible && !_windowClosed,
+                    deviceId, _profiles.Get()?.DeviceId))
+                return;
+
+            DataStoredFromText.Text = result.FirstSampleAtUtc.HasValue
+                ? SolarApiTime.GetLocalDate(result.FirstSampleAtUtc.Value, timeZone)
+                    .ToString("dd-MM-yyyy") : none;
+            DataStoredToText.Text = result.LastSampleAtUtc.HasValue
+                ? SolarApiTime.GetLocalDate(result.LastSampleAtUtc.Value, timeZone)
+                    .ToString("dd-MM-yyyy") : none;
+            DataInstallationDateText.Text = string.IsNullOrEmpty(result.InstallationDate)
+                ? none : result.InstallationDate;
+            DataNextDownloadText.Text = result.NextDownloadDate;
+            DataReviewedDaysText.Text = result.ReviewedDays;
+            DataIssueDaysText.Text = result.IssueDays;
+            DataEmptyDaysText.Text = result.EmptyDays;
+            DataPartialDaysText.Text = result.PartialDays;
+            DataUnavailableDaysText.Text = result.UnavailableDays;
+            DataSavedReadingsText.Text = result.SavedReadings;
+            DataReadyReadingsText.Text = result.ReadyReadings;
+            if (result.HealthStatus is null)
             {
-                "CONFIG_CONFIRMED" => Brushes.Green,
-                "CONFIG_DRIFT" => Brushes.DarkOrange,
-                _ => Brushes.Gray
-            };
+                ConfigurationHealthText.SetResourceReference(
+                    TextBlock.TextProperty, "Data.ConfigurationUnresolved");
+            }
+            else
+            {
+                ConfigurationHealthText.SetResourceReference(
+                    TextBlock.TextProperty, result.HealthStatus switch
+                    {
+                        "CONFIG_CONFIRMED" => "Data.ConfigurationConfirmed",
+                        "CONFIG_DRIFT" => "Data.ConfigurationDrift",
+                        _ => "Data.ConfigurationUnresolved"
+                    });
+                ConfigurationHealthText.Foreground = result.HealthStatus switch
+                {
+                    "CONFIG_CONFIRMED" => Brushes.Green,
+                    "CONFIG_DRIFT" => Brushes.DarkOrange,
+                    _ => Brushes.Gray
+                };
+                ConfigurationHealthDetailText.Text = string.Format(
+                    _localization.GetString("Data.ConfigurationDetail"),
+                    result.HealthConfirmed, result.HealthDrift, result.HealthUnresolved);
+            }
 
-            ConfigurationHealthDetailText.Text = string.Format(
-                _localization.GetString("Data.ConfigurationDetail"),
-                health.ConfirmedCount,
-                health.DriftCount,
-                health.UnresolvedCount);
+            if (result.FirstSampleAtUtc is { } firstStored &&
+                result.LastSampleAtUtc is { } lastStored &&
+                firstStored <= lastStored)
+            {
+                _dataCoverageContext = (deviceId,
+                    ReportContextNavigationPolicy.FromStoredCoverage(
+                        firstStored, lastStored, timeZone, ReportKind.DetailedEnergy));
+                DataCoverageAnalyzeButton.IsEnabled = true;
+                DataCoverageReportButton.IsEnabled = true;
+            }
+            DataCoverageStatusText.Text = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            if (!DataCoverageRefreshPolicy.CanApply(
+                    generation, _dataCoverageRefreshGeneration,
+                    DataContent.Visibility == Visibility.Visible && !_windowClosed,
+                    deviceId, _profiles.Get()?.DeviceId))
+                return;
+            _dataCoverageContext = null;
+            DataCoverageAnalyzeButton.IsEnabled = false;
+            DataCoverageReportButton.IsEnabled = false;
+            DataCoverageStatusText.Text =
+                _localization.GetString("Data.CoverageLoadFailed");
+            Debug.WriteLine($"Data coverage failed ({ex.GetType().Name}).");
         }
     }
 

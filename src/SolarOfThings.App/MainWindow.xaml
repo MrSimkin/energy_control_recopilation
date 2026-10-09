@@ -2436,6 +2436,8 @@
                                     <TextBlock Text="{DynamicResource Data.CoverageActionsHint}"
                                                Foreground="#6C757D" FontSize="12"
                                                TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="DataCoverageStatusText" Foreground="#6C757D"
+                                               FontSize="12" Margin="0,5,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
 
                                 <Border Style="{StaticResource CardStyle}" Margin="0">

@@ -571,6 +571,8 @@
     <sys:String x:Key="Page.Data.Title">Collected data</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Local data, synchronization and historical coverage</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">Local historical synchronization is now active through Update Data. Analysis will be built on this validated corpus.</sys:String>
+    <sys:String x:Key="Data.CoverageLoading">Loading saved-history coverage…</sys:String>
+    <sys:String x:Key="Data.CoverageLoadFailed">Coverage could not be loaded. History actions remain disabled until the data is refreshed.</sys:String>
     <sys:String x:Key="Data.CoverageAnalyze">Analyze saved history</sys:String>
     <sys:String x:Key="Data.CoverageReport">Prepare saved-history report</sys:String>
     <sys:String x:Key="Data.CoverageActionsHint">These actions become available when stored samples exist. They do not imply complete days or automatically create files.</sys:String>
