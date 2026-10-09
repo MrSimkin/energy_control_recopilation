@@ -4678,6 +4678,23 @@ try
                    '100 CLP','smoke-v1','UNREVIEWED','2026-10-08T00:00:00Z');
             """;
         cmd.ExecuteNonQuery();
+        cmd.CommandText = """
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,capture_status,updated_utc)
+            VALUES('ENEL','REGULATED','Incoming synthetic correction',
+                   'smoke://incoming-source-2026','DISCOVERED','2026-10-08T00:00:00Z');
+            INSERT INTO tariff_publication_relation(
+                source_publication_id,relation_type,target_provider,target_category,
+                target_official_document_number,target_publication_id,
+                evidence_text,created_utc,updated_utc)
+            VALUES(
+                (SELECT publication_id FROM tariff_publication
+                  WHERE source_url='smoke://incoming-source-2026'),
+                'CORRECTS','ENEL','REGULATED','SYNTHETIC-2026',
+                $publicationId,'Synthetic incoming correction',
+                '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
     }
     var graphZip = new FullBackupService(graphDb, graphPaths)
         .Create("0.11.0-test", "synthetic", "linked-graph");
@@ -4695,6 +4712,7 @@ try
         !linkedBill.HasFromReading || linkedBill.OriginalDocumentSha256 != billHash ||
         linkedTariff.State != "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED" ||
         linkedTariff.RateCandidates != 1 || linkedTariff.SourceTextPages != 1 ||
+        linkedTariff.IncomingRelations != 1 ||
         linkedBill.TargetHasOriginalDocument)
         throw new InvalidOperationException("Linked source graph dependency audit failed.");
 

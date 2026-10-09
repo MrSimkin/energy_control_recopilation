@@ -189,7 +189,9 @@ public sealed class IsolatedRecoveryRelationAuditService
                      WHERE x.source_publication_id=p.publication_id
                        AND x.target_publication_id IS NOT NULL
                        AND NOT EXISTS (SELECT 1 FROM tariff_publication y
-                         WHERE y.publication_id=x.target_publication_id))
+                         WHERE y.publication_id=x.target_publication_id)),
+                   (SELECT COUNT(*) FROM tariff_publication_relation x
+                     WHERE x.target_publication_id=p.publication_id)
               FROM tariff_publication p
              ORDER BY p.publication_id LIMIT $limit;
             """;
@@ -208,6 +210,9 @@ public sealed class IsolatedRecoveryRelationAuditService
             var candidates = rows.GetInt64(6);
             var relations = rows.GetInt64(7);
             var brokenRelations = rows.GetInt64(8);
+            // Corrections can refer TO this publication from another source;
+            // outbound-only checks miss a necessary graph dependency.
+            var incomingRelations = rows.GetInt64(9);
 
             string status, explanation;
             if (brokenRelations > 0)
@@ -241,10 +246,10 @@ public sealed class IsolatedRecoveryRelationAuditService
                     explanation = "Source URL already exists in target but document evidence is incomplete.";
                 }
             }
-            else if (candidates > 0 || relations > 0)
+            else if (candidates > 0 || relations > 0 || incomingRelations > 0)
             {
                 status = "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED";
-                explanation = "Rate candidates or linked corrections use local publication IDs and need graph remapping.";
+                explanation = "Rate candidates or incoming/outgoing correction links use local publication IDs and need graph remapping.";
             }
             else
             {
@@ -252,7 +257,10 @@ public sealed class IsolatedRecoveryRelationAuditService
                 explanation = "No matching source URL; only a preview, not permission to import.";
             }
             result.Add(new TariffGraphPreview(id, sourceUrl, sha,
-                pages, candidates, relations, captureStatus, status, explanation));
+                pages, candidates, relations, captureStatus, status, explanation)
+            {
+                IncomingRelations = incomingRelations
+            });
         }
         return result;
     }
@@ -320,7 +328,10 @@ public sealed record BillGraphPreview(long SourceBillId, string? OriginalDocumen
 
 public sealed record TariffGraphPreview(long SourcePublicationId, string SourceUrl,
     string? OriginalPdfSha256, long SourceTextPages, long RateCandidates,
-    long PublicationRelations, string CaptureStatus, string State, string Explanation);
+    long PublicationRelations, string CaptureStatus, string State, string Explanation)
+{
+    public long IncomingRelations { get; init; }
+}
 
 public sealed record RecoveryRelationAudit(string Status, int SourceSchemaVersion,
     int TargetSchemaVersion, IReadOnlyList<BillGraphPreview> Bills,
