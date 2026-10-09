@@ -2955,6 +2955,20 @@
                                 <DockPanel>
                                     <TextBlock x:Name="SqlExplorerResultTitle" DockPanel.Dock="Top" Margin="8"
                                                Text="{DynamicResource SqlExplorer.ResultsHeading}"/>
+                                    <WrapPanel DockPanel.Dock="Top" Margin="8,0,8,8">
+                                        <Button x:Name="SqlPreviousPageButton" Content="◀"
+                                                ToolTip="Página anterior / Previous page"
+                                                IsEnabled="False" Click="SqlExplorerPreviousPage_Click"
+                                                Padding="12,5" Margin="0,0,8,0"/>
+                                        <Button x:Name="SqlNextPageButton" Content="▶"
+                                                ToolTip="Página siguiente / Next page"
+                                                IsEnabled="False" Click="SqlExplorerNextPage_Click"
+                                                Padding="12,5" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="SqlExplorerPageText"
+                                                   Text="Página 1 / Page 1"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#455A64"/>
+                                    </WrapPanel>
                                     <DataGrid x:Name="SqlExplorerResultGrid" AutoGenerateColumns="True"
                                               IsReadOnly="True" EnableRowVirtualization="True"
                                               EnableColumnVirtualization="True"

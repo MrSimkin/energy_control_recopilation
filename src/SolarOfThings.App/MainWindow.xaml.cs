@@ -8251,6 +8251,9 @@ public partial class MainWindow : Window
 
     private CancellationTokenSource? _sqlRunning;
     private bool _sqlExplorerBusy;
+    private string? _sqlLastPreviewSql;
+    private int _sqlPreviewOffset;
+    private bool _sqlPreviewHasMore;
     private const string SqlExecuteShortcutKey = "sql.explorer.shortcut.execute";
     private const string SqlCsvShortcutKey = "sql.explorer.shortcut.csv";
     private const string SqlExcelShortcutKey = "sql.explorer.shortcut.xlsx";
@@ -8368,6 +8371,10 @@ public partial class MainWindow : Window
         SqlExportCsvButton.IsEnabled = !busy;
         SqlExportXlsxButton.IsEnabled = !busy;
         SqlSchemaRefreshButton.IsEnabled = !busy;
+        SqlPreviousPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
+            _sqlPreviewOffset > 0 && SqlStatementEditor.Text == _sqlLastPreviewSql;
+        SqlNextPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
+            _sqlPreviewHasMore && SqlStatementEditor.Text == _sqlLastPreviewSql;
         SqlCancelButton.IsEnabled = busy;
     }
 
@@ -8496,10 +8503,24 @@ public partial class MainWindow : Window
     private async void SqlExplorerExecute_Click(object sender, RoutedEventArgs e) =>
         await ExecuteSqlExplorerAsync();
 
-    private async Task ExecuteSqlExplorerAsync()
+    private async void SqlExplorerPreviousPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sqlLastPreviewSql is not null && _sqlPreviewOffset >= SafeSqlExplorerService.PreviewLimit)
+            await ExecuteSqlExplorerAsync(_sqlPreviewOffset - SafeSqlExplorerService.PreviewLimit);
+    }
+
+    private async void SqlExplorerNextPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sqlLastPreviewSql is not null && _sqlPreviewHasMore)
+            await ExecuteSqlExplorerAsync(_sqlPreviewOffset + SafeSqlExplorerService.PreviewLimit);
+    }
+
+    private async Task ExecuteSqlExplorerAsync(int requestedOffset = 0)
     {
         if (_sqlExplorerBusy) return;
         var sql = SqlStatementEditor.Text;
+        if (!string.Equals(sql, _sqlLastPreviewSql, StringComparison.Ordinal))
+            requestedOffset = 0;
         SetSqlExplorerBusy(true);
         using var cancellation = new CancellationTokenSource();
         _sqlRunning = cancellation;
@@ -8510,8 +8531,8 @@ public partial class MainWindow : Window
         SqlExplorerPerformanceText.Text = "";
         try
         {
-            var result = await CreateSqlExplorer().PreviewAsync(sql,
-                cancellationToken: cancellation.Token);
+            var result = await CreateSqlExplorer().PreviewPageAsync(sql,
+                requestedOffset, cancellationToken: cancellation.Token);
             var table = new DataTable();
             foreach (var (label, index) in result.Columns.Select((label, index) => (label, index)))
             {
@@ -8524,11 +8545,21 @@ public partial class MainWindow : Window
                 table.Rows.Add(values.Select(cell =>
                     cell.IsNull ? (object)DBNull.Value : cell.Text ?? "").ToArray());
             SqlExplorerResultGrid.ItemsSource = table.DefaultView;
+            _sqlLastPreviewSql = sql;
+            _sqlPreviewOffset = requestedOffset;
+            _sqlPreviewHasMore = result.HasMore;
+            var firstDisplayedRow = result.Rows.Count == 0 ? 0 : requestedOffset + 1;
+            var lastDisplayedRow = requestedOffset + result.Rows.Count;
+            SqlExplorerPageText.Text = SqlExplorerSpanish
+                ? $"Filas {firstDisplayedRow:N0}–{lastDisplayedRow:N0}" +
+                  (result.HasMore ? " · hay otra página" : " · fin de resultados")
+                : $"Rows {firstDisplayedRow:N0}–{lastDisplayedRow:N0}" +
+                  (result.HasMore ? " · next page available" : " · end of results");
             SqlExplorerResultTitle.Text = SqlExplorerSpanish
-                ? $"Vista previa: {result.Rows.Count} filas" +
-                  (result.HasMore ? " (hay más; exportar para obtener todas)" : "")
-                : $"Preview: {result.Rows.Count} rows" +
-                  (result.HasMore ? " (more rows available; export for all)" : "");
+                ? $"Vista previa: página {requestedOffset / SafeSqlExplorerService.PreviewLimit + 1}" +
+                  (result.HasMore ? " (otras páginas disponibles)" : "")
+                : $"Preview: page {requestedOffset / SafeSqlExplorerService.PreviewLimit + 1}" +
+                  (result.HasMore ? " (more pages available)" : "");
             SqlExplorerStatusText.Text = SqlExplorerSpanish
                 ? "Consulta completada. Base de datos sin modificaciones."
                 : "Query completed. Database unchanged.";
@@ -8658,8 +8689,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SqlExplorerEditorTextChanged(object? sender, EventArgs e) =>
+    private void SqlExplorerEditorTextChanged(object? sender, EventArgs e)
+    {
+        // Old next/previous controls can never run a changed SQL statement
+        // using an offset from the previous query.
+        if (_sqlLastPreviewSql is not null &&
+            !string.Equals(SqlStatementEditor.Text, _sqlLastPreviewSql, StringComparison.Ordinal))
+        {
+            _sqlLastPreviewSql = null;
+            _sqlPreviewOffset = 0;
+            _sqlPreviewHasMore = false;
+            SqlPreviousPageButton.IsEnabled = false;
+            SqlNextPageButton.IsEnabled = false;
+            SqlExplorerPageText.Text = SqlExplorerSpanish
+                ? "Consulta modificada; ejecutar para reiniciar páginas."
+                : "Query edited; execute to reset paging.";
+        }
         UpdateSqlExplorerCaretStatus();
+    }
 
     private void UpdateSqlExplorerCaretStatus()
     {
