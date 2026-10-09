@@ -119,6 +119,8 @@ public sealed class CompleteBackupInventoryService
         var full = Path.GetFullPath(selected.Path);
         if (!string.Equals(Path.GetDirectoryName(full), root,
                 StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(Path.GetFileName(full), selected.Name,
+                StringComparison.OrdinalIgnoreCase) ||
             !IsRecognizedCompleteFile(Path.GetFileName(full)) ||
             (File.Exists(full) && (File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0) ||
             (Directory.Exists(root) && (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0))

@@ -934,6 +934,18 @@ try
         c.Kind == "COMPLETE" && c.Location == "SECONDARY");
     if (inventory.Verify(secondaryPhysical, syntheticSecondary).IntegrityStatus != "PASS")
         throw new InvalidOperationException("Secondary copy integrity verification failed.");
+    // No one may pair one backup path with a different display name and
+    // obtain a successful verification or authorize that misleading selection.
+    var misleadingSelection = secondaryPhysical with
+    {
+        Name = "SolarEnergyMonitor-complete-other.zip"
+    };
+    var misleadingVerifyBlocked = false;
+    try { inventory.Verify(misleadingSelection, syntheticSecondary); }
+    catch (InvalidOperationException) { misleadingVerifyBlocked = true; }
+    if (!misleadingVerifyBlocked)
+        throw new InvalidOperationException(
+            "Inventory allowed a backup path/name identity mismatch.");
 
     // A user selection from an obsolete inventory cannot delete a changed ZIP.
     // No owner backups are used: only the two temporary synthetic copies.
