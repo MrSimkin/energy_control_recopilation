@@ -612,6 +612,12 @@
     <sys:String x:Key="Settings.ForgetCredentials">Sign out and forget session</sys:String>
     <sys:String x:Key="Settings.PasswordPrivacy">For security, a remembered password is never refilled or displayed in the password field.</sys:String>
 
+    <sys:String x:Key="Dashboard.InspectCoverage">Inspect coverage</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidenceUnknown">Not enough measurements yet to assess the last saved day.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.NO_SAMPLES">Not enough solar, home or grid data; missing energy is not assumed to be zero.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.MISSING_STREAMS">Incomplete day: only {0} of 3 measurements have enough data; {1} missing. Coverage percentage applies only to available streams.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.LOW_COVERAGE">Limited last-day coverage: all 3 streams exist, but some periods have no readings.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.ADEQUATE">3 of 3 streams available; coverage refers to the last saved day, not necessarily today.</sys:String>
     <sys:String x:Key="Dashboard.Overview">Current household state</sys:String>
     <sys:String x:Key="Dashboard.FreshnessRecent">Recent reading: {0}</sys:String>
     <sys:String x:Key="Dashboard.FreshnessStale">Note: the latest saved reading is from {0}. It may not represent the current state.</sys:String>
