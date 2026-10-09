@@ -304,7 +304,8 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                 ReusedMeterReadings = reusedReadings,
                 ReadingIdMap = readingMaps
                     .Select(x => new SyntheticReadingIdMap(x.Key, x.Value,
-                        !readingPlans[x.Key].IdenticalTargetId.HasValue)).ToArray()
+                        !readingPlans[x.Key].IdenticalTargetId.HasValue)).ToArray(),
+                SourcePackageSha256 = approvedPlan.SourcePackageSha256
             };
         }
         finally
@@ -533,4 +534,5 @@ public sealed record SyntheticLinkedBillGraphImport(
     public int AddedMeterReadings { get; init; }
     public int ReusedMeterReadings { get; init; }
     public IReadOnlyList<SyntheticReadingIdMap> ReadingIdMap { get; init; } = [];
+    public string SourcePackageSha256 { get; init; } = "";
 }

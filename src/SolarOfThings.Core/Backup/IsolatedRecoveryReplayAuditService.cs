@@ -21,7 +21,7 @@ public sealed class IsolatedRecoveryReplayAuditService
         return Inspect(archivePath, stage.StagedDatabasePath,
             "recovery-linked-bills-staged-", stage.Status,
             "STAGED_LINKED_BILL_GRAPHS_SYNTHETIC_ONLY",
-            stage.RealRestoreAuthorized, (source, target) =>
+            stage.RealRestoreAuthorized, stage.SourcePackageSha256, (source, target) =>
             {
                 if (stage.IdMap.Count == 0 || stage.IdMap.Count != stage.AddedBills)
                     throw new InvalidDataException("Bill replay receipt count is unreliable.");
@@ -81,7 +81,7 @@ public sealed class IsolatedRecoveryReplayAuditService
         return Inspect(archivePath, stage.StagedDatabasePath,
             "recovery-tariff-graph-staged-", stage.Status,
             "STAGED_CLOSED_TARIFF_GRAPH_SYNTHETIC_ONLY",
-            stage.RealRestoreAuthorized, (source, target) =>
+            stage.RealRestoreAuthorized, stage.SourcePackageSha256, (source, target) =>
             {
                 if (stage.IdMap.Count == 0 || stage.IdMap.Count != stage.AddedPublications)
                     throw new InvalidDataException("Tariff replay receipt count is unreliable.");
@@ -136,7 +136,8 @@ public sealed class IsolatedRecoveryReplayAuditService
 
     private static SyntheticRecoveryReplayAudit Inspect(string archivePath,
         string generatedStage, string prefix, string actualStatus, string expectedStatus,
-        bool realRestoreFlag, Func<SqliteConnection, SqliteConnection, int> compare,
+        bool realRestoreFlag, string expectedZipDigest,
+        Func<SqliteConnection, SqliteConnection, int> compare,
         CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
@@ -156,6 +157,13 @@ public sealed class IsolatedRecoveryReplayAuditService
             !File.Exists(archive) || Linked(archive))
             throw new InvalidOperationException("Only same-root synthetic source archives are permitted.");
         var manifest = FullBackupService.VerifyArchive(archive);
+        using (var archiveBytes = File.OpenRead(archive))
+        {
+            if (expectedZipDigest.Length != 64 ||
+                !string.Equals(Convert.ToHexString(SHA256.HashData(archiveBytes)),
+                    expectedZipDigest, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Replay receipt is not bound to exact source ZIP bytes.");
+        }
         if (manifest.SchemaVersion != SqliteDatabase.CurrentSchemaVersion)
             throw new NotSupportedException("Replay audit cannot adapt historical schemas.");
         var sourceFile = Path.Combine(root,

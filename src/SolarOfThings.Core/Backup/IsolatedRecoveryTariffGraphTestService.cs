@@ -347,7 +347,8 @@ public sealed class IsolatedRecoveryTariffGraphTestService
                 "STAGED_CLOSED_TARIFF_GRAPH_SYNTHETIC_ONLY", false,
                 "Only uniquely verified complete official-tariff document graphs " +
                 "were cloned into a NEW disposable SQLite; no live restore, " +
-                "tariff calculation, official applicability claim or active Data change.");
+                "tariff calculation, official applicability claim or active Data change.")
+            { SourcePackageSha256 = approvedPlan.SourcePackageSha256 };
         }
         finally
         {
@@ -495,4 +496,7 @@ public sealed record SyntheticTariffGraphImport(
     string StagedDatabasePath, int AddedPublications, int AddedPages,
     int AddedRateCandidates, int AddedRelations,
     IReadOnlyList<SyntheticTariffIdMap> IdMap, string Status,
-    bool RealRestoreAuthorized, string SafetyDisclaimer);
+    bool RealRestoreAuthorized, string SafetyDisclaimer)
+{
+    public string SourcePackageSha256 { get; init; } = "";
+}
