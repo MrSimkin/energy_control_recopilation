@@ -271,7 +271,10 @@ public sealed class IsolatedRecoveryRelationAuditService
                        AND NOT EXISTS (SELECT 1 FROM tariff_publication y
                          WHERE y.publication_id=x.target_publication_id)),
                    (SELECT COUNT(*) FROM tariff_publication_relation x
-                     WHERE x.target_publication_id=p.publication_id)
+                     WHERE x.target_publication_id=p.publication_id),
+                   (SELECT COUNT(*) FROM tariff_publication_relation x
+                     WHERE x.source_publication_id=p.publication_id
+                       AND x.target_publication_id IS NULL)
               FROM tariff_publication p
              ORDER BY p.publication_id LIMIT $limit;
             """;
@@ -293,6 +296,11 @@ public sealed class IsolatedRecoveryRelationAuditService
             // Corrections can refer TO this publication from another source;
             // outbound-only checks miss a necessary graph dependency.
             var incomingRelations = rows.GetInt64(9);
+            var unresolvedOutgoingRelations = rows.GetInt64(10);
+            // Hash overlap and portable source-URL overlap are distinct.
+            // Matching either does NOT transfer surrogate publication IDs.
+            var targetPdfMatches = CountTargetTariffPdfMatches(target, sha);
+            var targetReferencedUrls = CountTargetReferencedTariffUrls(source, target, id);
 
             string status, explanation;
             if (brokenRelations > 0)
@@ -339,7 +347,10 @@ public sealed class IsolatedRecoveryRelationAuditService
             result.Add(new TariffGraphPreview(id, sourceUrl, sha,
                 pages, candidates, relations, captureStatus, status, explanation)
             {
-                IncomingRelations = incomingRelations
+                IncomingRelations = incomingRelations,
+                UnresolvedOutgoingRelations = unresolvedOutgoingRelations,
+                TargetPdfMatches = targetPdfMatches,
+                ReferencedPublicationUrlsInTarget = targetReferencedUrls
             });
         }
         return result;
@@ -404,6 +415,44 @@ public sealed class IsolatedRecoveryRelationAuditService
         return command.ExecuteScalar() is not null;
     }
 
+    private static long CountTargetTariffPdfMatches(SqliteConnection target, string? hash)
+    {
+        if (string.IsNullOrWhiteSpace(hash)) return 0;
+        using var cmd = target.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM tariff_publication
+             WHERE content_sha256=$hash COLLATE NOCASE;
+            """;
+        cmd.Parameters.AddWithValue("$hash", hash);
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    // A source relation's target is a local surrogate key. Resolve it only
+    // inside its own source snapshot, then count URL identity hints in target.
+    // No matching URL may be used as an automatic foreign-key remap.
+    private static long CountTargetReferencedTariffUrls(
+        SqliteConnection source, SqliteConnection target, long sourcePublicationId)
+    {
+        using var cmd = source.CreateCommand();
+        cmd.CommandText = """
+            SELECT p.source_url FROM tariff_publication_relation r
+            JOIN tariff_publication p ON p.publication_id=r.target_publication_id
+            WHERE r.source_publication_id=$id;
+            """;
+        cmd.Parameters.AddWithValue("$id", sourcePublicationId);
+        long total = 0;
+        using var rows = cmd.ExecuteReader();
+        while (rows.Read())
+        {
+            using var lookup = target.CreateCommand();
+            lookup.CommandText =
+                "SELECT EXISTS(SELECT 1 FROM tariff_publication WHERE source_url=$url);";
+            lookup.Parameters.AddWithValue("$url", rows.GetString(0));
+            if (Convert.ToInt64(lookup.ExecuteScalar()) == 1) total++;
+        }
+        return total;
+    }
+
     private static bool TryGetTariffDocumentHash(SqliteConnection conn, string url,
         out string? hash)
     {
@@ -460,6 +509,9 @@ public sealed record TariffGraphPreview(long SourcePublicationId, string SourceU
     long PublicationRelations, string CaptureStatus, string State, string Explanation)
 {
     public long IncomingRelations { get; init; }
+    public long UnresolvedOutgoingRelations { get; init; }
+    public long TargetPdfMatches { get; init; }
+    public long ReferencedPublicationUrlsInTarget { get; init; }
 }
 
 public sealed record RecoveryRelationAudit(string Status, int SourceSchemaVersion,
@@ -467,7 +519,21 @@ public sealed record RecoveryRelationAudit(string Status, int SourceSchemaVersio
     IReadOnlyList<TariffGraphPreview> Tariffs, string SafetyDisclaimer)
 {
     public IReadOnlyList<UnlinkedBillDocumentPreview> UnlinkedBillDocuments { get; init; } = [];
+    // An overview of observed graph dependencies for a future read-only UI;
+    // counts do not confer identity or restoration authorization.
+    public RecoveryRelationTotals Totals => new(
+        Bills.Count, Tariffs.Count, UnlinkedBillDocuments.Count,
+        Bills.Count(b => b.HasFromReading || b.HasToReading),
+        Bills.Sum(b => b.TargetBillsForDocument),
+        Tariffs.Sum(t => t.IncomingRelations),
+        Tariffs.Sum(t => t.PublicationRelations),
+        Tariffs.Sum(t => t.UnresolvedOutgoingRelations),
+        Tariffs.Sum(t => t.ReferencedPublicationUrlsInTarget));
 }
+public sealed record RecoveryRelationTotals(int SourceBills, int SourceTariffs,
+    int UnlinkedBillDocuments, int BillsWithMeterLinks,
+    long TargetBillDocumentLinks, long IncomingTariffLinks, long OutgoingTariffLinks,
+    long UnresolvedOutgoingLinks, long ReferencedTariffUrlsInTarget);
 
 public sealed record UnlinkedBillDocumentPreview(long SourceDocumentId,
     string? OriginalDocumentSha256, bool TargetHasOriginalDocument,

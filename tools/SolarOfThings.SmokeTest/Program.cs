@@ -4709,6 +4709,24 @@ try
                 'CORRECTS','ENEL','REGULATED','SYNTHETIC-2026',
                 $publicationId,'Synthetic incoming correction',
                 '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            INSERT INTO tariff_publication_relation(
+                source_publication_id,relation_type,target_provider,target_category,
+                target_official_document_number,target_publication_id,
+                evidence_text,created_utc,updated_utc)
+            VALUES(
+                $publicationId,'REFERENCES','ENEL','REGULATED','INCOMING-2026',
+                (SELECT publication_id FROM tariff_publication
+                  WHERE source_url='smoke://incoming-source-2026'),
+                'Synthetic outgoing reference',
+                '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            INSERT INTO tariff_publication_relation(
+                source_publication_id,relation_type,target_provider,target_category,
+                target_official_document_number,target_publication_id,
+                evidence_text,created_utc,updated_utc)
+            VALUES(
+                $publicationId,'REFERENCES','ENEL','REGULATED','UNRESOLVED-2026',
+                NULL,'Synthetic unresolved external document',
+                '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
             """;
         cmd.ExecuteNonQuery();
     }
@@ -4760,6 +4778,14 @@ try
         linkedTariff.State != "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED" ||
         linkedTariff.RateCandidates != 1 || linkedTariff.SourceTextPages != 1 ||
         linkedTariff.IncomingRelations != 1 ||
+        linkedTariff.PublicationRelations != 2 ||
+        linkedTariff.UnresolvedOutgoingRelations != 1 ||
+        linkedTariff.TargetPdfMatches != 0 ||
+        linkedTariff.ReferencedPublicationUrlsInTarget != 0 ||
+        graphAudit.Totals.SourceBills != 2 ||
+        graphAudit.Totals.BillsWithMeterLinks != 1 ||
+        graphAudit.Totals.UnlinkedBillDocuments != 1 ||
+        graphAudit.Totals.UnresolvedOutgoingLinks != 1 ||
         linkedBill.TargetHasOriginalDocument ||
         graphAudit.UnlinkedBillDocuments.Single(d =>
             d.OriginalDocumentSha256 == unlinkedBillHash).State !=
@@ -4822,14 +4848,20 @@ try
         update.ExecuteNonQuery();
         var sameAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
         if (sameAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId).State !=
-            "TARIFF_SOURCE_SAME_DOCUMENT_REVIEW")
-            throw new InvalidOperationException("Identical PDF evidence was not classified.");
+            "TARIFF_SOURCE_SAME_DOCUMENT_REVIEW" ||
+            sameAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId)
+                .TargetPdfMatches != 1)
+            throw new InvalidOperationException(
+                "Identical tariff PDF evidence was not counted and classified.");
         update.Parameters["$sha"].Value = new string('f', 64);
         update.ExecuteNonQuery();
         var conflictAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
         if (conflictAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId).State !=
-            "TARIFF_SOURCE_CONTENT_CONFLICT_REVIEW")
-            throw new InvalidOperationException("Conflicting PDF hashes were not flagged.");
+            "TARIFF_SOURCE_CONTENT_CONFLICT_REVIEW" ||
+            conflictAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId)
+                .TargetPdfMatches != 0)
+            throw new InvalidOperationException(
+                "Conflicting tariff PDFs must not count as matching source content.");
     }
     if (graphAudit.Bills.Single(b => b.SourceBillId == graphBillId).State !=
         "READING_REMAP_REQUIRED" ||
@@ -4877,6 +4909,28 @@ try
         billCandidates.State != "READING_REMAP_REQUIRED")
         throw new InvalidOperationException(
             "Bill recovery diagnostics mistook shared documents or readings for portable identities.");
+
+    using (var conn = graphTarget.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,capture_status,updated_utc)
+            VALUES('ENEL','REGULATED','Synthetic referenced identity in target',
+                   'smoke://incoming-source-2026','DISCOVERED','2026-10-08T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var referenced = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+    var mappedTariff = referenced.Tariffs.Single(t =>
+        t.SourcePublicationId == graphPublicationId);
+    if (mappedTariff.ReferencedPublicationUrlsInTarget != 1 ||
+        mappedTariff.UnresolvedOutgoingRelations != 1 ||
+        referenced.Totals.ReferencedTariffUrlsInTarget != 1 ||
+        referenced.Totals.IncomingTariffLinks < 1 ||
+        referenced.Totals.OutgoingTariffLinks < 3)
+        throw new InvalidOperationException(
+            "Tariff dependency source-URL mapping hints are incomplete.");
 
     // A bad destination FK must never produce apparently trustworthy
     // bill/tariff graph classifications or write any copied records.
