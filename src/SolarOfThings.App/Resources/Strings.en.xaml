@@ -516,6 +516,7 @@
     <sys:String x:Key="Reports.FromSelectedRow">Prepare report for selected row</sys:String>
     <sys:String x:Key="Reports.FromBattery">Report from latest saved month</sys:String>
     <sys:String x:Key="Reports.BatteryHistory">Analyze last 7 saved days</sys:String>
+    <sys:String x:Key="Reports.DraftFromData">Draft from Data coverage, using the first and last stored samples. The range does not guarantee complete coverage; review the report before exporting.</sys:String>
     <sys:String x:Key="Reports.BackToSource">Return to source</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysis">Draft prepared from Analysis: review type, dates and aggregation before exporting.</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysisExpanded">Draft from hourly row: the full calendar day will be included. Review dates before exporting.</sys:String>
@@ -570,6 +571,9 @@
     <sys:String x:Key="Page.Data.Title">Collected data</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Local data, synchronization and historical coverage</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">Local historical synchronization is now active through Update Data. Analysis will be built on this validated corpus.</sys:String>
+    <sys:String x:Key="Data.CoverageAnalyze">Analyze saved history</sys:String>
+    <sys:String x:Key="Data.CoverageReport">Prepare saved-history report</sys:String>
+    <sys:String x:Key="Data.CoverageActionsHint">These actions become available when stored samples exist. They do not imply complete days or automatically create files.</sys:String>
     <sys:String x:Key="Data.CoverageHeading">What information is saved</sys:String>
     <sys:String x:Key="Data.CoverageIntro">This page shows how far the information stored on this computer currently reaches.</sys:String>
     <sys:String x:Key="Data.StoredFrom">Data saved from</sys:String>

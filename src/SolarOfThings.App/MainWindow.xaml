@@ -2420,6 +2420,23 @@
                                                                 </StackPanel>
                                                             </Border>
                                                         </Grid>
+                                <StackPanel Margin="0,0,0,18">
+                                    <WrapPanel>
+                                        <Button x:Name="DataCoverageAnalyzeButton"
+                                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                                Content="{DynamicResource Data.CoverageAnalyze}"
+                                                Click="DataCoverageToAnalysis_Click"
+                                                Padding="12,7" Margin="0,0,8,7" IsEnabled="False"/>
+                                        <Button x:Name="DataCoverageReportButton"
+                                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                                Content="{DynamicResource Data.CoverageReport}"
+                                                Click="DataCoverageToReport_Click"
+                                                Padding="12,7" Margin="0,0,8,7" IsEnabled="False"/>
+                                    </WrapPanel>
+                                    <TextBlock Text="{DynamicResource Data.CoverageActionsHint}"
+                                               Foreground="#6C757D" FontSize="12"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
 
                                 <Border Style="{StaticResource CardStyle}" Margin="0">
                                                             <Grid>

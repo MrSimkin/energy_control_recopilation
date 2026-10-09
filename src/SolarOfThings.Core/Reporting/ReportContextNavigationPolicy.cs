@@ -26,6 +26,29 @@ public static class ReportContextNavigationPolicy
             "ANALYSIS_RANGE");
     }
 
+    /// <summary>
+    /// Convert actual first/last stored sample timestamps into the installation's
+    /// inclusive local calendar range. Coverage counts do not establish that
+    /// every intervening day is complete or that a sample is energy in kWh.
+    /// </summary>
+    public static ReportContextSelection FromStoredCoverage(
+        DateTimeOffset firstStoredUtc, DateTimeOffset lastStoredUtc,
+        string timeZoneId, ReportKind kind)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            throw new ArgumentException("Installation time zone is required.", nameof(timeZoneId));
+        if (lastStoredUtc < firstStoredUtc)
+            throw new ArgumentOutOfRangeException(nameof(lastStoredUtc),
+                "Last stored sample precedes first stored sample.");
+
+        var from = SolarApiTime.GetLocalDate(firstStoredUtc, timeZoneId);
+        var to = SolarApiTime.GetLocalDate(lastStoredUtc, timeZoneId);
+        if (to < from)
+            throw new InvalidOperationException("Stored samples resolved an inverted local range.");
+        return new ReportContextSelection(from, to, AggregationPeriod.Day,
+            kind, false, "DATA_COVERAGE");
+    }
+
     public static ReportContextSelection FromSelectedRow(
         EnergyAggregationRow row, string timeZoneId, ReportKind kind)
     {

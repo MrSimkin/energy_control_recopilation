@@ -6583,6 +6583,7 @@ public partial class MainWindow : Window
         string Evidence);
 
     private string? _reportDraftOriginPage;
+    private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
 
     private void AnalysisToDetailedReport_Click(object sender, RoutedEventArgs e) =>
         OpenAnalysisReportDraft(ReportKind.DetailedEnergy);
@@ -6717,18 +6718,20 @@ public partial class MainWindow : Window
     {
         _reportDraftOriginPage = origin;
         ReportContextText.Text =
-            _localization.GetString(origin == "Battery"
-                ? "Reports.DraftFromBattery"
-                : expandedDay
-                    ? "Reports.DraftFromAnalysisExpanded"
-                    : "Reports.DraftFromAnalysis");
+            _localization.GetString(origin switch
+            {
+                "Battery" => "Reports.DraftFromBattery",
+                "Data" => "Reports.DraftFromData",
+                _ when expandedDay => "Reports.DraftFromAnalysisExpanded",
+                _ => "Reports.DraftFromAnalysis"
+            });
         ReportContextPanel.Visibility = Visibility.Visible;
     }
 
     private void ReportsBackToSource_Click(object sender, RoutedEventArgs e)
     {
         var source = _reportDraftOriginPage;
-        if (source is not ("Analysis" or "Battery")) return;
+        if (source is not ("Analysis" or "Battery" or "Data")) return;
         _reportDraftOriginPage = null;
         ReportContextPanel.Visibility = Visibility.Collapsed;
         ShowPage(source);
@@ -9029,6 +9032,36 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DataCoverageToAnalysis_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetDataCoverageContext(out _))
+            return;
+        ShowPage("Analysis");
+        // Force re-resolution even when a previous visit already selected All.
+        _suppressAnalysisRangeSelection = true;
+        try { AnalysisRangePresetSelector.SelectedValue = null; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        AnalysisRangePresetSelector.SelectedValue = "all";
+    }
+
+    private void DataCoverageToReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (TryGetDataCoverageContext(out var context))
+            OpenContextReportDraft(context, "Data");
+    }
+
+    private bool TryGetDataCoverageContext(out ReportContextSelection context)
+    {
+        context = null!;
+        if (_windowClosed || DataContent.Visibility != Visibility.Visible ||
+            _dataCoverageContext is not { } current ||
+            !string.Equals(current.DeviceId, _profiles.Get()?.DeviceId,
+                StringComparison.Ordinal))
+            return false;
+        context = current.Draft;
+        return true;
+    }
+
     private void RefreshDataCoverageView()
     {
         using var measure = _performance.Measure("UI.DataCoverage.Refresh");
@@ -9036,6 +9069,10 @@ public partial class MainWindow : Window
         {
             return;
         }
+
+        _dataCoverageContext = null;
+        DataCoverageAnalyzeButton.IsEnabled = false;
+        DataCoverageReportButton.IsEnabled = false;
 
         var profile = _profiles.Get();
         if (profile is null)
@@ -9070,6 +9107,17 @@ public partial class MainWindow : Window
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
             : profile.StationTimeZone;
+
+        if (coverage.FirstSampleAtUtc is { } firstStored &&
+            coverage.LastSampleAtUtc is { } lastStored &&
+            firstStored <= lastStored)
+        {
+            _dataCoverageContext = (profile.DeviceId,
+                ReportContextNavigationPolicy.FromStoredCoverage(
+                    firstStored, lastStored, timeZone, ReportKind.DetailedEnergy));
+            DataCoverageAnalyzeButton.IsEnabled = true;
+            DataCoverageReportButton.IsEnabled = true;
+        }
 
         DataStoredFromText.Text = coverage.FirstSampleAtUtc.HasValue
             ? SolarApiTime.GetLocalDate(

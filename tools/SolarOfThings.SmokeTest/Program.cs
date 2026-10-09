@@ -183,6 +183,32 @@ try
     if (!rowWindowRejected)
         throw new InvalidOperationException("Invalid report row interval was accepted.");
 
+    // Data coverage context uses actual UTC sample bounds and the station's
+    // local civil dates, not the runner's timezone or today's date.
+    var firstCoverage = DateTimeOffset.Parse("2026-10-08T02:30:00Z",
+        System.Globalization.CultureInfo.InvariantCulture);
+    var lastCoverage = DateTimeOffset.Parse("2026-10-09T03:30:00Z",
+        System.Globalization.CultureInfo.InvariantCulture);
+    var dataDraft = ReportContextNavigationPolicy.FromStoredCoverage(
+        firstCoverage, lastCoverage, "America/Santiago", ReportKind.DetailedEnergy);
+    if (dataDraft.From != new DateOnly(2026, 10, 7) ||
+        dataDraft.To != new DateOnly(2026, 10, 9) ||
+        dataDraft.Aggregation != AggregationPeriod.Day ||
+        dataDraft.Kind != ReportKind.DetailedEnergy ||
+        dataDraft.Source != "DATA_COVERAGE" ||
+        dataDraft.ExpandedToCalendarDay)
+        throw new InvalidOperationException(
+            "Data coverage report context lost station-local date boundaries.");
+    var invertedCoverageRejected = false;
+    try
+    {
+        ReportContextNavigationPolicy.FromStoredCoverage(
+            lastCoverage, firstCoverage, "America/Santiago", ReportKind.DetailedEnergy);
+    }
+    catch (ArgumentOutOfRangeException) { invertedCoverageRejected = true; }
+    if (!invertedCoverageRejected)
+        throw new InvalidOperationException("Inverted stored coverage was accepted.");
+
     // Battery background-result guard: only the visible, current device and
     // request generation may be rendered.
     if (!BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", "A") ||

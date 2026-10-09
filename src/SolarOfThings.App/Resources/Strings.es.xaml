@@ -516,6 +516,7 @@
     <sys:String x:Key="Reports.FromSelectedRow">Preparar informe de la fila seleccionada</sys:String>
     <sys:String x:Key="Reports.FromBattery">Informe del último mes con datos</sys:String>
     <sys:String x:Key="Reports.BatteryHistory">Analizar últimos 7 días guardados</sys:String>
+    <sys:String x:Key="Reports.DraftFromData">Borrador del historial guardado desde Datos recopilados. El período comprende las primeras y últimas muestras, pero no garantiza cobertura completa; revisa el informe antes de exportar.</sys:String>
     <sys:String x:Key="Reports.BackToSource">Volver al origen</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysis">Borrador preparado desde Análisis: revisa tipo, fechas y agrupación antes de exportar.</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysisExpanded">Borrador desde una fila horaria: se incluirá el día calendario completo. Revisa las fechas antes de exportar.</sys:String>
@@ -570,6 +571,9 @@
     <sys:String x:Key="Page.Data.Title">Datos recopilados</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">La sincronización histórica local ya está activa mediante “Actualizar datos”. El análisis se construirá sobre este corpus validado.</sys:String>
+    <sys:String x:Key="Data.CoverageAnalyze">Analizar historial guardado</sys:String>
+    <sys:String x:Key="Data.CoverageReport">Preparar informe del historial</sys:String>
+    <sys:String x:Key="Data.CoverageActionsHint">Estos accesos se habilitan al encontrar muestras guardadas. No implican días completos ni generan archivos automáticamente.</sys:String>
     <sys:String x:Key="Data.CoverageHeading">Qué información está guardada</sys:String>
     <sys:String x:Key="Data.CoverageIntro">Aquí puede revisar hasta qué fecha hay información guardada en este computador.</sys:String>
     <sys:String x:Key="Data.StoredFrom">Datos guardados desde</sys:String>
