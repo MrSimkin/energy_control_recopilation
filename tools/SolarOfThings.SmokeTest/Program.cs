@@ -1681,6 +1681,35 @@ try
 
     if (inventory.Verify(secondaryPhysical, syntheticSecondary).IntegrityStatus != "PASS")
         throw new InvalidOperationException("Secondary copy integrity verification failed.");
+
+    // New explicit pair audit must prove two physical full-ZIP packages, not
+    // confuse an inventory filename with independently verified mirror bytes.
+    var mirrorAudit = new VerifiedBackupMirrorAuditService(paths);
+    var exactMirror = mirrorAudit.Inspect(localPhysical, syntheticSecondary);
+    if (!exactMirror.TwoExactCopiesVerified ||
+        exactMirror.Status != "TWO_EXACT_COPIES_VERIFIED" ||
+        !string.Equals(exactMirror.LocalSha256, exactMirror.SecondarySha256,
+            StringComparison.OrdinalIgnoreCase) ||
+        exactMirror.LocalPath != complete.Path ||
+        exactMirror.SecondaryPath != mirrored.Path)
+        throw new InvalidOperationException(
+            "Pair verification did not prove independent matching local/secondary ZIPs.");
+    var invalidSourceRejected = false;
+    try { mirrorAudit.Inspect(secondaryPhysical, syntheticSecondary); }
+    catch (InvalidOperationException) { invalidSourceRejected = true; }
+    if (!invalidSourceRejected)
+        throw new InvalidOperationException(
+            "Pair verifier accepted SECONDARY as the trusted local source.");
+    var noSecondary = mirrorAudit.Inspect(localPhysical, null);
+    if (noSecondary.Status != "SECONDARY_NOT_CONFIGURED" ||
+        noSecondary.TwoExactCopiesVerified)
+        throw new InvalidOperationException(
+            "Unconfigured secondary destination incorrectly certified redundancy.");
+    var invalidDestination = mirrorAudit.Inspect(localPhysical, paths.DataDirectory);
+    if (invalidDestination.Status != "SECONDARY_INVALID" ||
+        invalidDestination.TwoExactCopiesVerified)
+        throw new InvalidOperationException(
+            "Overlapping secondary destination wrongly passed mirror audit.");
     // No one may pair one backup path with a different display name and
     // obtain a successful verification or authorize that misleading selection.
     var misleadingSelection = secondaryPhysical with
@@ -1766,6 +1795,12 @@ try
     if (!digestReplacementBlocked || !File.Exists(mirrored.Path) ||
         !File.Exists(complete.Path))
         throw new InvalidOperationException("Modified selected ZIP bypassed verified deletion review.");
+    var corruptMirror = mirrorAudit.Inspect(localPhysical, syntheticSecondary);
+    if (corruptMirror.TwoExactCopiesVerified ||
+        corruptMirror.Status != "SECONDARY_FAILED_VERIFICATION" ||
+        corruptMirror.LocalSha256 != exactMirror.LocalSha256)
+        throw new InvalidOperationException(
+            "Tampered secondary bytes bypassed pair verification or tainted local proof.");
 
     // Original ZIP is restored from the TEST fixture's good LOCAL copy.
     File.Copy(complete.Path, mirrored.Path, overwrite: true);
@@ -1775,6 +1810,11 @@ try
     reviewService.DeleteAfterExplicitConfirmation(readyPlan, userConfirmed: true);
     if (File.Exists(mirrored.Path) || !File.Exists(complete.Path))
         throw new InvalidOperationException("Reviewed one-file deletion cascaded or failed.");
+    var missingMirror = mirrorAudit.Inspect(localPhysical, syntheticSecondary);
+    if (missingMirror.TwoExactCopiesVerified ||
+        missingMirror.Status != "SECONDARY_MISSING")
+        throw new InvalidOperationException(
+            "A removed secondary ZIP was still counted as a verified physical copy.");
 
     // With only the local full package left, deletion must be blocked.
     var finalCopyBlocked = false;
@@ -1787,6 +1827,12 @@ try
     var unseen = inventory.List(Path.Combine(root, "offline-secondary-location"));
     if (unseen.SecondaryWarning is null)
         throw new InvalidOperationException("Offline secondary location not reported.");
+    var offlineMirror = mirrorAudit.Inspect(localPhysical,
+        Path.Combine(root, "offline-secondary-location"));
+    if (offlineMirror.TwoExactCopiesVerified ||
+        offlineMirror.Status != "SECONDARY_OFFLINE")
+        throw new InvalidOperationException(
+            "Offline secondary falsely verified as an available backup.");
 
     // Unknown files and paths outside configured backup destinations are never deleted.
     var unrelated = Path.Combine(root, "user-unrelated.zip");
