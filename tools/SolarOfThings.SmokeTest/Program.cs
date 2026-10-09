@@ -6834,6 +6834,19 @@ try
         if (!stopped)
             throw new InvalidOperationException("Cancelled SQL page request did not stop.");
     }
+    // At navigation cap a query may genuinely have more results. That is
+    // NOT "end of data"; the UI disables next and invites full export.
+    var beyondPageCap = await explorer.PreviewPageAsync("""
+        WITH RECURSIVE numbers(n) AS
+        (SELECT 1 UNION ALL SELECT n+1 FROM numbers WHERE n < 50300)
+        SELECT n FROM numbers ORDER BY n
+        """, 50_000);
+    if (beyondPageCap.Rows.Count != 200 ||
+        beyondPageCap.Rows[0][0].Text != "50001" ||
+        beyondPageCap.Rows[^1][0].Text != "50200" ||
+        !beyondPageCap.HasMore)
+        throw new InvalidOperationException(
+            "SQL paging cap suppressed true extra rows or shifted a late page.");
     // Paging must not change the full CSV/XLSX export semantics: the service
     // still exports all rows, not merely the currently visible 200.
 
