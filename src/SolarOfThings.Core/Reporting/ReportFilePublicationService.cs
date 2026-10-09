@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using System.Text;
+
 namespace SolarOfThings.Core.Reporting;
 
 /// <summary>
@@ -31,15 +34,23 @@ public static class ReportFilePublicationService
                 StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(Path.GetDirectoryName(staged), Path.GetDirectoryName(destination),
                 StringComparison.OrdinalIgnoreCase) ||
-            !Path.GetFileName(staged).StartsWith(".report-", StringComparison.Ordinal) ||
-            !Path.GetFileName(staged).Contains(".inprogress.", StringComparison.Ordinal))
+            !HasGeneratedStageName(Path.GetFileName(staged),
+                Path.GetExtension(staged)))
             throw new InvalidOperationException("Staged report must be in its destination folder.");
 
         if (!File.Exists(staged) || new FileInfo(staged).Length == 0)
             throw new IOException("Report output is missing or empty.");
+        // Refuse unexpected filesystem indirections before touching an
+        // existing export. Never replace a symlink masquerading as a report.
+        if ((File.GetAttributes(staged) & FileAttributes.ReparsePoint) != 0 ||
+            (File.Exists(destination) &&
+             (File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0))
+            throw new InvalidOperationException("Report path must be a regular file.");
 
+        RequirePlausibleReportFormat(staged);
         // Same-directory rename: the old destination is not touched until
-        // successfully rendered; the export remains explicitly user initiated.
+        // the completed PDF/XLSX envelope has passed structural sanity checks.
+        // A PDF signature or ZIP directory check does not replace end-user QA.
         File.Move(staged, destination, overwrite: true);
     }
 
@@ -47,6 +58,58 @@ public static class ReportFilePublicationService
     {
         if (!string.IsNullOrEmpty(stagedPath) && File.Exists(stagedPath))
             File.Delete(stagedPath);
+    }
+
+    private static bool HasGeneratedStageName(string name, string extension)
+    {
+        const string prefix = ".report-";
+        var suffix = ".inprogress" + extension;
+        return name.StartsWith(prefix, StringComparison.Ordinal) &&
+            name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase) &&
+            name.Length == prefix.Length + 32 + suffix.Length &&
+            Guid.TryParseExact(name.Substring(prefix.Length, 32), "N", out _);
+    }
+
+    private static void RequirePlausibleReportFormat(string path)
+    {
+        if (Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            using var stream = File.OpenRead(path);
+            if (stream.Length < 16)
+                throw new InvalidDataException("Report is too short to be a PDF.");
+            Span<byte> signature = stackalloc byte[5];
+            stream.ReadExactly(signature);
+            if (!signature.SequenceEqual("%PDF-"u8))
+                throw new InvalidDataException("Report output lacks PDF header.");
+            var tail = (int)Math.Min(stream.Length, 4096);
+            stream.Seek(-tail, SeekOrigin.End);
+            var buffer = new byte[tail];
+            stream.ReadExactly(buffer);
+            if (!Encoding.ASCII.GetString(buffer).Contains("%%EOF",
+                    StringComparison.Ordinal))
+                throw new InvalidDataException("Report output lacks PDF end marker.");
+            return;
+        }
+
+        // .xlsx must at least be a readable OOXML ZIP with workbook,
+        // package metadata and an actual worksheet. This is NOT a claim
+        // that all cell styles/formulas are valid.
+        try
+        {
+            using var archive = ZipFile.OpenRead(path);
+            if (archive.GetEntry("[Content_Types].xml") is null ||
+                archive.GetEntry("_rels/.rels") is null ||
+                archive.GetEntry("xl/workbook.xml") is null ||
+                !archive.Entries.Any(x => x.FullName.StartsWith(
+                    "xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase) &&
+                    x.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException(
+                    "Report XLSX lacks mandatory workbook parts.");
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
     }
 
     private static bool AllowedExtension(string? extension) =>
