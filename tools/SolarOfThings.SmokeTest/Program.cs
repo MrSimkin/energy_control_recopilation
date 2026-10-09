@@ -5503,6 +5503,58 @@ try
         throw new InvalidOperationException("Unmarked document stage input accepted.");
     var graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
     var graphPlan = planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath);
+    // Integrated synthetic bundle: a NEW settings-only SQLite and verified
+    // documentary evidence, with no foreign-key or owner DB import.
+    var bundleService = new IsolatedRecoveryStagedBundleTestService();
+    var integrated = bundleService.Stage(
+        graphPlan, graphZip.Path, graphTarget.DatabasePath,
+        selectedDocumentHashes: new[] { unlinkedBillHash });
+    if (integrated.RealRestoreAuthorized ||
+        integrated.Status != "STAGED_SYNTHETIC_SETTINGS_AND_DOCUMENT_EVIDENCE" ||
+        integrated.Settings.Status != "STAGED_SYNTHETIC_ONLY" ||
+        !File.Exists(integrated.Settings.StagedDatabasePath) ||
+        integrated.Evidence.Documents.Count != 1 ||
+        integrated.ReadOnlyLinks.RelationalRestoreAuthorized ||
+        integrated.ReadOnlyLinks.CandidatesWithUniqueStagedBytes != 1 ||
+        integrated.ReadOnlyLinks.CandidatesWithoutSelectedBytes != 3 ||
+        !documentStage.VerifyAgainstArchive(integrated.Evidence,
+            graphZip.Path, integrated.Settings.StagedDatabasePath) ||
+        planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath).PlanId != graphPlan.PlanId)
+        throw new InvalidOperationException(
+            "Integrated synthetic bundle altered original data or overstated recovery.");
+    File.Delete(integrated.Settings.StagedDatabasePath);
+    Directory.Delete(integrated.Evidence.StageDirectory, recursive: true);
+
+    var dbStagesBeforeInjection = Directory.GetFiles(root,
+        "recovery-additive-staged-*.db").Length;
+    var interruptedBundleRejected = false;
+    try
+    {
+        bundleService.Stage(graphPlan, graphZip.Path, graphTarget.DatabasePath,
+            simulateFailureAfterSettings: true);
+    }
+    catch (InvalidOperationException ex) when (
+        ex.Message == "SYNTHETIC_INJECTED_AFTER_SETTINGS_STAGE")
+    {
+        interruptedBundleRejected = true;
+    }
+    if (!interruptedBundleRejected ||
+        Directory.GetFiles(root, "recovery-additive-staged-*.db").Length !=
+            dbStagesBeforeInjection ||
+        planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath).PlanId != graphPlan.PlanId)
+        throw new InvalidOperationException(
+            "Interrupted synthetic bundle failed to discard staged SQLite.");
+    using (var cancelledBundle = new CancellationTokenSource())
+    {
+        cancelledBundle.Cancel();
+        var cancelledBundleBlocked = false;
+        try { bundleService.Stage(graphPlan, graphZip.Path, graphTarget.DatabasePath,
+            cancelledBundle.Token); }
+        catch (OperationCanceledException) { cancelledBundleBlocked = true; }
+        if (!cancelledBundleBlocked)
+            throw new InvalidOperationException("Precancelled recovery bundle ran.");
+    }
+
     var linkPreviewer = new IsolatedRecoveryDocumentLinkPreviewService();
     var graphEvidence = documentStage.Stage(graphZip.Path, graphTarget.DatabasePath);
     var documentLinks = linkPreviewer.Analyze(
