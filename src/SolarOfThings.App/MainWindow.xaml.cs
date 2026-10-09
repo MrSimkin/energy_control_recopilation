@@ -8374,7 +8374,10 @@ public partial class MainWindow : Window
         SqlPreviousPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
             _sqlPreviewOffset > 0 && SqlStatementEditor.Text == _sqlLastPreviewSql;
         SqlNextPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
-            _sqlPreviewHasMore && SqlStatementEditor.Text == _sqlLastPreviewSql;
+            _sqlPreviewHasMore &&
+            _sqlPreviewOffset + SafeSqlExplorerService.PreviewLimit <=
+                SafeSqlExplorerService.MaxPreviewOffset &&
+            SqlStatementEditor.Text == _sqlLastPreviewSql;
         SqlCancelButton.IsEnabled = busy;
     }
 
@@ -8511,7 +8514,9 @@ public partial class MainWindow : Window
 
     private async void SqlExplorerNextPage_Click(object sender, RoutedEventArgs e)
     {
-        if (_sqlLastPreviewSql is not null && _sqlPreviewHasMore)
+        if (_sqlLastPreviewSql is not null && _sqlPreviewHasMore &&
+            _sqlPreviewOffset + SafeSqlExplorerService.PreviewLimit <=
+                SafeSqlExplorerService.MaxPreviewOffset)
             await ExecuteSqlExplorerAsync(_sqlPreviewOffset + SafeSqlExplorerService.PreviewLimit);
     }
 
@@ -8550,11 +8555,18 @@ public partial class MainWindow : Window
             _sqlPreviewHasMore = result.HasMore;
             var firstDisplayedRow = result.Rows.Count == 0 ? 0 : requestedOffset + 1;
             var lastDisplayedRow = requestedOffset + result.Rows.Count;
+            var navigationCapped = result.HasMore &&
+                requestedOffset + SafeSqlExplorerService.PreviewLimit >
+                SafeSqlExplorerService.MaxPreviewOffset;
             SqlExplorerPageText.Text = SqlExplorerSpanish
                 ? $"Filas {firstDisplayedRow:N0}–{lastDisplayedRow:N0}" +
-                  (result.HasMore ? " · hay otra página" : " · fin de resultados")
+                  (navigationCapped
+                      ? " · límite de páginas; exportar SELECT completo"
+                      : result.HasMore ? " · hay otra página" : " · fin de resultados")
                 : $"Rows {firstDisplayedRow:N0}–{lastDisplayedRow:N0}" +
-                  (result.HasMore ? " · next page available" : " · end of results");
+                  (navigationCapped
+                      ? " · page limit; export full SELECT"
+                      : result.HasMore ? " · next page available" : " · end of results");
             SqlExplorerResultTitle.Text = SqlExplorerSpanish
                 ? $"Vista previa: página {requestedOffset / SafeSqlExplorerService.PreviewLimit + 1}" +
                   (result.HasMore ? " (otras páginas disponibles)" : "")

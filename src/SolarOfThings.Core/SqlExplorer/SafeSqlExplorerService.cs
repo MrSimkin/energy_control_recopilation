@@ -81,10 +81,10 @@ public sealed class SafeSqlExplorerService
                 cancellationToken.ThrowIfCancellationRequested();
                 rows.Add(GetRow(reader));
             }
-            // Do not scan beyond the configured upper offset, and do not
-            // read a potentially large extra cell merely to find next page.
-            var more = offset + maxRows <= MaxPreviewOffset &&
-                       rows.Count == maxRows && reader.Read();
+            // Detect whether more rows exist even at the navigation cap;
+            // the UI must never call a capped page "end of data".
+            // No values from the extra row are materialized.
+            var more = rows.Count == maxRows && reader.Read();
             return new SqlPreviewResult(names, rows, more, watch.Elapsed);
         }, cancellationToken);
     }
