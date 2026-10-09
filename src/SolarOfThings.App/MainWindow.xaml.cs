@@ -2283,6 +2283,9 @@ public partial class MainWindow : Window
         }
         else if (isReports)
         {
+            // Arriving through general navigation clears old source context.
+            _reportDraftOriginPage = null;
+            ReportContextPanel.Visibility = Visibility.Collapsed;
             RefreshReportsView();
         }
         else if (isData)
@@ -6578,6 +6581,158 @@ public partial class MainWindow : Window
         string Description,
         string Amount,
         string Evidence);
+
+    private string? _reportDraftOriginPage;
+
+    private void AnalysisToDetailedReport_Click(object sender, RoutedEventArgs e) =>
+        OpenAnalysisReportDraft(ReportKind.DetailedEnergy);
+
+    private void AnalysisToSimpleReport_Click(object sender, RoutedEventArgs e) =>
+        OpenAnalysisReportDraft(ReportKind.SimpleEnergy);
+
+    private void AnalysisToBatteryReport_Click(object sender, RoutedEventArgs e) =>
+        OpenAnalysisReportDraft(ReportKind.Battery);
+
+    private bool IsCurrentAnalysisReadyForReport()
+    {
+        var device = _profiles.Get()?.DeviceId;
+        return !_windowClosed &&
+               AnalysisContent.Visibility == Visibility.Visible &&
+               _analysisRenderedAggregation is not null &&
+               _analysisAggregationRows.Count > 0 &&
+               !_analysisCustomRangePendingApply &&
+               !_analysisPresetLoading && !_analysisDataLoading &&
+               !string.IsNullOrEmpty(device) &&
+               string.Equals(_analysisRenderedDeviceId, device,
+                   StringComparison.Ordinal) &&
+               _analysisRenderedGeneration == _analysisRefreshGeneration &&
+               AnalysisFromDatePicker.SelectedDate.HasValue &&
+               AnalysisToDatePicker.SelectedDate.HasValue;
+    }
+
+    private void OpenAnalysisReportDraft(ReportKind kind)
+    {
+        if (!IsCurrentAnalysisReadyForReport())
+        {
+            AnalysisStatusText.Text = _localization.GetString(
+                "Reports.AnalysisNotReady");
+            return;
+        }
+
+        var from = DateOnly.FromDateTime(AnalysisFromDatePicker.SelectedDate!.Value);
+        var to = DateOnly.FromDateTime(AnalysisToDatePicker.SelectedDate!.Value);
+        var rawAggregation = AnalysisAggregationSelector.SelectedValue?.ToString();
+        if (!Enum.TryParse<AggregationPeriod>(rawAggregation, true,
+                out var analysisAggregation))
+            analysisAggregation = AggregationPeriod.Day;
+
+        var draft = ReportContextNavigationPolicy.FromAnalysis(
+            from, to, analysisAggregation, kind);
+        OpenContextReportDraft(draft, "Analysis");
+    }
+
+    private void AnalysisSelectedRowReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsCurrentAnalysisReadyForReport() ||
+            AnalysisAggregationGrid.SelectedItem is not EnergyAggregationRow selected ||
+            !_analysisAggregationRows.Contains(selected))
+        {
+            AnalysisStatusText.Text =
+                _localization.GetString("Reports.SelectAnalysisRow");
+            return;
+        }
+        var timeZone = _profiles.Get()?.StationTimeZone;
+        var draft = ReportContextNavigationPolicy.FromSelectedRow(
+            selected, string.IsNullOrWhiteSpace(timeZone)
+                ? "America/Santiago" : timeZone, ReportKind.DetailedEnergy);
+        OpenContextReportDraft(draft, "Analysis");
+    }
+
+    private void BatteryToReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (_windowClosed || BatteryContent.Visibility != Visibility.Visible ||
+            _profiles.Get() is null)
+            return;
+        ShowPage("Reports");
+        if (!ReportExportExcelButton.IsEnabled) return;
+
+        // A rolling calendar preset is resolved from the last STORED reading,
+        // not from today or the most recently polled battery SOC.
+        _suppressReportRangeSelection = true;
+        try
+        {
+            ReportTypeSelector.SelectedValue = ReportKind.Battery.ToString();
+            ReportRangePresetSelector.SelectedValue = "latest-month";
+            ReportAggregationSelector.SelectedValue = AggregationPeriod.Day.ToString();
+        }
+        finally { _suppressReportRangeSelection = false; }
+        ApplyReportRangePreset();
+        SyncReportDatePartSelectorsFromDates();
+        ReportTitleTextBox.Text = GetDefaultReportTitle(ReportKind.Battery);
+        UpdateReportSelectionSummary();
+        ShowReportDraftSource("Battery", false);
+    }
+
+    private void BatteryToAnalysis_Click(object sender, RoutedEventArgs e)
+    {
+        if (_windowClosed || BatteryContent.Visibility != Visibility.Visible ||
+            _profiles.Get() is null)
+            return;
+        ShowPage("Analysis");
+        // Re-select to dispatch the historical rolling-seven-day resolver
+        // even when this was the currently selected preset earlier.
+        _suppressAnalysisRangeSelection = true;
+        try { AnalysisRangePresetSelector.SelectedValue = null; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        AnalysisRangePresetSelector.SelectedValue = "rolling-7";
+    }
+
+    private void OpenContextReportDraft(ReportContextSelection context, string origin)
+    {
+        if (_windowClosed || _profiles.Get() is null)
+            return;
+        ShowPage("Reports");
+        if (!ReportExportExcelButton.IsEnabled) return;
+
+        // A programmatic context should update all selectors atomically.
+        // It deliberately only PREFILLS; exporting still requires a click.
+        _suppressReportRangeSelection = true;
+        try
+        {
+            ReportRangePresetSelector.SelectedValue = "custom";
+            ReportFromDatePicker.SelectedDate = context.From.ToDateTime(TimeOnly.MinValue);
+            ReportToDatePicker.SelectedDate = context.To.ToDateTime(TimeOnly.MinValue);
+            ReportTypeSelector.SelectedValue = context.Kind.ToString();
+            ReportAggregationSelector.SelectedValue = context.Aggregation.ToString();
+        }
+        finally { _suppressReportRangeSelection = false; }
+
+        SyncReportDatePartSelectorsFromDates();
+        ReportTitleTextBox.Text = GetDefaultReportTitle(context.Kind);
+        UpdateReportSelectionSummary();
+        ShowReportDraftSource(origin, context.ExpandedToCalendarDay);
+    }
+
+    private void ShowReportDraftSource(string origin, bool expandedDay)
+    {
+        _reportDraftOriginPage = origin;
+        ReportContextText.Text =
+            _localization.GetString(origin == "Battery"
+                ? "Reports.DraftFromBattery"
+                : expandedDay
+                    ? "Reports.DraftFromAnalysisExpanded"
+                    : "Reports.DraftFromAnalysis");
+        ReportContextPanel.Visibility = Visibility.Visible;
+    }
+
+    private void ReportsBackToSource_Click(object sender, RoutedEventArgs e)
+    {
+        var source = _reportDraftOriginPage;
+        if (source is not ("Analysis" or "Battery")) return;
+        _reportDraftOriginPage = null;
+        ReportContextPanel.Visibility = Visibility.Collapsed;
+        ShowPage(source);
+    }
 
     private void RefreshReportsView(bool initializeRange = false)
     {
