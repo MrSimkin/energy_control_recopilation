@@ -233,6 +233,29 @@ try
         PreviewMetric(50, 22, 92, 3.5, 0.4));
     var invalidPreview = ReportPreviewEvidencePolicy.Evaluate(
         PreviewMetric(50, 22, double.NaN, 3.5, 0.4));
+    var previewQualityEmpty = ReportPreviewEvidencePolicy.Summarize(new EnergyRangeSummary(
+        "synthetic", DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow,
+        PreviewMetric(0, 0, 0, 0, 0), PreviewMetric(1, 0, 0, 0, 0),
+        PreviewMetric(0, 0, 0, 0, 0), PreviewMetric(0, 0, 0, 0, 0)));
+    var previewQualityPartial = ReportPreviewEvidencePolicy.Summarize(new EnergyRangeSummary(
+        "synthetic", DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow,
+        PreviewMetric(50, 22, 92, 3.5, 0.4), PreviewMetric(0, 0, 0, 0, 0),
+        PreviewMetric(50, 20, 80, 4, 0), PreviewMetric(1, 0, 0, 0, 0)));
+    var previewQualityAll = ReportPreviewEvidencePolicy.Summarize(new EnergyRangeSummary(
+        "synthetic", DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow,
+        PreviewMetric(50, 22, 92, 3.5, 0.4), PreviewMetric(50, 20, 80, 4, 0),
+        PreviewMetric(50, 23, 96, 7, 0), PreviewMetric(50, 21, 88, 3, 1)));
+    if (previewQualityEmpty.EligibleStreams != 0 ||
+        previewQualityEmpty.MinimumEligibleCoveragePercent is not null ||
+        previewQualityPartial.EligibleStreams != 2 ||
+        previewQualityPartial.UnavailableStreams != 2 ||
+        previewQualityPartial.MinimumEligibleCoveragePercent != 80 ||
+        previewQualityAll.EligibleStreams != 4 ||
+        previewQualityAll.UnavailableStreams != 0 ||
+        previewQualityAll.MinimumEligibleCoveragePercent != 80)
+        throw new InvalidOperationException(
+            "Report preview quality concealed missing streams or distorted minimum coverage.");
+
     if (noPreview.PositiveEnergyKwh is not null ||
         singlePreview.PositiveEnergyKwh is not null ||
         invalidPreview.CoveragePercent is not null ||

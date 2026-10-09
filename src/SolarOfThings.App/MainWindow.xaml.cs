@@ -7260,10 +7260,11 @@ public partial class MainWindow : Window
         _reportPreviewCancellation?.Cancel();
         _reportPreviewCancellation = null;
         if (ReportPreviewButton is null) return;
-        ReportPreviewButton.IsEnabled = true;
+        ReportPreviewButton.IsEnabled = !_reportExportInProgress;
         ReportPreviewCancelButton.IsEnabled = false;
         ReportPreviewResultPanel.Visibility = Visibility.Collapsed;
         ReportPreviewStatusText.Text = string.Empty;
+        ReportPreviewCoverageText.Text = string.Empty;
     }
 
     private void ReportInspectAnalysis_Click(object sender, RoutedEventArgs e)
@@ -7320,6 +7321,11 @@ public partial class MainWindow : Window
     private async void ReportPreview_Click(object sender, RoutedEventArgs e)
     {
         InvalidateReportPreview();
+        if (_reportExportInProgress)
+        {
+            ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewExportBusy");
+            return;
+        }
         var request = GetCurrentReportRequest();
         if (request is null || ReportsContent.Visibility != Visibility.Visible)
         {
@@ -7353,6 +7359,16 @@ public partial class MainWindow : Window
             ReportPreviewHouseText.Text = FormatReportPreviewMetric(summary.HouseLoadPower);
             ReportPreviewGridText.Text = FormatReportPreviewMetric(summary.GridImportPower);
             ReportPreviewBatteryText.Text = FormatReportPreviewMetric(summary.BatteryPower, true);
+            var quality = ReportPreviewEvidencePolicy.Summarize(summary);
+            ReportPreviewCoverageText.Text = quality.EligibleStreams switch
+            {
+                0 => _localization.GetString("Reports.PreviewQualityNone"),
+                4 => string.Format(_localization.GetString("Reports.PreviewQualityAll"),
+                    quality.MinimumEligibleCoveragePercent!.Value),
+                _ => string.Format(_localization.GetString("Reports.PreviewQualityPartial"),
+                    quality.EligibleStreams, quality.UnavailableStreams,
+                    quality.MinimumEligibleCoveragePercent!.Value)
+            };
             ReportPreviewResultPanel.Visibility = Visibility.Visible;
             ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewComplete");
         }
@@ -7577,6 +7593,7 @@ public partial class MainWindow : Window
         }
 
         _reportExportInProgress = true;
+        InvalidateReportPreview();
         using var cancellation = new CancellationTokenSource();
         _reportExportCancellation = cancellation;
         var cancellationToken = cancellation.Token;
@@ -7629,6 +7646,11 @@ public partial class MainWindow : Window
             });
 
             cancellationToken.ThrowIfCancellationRequested();
+            if (_windowClosed ||
+                !string.Equals(request.DeviceId, _profiles.Get()?.DeviceId,
+                    StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    _localization.GetString("Reports.ExportDeviceChanged"));
             ReportFilePublicationService.Publish(outputStage, dialog.FileName);
             stagedPath = null;
             ReportExportProgressBar.Value = 100;
@@ -7680,6 +7702,8 @@ public partial class MainWindow : Window
             if (ReferenceEquals(_reportExportCancellation, cancellation))
                 _reportExportCancellation = null;
             ReportExportCancelButton.IsEnabled = false;
+            if (!_windowClosed && ReportsContent.Visibility == Visibility.Visible)
+                ReportPreviewButton.IsEnabled = true;
             ReportExportExcelButton.IsEnabled = true;
             ReportExportPdfButton.IsEnabled = true;
             SetGlobalOperation(false, string.Empty);
