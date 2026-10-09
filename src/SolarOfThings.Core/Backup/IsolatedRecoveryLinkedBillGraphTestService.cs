@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using SolarOfThings.Core.Data;
 
@@ -50,7 +52,8 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
         string verifiedArchive, string originalSyntheticTarget,
         CancellationToken cancellationToken = default,
         bool simulateInterruptionAfterFirstBill = false,
-        bool allowExactReadingRemap = false)
+        bool allowExactReadingRemap = false,
+        bool allowExactDuplicateSkip = false)
     {
         ArgumentNullException.ThrowIfNull(approvedPlan);
         ArgumentNullException.ThrowIfNull(bundle);
@@ -122,6 +125,7 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
             }
 
             var graphs = new List<BillGraph>(selected.Length);
+            var skippedExactBills = 0;
             var uniquePeriods = new HashSet<string>(StringComparer.Ordinal);
             var readingPlans = new Dictionary<long, ReadingPlan>();
             foreach (var evidence in selected)
@@ -132,15 +136,36 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                 if (docs.Count != 1 ||
                     Convert.ToInt64(docs[0]["content_length"]) != evidence.Size)
                     throw new InvalidDataException("Source PDF identity or verified byte length is ambiguous.");
-                if (Read(destination, "utility_bill_document", "content_sha256=$v COLLATE NOCASE",
-                        evidence.Sha256, 2).Count != 0)
-                    throw new InvalidDataException("Target already has these PDF bytes: bill conflict requires review.");
+                var targetDocs = Read(destination, "utility_bill_document",
+                    "content_sha256=$v COLLATE NOCASE", evidence.Sha256, 2);
                 var originalDocumentId = Convert.ToInt64(docs[0]["document_id"]);
                 var bills = Read(source, "utility_bill", "source_document_id=$v",
                     originalDocumentId, 2);
                 if (bills.Count != 1)
-                    throw new InvalidDataException("PDF must identify exactly one source bill; shared or unlinked documents blocked.");
+                    throw new InvalidDataException(
+                        "PDF must identify exactly one source bill; shared/unlinked documents blocked.");
                 var bill = bills[0];
+                var start = Convert.ToString(bill["period_start_utc"])!;
+                var end = Convert.ToString(bill["period_end_utc"])!;
+                if (!uniquePeriods.Add(start + "|" + end))
+                    throw new InvalidDataException(
+                        "Two source bills have identical periods; account identity unresolved.");
+                var oldBillId = Convert.ToInt64(bill["bill_id"]);
+                var lines = Read(source, "utility_bill_line", "bill_id=$v", oldBillId, MaxChildren);
+                var fields = Read(source, "utility_bill_field_evidence", "bill_id=$v", oldBillId, MaxChildren);
+                if (targetDocs.Count != 0)
+                {
+                    // Strict opt-in: matching PDF hashes or periods alone are
+                    // NEVER evidence of an identical relational bill graph.
+                    if (!allowExactDuplicateSkip || targetDocs.Count != 1 ||
+                        !ExactExistingGraph(destination, root, evidence, docs[0],
+                            bill, lines, fields, targetDocs[0], start, end,
+                            cancellationToken))
+                        throw new InvalidDataException(
+                            "Existing bill PDF differs or has ambiguous graph/dependencies.");
+                    skippedExactBills++;
+                    continue;
+                }
                 foreach (var key in new[] { "from_reading_id", "to_reading_id" })
                 {
                     if (bill[key] is null) continue;
@@ -151,22 +176,17 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                     if (!readingPlans.ContainsKey(id))
                         readingPlans.Add(id, ReviewReading(source, destination, id));
                 }
-                // The schema cannot prove that two differently scanned PDFs
-                // with the same billing period represent separate accounts.
-                // Block instead of silently duplicating an invoice.
-                var start = Convert.ToString(bill["period_start_utc"])!;
-                var end = Convert.ToString(bill["period_end_utc"])!;
-                if (!uniquePeriods.Add(start + "|" + end) ||
-                    HasPeriod(destination, start, end))
+                // Different PDF bytes with the same period are NOT safe new bills.
+                if (HasPeriod(destination, start, end))
                     throw new InvalidDataException(
                         "Matching billing period requires explicit identity review.");
-                var oldBillId = Convert.ToInt64(bill["bill_id"]);
-                var lines = Read(source, "utility_bill_line", "bill_id=$v", oldBillId, MaxChildren);
-                var fields = Read(source, "utility_bill_field_evidence", "bill_id=$v", oldBillId, MaxChildren);
                 graphs.Add(new BillGraph(evidence, docs[0], bill, lines, fields,
                     originalDocumentId, oldBillId));
             }
 
+            if (graphs.Count == 0)
+                throw new InvalidOperationException(
+                    "All selected graphs were identical; use read-only exact-repeat audit, not a staged write.");
             cancellationToken.ThrowIfCancellationRequested();
             using (var copy = Open(output, writable: true))
                 destination.BackupDatabase(copy);
@@ -305,7 +325,8 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                 ReadingIdMap = readingMaps
                     .Select(x => new SyntheticReadingIdMap(x.Key, x.Value,
                         !readingPlans[x.Key].IdenticalTargetId.HasValue)).ToArray(),
-                SourcePackageSha256 = approvedPlan.SourcePackageSha256
+                SourcePackageSha256 = approvedPlan.SourcePackageSha256,
+                SkippedIdenticalBills = skippedExactBills
             };
         }
         finally
@@ -313,6 +334,116 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
             if (File.Exists(sourceCopy)) File.Delete(sourceCopy);
             if (!success && File.Exists(output)) File.Delete(output);
         }
+    }
+
+
+    // A skip demands ONE source-to-target bill with equal fields and children,
+    // its original PDF available inside the marked synthetic fixture and
+    // rehashed in full. Surrogate IDs and original machine file paths differ;
+    // reading FKs remain unsupported by this strict duplicate path.
+    private static bool ExactExistingGraph(SqliteConnection target, string root,
+        SyntheticStagedDocument verifiedPdf,
+        IReadOnlyDictionary<string, object?> sourceDocument,
+        IReadOnlyDictionary<string, object?> sourceBill,
+        List<Dictionary<string, object?>> sourceLines,
+        List<Dictionary<string, object?>> sourceFields,
+        IReadOnlyDictionary<string, object?> existingDocument,
+        string start, string end, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (sourceBill["from_reading_id"] is not null ||
+            sourceBill["to_reading_id"] is not null ||
+            !SameValues(sourceDocument, existingDocument, DocumentColumns,
+                "document_id", "local_pdf_path", "content_sha256") ||
+            !string.Equals(Convert.ToString(sourceDocument["content_sha256"]),
+                Convert.ToString(existingDocument["content_sha256"]),
+                StringComparison.OrdinalIgnoreCase) ||
+            CountPeriod(target, start, end) != 1)
+            return false;
+
+        var docId = Convert.ToInt64(existingDocument["document_id"]);
+        var matches = Read(target, "utility_bill", "source_document_id=$v", docId, 2);
+        if (matches.Count != 1 ||
+            matches[0]["from_reading_id"] is not null ||
+            matches[0]["to_reading_id"] is not null ||
+            !SameValues(sourceBill, matches[0], BillColumns,
+                "bill_id", "source_document_id"))
+            return false;
+
+        var targetId = Convert.ToInt64(matches[0]["bill_id"]);
+        var targetLines = Read(target, "utility_bill_line", "bill_id=$v",
+            targetId, MaxChildren);
+        var targetFields = Read(target, "utility_bill_field_evidence", "bill_id=$v",
+            targetId, MaxChildren);
+        if (!SameMultiset(sourceLines, targetLines, LineColumns,
+                "bill_line_id", "bill_id") ||
+            !SameMultiset(sourceFields, targetFields, EvidenceColumns,
+                "evidence_id", "bill_id"))
+            return false;
+
+        var existingPath = Convert.ToString(existingDocument["local_pdf_path"]);
+        if (string.IsNullOrWhiteSpace(existingPath))
+            return false;
+        var full = Path.GetFullPath(existingPath);
+        if (!string.Equals(
+                IsolatedRecoveryAdditiveTestService.RequireSyntheticFixtureRoot(full),
+                root, StringComparison.OrdinalIgnoreCase) ||
+            !File.Exists(full) ||
+            (File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0 ||
+            new FileInfo(full).Length != verifiedPdf.Size)
+            return false;
+        using var file = File.OpenRead(full);
+        var sha = Convert.ToHexString(SHA256.HashData(file));
+        token.ThrowIfCancellationRequested();
+        return string.Equals(sha, verifiedPdf.Sha256,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool SameValues(IReadOnlyDictionary<string, object?> a,
+        IReadOnlyDictionary<string, object?> b, string[] columns,
+        params string[] omit)
+    {
+        return columns.Where(c => !omit.Contains(c, StringComparer.Ordinal))
+            .All(c => Equals(a[c], b[c]));
+    }
+
+    // Compare complete child-row MULTISETS, not counts alone or row-order or
+    // surrogate IDs. Duplicated identical lines must retain multiplicity.
+    private static bool SameMultiset(
+        IReadOnlyList<Dictionary<string, object?>> source,
+        IReadOnlyList<Dictionary<string, object?>> target, string[] columns,
+        params string[] omit)
+    {
+        if (source.Count != target.Count) return false;
+        var included = columns.Where(c => !omit.Contains(c, StringComparer.Ordinal))
+            .ToArray();
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var row in source)
+        {
+            var key = JsonSerializer.Serialize(included.Select(c => row[c]).ToArray());
+            counts[key] = counts.GetValueOrDefault(key) + 1;
+        }
+        foreach (var row in target)
+        {
+            var key = JsonSerializer.Serialize(included.Select(c => row[c]).ToArray());
+            if (!counts.TryGetValue(key, out var count) || count == 0)
+                return false;
+            if (count == 1) counts.Remove(key);
+            else counts[key] = count - 1;
+        }
+        return counts.Count == 0;
+    }
+
+    private static long CountPeriod(SqliteConnection c, string start, string end)
+    {
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM utility_bill
+             WHERE period_start_utc=$start AND period_end_utc=$end;
+            """;
+        cmd.Parameters.AddWithValue("$start", start);
+        cmd.Parameters.AddWithValue("$end", end);
+        return Convert.ToInt64(cmd.ExecuteScalar());
     }
 
     // Reject DATE_ONLY / assumed-midnight times, unspecified sources, absent
@@ -535,4 +666,5 @@ public sealed record SyntheticLinkedBillGraphImport(
     public int ReusedMeterReadings { get; init; }
     public IReadOnlyList<SyntheticReadingIdMap> ReadingIdMap { get; init; } = [];
     public string SourcePackageSha256 { get; init; } = "";
+    public int SkippedIdenticalBills { get; init; }
 }
