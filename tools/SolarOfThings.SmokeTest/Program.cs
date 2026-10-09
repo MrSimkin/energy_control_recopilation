@@ -1520,6 +1520,31 @@ try
             throw new InvalidOperationException(
                 "A redirected symbolic-link ZIP was treated as an independent backup.");
         File.Delete(linkedDestination);
+
+        // A symlink masquerading as a local complete ZIP is also refused as
+        // a source: verifying, mirroring or deleting a linked owner file is
+        // outside the permitted physical copy workflow.
+        var linkedSource = Path.Combine(paths.BackupDirectory,
+            "SolarEnergyMonitor-complete-test-symlink.zip");
+        var localLinkCreated = false;
+        try
+        {
+            File.CreateSymbolicLink(linkedSource, complete.Path);
+            localLinkCreated = true;
+        }
+        catch (UnauthorizedAccessException) { }
+        catch (IOException) { }
+        catch (PlatformNotSupportedException) { }
+        if (localLinkCreated)
+        {
+            var localLinkedRejected = false;
+            try { completeService.VerifyLocal(linkedSource); }
+            catch (InvalidOperationException) { localLinkedRejected = true; }
+            if (!localLinkedRejected || !File.Exists(complete.Path))
+                throw new InvalidOperationException(
+                    "A redirected local source passed verified-backup gate.");
+            File.Delete(linkedSource);
+        }
     }
 
     // A single available complete copy must never be deletable.
