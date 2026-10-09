@@ -718,6 +718,19 @@ try
             throw new InvalidOperationException("Additive staging overwrote conflicting target values.");
     }
 
+    // Staged additive recovery must reject the same broken foreign keys
+    // without creating an output stage or changing the original fixture.
+    var stagedBeforeBadTarget = Directory.GetFiles(root,
+        "recovery-additive-staged-*.db", SearchOption.TopDirectoryOnly).Length;
+    var badStageRejected = false;
+    try { additive.ApplyToNewStagedFixture(complete.Path, brokenRecoveryDb.DatabasePath); }
+    catch (InvalidDataException) { badStageRejected = true; }
+    if (!badStageRejected || Directory.GetFiles(root,
+            "recovery-additive-staged-*.db", SearchOption.TopDirectoryOnly).Length !=
+        stagedBeforeBadTarget)
+        throw new InvalidOperationException(
+            "Additive staging accepted corrupt target or left an output stage.");
+
     // Running the same source again is idempotent: no double insertion.
     var stagedTwice = additive.ApplyToNewStagedFixture(
         complete.Path, stagedOnce.StagedDatabasePath);

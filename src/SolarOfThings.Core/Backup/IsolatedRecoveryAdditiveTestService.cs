@@ -69,6 +69,9 @@ public sealed class IsolatedRecoveryAdditiveTestService
             if (ReadSchema(source) != SqliteDatabase.CurrentSchemaVersion ||
                 ReadSchema(targetReader) != SqliteDatabase.CurrentSchemaVersion)
                 throw new NotSupportedException("Only equal schema v17 fixture pairs are supported.");
+            // Check the unchanged source fixture before writing an isolated
+            // staged copy. A version number alone cannot prove FK integrity.
+            IsolatedRecoveryTargetHealth.RequireHealthy(targetReader);
 
             // SQLite's native backup reads target including committed WAL rows,
             // while original target is OPEN READ-ONLY and never written here.
