@@ -183,6 +183,53 @@ public sealed class IsolatedRecoveryDocumentStageTestService
         return actual.SetEquals(expected);
     }
 
+    /// <summary>
+    /// Cross-checks staged bytes against the *current fully verified* archive.
+    /// The source ZIP must remain in the same marked synthetic fixture.
+    /// This does not authorize foreign-key or document-database writes.
+    /// </summary>
+    public bool VerifyAgainstArchive(SyntheticDocumentStageReceipt receipt,
+        string completeBackupZip, string syntheticTargetDatabase)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+        AuthorizeInputs(completeBackupZip, syntheticTargetDatabase);
+        if (!Verify(receipt, syntheticTargetDatabase)) return false;
+        using (var file = File.OpenRead(completeBackupZip))
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(file)),
+                    receipt.SourcePackageSha256, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+        var manifest = FullBackupService.VerifyArchive(completeBackupZip);
+        var allDocs = manifest.Files.Where(x => IsDocument(x.RelativePath))
+            .OrderBy(x => x.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        if (allDocs.Length != receipt.AvailableArchiveDocuments)
+            return false;
+
+        IReadOnlyList<CompleteBackupEntry> expected = allDocs;
+        if (receipt.Selective)
+        {
+            var chosenHashes = receipt.Documents.Select(x => x.Sha256)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (chosenHashes.Count == 0) return false;
+            expected = allDocs.Where(x => chosenHashes.Contains(x.Sha256))
+                .ToArray();
+        }
+
+        if (expected.Count != receipt.Documents.Count) return false;
+        var actualBySource = receipt.Documents.ToDictionary(
+            x => x.SourceRelativePath, StringComparer.OrdinalIgnoreCase);
+        foreach (var document in expected)
+        {
+            if (!actualBySource.TryGetValue(document.RelativePath, out var staged) ||
+                staged.Size != document.Size ||
+                !string.Equals(staged.Sha256, document.Sha256,
+                    StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        return true;
+    }
+
     private static string AuthorizeInputs(string zip, string database)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(zip);
