@@ -695,8 +695,19 @@
                         <TextBlock Text="{DynamicResource Analysis.Intro}"
                                                            FontSize="13"
                                                            Foreground="#6C757D"
-                                                           Margin="0,5,0,16"
+                                                           Margin="0,5,0,8"
                                                            TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,0,0,14">
+                            <Button Content="{DynamicResource Reports.FromAnalysisDetailed}"
+                                    Click="AnalysisToDetailedReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.FromAnalysisSimple}"
+                                    Click="AnalysisToSimpleReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.FromAnalysisBattery}"
+                                    Click="AnalysisToBatteryReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                        </WrapPanel>
                         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
                                                     <StackPanel>
                                                         <StackPanel Orientation="Horizontal"
@@ -1126,6 +1137,10 @@
                                                                            Foreground="#6C757D"
                                                                            Margin="0,4,0,10"
                                                                            TextWrapping="Wrap"/>
+                                                                <Button Content="{DynamicResource Reports.FromSelectedRow}"
+                                                                        Click="AnalysisSelectedRowReport_Click"
+                                                                        Padding="10,6" HorizontalAlignment="Left"
+                                                                        Margin="0,0,0,10"/>
 
                                                                 <StackPanel Orientation="Horizontal"
                                                                             Margin="0,0,0,10">
@@ -1224,6 +1239,14 @@
                                                            Foreground="#6C757D"
                                                            Margin="0,5,0,6"
                                                            TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,0,0,9">
+                            <Button Content="{DynamicResource Reports.FromBattery}"
+                                    Click="BatteryToReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.BatteryHistory}"
+                                    Click="BatteryToAnalysis_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                        </WrapPanel>
                         <TextBlock x:Name="BatteryThresholdSourceText"
                                                            Text="{DynamicResource Battery.ThresholdSourceManual}"
                                                            FontSize="12"
@@ -2514,8 +2537,17 @@
                         <TextBlock Text="{DynamicResource Reports.Intro}"
                                                            FontSize="13"
                                                            Foreground="#6C757D"
-                                                           Margin="0,5,0,16"
+                                                           Margin="0,5,0,9"
                                                            TextWrapping="Wrap"/>
+                        <StackPanel x:Name="ReportContextPanel" Visibility="Collapsed"
+                                    Orientation="Horizontal" Margin="0,0,0,12">
+                            <TextBlock x:Name="ReportContextText" TextWrapping="Wrap"
+                                       Foreground="#495057" FontSize="12"
+                                       VerticalAlignment="Center"/>
+                            <Button Content="{DynamicResource Reports.BackToSource}"
+                                    Click="ReportsBackToSource_Click" Padding="8,4"
+                                    Margin="12,0,0,0"/>
+                        </StackPanel>
                         <TabControl Style="{StaticResource PageTabControlStyle}">
                         <TabItem Header="{DynamicResource Reports.Tab.Create}"
                                  Style="{StaticResource PageTabItemStyle}">
