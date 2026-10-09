@@ -950,6 +950,12 @@ try
     // A user selection from an obsolete inventory cannot delete a changed ZIP.
     // No owner backups are used: only the two temporary synthetic copies.
     var wrongSize = secondaryPhysical with { SizeBytes = secondaryPhysical.SizeBytes + 1 };
+    var staleVerifyBlocked = false;
+    try { inventory.Verify(wrongSize, syntheticSecondary); }
+    catch (InvalidOperationException) { staleVerifyBlocked = true; }
+    if (!staleVerifyBlocked)
+        throw new InvalidOperationException(
+            "Stale inventory selection was falsely reverified as PASS.");
     var staleSizeBlocked = false;
     try { inventory.DeleteOne(wrongSize, syntheticSecondary); }
     catch (InvalidOperationException) { staleSizeBlocked = true; }
@@ -958,6 +964,12 @@ try
 
     var oldModified = File.GetLastWriteTimeUtc(mirrored.Path);
     File.SetLastWriteTimeUtc(mirrored.Path, oldModified.AddMinutes(5));
+    var staleReverifyBlocked = false;
+    try { inventory.Verify(secondaryPhysical, syntheticSecondary); }
+    catch (InvalidOperationException) { staleReverifyBlocked = true; }
+    if (!staleReverifyBlocked)
+        throw new InvalidOperationException(
+            "Changed backup timestamp was falsely reverified as PASS.");
     var staleTimeBlocked = false;
     try { inventory.DeleteOne(secondaryPhysical, syntheticSecondary); }
     catch (InvalidOperationException) { staleTimeBlocked = true; }

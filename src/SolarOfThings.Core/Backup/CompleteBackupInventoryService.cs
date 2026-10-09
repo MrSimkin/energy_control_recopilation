@@ -44,10 +44,14 @@ public sealed class CompleteBackupInventoryService
         var path = ValidateCopy(copy, configuredSecondary);
         if (copy.Kind != "COMPLETE")
             throw new InvalidOperationException("Legacy SQLite-only snapshots are not complete recovery packages.");
+        RequireCurrentSelection(path, copy);
         var manifest = FullBackupService.VerifyArchive(path);
-        using var source = File.OpenRead(path);
-        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(source))
-            .ToLowerInvariant();
+        string digest;
+        using (var source = File.OpenRead(path))
+            digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(source))
+                .ToLowerInvariant();
+        // An item replaced while hashing must not be marked PASS in the UI.
+        RequireCurrentSelection(path, copy);
         return new CompleteBackupResult(path, new FileInfo(path).Length, digest,
             manifest.CreatedUtc, manifest.SchemaVersion, manifest.Files.Count, "PASS");
     }
@@ -94,6 +98,12 @@ public sealed class CompleteBackupInventoryService
             throw new InvalidOperationException("The selected backup path changed.");
         // A stale inventory row must never authorize deletion of a file that
         // was replaced or modified after the user selected it.
+        RequireCurrentSelection(path, selected);
+        File.Delete(path);
+    }
+
+    private static void RequireCurrentSelection(string path, PhysicalBackupCopy selected)
+    {
         var actual = new FileInfo(path);
         if (!actual.Exists ||
             !string.Equals(actual.Name, selected.Name,
@@ -102,7 +112,6 @@ public sealed class CompleteBackupInventoryService
             actual.LastWriteTimeUtc != selected.ModifiedUtc.UtcDateTime)
             throw new InvalidOperationException(
                 "The selected backup changed since listing; refresh the inventory.");
-        File.Delete(path);
     }
 
     private string ValidateCopy(PhysicalBackupCopy selected, string? configuredSecondary)
