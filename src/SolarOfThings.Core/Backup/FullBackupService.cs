@@ -230,8 +230,13 @@ public sealed class FullBackupService
         if (!string.Equals(parent, Path.GetFullPath(_paths.BackupDirectory),
                 StringComparison.OrdinalIgnoreCase) ||
             !Path.GetFileName(full).StartsWith(ArchivePrefix, StringComparison.Ordinal) ||
-            !full.EndsWith(ArchiveSuffix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("File is not a recognized local complete backup.");
+            !full.EndsWith(ArchiveSuffix, StringComparison.OrdinalIgnoreCase) ||
+            (File.Exists(full) &&
+             (File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0) ||
+            (Directory.Exists(parent) &&
+             (File.GetAttributes(parent) & FileAttributes.ReparsePoint) != 0))
+            throw new InvalidOperationException(
+                "File is not a safe regular local complete backup.");
         return full;
     }
 
