@@ -7603,11 +7603,11 @@ public partial class MainWindow : Window
         ReportExportPdfButton.IsEnabled = false;
         ReportExportProgressLabel.Visibility = Visibility.Visible;
         ReportExportProgressBar.Visibility = Visibility.Visible;
-        ReportExportProgressBar.IsIndeterminate = false;
-        ReportExportProgressBar.Value = 15;
+        // These stages represent progress through operations, not measured
+        // percent complete. Keep the long-running indicator indeterminate.
+        ReportExportProgressBar.IsIndeterminate = true;
+        ReportExportProgressBar.Value = 0;
         ReportExportProgressLabel.Text =
-            (_localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
-                ? "Paso 1/3 · " : "Step 1/3 · ") +
             _localization.GetString("Reports.ExportPreparing");
         ReportStatusText.Text = string.Empty;
         SetGlobalOperation(
@@ -7625,10 +7625,7 @@ public partial class MainWindow : Window
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            ReportExportProgressBar.Value = 55;
             ReportExportProgressLabel.Text =
-                (_localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
-                    ? "Paso 2/3 · " : "Step 2/3 · ") +
                 _localization.GetString("Reports.ExportGenerating");
 
             stagedPath = ReportFilePublicationService.CreateStagingPath(dialog.FileName);
@@ -7653,10 +7650,9 @@ public partial class MainWindow : Window
                     _localization.GetString("Reports.ExportDeviceChanged"));
             ReportFilePublicationService.Publish(outputStage, dialog.FileName);
             stagedPath = null;
+            ReportExportProgressBar.IsIndeterminate = false;
             ReportExportProgressBar.Value = 100;
             ReportExportProgressLabel.Text =
-                (_localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
-                    ? "Paso 3/3 · " : "Step 3/3 · ") +
                 _localization.GetString("Reports.ExportComplete");
             System.Media.SystemSounds.Asterisk.Play();
             ReportStatusText.Text = string.Format(
@@ -7667,6 +7663,8 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
+            ReportExportProgressBar.IsIndeterminate = false;
+            ReportExportProgressBar.Value = 0;
             ReportExportProgressLabel.Text =
                 _localization.GetString("Reports.ExportCancelled");
             ReportStatusText.Text =
@@ -7674,7 +7672,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ReportExportProgressBar.Value = 100;
+            ReportExportProgressBar.IsIndeterminate = false;
+            ReportExportProgressBar.Value = 0;
             ReportExportProgressLabel.Text =
                 _localization.GetString("Reports.ExportFailed");
             ReportStatusText.Text = ex.Message;
