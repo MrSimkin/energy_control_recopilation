@@ -2866,11 +2866,16 @@
                                     <Button x:Name="BackupDeleteButton" Content="{DynamicResource Backup.DeleteSelected}"
                                             Style="{StaticResource DestructiveActionButtonStyle}"
                                             Padding="12,7" Click="BackupPageDelete_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupOpenSelectedButton" Content="{DynamicResource Backup.OpenSelectedFolder}"
+                                            Padding="12,7" Click="BackupPageOpenSelected_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupSaveReceiptButton" Content="{DynamicResource Backup.SaveReceipt}"
+                                            Padding="12,7" Click="BackupPageSaveReceipt_Click" Margin="0,0,8,8"/>
                                 </WrapPanel>
                                 <ProgressBar x:Name="BackupInventoryProgress" IsIndeterminate="True"
                                              Height="7" Margin="0,0,0,10" Visibility="Collapsed"/>
                                 <DataGrid x:Name="BackupInventoryGrid" AutoGenerateColumns="False"
                                           IsReadOnly="True" SelectionMode="Single"
+                                          SelectionChanged="BackupInventorySelectionChanged"
                                           Height="305" HorizontalScrollBarVisibility="Auto">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="{DynamicResource Backup.ColumnLocation}" Binding="{Binding Location}" Width="100"/>
@@ -2883,6 +2888,21 @@
                                 </DataGrid>
                                 <TextBlock x:Name="BackupInventoryStatusText" FontSize="12"
                                            Foreground="#495057" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                                <Border BorderBrush="#DEE2E6" BorderThickness="1" Padding="12"
+                                        Margin="0,12,0,8" Background="#F8F9FA">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Backup.SelectionHeading}"
+                                                   FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                        <TextBlock x:Name="BackupSelectionDetailsText"
+                                                   Text="{DynamicResource Backup.SelectionHint}"
+                                                   FontSize="12" TextWrapping="Wrap" Margin="0,0,0,7"/>
+                                        <TextBlock x:Name="BackupVerifiedContentsText"
+                                                   FontSize="12" TextWrapping="Wrap" FontFamily="Consolas"/>
+                                        <TextBlock Text="{DynamicResource Backup.NotRestoreWarning}"
+                                                   Foreground="#805400" FontSize="11" TextWrapping="Wrap"
+                                                   Margin="0,9,0,0"/>
+                                    </StackPanel>
+                                </Border>
                                 <TextBlock Text="{DynamicResource Backup.LastCopyPolicy}" Foreground="#6C757D"
                                            FontSize="12" TextWrapping="Wrap" Margin="0,7,0,0"/>
                             </StackPanel>
