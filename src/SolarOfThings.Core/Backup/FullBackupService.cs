@@ -176,9 +176,15 @@ public sealed class FullBackupService
         // Do not mirror onto application Data/Backups or through junctions.
         var targetDirectory = BackupDestinationPolicy.Validate(_paths, secondaryFolder);
         Directory.CreateDirectory(targetDirectory);
+        // Re-check after directory creation in case a stale/offline drive
+        // appears as a redirect; never follow a secondary junction.
+        BackupDestinationPolicy.Validate(_paths, targetDirectory);
         var destination = Path.Combine(targetDirectory, Path.GetFileName(source));
         if (File.Exists(destination))
         {
+            if ((File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException(
+                    "Refusing secondary backup at a symbolic-link destination.");
             if (!string.Equals(HashFile(destination), verified.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new IOException("A different backup file already exists at the secondary destination.");
             // Already copied and byte-identical; do not overwrite.
@@ -202,6 +208,11 @@ public sealed class FullBackupService
             if (!string.Equals(HashFile(temporary), verified.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Secondary copy SHA-256 does not match local verified backup.");
             VerifyArchive(temporary);
+            // A disconnected destination must never become a redirect just
+            // before publication; re-check folder and no-overwrite intent.
+            BackupDestinationPolicy.Validate(_paths, targetDirectory);
+            if (File.Exists(destination))
+                throw new IOException("Secondary destination appeared during copy; refusing overwrite.");
             File.Move(temporary, destination);
             return verified with { Path = destination };
         }
