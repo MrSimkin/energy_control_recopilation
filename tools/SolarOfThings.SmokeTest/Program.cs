@@ -5497,7 +5497,7 @@ try
     if (!selectedGraphEvidence.Selective ||
         selectedGraphLinks.CandidatesWithUniqueStagedBytes != 0 ||
         selectedGraphLinks.SharedSourceDocumentCandidates != 2 ||
-        selectedGraphLinks.CandidatesWithoutSelectedBytes != 3 ||
+        selectedGraphLinks.CandidatesWithoutSelectedBytes != 2 ||
         selectedGraphLinks.RelationalRestoreAuthorized)
         throw new InvalidOperationException(
             "Selective synthetic evidence introduced false bill/tariff relations.");
