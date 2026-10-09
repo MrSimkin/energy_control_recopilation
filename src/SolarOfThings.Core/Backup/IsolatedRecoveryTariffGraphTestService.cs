@@ -193,6 +193,43 @@ public sealed class IsolatedRecoveryTariffGraphTestService
                     relations[Convert.ToInt64(relation["relation_id"])] = relation;
                 }
             }
+            // Some official correction references are stored as metadata
+            // or as a pending relation to an official number with a NULL FK.
+            // Neither form may disappear from a supposedly complete graph.
+            foreach (var graph in selected)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var row = graph.Publication;
+                var provider = Convert.ToString(row["provider"])!;
+                var category = Convert.ToString(row["category"])!;
+                var number = Convert.ToString(row["official_document_number"])!;
+                var correcting = Convert.ToString(row["corrects_official_document_number"]);
+                if (!string.IsNullOrWhiteSpace(correcting) &&
+                    !selected.Any(x =>
+                        Convert.ToString(x.Publication["provider"]) == provider &&
+                        Convert.ToString(x.Publication["category"]) == category &&
+                        Convert.ToString(x.Publication["official_document_number"]) == correcting))
+                    throw new InvalidDataException(
+                        "Tariff correction metadata points outside selected complete graph.");
+                var referenced = Query(source, """
+                    SELECT * FROM tariff_publication_relation
+                    WHERE target_provider=$provider AND target_category=$category
+                      AND target_official_document_number=$number
+                    LIMIT $limit;
+                    """, MaxChildren, ("$provider", provider),
+                    ("$category", category), ("$number", number));
+                foreach (var relation in referenced)
+                {
+                    var from = Convert.ToInt64(relation["source_publication_id"]);
+                    var target = relation["target_publication_id"];
+                    if (target is null || Convert.ToInt64(target) != graph.SourceId ||
+                        !ids.Contains(from) ||
+                        !relations.ContainsKey(Convert.ToInt64(relation["relation_id"])))
+                        throw new InvalidDataException(
+                            "Unresolved or unselected incoming official correction link.");
+                }
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             using (var copy = Open(output, writable: true))
                 destination.BackupDatabase(copy);
