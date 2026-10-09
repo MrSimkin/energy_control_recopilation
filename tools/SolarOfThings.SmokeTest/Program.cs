@@ -364,13 +364,56 @@ try
     if (!rejectedEmpty || File.ReadAllText(destination) != "previous accepted report")
         throw new InvalidOperationException("Empty report publish destroyed existing output.");
     ReportFilePublicationService.DiscardStaging(failedStage);
+    // Nonempty bytes are NOT proof of a valid report: preserve an existing
+    // destination if a partial PDF never acquired the PDF EOF marker.
+    var incompletePdf = ReportFilePublicationService.CreateStagingPath(destination);
+    File.WriteAllText(incompletePdf, "%PDF-1.4\n1 0 obj << >> endobj\n");
+    var rejectedPartialPdf = false;
+    try { ReportFilePublicationService.Publish(incompletePdf, destination); }
+    catch (InvalidDataException) { rejectedPartialPdf = true; }
+    if (!rejectedPartialPdf ||
+        File.ReadAllText(destination) != "previous accepted report")
+        throw new InvalidOperationException("Truncated PDF replaced accepted output.");
+    ReportFilePublicationService.DiscardStaging(incompletePdf);
+
     var completeStage = ReportFilePublicationService.CreateStagingPath(destination);
-    File.WriteAllText(completeStage, "completed synthetic report");
+    // Disposable minimal synthetic PDF envelope, not a claim of rendered
+    // content correctness or owner-PC PDF reader compatibility.
+    File.WriteAllText(completeStage,
+        "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n");
     ReportFilePublicationService.Publish(completeStage, destination);
     if (File.Exists(completeStage) ||
-        File.ReadAllText(destination) != "completed synthetic report")
-        throw new InvalidOperationException("Completed report was not published atomically.");
+        !File.ReadAllText(destination).StartsWith("%PDF-1.4", StringComparison.Ordinal))
+        throw new InvalidOperationException("Completed PDF was not published atomically.");
     File.Delete(destination);
+
+    // A structurally invalid XLSX ZIP must never replace a previously
+    // saved workbook, even when it has a .xlsx extension and nonzero size.
+    var xlsxDestination = Path.Combine(root, "existing-report.xlsx");
+    File.WriteAllText(xlsxDestination, "PREVIOUS WORKBOOK BYTES");
+    var corruptXlsxStage = ReportFilePublicationService.CreateStagingPath(xlsxDestination);
+    File.WriteAllText(corruptXlsxStage, "NOT AN XLSX PACKAGE");
+    var rejectedCorruptXlsx = false;
+    try { ReportFilePublicationService.Publish(corruptXlsxStage, xlsxDestination); }
+    catch (InvalidDataException) { rejectedCorruptXlsx = true; }
+    if (!rejectedCorruptXlsx ||
+        File.ReadAllText(xlsxDestination) != "PREVIOUS WORKBOOK BYTES")
+        throw new InvalidOperationException("Incomplete XLSX destroyed prior report.");
+    ReportFilePublicationService.DiscardStaging(corruptXlsxStage);
+    var validXlsxStage = ReportFilePublicationService.CreateStagingPath(xlsxDestination);
+    using (var syntheticWorkbook = new XLWorkbook())
+    {
+        syntheticWorkbook.AddWorksheet("Observations").Cell(1, 1).Value = "SyntheticOnly";
+        syntheticWorkbook.SaveAs(validXlsxStage);
+    }
+    ReportFilePublicationService.Publish(validXlsxStage, xlsxDestination);
+    using (var reopenedWorkbook = new XLWorkbook(xlsxDestination))
+    {
+        if (reopenedWorkbook.Worksheet("Observations").Cell(1, 1).GetString() !=
+            "SyntheticOnly" || File.Exists(validXlsxStage))
+            throw new InvalidOperationException("Verified XLSX was not published properly.");
+    }
+    File.Delete(xlsxDestination);
     var invalidReportExtension = false;
     try { ReportFilePublicationService.CreateStagingPath(
         Path.Combine(root, "script.exe")); }
