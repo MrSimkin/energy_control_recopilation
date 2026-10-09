@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Xml;
 
 namespace SolarOfThings.Core.Reporting;
 
@@ -107,18 +108,54 @@ public static class ReportFilePublicationService
         try
         {
             using var archive = ZipFile.OpenRead(path);
-            if (archive.GetEntry("[Content_Types].xml") is null ||
-                archive.GetEntry("_rels/.rels") is null ||
-                archive.GetEntry("xl/workbook.xml") is null ||
+            var contentTypes = archive.GetEntry("[Content_Types].xml");
+            var relationships = archive.GetEntry("_rels/.rels");
+            var workbook = archive.GetEntry("xl/workbook.xml");
+            if (contentTypes is null || relationships is null || workbook is null ||
                 !archive.Entries.Any(x => x.FullName.StartsWith(
                     "xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase) &&
                     x.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidDataException(
                     "Report XLSX lacks mandatory workbook parts.");
+
+            // A valid ZIP directory alone is insufficient: a truncated,
+            // malformed or substituted workbook.xml can still be opened as
+            // a ZIP. Validate small mandatory OOXML metadata without
+            // materializing potentially million-row worksheets.
+            RequireXmlRoot(contentTypes, "Types");
+            RequireXmlRoot(relationships, "Relationships");
+            RequireXmlRoot(workbook, "workbook");
         }
         catch (InvalidDataException)
         {
             throw;
+        }
+    }
+
+    private static void RequireXmlRoot(ZipArchiveEntry entry, string expected)
+    {
+        // Bound decompressed metadata so ZIP bombs cannot force unbounded
+        // allocation during the pre-publication verification.
+        if (entry.Length is < 1 or > 4_194_304)
+            throw new InvalidDataException("Report OOXML metadata is missing or oversized.");
+        try
+        {
+            using var data = entry.Open();
+            using var reader = XmlReader.Create(data, new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersInDocument = 4_194_304
+            });
+            reader.MoveToContent();
+            if (reader.NodeType != XmlNodeType.Element ||
+                !string.Equals(reader.LocalName, expected, StringComparison.Ordinal))
+                throw new InvalidDataException("Report OOXML metadata has the wrong root.");
+            while (reader.Read()) { } // check complete XML rather than only prefix
+        }
+        catch (XmlException ex)
+        {
+            throw new InvalidDataException("Report OOXML metadata is malformed.", ex);
         }
     }
 
