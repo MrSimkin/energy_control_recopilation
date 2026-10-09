@@ -2288,8 +2288,9 @@ try
     reportTimer.Record("Data.Reports.Build", TimeSpan.FromMilliseconds(123));
     reportTimer.Record("Data.Reports.PdfRender", TimeSpan.FromMilliseconds(456));
     reportTimer.Record("Data.Reports.Publish", TimeSpan.FromMilliseconds(3));
+    reportTimer.Record("Data.Reports.CancelLatency", TimeSpan.FromMilliseconds(750));
     var reportTimingSamples = reportTimer.Snapshot();
-    if (reportTimingSamples.Count != 3 ||
+    if (reportTimingSamples.Count != 4 ||
         reportTimer.Summaries().Any(x => x.Samples != 1) ||
         reportTimingSamples.Any(x => !x.Operation.StartsWith("Data.Reports.", StringComparison.Ordinal)))
         throw new InvalidOperationException("Report performance instrumentation regressed.");

@@ -2229,7 +2229,7 @@ public partial class MainWindow : Window
         if (!isReports)
         {
             InvalidateReportPreview();
-            _reportExportCancellation?.Cancel();
+            RequestReportExportCancellation();
         }
 
         if (!isData) _dataCoverageRefreshGeneration++; // Discard stale coverage reads.
@@ -6594,6 +6594,7 @@ public partial class MainWindow : Window
     private string? _lastExportedReportPath;
     private bool _reportExportInProgress;
     private CancellationTokenSource? _reportExportCancellation;
+    private long? _reportExportCancellationRequestedAt;
     private int _reportPreviewGeneration;
     private CancellationTokenSource? _reportPreviewCancellation;
     private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
@@ -7566,11 +7567,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void RequestReportExportCancellation()
+    {
+        if (_reportExportCancellation is null ||
+            _reportExportCancellation.IsCancellationRequested)
+            return;
+        _reportExportCancellationRequestedAt = Stopwatch.GetTimestamp();
+        _reportExportCancellation.Cancel();
+    }
+
     private void ReportExportCancel_Click(object sender, RoutedEventArgs e)
     {
         if (!_reportExportInProgress || _reportExportCancellation is null)
             return;
-        _reportExportCancellation.Cancel();
+        RequestReportExportCancellation();
         ReportExportCancelButton.IsEnabled = false;
         ReportStatusText.Text = _localization.GetString("Reports.ExportCancelPending");
     }
@@ -7623,6 +7633,7 @@ public partial class MainWindow : Window
         InvalidateReportPreview();
         using var cancellation = new CancellationTokenSource();
         _reportExportCancellation = cancellation;
+        _reportExportCancellationRequestedAt = null;
         var cancellationToken = cancellation.Token;
         string? stagedPath = null;
         var overallWatch = Stopwatch.StartNew();
@@ -7708,9 +7719,20 @@ public partial class MainWindow : Window
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
             _performance.Record("Data.Reports.CancelObserved", overallWatch.Elapsed);
-            ReportExportTimingText.Text = string.Format(
-                _localization.GetString("Reports.ExportCancelTiming"),
-                overallWatch.Elapsed.TotalSeconds);
+            if (_reportExportCancellationRequestedAt is long requestTick)
+            {
+                var cancelLatency = Stopwatch.GetElapsedTime(requestTick);
+                _performance.Record("Data.Reports.CancelLatency", cancelLatency);
+                ReportExportTimingText.Text = string.Format(
+                    _localization.GetString("Reports.ExportCancelLatency"),
+                    overallWatch.Elapsed.TotalSeconds, cancelLatency.TotalSeconds);
+            }
+            else
+            {
+                ReportExportTimingText.Text = string.Format(
+                    _localization.GetString("Reports.ExportCancelTiming"),
+                    overallWatch.Elapsed.TotalSeconds);
+            }
             ReportExportProgressBar.IsIndeterminate = false;
             ReportExportProgressBar.Value = 0;
             ReportExportProgressLabel.Text =
@@ -7751,7 +7773,10 @@ public partial class MainWindow : Window
             }
             _reportExportInProgress = false;
             if (ReferenceEquals(_reportExportCancellation, cancellation))
+            {
                 _reportExportCancellation = null;
+                _reportExportCancellationRequestedAt = null;
+            }
             ReportExportCancelButton.IsEnabled = false;
             if (!_windowClosed && ReportsContent.Visibility == Visibility.Visible)
                 ReportPreviewButton.IsEnabled = true;
@@ -8205,7 +8230,7 @@ public partial class MainWindow : Window
         EventArgs e)
     {
         _windowClosed = true;
-        _reportExportCancellation?.Cancel();
+        RequestReportExportCancellation();
         _reportPreviewCancellation?.Cancel();
         _dashboardRefreshGeneration++;
         _batteryRefreshGeneration++;
