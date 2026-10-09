@@ -119,6 +119,70 @@ try
         throw new InvalidOperationException(
             "Dashboard daily coverage concealed missing, invalid or incomplete measurements.");
 
+    // Contextual report drafts are read-only source selections. They must
+    // preserve date and supported aggregation, explicitly expand hours to
+    // calendar-day reports, and use the installation's local timezone for
+    // selected historical rows (NOT the Windows runner's local timezone).
+    var sourceFrom = new DateOnly(2026, 9, 21);
+    var sourceTo = new DateOnly(2026, 10, 8);
+    var dayDraft = ReportContextNavigationPolicy.FromAnalysis(
+        sourceFrom, sourceTo, AggregationPeriod.Day, ReportKind.DetailedEnergy);
+    var weekDraft = ReportContextNavigationPolicy.FromAnalysis(
+        sourceFrom, sourceTo, AggregationPeriod.Week, ReportKind.SimpleEnergy);
+    var hourDraft = ReportContextNavigationPolicy.FromAnalysis(
+        sourceFrom, sourceTo, AggregationPeriod.Hour, ReportKind.Battery);
+    if (dayDraft.From != sourceFrom || dayDraft.To != sourceTo ||
+        dayDraft.Aggregation != AggregationPeriod.Day ||
+        dayDraft.Kind != ReportKind.DetailedEnergy ||
+        dayDraft.ExpandedToCalendarDay ||
+        weekDraft.Aggregation != AggregationPeriod.Week ||
+        weekDraft.Kind != ReportKind.SimpleEnergy ||
+        hourDraft.Aggregation != AggregationPeriod.Day ||
+        hourDraft.Kind != ReportKind.Battery ||
+        !hourDraft.ExpandedToCalendarDay)
+        throw new InvalidOperationException(
+            "Analysis report draft lost its range, kind or explicit hourly conversion.");
+
+    var reverseRangeRejected = false;
+    try
+    {
+        ReportContextNavigationPolicy.FromAnalysis(
+            sourceTo, sourceFrom, AggregationPeriod.Day, ReportKind.SimpleEnergy);
+    }
+    catch (ArgumentOutOfRangeException) { reverseRangeRejected = true; }
+    if (!reverseRangeRejected)
+        throw new InvalidOperationException(
+            "Context report accepted an inverted historical period.");
+
+    var rowStart = DateTimeOffset.Parse("2026-10-08T14:00:00+00:00",
+        System.Globalization.CultureInfo.InvariantCulture);
+    var rowEnd = rowStart.AddHours(1);
+    var syntheticRow = new EnergyAggregationRow(
+        "Synthetic hourly row", rowStart, rowEnd,
+        1, 2, 3, 4, 5, null, null, null, null,
+        90, 95, 97, 92, 91, 90);
+    var selectedDraft = ReportContextNavigationPolicy.FromSelectedRow(
+        syntheticRow, "America/Santiago", ReportKind.DetailedEnergy);
+    if (selectedDraft.From != new DateOnly(2026, 10, 8) ||
+        selectedDraft.To != new DateOnly(2026, 10, 8) ||
+        selectedDraft.Aggregation != AggregationPeriod.Day ||
+        selectedDraft.Kind != ReportKind.DetailedEnergy ||
+        !selectedDraft.ExpandedToCalendarDay ||
+        selectedDraft.Source != "ANALYSIS_ROW")
+        throw new InvalidOperationException(
+            "Selected hourly row was not mapped to its own local calendar day.");
+
+    var rowWindowRejected = false;
+    try
+    {
+        ReportContextNavigationPolicy.FromSelectedRow(
+            syntheticRow with { EndUtcExclusive = rowStart },
+            "America/Santiago", ReportKind.DetailedEnergy);
+    }
+    catch (ArgumentException) { rowWindowRejected = true; }
+    if (!rowWindowRejected)
+        throw new InvalidOperationException("Invalid report row interval was accepted.");
+
     // Battery background-result guard: only the visible, current device and
     // request generation may be rendered.
     if (!BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", "A") ||
