@@ -369,6 +369,8 @@ public partial class MainWindow : Window
         _ = LoadDashboardMetricsAsync();
     }
 
+    private string? _dashboardLastSavedDayDeviceId;
+
     private sealed record DashboardReadResult(
         IReadOnlyDictionary<string, NormalizedMetricValue> StoredMetrics,
         CurrentHouseholdSnapshot? CurrentSnapshot,
@@ -466,7 +468,7 @@ public partial class MainWindow : Window
                     RefreshDashboardFreshness(
                         metrics,
                         useCurrentSnapshot ? result.CurrentSnapshot : null);
-                    RenderDashboardLatestSavedDay(result);
+                    RenderDashboardLatestSavedDay(result, profile.DeviceId);
                     return;
                 }
                 catch (Exception ex)
@@ -569,7 +571,27 @@ public partial class MainWindow : Window
         ResetDashboardLatestSavedDay();
     }
 
-    private void RenderDashboardLatestSavedDay(DashboardReadResult result)
+    private void DashboardOpenLatestDay_Click(object sender, RoutedEventArgs e)
+    {
+        // Never follow stale dashboard evidence to a different device, and
+        // never select today's date when the latest STORED date is older.
+        if (_windowClosed || !_dashboardVisible || _dashboardLastSavedDayDeviceId is null ||
+            !string.Equals(_dashboardLastSavedDayDeviceId, _profiles.Get()?.DeviceId,
+                StringComparison.Ordinal))
+            return;
+        ShowPage("Analysis");
+        // Reapplying this preset is necessary even when the user previously
+        // inspected a different day and the selector retained "latest-day".
+        _suppressAnalysisRangeSelection = true;
+        try { AnalysisRangePresetSelector.SelectedValue = null; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        AnalysisRangePresetSelector.SelectedValue = "latest-day";
+    }
+
+    private void DashboardInspectCoverage_Click(object sender, RoutedEventArgs e) =>
+        ShowPage("Data");
+
+    private void RenderDashboardLatestSavedDay(DashboardReadResult result, string deviceId)
     {
         if (!result.LatestSavedDate.HasValue || result.LatestSavedEnergy is null)
         {
@@ -579,6 +601,8 @@ public partial class MainWindow : Window
 
         var localDate = result.LatestSavedDate.Value;
         var summary = result.LatestSavedEnergy;
+        _dashboardLastSavedDayDeviceId = deviceId;
+        DashboardLatestDayOpenButton.IsEnabled = true;
 
         DashboardLatestDayDateText.Text = string.Format(
             _localization.GetString("Dashboard.LatestDayDate"),
@@ -607,16 +631,25 @@ public partial class MainWindow : Window
             .Select(metric => metric.CoveragePercent)
             .ToArray();
 
-        DashboardLatestDayCoverageText.Text =
-            coverages.Length > 0
-                ? $"{coverages.Min():F1} %"
-                : "— %";
+        var evidence = DashboardDailyEvidencePolicy.Assess(
+            summary.PvPower.SampleCount, summary.PvPower.CoveragePercent,
+            summary.HouseLoadPower.SampleCount, summary.HouseLoadPower.CoveragePercent,
+            summary.GridImportPower.SampleCount, summary.GridImportPower.CoveragePercent);
 
+        // The visible minimum percentage describes measured streams ONLY;
+        // the evidence label makes missing streams explicit instead of
+        // misleading the user with a reassuring aggregate percentage.
+        DashboardLatestDayCoverageText.Text =
+            evidence.MinimumAvailableCoveragePercent.HasValue
+                ? $"{evidence.MinimumAvailableCoveragePercent.Value:F1} %"
+                : "— %";
         DashboardLatestDayCoverageText.Foreground =
-            coverages.Length > 0 &&
-            coverages.Min() < 80
-                ? Brushes.DarkOrange
-                : Brushes.Black;
+            evidence.ShouldWarn ? Brushes.DarkOrange : Brushes.Black;
+        DashboardDailyEvidenceText.Text = string.Format(
+            _localization.GetString("Dashboard.DailyEvidence." + evidence.State),
+            evidence.AvailableStreams, evidence.MissingStreams);
+        DashboardDailyEvidenceText.Foreground =
+            evidence.ShouldWarn ? Brushes.DarkOrange : Brushes.DarkGreen;
     }
 
     private static void SetDashboardDailyEnergy(
@@ -638,8 +671,12 @@ public partial class MainWindow : Window
         DashboardLatestDayHouseText.Text = "— kWh";
         DashboardLatestDayGridText.Text = "— kWh";
         DashboardLatestDayCoverageText.Text = "— %";
-        DashboardLatestDayCoverageText.Foreground =
-            Brushes.Black;
+        DashboardLatestDayCoverageText.Foreground = Brushes.Black;
+        DashboardDailyEvidenceText.SetResourceReference(
+            TextBlock.TextProperty, "Dashboard.DailyEvidenceUnknown");
+        DashboardDailyEvidenceText.Foreground = Brushes.DarkOrange;
+        DashboardLatestDayOpenButton.IsEnabled = false;
+        _dashboardLastSavedDayDeviceId = null;
     }
 
     private void RefreshDashboardFreshness(
