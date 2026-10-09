@@ -8947,21 +8947,38 @@ public partial class MainWindow : Window
         }
         var spanish = _localization.CurrentLanguage.StartsWith(
             "es", StringComparison.OrdinalIgnoreCase);
-        var warning = spanish
-            ? "Eliminar ÚNICAMENTE esta copia física?\n\n" + chosen.Path +
-              "\n\nLas otras ubicaciones no se modificarán. Se verificará que exista " +
-              "otra copia completa disponible antes de permitirlo."
-            : "Delete ONLY this physical copy?\n\n" + chosen.Path +
-              "\n\nNo other destination will be changed. Another available " +
-              "complete backup must pass verification before deletion.";
-        if (MessageBox.Show(warning, spanish ? "Confirmar eliminación" : "Confirm deletion",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
-            return;
+        // Verify both physical packages before showing the confirmation.
+        // Never claim another valid copy exists based on inventory metadata.
         SetBackupInventoryBusy(true);
         try
         {
-            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
-            await Task.Run(() => service.DeleteOne(chosen, ConfiguredSecondaryBackupFolder()));
+            var secondary = ConfiguredSecondaryBackupFolder();
+            var service = new CompleteBackupDeletionReviewService(_paths);
+            var reviewed = await Task.Run(() => service.Prepare(chosen, secondary));
+            var warning = spanish
+                ? "Se verificaron DOS respaldos completos independientes.\n\n" +
+                  "Eliminar únicamente esta copia física?\n" + chosen.Path +
+                  "\n\nCopia que se conservará (verificada):\n" +
+                  reviewed.Survivor.Path +
+                  "\n\nLa eliminación NO afecta otras ubicaciones. " +
+                  "Se volverán a comprobar ambas copias antes de borrar."
+                : "TWO independent complete backups passed verification.\n\n" +
+                  "Delete only this physical copy?\n" + chosen.Path +
+                  "\n\nVerified copy that will be kept:\n" +
+                  reviewed.Survivor.Path +
+                  "\n\nOther locations will not be changed. " +
+                  "Both backups will be checked again before deletion.";
+            if (MessageBox.Show(warning,
+                    spanish ? "Confirmar eliminación" : "Confirm deletion",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                BackupInventoryStatusText.Text = spanish
+                    ? "Eliminación cancelada; no se borró ningún respaldo."
+                    : "Deletion cancelled; no backups were deleted.";
+                return;
+            }
+            await Task.Run(() =>
+                service.DeleteAfterExplicitConfirmation(reviewed, userConfirmed: true));
             BackupInventoryStatusText.Text = (spanish
                 ? "Se eliminó únicamente la copia seleccionada: "
                 : "Only the selected copy was deleted: ") + chosen.Path;
