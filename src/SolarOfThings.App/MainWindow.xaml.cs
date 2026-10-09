@@ -61,6 +61,7 @@ public partial class MainWindow : Window
     private bool _dashboardVisible;
     private int _batteryRefreshGeneration;
     private bool _batteryDataLoading;
+    private string? _batteryRenderedDeviceId;
     private int _analysisRefreshGeneration;
     private bool _analysisDataLoading;
     private bool _analysisRangeInitializationPending;
@@ -749,10 +750,23 @@ public partial class MainWindow : Window
         if (!IsInitialized || BatteryContent is null)
             return;
         _batteryRefreshGeneration++;
-        if (_windowClosed || _batteryDataLoading ||
-            BatteryContent.Visibility != Visibility.Visible)
+        if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
             return;
-        _ = LoadBatteryViewAsync();
+        var currentDevice = _profiles.Get()?.DeviceId;
+        if (_batteryRenderedDeviceId is not null &&
+            !string.Equals(_batteryRenderedDeviceId, currentDevice,
+                StringComparison.Ordinal))
+        {
+            // Device switched: don't show the previous installation's SOC,
+            // voltage or power while the new background read completes.
+            ResetBatteryView(keepCapacity: true);
+            _batteryRenderedDeviceId = null;
+        }
+        BatteryLastReadingText.Text = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase)
+            ? "Actualizando batería..." : "Updating battery...";
+        if (!_batteryDataLoading)
+            _ = LoadBatteryViewAsync();
     }
 
     private sealed record BatteryReadResult(
@@ -823,6 +837,7 @@ public partial class MainWindow : Window
 
                     using var measure = _performance.Measure("UI.Battery.Refresh");
                     RenderBatteryData(result);
+                    _batteryRenderedDeviceId = profile.DeviceId;
                     return;
                 }
                 catch (Exception ex)
@@ -6601,6 +6616,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _reportPreviewCancellation;
     private int _reportReadGeneration;
     private bool _reportCoverageLoading;
+    private int _reportReadAppliedGeneration = -1;
     private bool _reportRangeInitializationPending;
     private string? _reportReadDeviceId;
     private string? _pendingBatteryReportPreset;
@@ -6810,6 +6826,7 @@ public partial class MainWindow : Window
                     var profile = _profiles.Get();
                     if (profile is null)
                     {
+                        _reportReadAppliedGeneration = generation;
                         ReportStatusText.Text = _localization.GetString("Reports.NoProfile");
                         LoadSavedReportPresets();
                         return;
@@ -6837,6 +6854,7 @@ public partial class MainWindow : Window
                     using var measure = _performance.Measure("UI.Reports.Readiness");
                     ApplyReportsCoverage(profile, coverage, _reportRangeInitializationPending);
                     _reportRangeInitializationPending = false;
+                    _reportReadAppliedGeneration = generation;
                     return;
                 }
                 catch (Exception ex)
@@ -6850,6 +6868,7 @@ public partial class MainWindow : Window
                         "es", StringComparison.OrdinalIgnoreCase)
                         ? "No fue posible leer la disponibilidad para informes."
                         : "Report availability could not be loaded.";
+                    _reportReadAppliedGeneration = generation;
                     Debug.WriteLine($"Reports coverage read failed ({ex.GetType().Name}).");
                     return;
                 }
@@ -6858,6 +6877,11 @@ public partial class MainWindow : Window
         finally
         {
             _reportCoverageLoading = false;
+            // The previous reader can finish after a fast away/back
+            // navigation. Ensure the new generation still gets a reader.
+            if (!_windowClosed && ReportsContent.Visibility == Visibility.Visible &&
+                _reportReadAppliedGeneration != _reportReadGeneration)
+                _ = LoadReportsCoverageAsync();
         }
     }
 
@@ -6869,6 +6893,13 @@ public partial class MainWindow : Window
             !coverage.LastSampleAtUtc.HasValue)
         {
             _pendingBatteryReportPreset = null;
+            _suppressReportRangeSelection = true;
+            try
+            {
+                ReportFromDatePicker.SelectedDate = null;
+                ReportToDatePicker.SelectedDate = null;
+            }
+            finally { _suppressReportRangeSelection = false; }
             ReportStatusText.Text = _localization.GetString("Reports.NoData");
             ReportExportExcelButton.IsEnabled = false;
             ReportExportPdfButton.IsEnabled = false;
