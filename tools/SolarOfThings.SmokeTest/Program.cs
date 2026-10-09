@@ -2289,6 +2289,14 @@ try
             originalReport, originalReport with { Kind = ReportKind.Battery },
             true, true, false) ||
         ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport with { LanguageCode = "other" },
+            true, true, false) ||
+        ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport with { Title = "Different name" },
+            true, true, false) ||
+        ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport, false, true, false) ||
+        ReportExportPublicationPolicy.CanPublish(
             originalReport, originalReport, true, false, false) ||
         ReportExportPublicationPolicy.CanPublish(
             originalReport, originalReport, true, true, true))
@@ -5397,8 +5405,11 @@ try
         graphAudit);
     var mismatchedSchemaReadiness = IsolatedRecoveryReadinessReceiptService.Evaluate(
         graphPlan, graphAudit with { TargetSchemaVersion = -1 });
+    var forgedDigestReadiness = IsolatedRecoveryReadinessReceiptService.Evaluate(
+        graphPlan with { TargetOtherTablesSha256 = "not-a-digest" }, graphAudit);
     if (forgedReadiness.SyntheticSettingsStageEligible ||
         mismatchedSchemaReadiness.SyntheticSettingsStageEligible ||
+        forgedDigestReadiness.SyntheticSettingsStageEligible ||
         forgedReadiness.RealOrRelationalImportAuthorized ||
         mismatchedSchemaReadiness.RealOrRelationalImportAuthorized)
         throw new InvalidOperationException(
