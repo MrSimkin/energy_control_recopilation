@@ -6703,6 +6703,50 @@ try
             "Changed charge evidence was treated as an exact all-bill NO-OP.");
     File.Delete(changedChildBundle.Settings.StagedDatabasePath);
     Directory.Delete(changedChildBundle.Evidence.StageDirectory, recursive: true);
+
+    // Even unchanged source/target PDFs' STORED DIGESTS are insufficient
+    // when the destination's original bytes are no longer available.
+    // Restore the synthetic line in a disposable clone and redirect its PDF
+    // path to a deliberately nonexistent fixture file.
+    using (var edited = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = allExactChangedDb, Mode = SqliteOpenMode.ReadWrite,
+        Pooling = false
+    }.ToString()))
+    {
+        edited.Open();
+        using var cmd = edited.CreateCommand();
+        cmd.CommandText = """
+            UPDATE utility_bill_line SET amount_clp=7000
+             WHERE description='Synthetic September line';
+            UPDATE utility_bill_document SET local_pdf_path=$missing
+             WHERE content_sha256=$sha COLLATE NOCASE;
+            """;
+        cmd.Parameters.AddWithValue("$missing",
+            Path.Combine(root, "definitely-not-an-existing-bill.pdf"));
+        cmd.Parameters.AddWithValue("$sha", newMixedHash);
+        cmd.ExecuteNonQuery();
+    }
+    var missingPdfPlan = planner.CreatePlan(mixedZip.Path, allExactChangedDb);
+    var missingPdfBundle = bundleService.Stage(missingPdfPlan, mixedZip.Path,
+        allExactChangedDb,
+        selectedDocumentHashes: new[] { isolatedBillDigest, newMixedHash });
+    var missingPdfBefore = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(allExactChangedDb)));
+    var missingPdfRejected = false;
+    try { linkedGraphStage.Stage(missingPdfPlan, missingPdfBundle,
+        mixedZip.Path, allExactChangedDb, allowExactDuplicateSkip: true,
+        allowAllExactNoOp: true); }
+    catch (InvalidDataException) { missingPdfRejected = true; }
+    if (!missingPdfRejected ||
+        Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length !=
+            allExactStageCount ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(allExactChangedDb))) != missingPdfBefore)
+        throw new InvalidOperationException(
+            "Missing original destination PDF falsely produced all-exact receipt.");
+    File.Delete(missingPdfBundle.Settings.StagedDatabasePath);
+    Directory.Delete(missingPdfBundle.Evidence.StageDirectory, recursive: true);
     File.Delete(allExactChangedDb);
     File.Delete(allExactBundle.Settings.StagedDatabasePath);
     Directory.Delete(allExactBundle.Evidence.StageDirectory, recursive: true);
