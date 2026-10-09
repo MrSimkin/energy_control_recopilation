@@ -6771,6 +6771,37 @@ try
     if (visible.Rows.Count != 200 || !visible.HasMore ||
         visible.Columns.Count != 2)
         throw new InvalidOperationException("SQL preview must be bounded and indicate remaining rows.");
+    // Page 2 must contain ONLY the remaining 17 synthetic rows; duplicates
+    // or offset drift must never contaminate the result navigation.
+    var pageTwo = await explorer.PreviewPageAsync(sqlStatement, 200);
+    if (pageTwo.Rows.Count != 17 || pageTwo.HasMore ||
+        pageTwo.Rows[0][0].Text != visible.Rows[^1][0].Text &&
+            string.CompareOrdinal(pageTwo.Rows[0][0].Text, visible.Rows[^1][0].Text) <= 0)
+        throw new InvalidOperationException("SQL preview page 2 offset/order or end-of-results failed.");
+    var emptyPage = await explorer.PreviewPageAsync(sqlStatement, 400);
+    if (emptyPage.Rows.Count != 0 || emptyPage.HasMore)
+        throw new InvalidOperationException("SQL empty page wrongly indicates more results.");
+    foreach (var badOffset in new[] { -200, 1, 201, 50_200 })
+    {
+        var rejected = false;
+        try { await explorer.PreviewPageAsync(sqlStatement, badOffset); }
+        catch (ArgumentOutOfRangeException) { rejected = true; }
+        if (!rejected)
+            throw new InvalidOperationException("Unsafe SQL preview offset accepted: " + badOffset);
+    }
+    using (var cancelledPage = new CancellationTokenSource())
+    {
+        cancelledPage.Cancel();
+        var stopped = false;
+        try { await explorer.PreviewPageAsync(sqlStatement, 200,
+            cancellationToken: cancelledPage.Token); }
+        catch (OperationCanceledException) { stopped = true; }
+        if (!stopped)
+            throw new InvalidOperationException("Cancelled SQL page request did not stop.");
+    }
+    // Paging must not change the full CSV/XLSX export semantics: the service
+    // still exports all rows, not merely the currently visible 200.
+
 
     // Quoted forbidden SQL words are harmless as literals; actual statements are rejected.
     var quoted = await explorer.PreviewAsync("SELECT 'DELETE' AS safe_word;");
