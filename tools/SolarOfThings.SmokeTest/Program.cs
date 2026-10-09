@@ -2476,6 +2476,17 @@ try
         throw new InvalidOperationException(
             "Excel report export smoke test failed.");
     }
+    // The SAME normal product writer must produce a package accepted by
+    // the new publication integrity gate, not just the toy test workbook.
+    var realExportedXlsx = Path.Combine(root, "smoke-product-published.xlsx");
+    var realProductXlsxStage =
+        ReportFilePublicationService.CreateStagingPath(realExportedXlsx);
+    File.Copy(xlsxPath, realProductXlsxStage);
+    ReportFilePublicationService.Publish(realProductXlsxStage, realExportedXlsx);
+    if (!File.Exists(realExportedXlsx) ||
+        new FileInfo(realExportedXlsx).Length != new FileInfo(xlsxPath).Length)
+        throw new InvalidOperationException("Product XLSX cannot pass verified publishing.");
+    File.Delete(realExportedXlsx);
 
     using (var exportedWorkbook = new XLWorkbook(xlsxPath))
     {
@@ -2513,6 +2524,15 @@ try
             throw new InvalidOperationException(
                 "PDF report export smoke test failed.");
         }
+        var publishedPdf = Path.Combine(root, "smoke-product-published.pdf");
+        var realPdfStage = ReportFilePublicationService.CreateStagingPath(publishedPdf);
+        File.Copy(pdfPath, realPdfStage);
+        ReportFilePublicationService.Publish(realPdfStage, publishedPdf);
+        if (!File.Exists(publishedPdf) ||
+            new FileInfo(publishedPdf).Length != new FileInfo(pdfPath).Length)
+            throw new InvalidOperationException(
+                "Product PDF cannot pass verified report publishing.");
+        File.Delete(publishedPdf);
     }
 
     var utilityRepository = new UtilityMeterRepository(database);
