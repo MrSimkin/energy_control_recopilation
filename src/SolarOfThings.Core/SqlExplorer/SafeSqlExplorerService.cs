@@ -40,11 +40,23 @@ public sealed class SafeSqlExplorerService
     public SafeSqlExplorerService(string databasePath) =>
         _databasePath = Path.GetFullPath(databasePath);
 
+    // Capped preview paging avoids materializing the user's potentially
+    // multi-gigabyte dataset. Exact page order is only stable when the SQL
+    // query itself uses a deterministic ORDER BY.
+    public const int MaxPreviewOffset = 50_000;
+
     public Task<SqlPreviewResult> PreviewAsync(string sql,
+        int maxRows = PreviewLimit, CancellationToken cancellationToken = default) =>
+        PreviewPageAsync(sql, offset: 0, maxRows, cancellationToken);
+
+    public Task<SqlPreviewResult> PreviewPageAsync(string sql, int offset,
         int maxRows = PreviewLimit, CancellationToken cancellationToken = default)
     {
         if (maxRows is < 1 or > 500)
             throw new ArgumentOutOfRangeException(nameof(maxRows));
+        if (offset < 0 || offset > MaxPreviewOffset || offset % maxRows != 0)
+            throw new ArgumentOutOfRangeException(nameof(offset),
+                "Page offset must be a nonnegative multiple of page size, up to 50,000.");
         GuardSingleSelect(sql);
         return Task.Run(() =>
         {
@@ -55,14 +67,24 @@ public sealed class SafeSqlExplorerService
             command.CommandTimeout = 15;
             using var reader = command.ExecuteReader();
             var names = GetColumns(reader);
-            var rows = new List<IReadOnlyList<SqlCell>>();
-            while (rows.Count <= maxRows && reader.Read())
+            // Do not keep or parse the skipped rows. The SQLite progress
+            // handler and explicit cancellation apply during the scan.
+            for (var scanned = 0; scanned < offset; scanned++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!reader.Read())
+                    return new SqlPreviewResult(names, [], false, watch.Elapsed);
+            }
+            var rows = new List<IReadOnlyList<SqlCell>>(maxRows);
+            while (rows.Count < maxRows && reader.Read())
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 rows.Add(GetRow(reader));
             }
-            var more = rows.Count > maxRows;
-            if (more) rows.RemoveAt(rows.Count - 1);
+            // Do not scan beyond the configured upper offset, and do not
+            // read a potentially large extra cell merely to find next page.
+            var more = offset + rows.Count < MaxPreviewOffset &&
+                       rows.Count == maxRows && reader.Read();
             return new SqlPreviewResult(names, rows, more, watch.Elapsed);
         }, cancellationToken);
     }
