@@ -2696,6 +2696,10 @@
                                                     Content="{DynamicResource Reports.PreviewAction}"
                                                     Style="{StaticResource SecondaryActionButtonStyle}"
                                                     Click="ReportPreview_Click" Padding="12,7" Margin="0,0,8,8"/>
+                                            <Button Content="{DynamicResource Reports.InspectAnalysis}"
+                                                    Click="ReportInspectAnalysis_Click" Padding="12,7"
+                                                    Margin="0,0,8,8"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"/>
                                             <Button x:Name="ReportPreviewCancelButton"
                                                     Content="{DynamicResource Reports.PreviewCancel}"
                                                     Click="ReportPreviewCancel_Click" Padding="12,7"

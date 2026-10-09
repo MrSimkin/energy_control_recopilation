@@ -245,9 +245,38 @@ try
         ReportPreviewEvidencePolicy.CanApply(3, 3, true, "A", "B"))
         throw new InvalidOperationException("Report preview missing-data or stale-result policy regressed.");
 
+    // Report → Analysis must retain the user's selected local dates and
+    // group size, and must reject an inverted range rather than silently swap.
+    var reportSelection = new EnergyReportRequest(
+        "synthetic", "synthetic-device",
+        new DateOnly(2026, 9, 3), new DateOnly(2026, 10, 8),
+        DateTimeOffset.Parse("2026-09-03T04:00:00Z"),
+        DateTimeOffset.Parse("2026-10-09T03:00:00Z"),
+        "America/Santiago", AggregationPeriod.Month,
+        ReportKind.DetailedEnergy, "es");
+    var analysisSelection = ReportContextNavigationPolicy.FromReport(reportSelection);
+    if (analysisSelection.From != reportSelection.LocalStartDate ||
+        analysisSelection.To != reportSelection.LocalEndDate ||
+        analysisSelection.Aggregation != AggregationPeriod.Month ||
+        analysisSelection.Source != "REPORTS_RANGE")
+        throw new InvalidOperationException("Reports-to-Analysis range changed in transit.");
+    var invertedReportRejected = false;
+    try
+    {
+        ReportContextNavigationPolicy.FromReport(reportSelection with
+        {
+            LocalStartDate = reportSelection.LocalEndDate,
+            LocalEndDate = reportSelection.LocalStartDate
+        });
+    }
+    catch (ArgumentOutOfRangeException) { invertedReportRejected = true; }
+    if (!invertedReportRejected)
+        throw new InvalidOperationException("Reports-to-Analysis accepted inverted dates.");
+
     // Stage-and-publish: a failed/empty export must leave an existing
     // destination unchanged; successful publication replaces it only after
     // a nonempty sibling has been fully generated.
+    Directory.CreateDirectory(root);
     var destination = Path.Combine(root, "existing_report.pdf");
     File.WriteAllText(destination, "previous accepted report");
     var failedStage = ReportFilePublicationService.CreateStagingPath(destination);

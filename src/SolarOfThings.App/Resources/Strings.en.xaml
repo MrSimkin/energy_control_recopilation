@@ -553,6 +553,7 @@
     <sys:String x:Key="Reports.DeletePreset">Delete</sys:String>
     <sys:String x:Key="Reports.PreviewHeading">Energy and data-quality preview</sys:String>
     <sys:String x:Key="Reports.PreviewIntro">Calculates selected-period readings using the report's own integrator. This is not a PDF preview or proof of complete coverage. No file will be saved.</sys:String>
+    <sys:String x:Key="Reports.InspectAnalysis">Inspect period in Analysis</sys:String>
     <sys:String x:Key="Reports.PreviewAction">Calculate preview</sys:String>
     <sys:String x:Key="Reports.PreviewCancel">Cancel calculation</sys:String>
     <sys:String x:Key="Reports.PreviewInvalid">Select a valid date range with saved data first.</sys:String>

@@ -553,6 +553,7 @@
     <sys:String x:Key="Reports.DeletePreset">Eliminar</sys:String>
     <sys:String x:Key="Reports.PreviewHeading">Vista previa de energía y calidad de datos</sys:String>
     <sys:String x:Key="Reports.PreviewIntro">Calcula las muestras del período seleccionado con el mismo integrador del informe. No es una vista del PDF ni garantiza cobertura completa. No se guardará ningún archivo.</sys:String>
+    <sys:String x:Key="Reports.InspectAnalysis">Ver período en Análisis</sys:String>
     <sys:String x:Key="Reports.PreviewAction">Calcular vista previa</sys:String>
     <sys:String x:Key="Reports.PreviewCancel">Cancelar cálculo</sys:String>
     <sys:String x:Key="Reports.PreviewInvalid">Elige un período válido con datos antes de calcular.</sys:String>

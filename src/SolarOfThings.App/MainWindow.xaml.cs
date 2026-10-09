@@ -7235,6 +7235,38 @@ public partial class MainWindow : Window
         ReportPreviewStatusText.Text = string.Empty;
     }
 
+    private void ReportInspectAnalysis_Click(object sender, RoutedEventArgs e)
+    {
+        var request = GetCurrentReportRequest();
+        if (request is null || _windowClosed ||
+            ReportsContent.Visibility != Visibility.Visible)
+        {
+            ReportStatusText.Text = _localization.GetString("Reports.InvalidSelection");
+            return;
+        }
+
+        var context = ReportContextNavigationPolicy.FromReport(request);
+        ShowPage("Analysis");
+        // Explicitly override any retained Analysis preset instead of
+        // reverting to the last saved day or to the computer's current date.
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
+        _suppressAnalysisRangeSelection = true;
+        try
+        {
+            AnalysisRangePresetSelector.SelectedValue = "custom";
+            AnalysisFromDatePicker.SelectedDate =
+                context.From.ToDateTime(TimeOnly.MinValue);
+            AnalysisToDatePicker.SelectedDate =
+                context.To.ToDateTime(TimeOnly.MinValue);
+            AnalysisAggregationSelector.SelectedValue = context.Aggregation.ToString();
+        }
+        finally { _suppressAnalysisRangeSelection = false; }
+
+        _analysisCustomRangePendingApply = false;
+        RefreshAnalysisView();
+    }
+
     private void ReportPreviewCancel_Click(object sender, RoutedEventArgs e)
     {
         InvalidateReportPreview();

@@ -49,6 +49,21 @@ public static class ReportContextNavigationPolicy
             kind, false, "DATA_COVERAGE");
     }
 
+    /// <summary>
+    /// Retain an explicitly selected report period when opening Analysis.
+    /// Neither the report's type nor its title changes energy semantics.
+    /// </summary>
+    public static ReportContextSelection FromReport(EnergyReportRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.LocalStartDate > request.LocalEndDate)
+            throw new ArgumentOutOfRangeException(nameof(request),
+                "Report dates must be ordered before navigating to Analysis.");
+        return new ReportContextSelection(
+            request.LocalStartDate, request.LocalEndDate,
+            request.Aggregation, request.Kind, false, "REPORTS_RANGE");
+    }
+
     public static ReportContextSelection FromSelectedRow(
         EnergyAggregationRow row, string timeZoneId, ReportKind kind)
     {
