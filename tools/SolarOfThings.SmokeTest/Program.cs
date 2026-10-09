@@ -6500,6 +6500,174 @@ try
     File.Delete(collisionBundle.Settings.StagedDatabasePath);
     Directory.Delete(collisionBundle.Evidence.StageDirectory, recursive: true);
 
+
+    // MIXED recovery: source contains one exact previously staged graph and
+    // one missing graph. Proven identical graph is skipped; only the absent
+    // graph is inserted into another disposable synthetic SQLite fixture.
+    var mixedPaths = new AppPaths(Path.Combine(root, "mixed-bills-source"));
+    using (var zip = ZipFile.OpenRead(isolatedBillZip.Path))
+    using (var input = (zip.GetEntry("database/energy.db") ??
+                       throw new InvalidDataException("Synthetic source snapshot missing.")).Open())
+    using (var output = new FileStream(mixedPaths.DatabasePath,
+               FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        input.CopyTo(output);
+    var mixedSourceDb = new SqliteDatabase(mixedPaths);
+    var oldMixedPdf = Path.Combine(mixedPaths.UtilityBillEnelDirectory,
+        "uniquely-linked-test-bill.pdf");
+    File.Copy(isolatedBillPdf, oldMixedPdf);
+    var newMixedPdf = Path.Combine(mixedPaths.UtilityBillEnelDirectory,
+        "new-september-test-bill.pdf");
+    File.WriteAllText(newMixedPdf, "SYNTHETIC NEW SEPTEMBER BILL");
+    var newMixedHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(newMixedPdf)));
+    using (var connection = mixedSourceDb.OpenConnection())
+    using (var command = connection.CreateCommand())
+    {
+        command.CommandText = """
+            UPDATE utility_bill_document SET local_pdf_path=$oldPath
+             WHERE content_sha256=$oldHash COLLATE NOCASE;
+            INSERT INTO utility_bill_document(
+                provider,original_file_name,local_pdf_path,content_sha256,
+                content_length,page_count,parser_version,imported_utc)
+            VALUES('ENEL','new-september-test-bill.pdf',$newPath,$newHash,
+                   $newSize,1,'synthetic-test','2026-10-09T00:00:00Z');
+            INSERT INTO utility_bill(
+                period_start_utc,period_end_utc,billed_consumption_kwh,
+                gross_bill_amount_clp,created_utc,updated_utc,source_kind,
+                source_document_id,review_state)
+            VALUES('2026-09-01T00:00:00Z','2026-09-30T00:00:00Z',
+                   85,7000,'2026-10-09T00:00:00Z','2026-10-09T00:00:00Z',
+                   'PDF_IMPORTED',(SELECT document_id FROM utility_bill_document
+                    WHERE content_sha256=$newHash),'REVIEW_REQUIRED');
+            INSERT INTO utility_bill_line(
+                bill_id,section_key,description,amount_clp,created_utc,updated_utc)
+            VALUES((SELECT bill_id FROM utility_bill
+                    WHERE period_start_utc='2026-09-01T00:00:00Z'),
+                   'ELECTRICITY','Synthetic September line',7000,
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z');
+            """;
+        command.Parameters.AddWithValue("$oldPath", oldMixedPdf);
+        command.Parameters.AddWithValue("$oldHash", isolatedBillDigest);
+        command.Parameters.AddWithValue("$newPath", newMixedPdf);
+        command.Parameters.AddWithValue("$newHash", newMixedHash);
+        command.Parameters.AddWithValue("$newSize", new FileInfo(newMixedPdf).Length);
+        command.ExecuteNonQuery();
+    }
+    var mixedZip = new FullBackupService(mixedSourceDb, mixedPaths)
+        .Create("0.11.0-test", "synthetic", "mixed-duplicate-and-missing");
+    var mixedPlan = planner.CreatePlan(mixedZip.Path,
+        importedLinkedGraph.StagedDatabasePath);
+    var mixedBundle = bundleService.Stage(mixedPlan, mixedZip.Path,
+        importedLinkedGraph.StagedDatabasePath,
+        selectedDocumentHashes: new[] { isolatedBillDigest, newMixedHash });
+    var mixedOriginalHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(importedLinkedGraph.StagedDatabasePath)));
+    var mixedGraphCount = Directory.GetFiles(root,
+        "recovery-linked-bills-staged-*.db").Length;
+    var mixedRequiresOptIn = false;
+    try { linkedGraphStage.Stage(mixedPlan, mixedBundle, mixedZip.Path,
+        importedLinkedGraph.StagedDatabasePath); }
+    catch (InvalidDataException) { mixedRequiresOptIn = true; }
+    if (!mixedRequiresOptIn ||
+        Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length != mixedGraphCount)
+        throw new InvalidOperationException("Existing mixed graph was skipped without opt-in.");
+    var mixedInterrupted = false;
+    try { linkedGraphStage.Stage(mixedPlan, mixedBundle, mixedZip.Path,
+        importedLinkedGraph.StagedDatabasePath,
+        simulateInterruptionAfterFirstBill: true, allowExactDuplicateSkip: true); }
+    catch (InvalidOperationException ex) when (
+        ex.Message == "SYNTHETIC_LINKED_BILL_INTERRUPTION")
+    { mixedInterrupted = true; }
+    if (!mixedInterrupted ||
+        Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length != mixedGraphCount)
+        throw new InvalidOperationException("Mixed graph interruption left partial writes.");
+    var mixedImport = linkedGraphStage.Stage(mixedPlan, mixedBundle, mixedZip.Path,
+        importedLinkedGraph.StagedDatabasePath, allowExactDuplicateSkip: true);
+    if (mixedImport.RealRestoreAuthorized || mixedImport.AddedBills != 1 ||
+        mixedImport.SkippedIdenticalBills != 1 || mixedImport.AddedLines != 1 ||
+        mixedImport.AddedFieldEvidence != 0 ||
+        mixedImport.IdMap.Count != 1 || mixedImport.IdMap[0].DocumentSha256 != newMixedHash ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(importedLinkedGraph.StagedDatabasePath))) != mixedOriginalHash ||
+        planner.CreatePlan(mixedZip.Path, importedLinkedGraph.StagedDatabasePath).PlanId !=
+            mixedPlan.PlanId)
+        throw new InvalidOperationException("Mixed synthetic addition/duplicate-skip failed.");
+    using (var c = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = mixedImport.StagedDatabasePath,
+        Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    {
+        c.Open();
+        using var command = c.CreateCommand();
+        command.CommandText = """
+            SELECT (SELECT COUNT(*) FROM utility_bill),
+                   (SELECT COUNT(*) FROM utility_bill_line),
+                   (SELECT COUNT(*) FROM utility_bill_document);
+            """;
+        using var reader = command.ExecuteReader();
+        if (!reader.Read() || reader.GetInt64(0) != 3 ||
+            reader.GetInt64(1) != 3 || reader.GetInt64(2) != 3)
+            throw new InvalidOperationException(
+                "Mixed staged SQLite duplicated an existing bill/line/document.");
+    }
+
+    // A bill with the same PDF but edited charge content is a CONFLICT,
+    // never an equal duplicate. Exercise rollback and preservation separately.
+    var mixedConflictTarget = Path.Combine(root, "mixed-conflict-target.db");
+    using (var original = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = importedLinkedGraph.StagedDatabasePath,
+        Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    using (var edited = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = mixedConflictTarget, Mode = SqliteOpenMode.ReadWriteCreate,
+        Pooling = false
+    }.ToString()))
+    {
+        original.Open();
+        edited.Open();
+        original.BackupDatabase(edited);
+    }
+    using (var edited = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = mixedConflictTarget, Mode = SqliteOpenMode.ReadWrite,
+        Pooling = false
+    }.ToString()))
+    {
+        edited.Open();
+        using var command = edited.CreateCommand();
+        command.CommandText = """
+            UPDATE utility_bill SET gross_bill_amount_clp=5100
+            WHERE period_start_utc='2026-08-01T00:00:00Z';
+            """;
+        command.ExecuteNonQuery();
+    }
+    var changedPlan = planner.CreatePlan(mixedZip.Path, mixedConflictTarget);
+    var changedBundle = bundleService.Stage(changedPlan, mixedZip.Path,
+        mixedConflictTarget, selectedDocumentHashes: new[] { isolatedBillDigest, newMixedHash });
+    var conflictHashBefore = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(mixedConflictTarget)));
+    var mixedConflictRejected = false;
+    try { linkedGraphStage.Stage(changedPlan, changedBundle, mixedZip.Path,
+        mixedConflictTarget, allowExactDuplicateSkip: true); }
+    catch (InvalidDataException) { mixedConflictRejected = true; }
+    if (!mixedConflictRejected ||
+        Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length !=
+            mixedGraphCount + 1 ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(mixedConflictTarget))) != conflictHashBefore)
+        throw new InvalidOperationException("Changed invoice graph was silently skipped.");
+
+    File.Delete(mixedImport.StagedDatabasePath);
+    File.Delete(mixedBundle.Settings.StagedDatabasePath);
+    Directory.Delete(mixedBundle.Evidence.StageDirectory, recursive: true);
+    File.Delete(changedBundle.Settings.StagedDatabasePath);
+    Directory.Delete(changedBundle.Evidence.StageDirectory, recursive: true);
+    File.Delete(mixedConflictTarget);
+
     File.Delete(importedLinkedGraph.StagedDatabasePath);
     foreach (var bundled in new[] { isolatedBillBundle, readingLinkedBundle })
     {
