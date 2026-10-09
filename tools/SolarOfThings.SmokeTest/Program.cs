@@ -594,7 +594,8 @@ try
             INSERT INTO app_setting(key,value,updated_utc)
             VALUES
                 ('smoke.wal.snapshot','committed','2026-10-08T00:00:00Z'),
-                ('smoke.preview.conflict','different-live-value','2026-10-08T00:00:00Z');
+                ('smoke.preview.conflict','different-live-value','2026-10-08T00:00:00Z'),
+                ('smoke.preview.target-only','preserve-me','2026-10-08T00:00:00Z');
             """;
         setup.ExecuteNonQuery();
     }
@@ -628,7 +629,8 @@ try
     var summary = previewer.Preview(complete.Path, previewDatabase.DatabasePath);
     var previewSettings = summary.Categories.Single(c => c.Category == "SETTINGS");
     if (summary.Status != "READ_ONLY_PREVIEW" ||
-        previewSettings.Missing < 1 || previewSettings.Identical < 1 || previewSettings.Conflicts < 1 ||
+        previewSettings.Missing < 1 || previewSettings.Identical < 1 ||
+        previewSettings.Conflicts < 1 || previewSettings.TargetOnly < 1 ||
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");

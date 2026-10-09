@@ -103,8 +103,12 @@ public sealed class IsolatedRecoveryPreviewService
                         else
                             conflicts++;
                     }
+                    var targetOnly = active.Keys.Count(id => !originals.ContainsKey(id));
                     results.Add(new RecoveryCategoryResult(specification.Name,
-                        missing, identical, conflicts, null));
+                        missing, identical, conflicts, null)
+                    {
+                        TargetOnly = targetOnly
+                    });
                 }
                 catch (SqliteException ex)
                 {
@@ -196,7 +200,12 @@ public sealed class IsolatedRecoveryPreviewService
 }
 
 public sealed record RecoveryCategoryResult(string Category, int Missing,
-    int Identical, int Conflicts, string? UnsupportedReason);
+    int Identical, int Conflicts, string? UnsupportedReason)
+{
+    // Records present ONLY in the synthetic destination must not be
+    // silently treated as equivalent or candidates for deletion.
+    public int TargetOnly { get; init; }
+}
 
 public sealed record RecoveryPreviewResult(int BackupSchemaVersion, int TargetSchemaVersion,
     string Status, IReadOnlyList<RecoveryCategoryResult> Categories, string Disclaimer);
