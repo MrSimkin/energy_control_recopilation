@@ -760,6 +760,7 @@ public partial class MainWindow : Window
             // Device switched: don't show the previous installation's SOC,
             // voltage or power while the new background read completes.
             ResetBatteryView(keepCapacity: true);
+            BatteryThresholdSourceText.Text = "—";
             _batteryRenderedDeviceId = null;
         }
         BatteryLastReadingText.Text = _localization.CurrentLanguage.StartsWith(
@@ -1188,6 +1189,22 @@ public partial class MainWindow : Window
             _analysisCustomRangePendingApply = false;
         }
         if (_analysisCustomRangePendingApply) return;
+
+        var currentlySelectedDevice = _profiles.Get()?.DeviceId;
+        if (!string.IsNullOrWhiteSpace(_analysisRenderedDeviceId) &&
+            !string.Equals(_analysisRenderedDeviceId, currentlySelectedDevice,
+                StringComparison.Ordinal))
+        {
+            // Never leave another installation's history, SOC, W or graph
+            // visible after an active device switch.
+            ResetAnalysisView();
+            _analysisRangeInitializationPending = true;
+        }
+        if (AnalysisContent.Visibility == Visibility.Visible)
+            AnalysisStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase)
+                ? "Actualizando análisis; resultados anteriores no confirmados."
+                : "Updating analysis; previous results are not yet confirmed.";
 
         _analysisRefreshGeneration++;
         _analysisRenderedAggregation = null; // data/chart cache invalidated.
@@ -6965,6 +6982,10 @@ public partial class MainWindow : Window
             ShowReportDraftSource("Battery", false, bannerKey);
         }
         UpdateReportSelectionSummary();
+        ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase)
+            ? "Disponibilidad cargada. Informes listos para generar."
+            : "Availability loaded. Reports are ready to generate.";
     }
 
     private void LoadSavedReportPresets()
