@@ -624,3 +624,23 @@ The first consolidated [Build 733 (run 37864196824)](https://github.com/MrSimkin
 **Source commits:** `7570a2b53957253f984894128f9bf4079f47ca71` (bill + meter advances 1–4, skipped intermediate CI), `e55c5d223998b8983c686535cae50c6a41829ebd` (tariff + totals advances 5–8; Build 733), and `ab7b38d806e8cf392f7fd9f4a0812c38ce1c9705` (synthetic test correction; Build 734 PASS).
 
 **Boundaries:** All eight outputs are review-only **candidate counts**. Matching date, kWh, ZIP/PDF SHA or official URL is not a validated portable identity for bill, meter, tariff-rate or correction-graph records. No database writes to the active owner environment, file restoration, historical-schema adapter, graph rekey/import, release or merge is included. Existing synthetic settings-only additive stage remains separate. User Windows v0.11.0 consolidated QA remains required; any actual restore demands additional explicit approval. Enel continuity review remains conditional on receiving new material on or after the planned 2026-10-12 checkpoint.
+
+## Build 735 — eight-stage synthetic selective-recovery plan (2026-10-08, Chile)
+
+**CI:** [Build 735, run 37865044175](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/37865044175) **SUCCESS** for code SHA `2130f302bbc72f07c8e07eae072d46499a32e142`. .NET 10 Windows compilation, SQLite smoke (including plan validity, rollback, freshness, conflict preservation), 24k/96k isolated synthetic performance corpora, portable Windows x64 publish and uploaded test artifact passed. This is CI-only, not owner Windows QA; optional live Enel/CNE probes were not run.
+
+**Implementation:** Added `src/SolarOfThings.Core/Backup/IsolatedRecoveryPlanService.cs` and expanded `tools/SolarOfThings.SmokeTest/Program.cs`. The service is **synthetic fixture only**: the same marked-root gate applies, no API exists to activate or replace an installed database, and linked entities are never imported.
+
+Eight ordered plan steps:
+1. `VERIFIED_SOURCE_PACKAGE` — read-only verification gate using the existing complete-ZIP validator.
+2. `SETTINGS` — the *only* executable stage, adding missing `app_setting` keys into a NEW synthetic staging database, while preserving conflicting and target-only values.
+3. `BILL_SOURCE_DOCUMENTS` — evidence inventory/review only; no PDF extraction.
+4. `BILLS_AND_CHARGES` — blocked: bill, line, field provenance and FK mapping unresolved.
+5. `METER_READINGS` — blocked: timestamps/reading values do not prove portable identity.
+6. `TARIFF_SOURCES` — review only: source URLs/PDF digests are evidence, not import approval.
+7. `TARIFF_RELATIONS` — blocked: correction/supersession dependencies need reviewed FK mapping.
+8. `ENERGY_TELEMETRY` — blocked: history and device identity adapters not available.
+
+Additional lifecycle controls (all covered by SQLite smoke): the plan records SHA-256 of exact ZIP bytes plus a **WAL-visible, structured fingerprint** of `app_setting` in the marked synthetic target; reuses the existing preview and relation audit; rejects incomplete supported categories and non-v17 schemas; ties its plan token to the exact source/target paths; regenerates and compares preflight evidence before executing a staged settings copy; reconciles added/identical/conflicting counters against the plan; previews the staged output to require zero missing settings and preservation of conflicts and destination-only keys; rechecks original target fingerprint; deletes the generated stage on verification failure. Fault injection tests transaction rollback and generated-stage cleanup. Test also modifies a target setting while preserving row count and confirms the plan becomes stale; alternative source path is rejected.
+
+**Limitations:** This is not a user-facing import wizard or a complete restored dataset. No historical-schema adapter, PDF/file importer, reading/bill/tariff graph remap, telemetry import or live restore exists here. Package/setting SHA-256 checks are plan freshness evidence, not a general concurrency guarantee for the full database. No active owner SQLite (~2 GB), provisional manual `Data` copy, or original utility documents were accessed or modified. `main` remains `59120a630b0f56684ba7672d960673f5c5c1797b`; PR #1 stays Draft. Do not merge, version-bump, release or ask for intermediate PC tests: one consolidated v0.11.0 QA handoff remains the owner-approved course. Enel 2026-10-12 review still depends on actual availability of new official material.
