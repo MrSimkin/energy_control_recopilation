@@ -612,6 +612,12 @@
     <sys:String x:Key="Settings.ForgetCredentials">Cerrar y olvidar sesión</sys:String>
     <sys:String x:Key="Settings.PasswordPrivacy">Por seguridad, una contraseña recordada nunca se rellena ni se muestra en el campo de contraseña.</sys:String>
 
+    <sys:String x:Key="Dashboard.InspectCoverage">Revisar cobertura</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidenceUnknown">Aún no hay mediciones suficientes para evaluar el día guardado.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.NO_SAMPLES">Sin datos suficientes de solar, casa ni red: no se infiere energía cero.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.MISSING_STREAMS">Día incompleto: solo {0} de 3 mediciones tienen datos suficientes; faltan {1}. La cobertura porcentual incluye solo las disponibles.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.LOW_COVERAGE">Cobertura limitada del último día: las 3 mediciones existen, pero hay períodos sin datos.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.ADEQUATE">3 de 3 mediciones disponibles; la cobertura se refiere al último día guardado, no necesariamente a hoy.</sys:String>
     <sys:String x:Key="Dashboard.Overview">Estado actual de la casa</sys:String>
     <sys:String x:Key="Dashboard.FreshnessRecent">Lectura reciente: {0}</sys:String>
     <sys:String x:Key="Dashboard.FreshnessStale">Atención: la última lectura guardada es del {0}. No representa necesariamente el estado actual.</sys:String>
