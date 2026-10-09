@@ -5906,6 +5906,150 @@ try
     if (!blockedReadingLink)
         throw new InvalidOperationException("Unreviewed meter-reading FK restored.");
 
+    // Explicit opt-in for exact, named readings: clone a source graph with two
+    // meter FKs. The destination already contains one identical reading; the
+    // other is added. All source surrogate keys must be remapped independently.
+    using (var conn = isolatedBillDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            UPDATE utility_meter_reading
+            SET source_kind='PERSONAL',time_precision='EXACT',
+                time_assumption='EXACT',reference='SMOKE-METER-END-2026'
+            WHERE reading_at_utc='2026-08-31T00:00:00Z';
+            INSERT INTO utility_meter_reading(
+                reading_at_utc,reading_kwh,reference,created_utc,updated_utc,
+                source_kind,time_precision,time_assumption)
+            VALUES('2026-08-01T00:00:00Z',1000,'SMOKE-METER-START-2026',
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z',
+                   'PERSONAL','EXACT','EXACT');
+            UPDATE utility_bill SET from_reading_id=(
+                SELECT reading_id FROM utility_meter_reading
+                WHERE reading_at_utc='2026-08-01T00:00:00Z')
+            WHERE bill_id=$id;
+            """;
+        cmd.Parameters.AddWithValue("$id", sourceLinkedBillId);
+        cmd.ExecuteNonQuery();
+    }
+    long existingMeterId;
+    using (var conn = isolatedTargetDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_meter_reading(
+                reading_at_utc,reading_kwh,reference,created_utc,updated_utc,
+                source_kind,time_precision,time_assumption)
+            VALUES('2026-08-01T00:00:00Z',1000,'SMOKE-METER-START-2026',
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z',
+                   'PERSONAL','EXACT','EXACT');
+            """;
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = "SELECT last_insert_rowid();";
+        existingMeterId = Convert.ToInt64(cmd.ExecuteScalar());
+    }
+    var exactReadingZip = new FullBackupService(isolatedBillDb, isolatedBillPaths)
+        .Create("0.11.0-test", "synthetic", "verified-exact-reading-links");
+    var exactReadingPlan = planner.CreatePlan(exactReadingZip.Path,
+        isolatedTargetDb.DatabasePath);
+    var exactReadingBundle = bundleService.Stage(exactReadingPlan,
+        exactReadingZip.Path, isolatedTargetDb.DatabasePath,
+        selectedDocumentHashes: new[] { isolatedBillDigest });
+    var exactStage = linkedGraphStage.Stage(exactReadingPlan, exactReadingBundle,
+        exactReadingZip.Path, isolatedTargetDb.DatabasePath,
+        allowExactReadingRemap: true);
+    if (exactStage.RealRestoreAuthorized ||
+        exactStage.AddedBills != 1 ||
+        exactStage.AddedMeterReadings != 1 ||
+        exactStage.ReusedMeterReadings != 1 ||
+        exactStage.ReadingIdMap.Count != 2 ||
+        exactStage.ReadingIdMap.Count(x => x.Added) != 1 ||
+        exactStage.ReadingIdMap.Single(x => !x.Added).StagedId != existingMeterId)
+        throw new InvalidOperationException("Exact synthetic reading remap/add was inconsistent.");
+    using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(
+        new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+        {
+            DataSource = exactStage.StagedDatabasePath,
+            Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString()))
+    {
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT f.reference,t.reference
+            FROM utility_bill b
+            JOIN utility_meter_reading f ON f.reading_id=b.from_reading_id
+            JOIN utility_meter_reading t ON t.reading_id=b.to_reading_id
+            WHERE b.bill_id=$id;
+            """;
+        cmd.Parameters.AddWithValue("$id", exactStage.IdMap[0].StagedBillId);
+        using var row = cmd.ExecuteReader();
+        if (!row.Read() || row.GetString(0) != "SMOKE-METER-START-2026" ||
+            row.GetString(1) != "SMOKE-METER-END-2026" || row.Read())
+            throw new InvalidOperationException("Exact staged bill lost verified reading references.");
+    }
+    File.Delete(exactStage.StagedDatabasePath);
+    File.Delete(exactReadingBundle.Settings.StagedDatabasePath);
+    Directory.Delete(exactReadingBundle.Evidence.StageDirectory, recursive: true);
+    // Same source/time with different kWh is a conflict, not an implied
+    // shared physical meter. Recompute the plan and prove fail-closed.
+    using (var conn = isolatedTargetDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            UPDATE utility_meter_reading SET reading_kwh=1001
+            WHERE reading_id=$id;
+            """;
+        cmd.Parameters.AddWithValue("$id", existingMeterId);
+        cmd.ExecuteNonQuery();
+    }
+    var mismatchPlan = planner.CreatePlan(exactReadingZip.Path,
+        isolatedTargetDb.DatabasePath);
+    var mismatchBundle = bundleService.Stage(mismatchPlan, exactReadingZip.Path,
+        isolatedTargetDb.DatabasePath, selectedDocumentHashes: new[] { isolatedBillDigest });
+    var readingCollisionRejected = false;
+    try
+    {
+        linkedGraphStage.Stage(mismatchPlan, mismatchBundle,
+            exactReadingZip.Path, isolatedTargetDb.DatabasePath,
+            allowExactReadingRemap: true);
+    }
+    catch (InvalidDataException) { readingCollisionRejected = true; }
+    if (!readingCollisionRejected)
+        throw new InvalidOperationException("Conflicting source/time reading was auto-imported.");
+    File.Delete(mismatchBundle.Settings.StagedDatabasePath);
+    Directory.Delete(mismatchBundle.Evidence.StageDirectory, recursive: true);
+    // A non-exact, presumed-midnight reading can never be promoted to an
+    // exact identity just because timestamp and kWh look plausible.
+    using (var conn = isolatedBillDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            UPDATE utility_meter_reading SET time_precision='DATE_ONLY',
+                time_assumption='START_OF_DAY_ASSUMED'
+            WHERE reference='SMOKE-METER-END-2026';
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var impreciseZip = new FullBackupService(isolatedBillDb, isolatedBillPaths)
+        .Create("0.11.0-test", "synthetic", "imprecise-reading-blocked");
+    var imprecisePlan = planner.CreatePlan(impreciseZip.Path,
+        isolatedTargetDb.DatabasePath);
+    var impreciseBundle = bundleService.Stage(imprecisePlan, impreciseZip.Path,
+        isolatedTargetDb.DatabasePath, selectedDocumentHashes: new[] { isolatedBillDigest });
+    var impreciseRejected = false;
+    try
+    {
+        linkedGraphStage.Stage(imprecisePlan, impreciseBundle,
+            impreciseZip.Path, isolatedTargetDb.DatabasePath,
+            allowExactReadingRemap: true);
+    }
+    catch (InvalidDataException) { impreciseRejected = true; }
+    if (!impreciseRejected)
+        throw new InvalidOperationException("Date-only assumed-midnight meter reading was promoted.");
+    File.Delete(impreciseBundle.Settings.StagedDatabasePath);
+    Directory.Delete(impreciseBundle.Evidence.StageDirectory, recursive: true);
+
     // An independent target bill with the exact same period but a different
     // document must remain a blocker, even when its original bytes differ.
     using (var conn = isolatedTargetDb.OpenConnection())
