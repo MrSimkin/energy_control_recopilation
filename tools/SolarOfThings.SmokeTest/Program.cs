@@ -1477,6 +1477,51 @@ try
         File.ReadAllText(interim) != "DO NOT REPLACE OR DELETE")
         throw new InvalidOperationException("Secondary staging ownership regression.");
 
+    // Manual UI retry after a failed secondary copy: clearing ONLY the
+    // disposable test's obsolete staging file allows independent mirroring
+    // of the ORIGINAL already-verified local package. No new backup is made.
+    File.Delete(interim);
+    var retried = completeService.CopyVerifiedToSecondary(
+        complete.Path, interruptedFolder);
+    if (retried.IntegrityStatus != "PASS" ||
+        !File.Exists(retried.Path) ||
+        !string.Equals(retried.Sha256, complete.Sha256,
+            StringComparison.OrdinalIgnoreCase) ||
+        !File.Exists(complete.Path))
+        throw new InvalidOperationException(
+            "Retry after a failed secondary copy did not preserve the original.");
+    if (completeService.CopyVerifiedToSecondary(
+            complete.Path, interruptedFolder).Path != retried.Path)
+        throw new InvalidOperationException(
+            "Repeated mirror retry did not recognize exact identical package.");
+    File.Delete(retried.Path);
+
+    // If filesystem policy permits creation of a symlink, a link with a
+    // complete-backup filename must NEVER be accepted as a new physical
+    // secondary copy. CI may run without symlink creation privilege.
+    var linkedFolder = Path.Combine(root, "secondary-linked");
+    Directory.CreateDirectory(linkedFolder);
+    var linkedDestination = Path.Combine(linkedFolder, Path.GetFileName(complete.Path));
+    var createdLink = false;
+    try
+    {
+        File.CreateSymbolicLink(linkedDestination, complete.Path);
+        createdLink = true;
+    }
+    catch (UnauthorizedAccessException) { }
+    catch (IOException) { }
+    catch (PlatformNotSupportedException) { }
+    if (createdLink)
+    {
+        var linkRejected = false;
+        try { completeService.CopyVerifiedToSecondary(complete.Path, linkedFolder); }
+        catch (InvalidOperationException) { linkRejected = true; }
+        if (!linkRejected || !File.Exists(complete.Path))
+            throw new InvalidOperationException(
+                "A redirected symbolic-link ZIP was treated as an independent backup.");
+        File.Delete(linkedDestination);
+    }
+
     // A single available complete copy must never be deletable.
     var blocked = false;
     try { completeService.DeleteSelectedLocal(complete.Path); }
