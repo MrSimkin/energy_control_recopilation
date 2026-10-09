@@ -5375,6 +5375,75 @@ try
     var graphTarget = new SqliteDatabase(graphTargetPaths);
     graphTarget.Initialize();
     var graphAuditor = new IsolatedRecoveryRelationAuditService();
+    // Test-only document evidence stage: bytes can be checked independently
+    // without inserting documents, bills, tariff rows or activating a DB.
+    var documentStage = new IsolatedRecoveryDocumentStageTestService();
+    var originalGraphFingerprint = planner.CreatePlan(
+        graphZip.Path, graphTarget.DatabasePath).PlanId;
+    var stagedEvidence = documentStage.Stage(graphZip.Path,
+        graphTarget.DatabasePath);
+    if (stagedEvidence.Status != "STAGED_SYNTHETIC_DOCUMENT_EVIDENCE_ONLY" ||
+        stagedEvidence.RealRestoreAuthorized ||
+        stagedEvidence.Documents.Count != 3 ||
+        stagedEvidence.Documents.Count(x => x.Category == "Bills") != 2 ||
+        stagedEvidence.Documents.Count(x => x.Category == "Tariffs") != 1 ||
+        !documentStage.Verify(stagedEvidence, graphTarget.DatabasePath) ||
+        planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath).PlanId !=
+            originalGraphFingerprint)
+        throw new InvalidOperationException(
+            "Synthetic document stage changed graph or lost original evidence.");
+    // Tamper detection and unexpected file detection operate on an
+    // independent staged receipt, not trust in ZIP file names.
+    var damagedItem = stagedEvidence.Documents[0];
+    File.AppendAllText(damagedItem.StageFilePath, "tampered");
+    if (documentStage.Verify(stagedEvidence, graphTarget.DatabasePath))
+        throw new InvalidOperationException("Damaged staged evidence was accepted.");
+    File.Delete(damagedItem.StageFilePath);
+    var unexpectedFile = Path.Combine(stagedEvidence.StageDirectory, "unexpected.txt");
+    File.WriteAllText(unexpectedFile, "synthetic unexpected");
+    if (documentStage.Verify(stagedEvidence, graphTarget.DatabasePath))
+        throw new InvalidOperationException("Unexpected staged evidence was accepted.");
+    Directory.Delete(stagedEvidence.StageDirectory, recursive: true);
+    using (var cancelledDocuments = new CancellationTokenSource())
+    {
+        cancelledDocuments.Cancel();
+        var cancelledStageRejected = false;
+        try { documentStage.Stage(graphZip.Path, graphTarget.DatabasePath,
+            cancelledDocuments.Token); }
+        catch (OperationCanceledException) { cancelledStageRejected = true; }
+        if (!cancelledStageRejected)
+            throw new InvalidOperationException("Cancelled synthetic document stage ran.");
+    }
+    var stageCountBeforeFailure = Directory.GetDirectories(root,
+        "recovery-documents-staged-*").Length;
+    var stageInjectionRejected = false;
+    try
+    {
+        documentStage.Stage(graphZip.Path, graphTarget.DatabasePath,
+            simulateFailureAfterFirstFile: true);
+    }
+    catch (InvalidOperationException e) when (
+        e.Message == "SYNTHETIC_INJECTED_DOCUMENT_INTERRUPTION")
+    {
+        stageInjectionRejected = true;
+    }
+    if (!stageInjectionRejected ||
+        Directory.GetDirectories(root, "recovery-documents-staged-*").Length !=
+            stageCountBeforeFailure ||
+        planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath).PlanId !=
+            originalGraphFingerprint)
+        throw new InvalidOperationException(
+            "Synthetic interruption did not clean its isolated evidence stage.");
+    var externalDocumentSourceRejected = false;
+    try { documentStage.Stage(Path.Combine(Path.GetTempPath(), "external.zip"),
+        graphTarget.DatabasePath); }
+    catch (InvalidOperationException) { externalDocumentSourceRejected = true; }
+    var externalDocumentTargetRejected = false;
+    try { documentStage.Stage(graphZip.Path,
+        Path.Combine(Path.GetTempPath(), "actual-data.db")); }
+    catch (InvalidOperationException) { externalDocumentTargetRejected = true; }
+    if (!externalDocumentSourceRejected || !externalDocumentTargetRejected)
+        throw new InvalidOperationException("Unmarked document stage input accepted.");
     var graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
     var graphPlan = planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath);
     if (graphPlan.Steps.Single(x => x.Category == "BILL_SOURCE_DOCUMENTS").Records != 2 ||
