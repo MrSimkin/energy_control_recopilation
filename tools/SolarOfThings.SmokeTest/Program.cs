@@ -4697,6 +4697,15 @@ try
         if (Convert.ToInt32(check.ExecuteScalar()) != 0)
             throw new InvalidOperationException("Read-only graph audit wrote an active bill.");
     }
+    // A bad destination FK must never produce apparently trustworthy
+    // bill/tariff graph classifications or write any copied records.
+    var brokenRelationRejected = false;
+    try { graphAuditor.Audit(graphZip.Path, brokenRecoveryDb.DatabasePath); }
+    catch (InvalidDataException) { brokenRelationRejected = true; }
+    if (!brokenRelationRejected)
+        throw new InvalidOperationException(
+            "Relationship audit accepted an inconsistent synthetic target.");
+
     var arbitraryAuditRejected = false;
     try { graphAuditor.Audit(graphZip.Path, Path.Combine(Path.GetTempPath(), "user-owned.db")); }
     catch (InvalidOperationException) { arbitraryAuditRejected = true; }

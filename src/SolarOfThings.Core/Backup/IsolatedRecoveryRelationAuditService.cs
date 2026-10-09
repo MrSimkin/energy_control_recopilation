@@ -53,6 +53,10 @@ public sealed class IsolatedRecoveryRelationAuditService
                 return new RecoveryRelationAudit("UNSUPPORTED_TARGET_SCHEMA",
                     sourceVersion, targetVersion, [], [],
                     "Source or destination schema differs from reviewed v17 adapter.");
+            // A source archive has already passed its SQLite checks, but the
+            // synthetic destination is independently mutable and must pass
+            // integrity/FK checks before any relationship classification.
+            IsolatedRecoveryTargetHealth.RequireHealthy(target);
 
             // Package data has verified bytes. Source document file paths are
             // device-local and may not exist on the destination computer;
