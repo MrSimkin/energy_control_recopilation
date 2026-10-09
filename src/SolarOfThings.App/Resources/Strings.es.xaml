@@ -26,6 +26,19 @@
     <sys:String x:Key="Backup.ColumnDate">Fecha</sys:String>
     <sys:String x:Key="Backup.ColumnSize">Bytes</sys:String>
     <sys:String x:Key="Backup.ColumnStatus">Integridad</sys:String>
+    <sys:String x:Key="Backup.SelectionHeading">Detalle de la copia seleccionada</sys:String>
+    <sys:String x:Key="Backup.SelectionHint">Selecciona un archivo para ver sus datos; solo Verificar acredita integridad.</sys:String>
+    <sys:String x:Key="Backup.NotRestoreWarning">La verificación del ZIP no prueba una restauración ni permite reemplazar tu base de datos.</sys:String>
+    <sys:String x:Key="Backup.OpenSelectedFolder">Abrir carpeta de la copia</sys:String>
+    <sys:String x:Key="Backup.SaveReceipt">Guardar comprobante</sys:String>
+    <sys:String x:Key="Backup.ReceiptTitle">Guardar comprobante de verificación</sys:String>
+    <sys:String x:Key="Backup.SelectionNone">Selecciona una copia de la lista.</sys:String>
+    <sys:String x:Key="Backup.SelectionLegacy">Copia SQLite antigua: no contiene boletas ni tarifas y no admite verificación completa.</sys:String>
+    <sys:String x:Key="Backup.SelectionUnverified">Sin verificación actual. Selecciona Verificar para inspeccionar el contenido.</sys:String>
+    <sys:String x:Key="Backup.VerifiedHeading">ARCHIVO VERIFICADO</sys:String>
+    <sys:String x:Key="Backup.VerificationFailed">La verificación falló; esta copia NO es válida como respaldo verificado.</sys:String>
+    <sys:String x:Key="Backup.ReceiptSaved">Comprobante guardado: </sys:String>
+    <sys:String x:Key="Backup.ReceiptError">No se pudo guardar un comprobante verificado: </sys:String>
     <sys:String x:Key="Backup.LastCopyPolicy">El borrado requiere confirmación y otra copia completa disponible y verificada. Nunca elimina la copia secundaria junto con la local ni borra datos activos.</sys:String>
 
     <sys:String x:Key="SqlExplorer.ShortcutExecute">Atajo ejecutar:</sys:String>
