@@ -364,6 +364,14 @@ try
     if (!rejectedEmpty || File.ReadAllText(destination) != "previous accepted report")
         throw new InvalidOperationException("Empty report publish destroyed existing output.");
     ReportFilePublicationService.DiscardStaging(failedStage);
+    // An error cleanup must never be able to erase a user's destination
+    // if the wrong path is passed as a staging argument.
+    var arbitraryCleanupBlocked = false;
+    try { ReportFilePublicationService.DiscardStaging(destination); }
+    catch (InvalidOperationException) { arbitraryCleanupBlocked = true; }
+    if (!arbitraryCleanupBlocked ||
+        File.ReadAllText(destination) != "previous accepted report")
+        throw new InvalidOperationException("Report cleanup deleted a user-owned destination.");
     // Nonempty bytes are NOT proof of a valid report: preserve an existing
     // destination if a partial PDF never acquired the PDF EOF marker.
     var incompletePdf = ReportFilePublicationService.CreateStagingPath(destination);

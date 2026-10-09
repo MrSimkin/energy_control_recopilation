@@ -56,8 +56,18 @@ public static class ReportFilePublicationService
 
     public static void DiscardStaging(string? stagedPath)
     {
-        if (!string.IsNullOrEmpty(stagedPath) && File.Exists(stagedPath))
-            File.Delete(stagedPath);
+        if (string.IsNullOrWhiteSpace(stagedPath)) return;
+        var full = Path.GetFullPath(stagedPath);
+        // Cleanup must NEVER accept the final user-selected report path
+        // or an arbitrary PDF/XLSX. Only our generated sibling stage.
+        if (!AllowedExtension(Path.GetExtension(full)) ||
+            !HasGeneratedStageName(Path.GetFileName(full), Path.GetExtension(full)))
+            throw new InvalidOperationException(
+                "Refusing to discard anything but a generated incomplete report stage.");
+        if (!File.Exists(full)) return;
+        if ((File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("Refusing to clean up a redirected report stage.");
+        File.Delete(full);
     }
 
     private static bool HasGeneratedStageName(string name, string extension)
