@@ -795,6 +795,115 @@ try
         throw new InvalidOperationException("Complete backup package smoke failed.");
     }
 
+    // BACKUP FAULT MATRIX: a SQLite original-document reference declares an
+    // invalid positive byte length, even though the real file, archive hash
+    // and manifest digest are otherwise valid. Creation must NOT publish an
+    // apparently complete package, erase a prior package, or leave .inprogress.
+    var completeBeforeLengthFault = Directory.GetFiles(paths.BackupDirectory,
+        "SolarEnergyMonitor-complete-*.zip").Length;
+    var originalCompleteHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(complete.Path)));
+    using (var db = database.OpenConnection())
+    using (var cmd = db.CreateCommand())
+    {
+        try
+        {
+            cmd.CommandText = """
+                UPDATE utility_bill_document SET content_length=21
+                WHERE original_file_name='smoke-original-bill.txt';
+                """;
+            if (cmd.ExecuteNonQuery() != 1)
+                throw new InvalidOperationException("Synthetic size fault setup failed.");
+            var lengthFaultRejected = false;
+            try { completeService.Create("0.11.0-test", "synthetic", "wrong-pdf-length"); }
+            catch (InvalidDataException) { lengthFaultRejected = true; }
+            if (!lengthFaultRejected)
+                throw new InvalidOperationException(
+                    "A new complete ZIP was published with a false stored PDF size.");
+        }
+        finally
+        {
+            cmd.CommandText = """
+                UPDATE utility_bill_document SET content_length=20
+                WHERE original_file_name='smoke-original-bill.txt';
+                """;
+            cmd.ExecuteNonQuery();
+        }
+    }
+    if (Directory.GetFiles(paths.BackupDirectory,
+            "SolarEnergyMonitor-complete-*.zip").Length != completeBeforeLengthFault ||
+        Directory.GetFiles(paths.BackupDirectory, "*.inprogress").Length != 0 ||
+        !File.Exists(complete.Path) ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(complete.Path))) != originalCompleteHash ||
+        FullBackupService.VerifyArchive(complete.Path).SchemaVersion != 17)
+        throw new InvalidOperationException(
+            "Failed full-backup creation damaged a previous verified ZIP or left a pending archive.");
+
+    // Independent verifier regression: REWRITE THE SNAPSHOT inside a test ZIP,
+    // then update its own database SHA/size in the manifest. All ZIP checks
+    // pass; the relational recorded PDF length is still intentionally false.
+    var forgedDocumentDb = Path.Combine(root, "forged-document-length.db");
+    using (var original = ZipFile.OpenRead(complete.Path))
+    using (var input = original.GetEntry("database/energy.db")!.Open())
+    using (var output = new FileStream(forgedDocumentDb, FileMode.CreateNew,
+               FileAccess.Write, FileShare.None))
+        input.CopyTo(output);
+    using (var edited = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = forgedDocumentDb, Mode = SqliteOpenMode.ReadWrite,
+        Pooling = false
+    }.ToString()))
+    {
+        edited.Open();
+        using var cmd = edited.CreateCommand();
+        cmd.CommandText = """
+            UPDATE utility_bill_document SET content_length=21
+            WHERE original_file_name='smoke-original-bill.txt';
+            """;
+        if (cmd.ExecuteNonQuery() != 1)
+            throw new InvalidOperationException("Synthetic forged DB setup failed.");
+    }
+    var forgedBytes = File.ReadAllBytes(forgedDocumentDb);
+    var forgedDigest = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(forgedBytes))
+        .ToLowerInvariant();
+    var forgedPackage = Path.Combine(root, "forged-document-length-package.zip");
+    File.Copy(complete.Path, forgedPackage);
+    using (var archive = ZipFile.Open(forgedPackage, ZipArchiveMode.Update))
+    {
+        archive.GetEntry("database/energy.db")!.Delete();
+        using (var output = archive.CreateEntry("database/energy.db").Open())
+            output.Write(forgedBytes);
+        var manifestEntry = archive.GetEntry("manifest.json")!;
+        CompleteBackupManifest revisedManifest;
+        using (var input = manifestEntry.Open())
+            revisedManifest = System.Text.Json.JsonSerializer
+                .Deserialize<CompleteBackupManifest>(input)!;
+        manifestEntry.Delete();
+        revisedManifest = revisedManifest with
+        {
+            Files = revisedManifest.Files.Select(entry =>
+                entry.RelativePath == "database/energy.db"
+                    ? new CompleteBackupEntry("database/energy.db",
+                        forgedBytes.Length, forgedDigest)
+                    : entry).ToArray()
+        };
+        using var outputManifest = archive.CreateEntry("manifest.json").Open();
+        System.Text.Json.JsonSerializer.Serialize(outputManifest, revisedManifest);
+    }
+    var forgedLengthRejected = false;
+    try { FullBackupService.VerifyArchive(forgedPackage); }
+    catch (InvalidDataException) { forgedLengthRejected = true; }
+    if (!forgedLengthRejected ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(complete.Path))) != originalCompleteHash)
+        throw new InvalidOperationException(
+            "Verifier accepted forged SQLite document size despite internally consistent ZIP SHA.");
+    File.Delete(forgedDocumentDb);
+    File.Delete(forgedPackage);
+
     // Even perfectly valid ZIP paths and checksums are insufficient if the
     // entry metadata declares a symbolic link or another non-regular file.
     // No extraction is attempted; only a synthetic package clone is edited.
