@@ -645,6 +645,124 @@ try
         summary.Totals.Conflicts < 1 ||
         summary.Totals.OnlyInTarget < 1)
         throw new InvalidOperationException("Selective recovery totals conceal blocking categories.");
+    // Test-only eight-stage plan. Only SETTINGS may be staged; no bill,
+    // tariff, meter or telemetry row may be imported by this service.
+    var planner = new IsolatedRecoveryPlanService();
+    var planned = planner.CreatePlan(complete.Path, previewDatabase.DatabasePath);
+    var repeatedPlan = planner.CreatePlan(complete.Path, previewDatabase.DatabasePath);
+    if (planned.Status != "SYNTHETIC_SETTINGS_PLAN" ||
+        planned.PlanId.Length != 64 || planned.TargetSettingsSha256.Length != 64 ||
+        planned.SourcePackageSha256.Length != 64 ||
+        planned.PlanId != repeatedPlan.PlanId ||
+        planned.Steps.Count != 8 ||
+        planned.Steps.Select(x => x.Order).Distinct().Count() != 8 ||
+        !planned.Steps.Select(x => x.Order).SequenceEqual(Enumerable.Range(1, 8)) ||
+        planned.Steps.Count(x => x.Status == "SYNTHETIC_STAGE_ONLY") != 1 ||
+        planned.Steps.Single(x => x.Category == "SETTINGS").Status != "SYNTHETIC_STAGE_ONLY" ||
+        planned.Steps.Single(x => x.Category == "METER_READINGS").Status !=
+            "BLOCKED_AMBIGUOUS_IDENTITY" ||
+        planned.Steps.Single(x => x.Category == "TARIFF_RELATIONS").Status !=
+            "BLOCKED_DEPENDENCIES" ||
+        planned.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Status !=
+            "BLOCKED_UNSUPPORTED" ||
+        planned.MissingSettings != previewSettings.Missing ||
+        planned.ConflictingSettings != previewSettings.Conflicts ||
+        planned.TargetOnlySettings != previewSettings.TargetOnly)
+        throw new InvalidOperationException(
+            "Eight-stage synthetic recovery plan was incomplete or unstable.");
+    if (planned.Steps.Any(x => x.Explanation.Contains("different-live-value",
+            StringComparison.Ordinal)))
+        throw new InvalidOperationException("Plan leaked original setting values.");
+
+    var plannedStage = planner.StageSettingsOnly(
+        planned, complete.Path, previewDatabase.DatabasePath);
+    if (plannedStage.Status != "STAGED_SYNTHETIC_ONLY" ||
+        plannedStage.Added != planned.MissingSettings ||
+        plannedStage.Conflicts != planned.ConflictingSettings ||
+        plannedStage.AlreadyPresent != planned.IdenticalSettings)
+        throw new InvalidOperationException("Planned stage counters did not reconcile.");
+    var plannedOutput = previewer.Preview(complete.Path, plannedStage.StagedDatabasePath);
+    var plannedSettings = plannedOutput.Categories.Single(x => x.Category == "SETTINGS");
+    if (plannedSettings.Missing != 0 ||
+        plannedSettings.Conflicts != planned.ConflictingSettings ||
+        plannedSettings.TargetOnly != planned.TargetOnlySettings ||
+        planner.CreatePlan(complete.Path, previewDatabase.DatabasePath).PlanId !=
+            planned.PlanId)
+        throw new InvalidOperationException(
+            "Planned stage changed original synthetic target or discarded target-only settings.");
+    File.Delete(plannedStage.StagedDatabasePath);
+
+    // An unapproved package path cannot reuse this plan, even if the two
+    // ZIPs have identical bytes; fixture target paths are equally bound.
+    var wrongPairBlocked = false;
+    try
+    {
+        planner.StageSettingsOnly(planned, Path.Combine(root, "other-package.zip"),
+            previewDatabase.DatabasePath);
+    }
+    catch (InvalidOperationException) { wrongPairBlocked = true; }
+    if (!wrongPairBlocked)
+        throw new InvalidOperationException("Plan accepted a different source-package path.");
+
+    // Source and destination have independent fingerprints. A WAL-visible
+    // target setting update makes an existing plan STALE even if row counts
+    // remain identical, and no new staged database may survive.
+    var stalePaths = new AppPaths(Path.Combine(root, "recovery-plan-stale-target"));
+    var staleDb = new SqliteDatabase(stalePaths);
+    staleDb.Initialize();
+    using (var conn = staleDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO app_setting(key,value,updated_utc)
+            VALUES('plan.stale','initial','2026-10-08T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var stalePlan = planner.CreatePlan(complete.Path, staleDb.DatabasePath);
+    using (var conn = staleDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            UPDATE app_setting SET value='new-value'
+            WHERE key='plan.stale';
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var planStageCount = Directory.GetFiles(root,
+        "recovery-additive-staged-*.db", SearchOption.TopDirectoryOnly).Length;
+    var stalePlanRejected = false;
+    try { planner.StageSettingsOnly(stalePlan, complete.Path, staleDb.DatabasePath); }
+    catch (InvalidOperationException) { stalePlanRejected = true; }
+    if (!stalePlanRejected ||
+        Directory.GetFiles(root, "recovery-additive-staged-*.db",
+            SearchOption.TopDirectoryOnly).Length != planStageCount ||
+        planner.CreatePlan(complete.Path, staleDb.DatabasePath).PlanId ==
+            stalePlan.PlanId)
+        throw new InvalidOperationException(
+            "Stale WAL-visible target plan was allowed to stage.");
+
+    // Injected failure must roll back and leave the target untouched.
+    var beforeInjected = Directory.GetFiles(root,
+        "recovery-additive-staged-*.db", SearchOption.TopDirectoryOnly).Length;
+    var planInjected = false;
+    try
+    {
+        planner.StageSettingsOnly(planned, complete.Path, previewDatabase.DatabasePath,
+            simulateFailureAfterFirstInsert: true);
+    }
+    catch (InvalidOperationException ex)
+    {
+        planInjected = ex.Message == "SYNTHETIC_TEST_INJECTED_BEFORE_COMMIT";
+    }
+    if (!planInjected ||
+        Directory.GetFiles(root, "recovery-additive-staged-*.db",
+            SearchOption.TopDirectoryOnly).Length != beforeInjected ||
+        planner.CreatePlan(complete.Path, previewDatabase.DatabasePath).PlanId !=
+            planned.PlanId)
+        throw new InvalidOperationException(
+            "Planned synthetic rollback left an output or altered original.");
+
     // A target with a valid schema version but a broken bill foreign key
     // must be rejected before any recovery counts can be reported.
     var brokenRecoveryPaths = new AppPaths(Path.Combine(root, "broken-fk-target"));
