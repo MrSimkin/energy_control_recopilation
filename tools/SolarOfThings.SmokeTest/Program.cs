@@ -1164,6 +1164,33 @@ try
         c.Kind == "COMPLETE" && c.Location == "LOCAL");
     var secondaryPhysical = bothLocations.Copies.Single(c =>
         c.Kind == "COMPLETE" && c.Location == "SECONDARY");
+    // A finished backup-management workflow must reveal trustworthy
+    // content categories and issue a portable, non-restorative receipt.
+    var detailedBackup = inventory.VerifyDetails(localPhysical, syntheticSecondary);
+    var spanishReceipt = detailedBackup.FormatReceipt(spanish: true);
+    var englishReceipt = detailedBackup.FormatReceipt(spanish: false);
+    if (detailedBackup.Summary.IntegrityStatus != "PASS" ||
+        detailedBackup.Location != "LOCAL" ||
+        detailedBackup.FileName != localPhysical.Name ||
+        detailedBackup.DatabaseFiles != 1 ||
+        detailedBackup.DatabaseBytes <= 0 ||
+        detailedBackup.BillDocuments < 1 ||
+        detailedBackup.TariffDocuments < 1 ||
+        detailedBackup.BillBytes <= 0 || detailedBackup.TariffBytes <= 0 ||
+        detailedBackup.Summary.FileCount !=
+            detailedBackup.DatabaseFiles + detailedBackup.BillDocuments +
+            detailedBackup.TariffDocuments ||
+        detailedBackup.Summary.Sha256.Length != 64 ||
+        !spanishReceipt.Contains("restauración NO probada", StringComparison.Ordinal) ||
+        !spanishReceipt.Contains(detailedBackup.Summary.Sha256, StringComparison.Ordinal) ||
+        !spanishReceipt.Contains("Esquema SQLite: 17", StringComparison.Ordinal) ||
+        !englishReceipt.Contains("restoration NOT tested", StringComparison.Ordinal) ||
+        !englishReceipt.Contains("Bills:", StringComparison.Ordinal) ||
+        spanishReceipt.Contains("Synthetic bill proof", StringComparison.Ordinal) ||
+        englishReceipt.Contains("Synthetic tariff proof", StringComparison.Ordinal))
+        throw new InvalidOperationException(
+            "Verified backup details or bilingual receipt contained missing/untrusted information.");
+
     if (inventory.Verify(secondaryPhysical, syntheticSecondary).IntegrityStatus != "PASS")
         throw new InvalidOperationException("Secondary copy integrity verification failed.");
     // No one may pair one backup path with a different display name and
