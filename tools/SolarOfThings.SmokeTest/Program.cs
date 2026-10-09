@@ -6083,6 +6083,231 @@ try
         Directory.Delete(bundled.Evidence.StageDirectory, recursive: true);
     }
 
+    // Full, closed tariff subgraph: two uniquely archived official PDF files,
+    // their captured page text, normalized-but-unapproved rate candidates,
+    // and one exact correction relation. All synthetic only.
+    var tariffGraphPaths = new AppPaths(Path.Combine(root, "complete-tariff-graph-source"));
+    var tariffGraphDb = new SqliteDatabase(tariffGraphPaths);
+    tariffGraphDb.Initialize();
+    var tariffPdfA = Path.Combine(tariffGraphPaths.TariffEnelDirectory, "reviewed-a.pdf");
+    var tariffPdfB = Path.Combine(tariffGraphPaths.TariffEnelDirectory, "reviewed-b.pdf");
+    File.WriteAllText(tariffPdfA, "SYNTHETIC VERIFIED TARIFF A");
+    File.WriteAllText(tariffPdfB, "SYNTHETIC VERIFIED TARIFF B");
+    var tariffDigestA = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(tariffPdfA)));
+    var tariffDigestB = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(tariffPdfB)));
+    using (var conn = tariffGraphDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,effective_from,local_pdf_path,
+                content_sha256,content_length,page_count,capture_status,updated_utc,
+                official_document_number)
+            VALUES('ENEL','REGULATED','Original A','smoke://reviewed-tariff-a',
+                   '2026-08-01',$a,$shaA,$lenA,1,'CAPTURED',
+                   '2026-10-09T00:00:00Z','SMOKE-OFFICIAL-A');
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,effective_from,local_pdf_path,
+                content_sha256,content_length,page_count,capture_status,updated_utc,
+                official_document_number)
+            VALUES('ENEL','REGULATED','Corrected B','smoke://reviewed-tariff-b',
+                   '2026-09-01',$b,$shaB,$lenB,1,'CAPTURED',
+                   '2026-10-09T00:00:00Z','SMOKE-OFFICIAL-B');
+            INSERT INTO tariff_publication_page_text(publication_id,page_number,page_text)
+            SELECT publication_id,1,'Synthetic A tariff rate'
+            FROM tariff_publication WHERE official_document_number='SMOKE-OFFICIAL-A';
+            INSERT INTO tariff_publication_page_text(publication_id,page_number,page_text)
+            SELECT publication_id,1,'Synthetic B tariff rate'
+            FROM tariff_publication WHERE official_document_number='SMOKE-OFFICIAL-B';
+            INSERT INTO tariff_rate_candidate(
+                publication_id,page_number,tariff_plan,component_key,
+                printed_description,candidate_index,net_rate_clp,source_text,
+                parser_version,validation_state,created_utc)
+            SELECT publication_id,1,'BT1','ENERGY','Synthetic A candidate',1,100,
+                   '100','smoke-v1','UNREVIEWED','2026-10-09T00:00:00Z'
+            FROM tariff_publication WHERE official_document_number='SMOKE-OFFICIAL-A';
+            INSERT INTO tariff_rate_candidate(
+                publication_id,page_number,tariff_plan,component_key,
+                printed_description,candidate_index,net_rate_clp,source_text,
+                parser_version,validation_state,created_utc)
+            SELECT publication_id,1,'BT1','ENERGY','Synthetic B candidate',1,101,
+                   '101','smoke-v1','UNREVIEWED','2026-10-09T00:00:00Z'
+            FROM tariff_publication WHERE official_document_number='SMOKE-OFFICIAL-B';
+            INSERT INTO tariff_publication_relation(
+                source_publication_id,relation_type,target_provider,target_category,
+                target_official_document_number,target_publication_id,evidence_text,
+                created_utc,updated_utc)
+            SELECT a.publication_id,'CORRECTS','ENEL','REGULATED','SMOKE-OFFICIAL-B',
+                   b.publication_id,'Synthetic A references B',
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z'
+            FROM tariff_publication a CROSS JOIN tariff_publication b
+            WHERE a.official_document_number='SMOKE-OFFICIAL-A'
+              AND b.official_document_number='SMOKE-OFFICIAL-B';
+            """;
+        cmd.Parameters.AddWithValue("$a", tariffPdfA);
+        cmd.Parameters.AddWithValue("$b", tariffPdfB);
+        cmd.Parameters.AddWithValue("$shaA", tariffDigestA.ToLowerInvariant());
+        cmd.Parameters.AddWithValue("$shaB", tariffDigestB.ToLowerInvariant());
+        cmd.Parameters.AddWithValue("$lenA", new FileInfo(tariffPdfA).Length);
+        cmd.Parameters.AddWithValue("$lenB", new FileInfo(tariffPdfB).Length);
+        cmd.ExecuteNonQuery();
+    }
+    var tariffGraphZip = new FullBackupService(tariffGraphDb, tariffGraphPaths)
+        .Create("0.11.0-test", "synthetic", "closed-tariff-graph");
+    var tariffTargetPaths = new AppPaths(Path.Combine(root, "complete-tariff-graph-target"));
+    var tariffTargetDb = new SqliteDatabase(tariffTargetPaths);
+    tariffTargetDb.Initialize();
+    using (var conn = tariffTargetDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,capture_status,
+                updated_utc,official_document_number)
+            VALUES('ENEL','REGULATED','Destination only',
+                   'smoke://other-tariff','DISCOVERED',
+                   '2026-10-09T00:00:00Z','SMOKE-OTHER');
+            INSERT INTO tariff_publication_page_text(publication_id,page_number,page_text)
+            SELECT publication_id,1,'Destination-owned page'
+            FROM tariff_publication WHERE official_document_number='SMOKE-OTHER';
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var tariffGraphPlan = planner.CreatePlan(tariffGraphZip.Path,
+        tariffTargetDb.DatabasePath);
+    var tariffGraphBundle = bundleService.Stage(tariffGraphPlan,
+        tariffGraphZip.Path, tariffTargetDb.DatabasePath,
+        selectedDocumentHashes: new[] { tariffDigestA, tariffDigestB });
+    var tariffGraphService = new IsolatedRecoveryTariffGraphTestService();
+    var tariffStageCountBefore = Directory.GetFiles(root,
+        "recovery-tariff-graph-staged-*.db").Length;
+    var tariffInterrupted = false;
+    try
+    {
+        tariffGraphService.Stage(tariffGraphPlan, tariffGraphBundle,
+            tariffGraphZip.Path, tariffTargetDb.DatabasePath,
+            simulateInterruptionAfterFirstPublication: true);
+    }
+    catch (InvalidOperationException ex) when (
+        ex.Message == "SYNTHETIC_TARIFF_GRAPH_INTERRUPTION")
+    {
+        tariffInterrupted = true;
+    }
+    if (!tariffInterrupted ||
+        Directory.GetFiles(root, "recovery-tariff-graph-staged-*.db").Length !=
+            tariffStageCountBefore)
+        throw new InvalidOperationException("Interrupted tariff graph leaked partial SQLite.");
+    using (var cancelledTariff = new CancellationTokenSource())
+    {
+        cancelledTariff.Cancel();
+        var refused = false;
+        try { tariffGraphService.Stage(tariffGraphPlan, tariffGraphBundle,
+            tariffGraphZip.Path, tariffTargetDb.DatabasePath,
+            cancelledTariff.Token); }
+        catch (OperationCanceledException) { refused = true; }
+        if (!refused)
+            throw new InvalidOperationException("Precancelled tariff graph was staged.");
+    }
+    var forgedTariffBundle = tariffGraphBundle with
+    {
+        Evidence = tariffGraphBundle.Evidence with { SourcePackageSha256 = new string('1', 64) }
+    };
+    var forgedTariffRefused = false;
+    try { tariffGraphService.Stage(tariffGraphPlan, forgedTariffBundle,
+        tariffGraphZip.Path, tariffTargetDb.DatabasePath); }
+    catch (InvalidDataException) { forgedTariffRefused = true; }
+    if (!forgedTariffRefused)
+        throw new InvalidOperationException("Forged verified tariff ZIP was accepted.");
+
+    var tariffImported = tariffGraphService.Stage(tariffGraphPlan, tariffGraphBundle,
+        tariffGraphZip.Path, tariffTargetDb.DatabasePath);
+    if (tariffImported.RealRestoreAuthorized ||
+        tariffImported.AddedPublications != 2 || tariffImported.AddedPages != 2 ||
+        tariffImported.AddedRateCandidates != 2 || tariffImported.AddedRelations != 1 ||
+        tariffImported.IdMap.Count != 2 || !File.Exists(tariffImported.StagedDatabasePath) ||
+        tariffImported.IdMap.Any(x => x.StagedId == 1) ||
+        planner.CreatePlan(tariffGraphZip.Path, tariffTargetDb.DatabasePath).PlanId !=
+            tariffGraphPlan.PlanId)
+        throw new InvalidOperationException("Closed tariff graph staging failed.");
+    using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(
+        new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+        {
+            DataSource = tariffImported.StagedDatabasePath,
+            Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly, Pooling = false
+        }.ToString()))
+    {
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT a.official_document_number,b.official_document_number
+            FROM tariff_publication_relation r
+            JOIN tariff_publication a ON a.publication_id=r.source_publication_id
+            JOIN tariff_publication b ON b.publication_id=r.target_publication_id;
+            """;
+        using (var row = cmd.ExecuteReader())
+            if (!row.Read() || row.GetString(0) != "SMOKE-OFFICIAL-A" ||
+                row.GetString(1) != "SMOKE-OFFICIAL-B" || row.Read())
+                throw new InvalidOperationException("Tariff correction graph lost remapped links.");
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM tariff_rate_candidate
+            WHERE net_rate_clp IN (100,101);
+            """;
+        if (Convert.ToInt64(cmd.ExecuteScalar()) != 2)
+            throw new InvalidOperationException("Tariff normalization candidate evidence changed.");
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM tariff_publication_page_text
+            WHERE page_text='Destination-owned page';
+            """;
+        if (Convert.ToInt64(cmd.ExecuteScalar()) != 1)
+            throw new InvalidOperationException("Original target tariff page was overwritten.");
+    }
+    // A partial choice must not import A while silently discarding its
+    // correction relationship to the unselected publication B.
+    var incompleteTariffBundle = bundleService.Stage(tariffGraphPlan,
+        tariffGraphZip.Path, tariffTargetDb.DatabasePath,
+        selectedDocumentHashes: new[] { tariffDigestA });
+    var partialGraphRefused = false;
+    try { tariffGraphService.Stage(tariffGraphPlan, incompleteTariffBundle,
+        tariffGraphZip.Path, tariffTargetDb.DatabasePath); }
+    catch (InvalidDataException) { partialGraphRefused = true; }
+    if (!partialGraphRefused)
+        throw new InvalidOperationException("Partial tariff correction graph was silently imported.");
+    // Even a physically distinct PDF is not a new official publication
+    // when destination provider/category/official-number already coincide.
+    using (var conn = tariffTargetDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,capture_status,
+                updated_utc,official_document_number)
+            VALUES('ENEL','REGULATED','Conflicting existing official number',
+                   'smoke://conflict-official-a','DISCOVERED',
+                   '2026-10-09T00:00:00Z','SMOKE-OFFICIAL-A');
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var tariffConflictPlan = planner.CreatePlan(tariffGraphZip.Path,
+        tariffTargetDb.DatabasePath);
+    var tariffConflictBundle = bundleService.Stage(tariffConflictPlan,
+        tariffGraphZip.Path, tariffTargetDb.DatabasePath,
+        selectedDocumentHashes: new[] { tariffDigestA, tariffDigestB });
+    var tariffConflictRefused = false;
+    try { tariffGraphService.Stage(tariffConflictPlan, tariffConflictBundle,
+        tariffGraphZip.Path, tariffTargetDb.DatabasePath); }
+    catch (InvalidDataException) { tariffConflictRefused = true; }
+    if (!tariffConflictRefused)
+        throw new InvalidOperationException("Official tariff identifier conflict was imported.");
+
+    File.Delete(tariffImported.StagedDatabasePath);
+    foreach (var bundled in new[] { tariffGraphBundle, incompleteTariffBundle, tariffConflictBundle })
+    {
+        File.Delete(bundled.Settings.StagedDatabasePath);
+        Directory.Delete(bundled.Evidence.StageDirectory, recursive: true);
+    }
+
     var linkPreviewer = new IsolatedRecoveryDocumentLinkPreviewService();
     var graphEvidence = documentStage.Stage(graphZip.Path, graphTarget.DatabasePath);
     var documentLinks = linkPreviewer.Analyze(
