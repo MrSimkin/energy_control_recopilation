@@ -50,7 +50,8 @@ public sealed class EnergyReportExportService
             request.StartUtc,
             request.EndUtc,
             request.TimeZoneId,
-            request.Aggregation);
+            request.Aggregation,
+            cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
         var family = _familyAnalysis.Analyze(request);

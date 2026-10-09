@@ -16,8 +16,10 @@ public sealed class SocAggregationService
         DateTimeOffset rangeStartUtc,
         DateTimeOffset rangeEndUtc,
         string timeZoneId,
-        AggregationPeriod period)
+        AggregationPeriod period,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (rangeEndUtc < rangeStartUtc)
         {
             (rangeStartUtc, rangeEndUtc) = (rangeEndUtc, rangeStartUtc);
@@ -59,8 +61,10 @@ public sealed class SocAggregationService
         var samples = LoadSamplesWithContext(
             deviceId,
             rangeStartUtc,
-            rangeEndExclusive);
+            rangeEndExclusive,
+            cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var medianGap = CalculateMedianGapMinutes(samples);
         var continuityThreshold = medianGap > 0
             ? Math.Clamp(medianGap * 3.0, 10.0, 20.0)
@@ -70,7 +74,8 @@ public sealed class SocAggregationService
             samples,
             buckets,
             rangeStartUtc,
-            rangeEndExclusive);
+            rangeEndExclusive,
+            cancellationToken);
 
         if (samples.Count >= 2)
         {
@@ -78,6 +83,7 @@ public sealed class SocAggregationService
 
             for (var i = 0; i < samples.Count - 1; i++)
             {
+                if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
                 var first = samples[i];
                 var second = samples[i + 1];
                 var gap = second.TimestampUtc - first.TimestampUtc;
@@ -161,10 +167,13 @@ public sealed class SocAggregationService
     private IReadOnlyList<SocSample> LoadSamplesWithContext(
         string deviceId,
         DateTimeOffset rangeStartUtc,
-        DateTimeOffset rangeEndExclusive)
+        DateTimeOffset rangeEndExclusive,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var connection = _database.OpenConnection();
         var samples = new SortedDictionary<DateTimeOffset, double>();
+        var readCount = 0;
 
         void AddBoundarySample(
             string comparisonSql,
@@ -186,6 +195,7 @@ public sealed class SocAggregationService
             command.Parameters.AddWithValue("$deviceId", deviceId);
             command.Parameters.AddWithValue("$boundary", boundary.ToString("O"));
 
+            cancellationToken.ThrowIfCancellationRequested();
             using var reader = command.ExecuteReader();
             if (reader.Read() &&
                 DateTimeOffset.TryParse(
@@ -216,9 +226,11 @@ public sealed class SocAggregationService
             command.Parameters.AddWithValue("$fromUtc", rangeStartUtc.ToString("O"));
             command.Parameters.AddWithValue("$toUtc", rangeEndExclusive.ToString("O"));
 
+            cancellationToken.ThrowIfCancellationRequested();
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
+                if ((++readCount & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
                 if (!DateTimeOffset.TryParse(
                         reader.GetString(0),
                         out var timestamp))
@@ -233,6 +245,7 @@ public sealed class SocAggregationService
 
         AddBoundarySample(">=", "ASC", rangeEndExclusive);
 
+        cancellationToken.ThrowIfCancellationRequested();
         return samples
             .Select(pair => new SocSample(pair.Key, pair.Value))
             .ToArray();
@@ -242,12 +255,15 @@ public sealed class SocAggregationService
         IReadOnlyList<SocSample> samples,
         IReadOnlyList<SocBucketAccumulator> buckets,
         DateTimeOffset rangeStartUtc,
-        DateTimeOffset rangeEndExclusive)
+        DateTimeOffset rangeEndExclusive,
+        CancellationToken cancellationToken)
     {
         var bucketIndex = 0;
+        var counted = 0;
 
         foreach (var sample in samples)
         {
+            if ((++counted & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             if (sample.TimestampUtc < rangeStartUtc ||
                 sample.TimestampUtc >= rangeEndExclusive)
             {

@@ -2211,6 +2211,23 @@ try
         catch (OperationCanceledException) { cancelledBuildRejected = true; }
         if (!cancelledBuildRejected)
             throw new InvalidOperationException("Cancelled report Build still ran.");
+        var cancelPower = false;
+        try { powerAggregation.GetSeries(familySmokeDeviceId, "pv_power_w",
+            familyLocalStart.ToUniversalTime(), familyLocalEnd.ToUniversalTime(),
+            "America/Santiago", AggregationPeriod.Day, cancelledReport.Token); }
+        catch (OperationCanceledException) { cancelPower = true; }
+        var cancelSoc = false;
+        try { socAggregation.GetSeries(familySmokeDeviceId,
+            familyLocalStart.ToUniversalTime(), familyLocalEnd.ToUniversalTime(),
+            "America/Santiago", AggregationPeriod.Day, cancelledReport.Token); }
+        catch (OperationCanceledException) { cancelSoc = true; }
+        var cancelTable = false;
+        try { reportAggregation.Get(familySmokeDeviceId,
+            familyLocalStart.ToUniversalTime(), familyLocalEnd.ToUniversalTime(),
+            "America/Santiago", AggregationPeriod.Day, cancelledReport.Token); }
+        catch (OperationCanceledException) { cancelTable = true; }
+        if (!cancelPower || !cancelSoc || !cancelTable)
+            throw new InvalidOperationException("Deep report aggregation cancellation regressed.");
 
         var cancelledOutput = Path.Combine(root, "cancelled-report.xlsx");
         var cancelledOutputRejected = false;
