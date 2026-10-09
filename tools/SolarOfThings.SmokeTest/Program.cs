@@ -640,6 +640,11 @@ try
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");
+    if (summary.Totals.ComparedCategories != 3 ||
+        summary.Totals.BlockedCategories != 3 ||
+        summary.Totals.Conflicts < 1 ||
+        summary.Totals.OnlyInTarget < 1)
+        throw new InvalidOperationException("Selective recovery totals conceal blocking categories.");
     // A target with a valid schema version but a broken bill foreign key
     // must be rejected before any recovery counts can be reported.
     var brokenRecoveryPaths = new AppPaths(Path.Combine(root, "broken-fk-target"));
@@ -683,6 +688,8 @@ try
     }
     var incomplete = previewer.Preview(complete.Path, partialTarget.DatabasePath);
     if (incomplete.Status != "PARTIAL_PREVIEW" ||
+        incomplete.Totals.BlockedCategories != 4 ||
+        incomplete.Totals.ComparedCategories != 2 ||
         !incomplete.Categories.Any(c => c.Category == "SETTINGS" &&
             c.UnsupportedReason is not null) ||
         !incomplete.Disclaimer.Contains("INCOMPLETE", StringComparison.Ordinal))

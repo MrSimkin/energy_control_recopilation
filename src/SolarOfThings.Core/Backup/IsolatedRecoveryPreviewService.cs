@@ -234,4 +234,21 @@ public sealed record RecoveryCategoryResult(string Category, int Missing,
 }
 
 public sealed record RecoveryPreviewResult(int BackupSchemaVersion, int TargetSchemaVersion,
-    string Status, IReadOnlyList<RecoveryCategoryResult> Categories, string Disclaimer);
+    string Status, IReadOnlyList<RecoveryCategoryResult> Categories, string Disclaimer)
+{
+    // Only count successfully compared categories; unsupported relational
+    // types remain visible as blocked, never as zero-sized datasets.
+    public RecoveryPreviewTotals Totals
+    {
+        get
+        {
+            var compared = Categories.Where(c => c.UnsupportedReason is null).ToArray();
+            return new RecoveryPreviewTotals(compared.Length,
+                Categories.Count - compared.Length,
+                compared.Sum(c => c.Missing), compared.Sum(c => c.Identical),
+                compared.Sum(c => c.Conflicts), compared.Sum(c => c.TargetOnly));
+        }
+    }
+}
+public sealed record RecoveryPreviewTotals(int ComparedCategories, int BlockedCategories,
+    int SourceMissingInTarget, int Identical, int Conflicts, int OnlyInTarget);
