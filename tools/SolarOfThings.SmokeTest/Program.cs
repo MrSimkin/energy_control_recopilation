@@ -5477,6 +5477,45 @@ try
         throw new InvalidOperationException("Unmarked document stage input accepted.");
     var graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
     var graphPlan = planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath);
+    var linkPreviewer = new IsolatedRecoveryDocumentLinkPreviewService();
+    var graphEvidence = documentStage.Stage(graphZip.Path, graphTarget.DatabasePath);
+    var documentLinks = linkPreviewer.Analyze(
+        graphEvidence, graphAudit, graphTarget.DatabasePath);
+    if (documentLinks.RelationalRestoreAuthorized ||
+        documentLinks.Candidates.Count != 5 ||
+        documentLinks.SharedSourceDocumentCandidates != 2 ||
+        documentLinks.CandidatesWithUniqueStagedBytes != 2 ||
+        documentLinks.StagedFiles != 3 ||
+        documentLinks.CandidatesWithoutSelectedBytes != 0)
+        throw new InvalidOperationException(
+            "Synthetic SHA evidence graph failed to preserve shared-bill and missing-document semantics.");
+    Directory.Delete(graphEvidence.StageDirectory, recursive: true);
+    var selectedGraphEvidence = documentStage.Stage(graphZip.Path, graphTarget.DatabasePath,
+        selectedDocumentHashes: new[] { billHash });
+    var selectedGraphLinks = linkPreviewer.Analyze(
+        selectedGraphEvidence, graphAudit, graphTarget.DatabasePath);
+    if (!selectedGraphEvidence.Selective ||
+        selectedGraphLinks.CandidatesWithUniqueStagedBytes != 0 ||
+        selectedGraphLinks.SharedSourceDocumentCandidates != 2 ||
+        selectedGraphLinks.CandidatesWithoutSelectedBytes != 3 ||
+        selectedGraphLinks.RelationalRestoreAuthorized)
+        throw new InvalidOperationException(
+            "Selective synthetic evidence introduced false bill/tariff relations.");
+    var tamperedGraphReceipt = selectedGraphEvidence with
+    {
+        Documents = selectedGraphEvidence.Documents.Select(x =>
+            x with { Size = x.Size + 1 }).ToArray()
+    };
+    var tamperedGraphBlocked = false;
+    try
+    {
+        linkPreviewer.Analyze(tamperedGraphReceipt, graphAudit,
+            graphTarget.DatabasePath);
+    }
+    catch (InvalidOperationException) { tamperedGraphBlocked = true; }
+    Directory.Delete(selectedGraphEvidence.StageDirectory, recursive: true);
+    if (!tamperedGraphBlocked)
+        throw new InvalidOperationException("Forged synthetic link receipt was trusted.");
     if (graphPlan.Steps.Single(x => x.Category == "BILL_SOURCE_DOCUMENTS").Records != 2 ||
         graphPlan.Steps.Single(x => x.Category == "TARIFF_RELATIONS").Records != 3 ||
         graphPlan.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Status !=
