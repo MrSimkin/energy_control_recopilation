@@ -6613,6 +6613,100 @@ try
                 "Mixed staged SQLite duplicated an existing bill/line/document.");
     }
 
+    // Every selected bill already exists with an independently rehashed PDF,
+    // exactly matching bill fields and charge/evidence multisets. This is a
+    // separately requested read-only graph NO-OP, not a second import.
+    var allExactPlan = planner.CreatePlan(mixedZip.Path,
+        mixedImport.StagedDatabasePath);
+    var allExactBundle = bundleService.Stage(allExactPlan, mixedZip.Path,
+        mixedImport.StagedDatabasePath,
+        selectedDocumentHashes: new[] { isolatedBillDigest, newMixedHash });
+    var allExactBefore = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(mixedImport.StagedDatabasePath)));
+    var allExactStageCount = Directory.GetFiles(root,
+        "recovery-linked-bills-staged-*.db").Length;
+    var allExactImplicitBlocked = false;
+    try { linkedGraphStage.Stage(allExactPlan, allExactBundle, mixedZip.Path,
+        mixedImport.StagedDatabasePath, allowExactDuplicateSkip: true); }
+    catch (InvalidOperationException) { allExactImplicitBlocked = true; }
+    if (!allExactImplicitBlocked)
+        throw new InvalidOperationException(
+            "Identical bill set silently returned a no-op without explicit request.");
+    var allExactNoOp = linkedGraphStage.Stage(allExactPlan, allExactBundle,
+        mixedZip.Path, mixedImport.StagedDatabasePath,
+        allowExactDuplicateSkip: true, allowAllExactNoOp: true);
+    if (allExactNoOp.Status != "ALREADY_PRESENT_EXACT_BILL_GRAPHS_SYNTHETIC_NO_OP" ||
+        allExactNoOp.StagedDatabasePath != "" ||
+        allExactNoOp.IdMap.Count != 0 || allExactNoOp.AddedBills != 0 ||
+        allExactNoOp.AddedLines != 0 || allExactNoOp.AddedFieldEvidence != 0 ||
+        allExactNoOp.SkippedIdenticalBills != 2 ||
+        allExactNoOp.RealRestoreAuthorized ||
+        allExactNoOp.SourcePackageSha256 != allExactPlan.SourcePackageSha256 ||
+        Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length !=
+            allExactStageCount ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(mixedImport.StagedDatabasePath))) != allExactBefore)
+        throw new InvalidOperationException(
+            "Fully identical synthetic bills did not produce a zero-graph-write receipt.");
+
+    // One changed CHILD charge with the same PDFs and same bill totals
+    // must block the receipt; child multiset equality is essential.
+    var allExactChangedDb = Path.Combine(root, "all-exact-changed-child.db");
+    using (var original = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = mixedImport.StagedDatabasePath,
+        Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    using (var edited = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = allExactChangedDb, Mode = SqliteOpenMode.ReadWriteCreate,
+        Pooling = false
+    }.ToString()))
+    {
+        original.Open();
+        edited.Open();
+        original.BackupDatabase(edited);
+    }
+    using (var edited = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = allExactChangedDb, Mode = SqliteOpenMode.ReadWrite,
+        Pooling = false
+    }.ToString()))
+    {
+        edited.Open();
+        using var cmd = edited.CreateCommand();
+        cmd.CommandText = """
+            UPDATE utility_bill_line SET amount_clp=6999
+            WHERE description='Synthetic September line';
+            """;
+        if (cmd.ExecuteNonQuery() != 1)
+            throw new InvalidOperationException("Synthetic child tamper setup failed.");
+    }
+    var changedChildPlan = planner.CreatePlan(mixedZip.Path, allExactChangedDb);
+    var changedChildBundle = bundleService.Stage(changedChildPlan, mixedZip.Path,
+        allExactChangedDb,
+        selectedDocumentHashes: new[] { isolatedBillDigest, newMixedHash });
+    var changedChildBefore = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(allExactChangedDb)));
+    var changedChildRejected = false;
+    try { linkedGraphStage.Stage(changedChildPlan, changedChildBundle,
+        mixedZip.Path, allExactChangedDb, allowExactDuplicateSkip: true,
+        allowAllExactNoOp: true); }
+    catch (InvalidDataException) { changedChildRejected = true; }
+    if (!changedChildRejected ||
+        Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length !=
+            allExactStageCount ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(allExactChangedDb))) != changedChildBefore)
+        throw new InvalidOperationException(
+            "Changed charge evidence was treated as an exact all-bill NO-OP.");
+    File.Delete(changedChildBundle.Settings.StagedDatabasePath);
+    Directory.Delete(changedChildBundle.Evidence.StageDirectory, recursive: true);
+    File.Delete(allExactChangedDb);
+    File.Delete(allExactBundle.Settings.StagedDatabasePath);
+    Directory.Delete(allExactBundle.Evidence.StageDirectory, recursive: true);
+
     // A bill with the same PDF but edited charge content is a CONFLICT,
     // never an equal duplicate. Exercise rollback and preservation separately.
     var mixedConflictTarget = Path.Combine(root, "mixed-conflict-target.db");
