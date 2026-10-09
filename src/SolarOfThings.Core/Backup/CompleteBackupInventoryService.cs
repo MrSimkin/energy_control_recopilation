@@ -43,6 +43,22 @@ public sealed class CompleteBackupInventoryService
         VerifyDetails(copy, configuredSecondary).Summary;
 
     /// <summary>
+    /// Cheap metadata preflight for an explicit manual mirror: checks this
+    /// locally selected ZIP is still the same inventory row. This is NOT a
+    /// SHA/integrity certificate. FullBackupService.CopyVerifiedToSecondary
+    /// MUST subsequently verify the complete archive and digest itself.
+    /// </summary>
+    public void RequireCurrentLocalSelection(PhysicalBackupCopy selected)
+    {
+        ArgumentNullException.ThrowIfNull(selected);
+        if (selected.Kind != "COMPLETE" || selected.Location != "LOCAL")
+            throw new InvalidOperationException(
+                "Only selected LOCAL complete backups may be mirrored.");
+        var path = ValidateCopy(selected, configuredSecondary: null);
+        RequireCurrentSelection(path, selected);
+    }
+
+    /// <summary>
     /// Independently verifies a selected physical complete package, then
     /// returns its actual manifest breakdown. Do not trust ZIP inventory
     /// names or pre-verification file metadata as evidence of recoverability.

@@ -1597,6 +1597,29 @@ try
         throw new InvalidOperationException("Physical backup inventory classification failed.");
     var localPhysical = bothLocations.Copies.Single(c =>
         c.Kind == "COMPLETE" && c.Location == "LOCAL");
+    inventory.RequireCurrentLocalSelection(localPhysical);
+    var staleLocalRejected = false;
+    try
+    {
+        inventory.RequireCurrentLocalSelection(localPhysical with
+        {
+            ModifiedUtc = localPhysical.ModifiedUtc.AddSeconds(-5)
+        });
+    }
+    catch (InvalidOperationException) { staleLocalRejected = true; }
+    if (!staleLocalRejected || !File.Exists(complete.Path))
+        throw new InvalidOperationException(
+            "Manual secondary preflight accepted stale source inventory metadata.");
+    var secondaryLocalRejected = false;
+    try
+    {
+        inventory.RequireCurrentLocalSelection(bothLocations.Copies.Single(c =>
+            c.Kind == "COMPLETE" && c.Location == "SECONDARY"));
+    }
+    catch (InvalidOperationException) { secondaryLocalRejected = true; }
+    if (!secondaryLocalRejected)
+        throw new InvalidOperationException(
+            "Secondary-to-secondary copy was authorized by manual mirror gate.");
     var secondaryPhysical = bothLocations.Copies.Single(c =>
         c.Kind == "COMPLETE" && c.Location == "SECONDARY");
     // A finished backup-management workflow must reveal trustworthy

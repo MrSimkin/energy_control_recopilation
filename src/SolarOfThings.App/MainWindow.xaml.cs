@@ -9226,10 +9226,11 @@ public partial class MainWindow : Window
             var selected = chosen;
             var second = await Task.Run(() =>
             {
-                // Stale selections require a refresh before potentially
-                // expensive copying: size/time/name are checked by inventory.
+                // Fast stale-selection preflight; CopyVerifiedToSecondary
+                // itself still hashes and verifies every source ZIP byte.
+                // Avoid redundant multi-GB full-ZIP verification passes.
                 var inventory = new CompleteBackupInventoryService(_paths);
-                inventory.VerifyDetails(selected, configured);
+                inventory.RequireCurrentLocalSelection(selected);
                 return service.CopyVerifiedToSecondary(selected.Path, configured);
             });
             BackupInventoryStatusText.Text = (spanish
