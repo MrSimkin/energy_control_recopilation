@@ -221,10 +221,25 @@ public sealed class IsolatedRecoveryRelationAuditService
                 status = "TARIFF_PDF_NOT_PORTABLE";
                 explanation = "Captured tariff PDF is missing or ambiguously mapped by SHA.";
             }
-            else if (HasTariffSourceUrl(target, sourceUrl))
+            else if (TryGetTariffDocumentHash(target, sourceUrl, out var targetSha))
             {
-                status = "TARIFF_SOURCE_OVERLAP_REVIEW";
-                explanation = "Source URL already exists in target; content/relations need review, not replacement.";
+                if (!string.IsNullOrWhiteSpace(sha) &&
+                    !string.IsNullOrWhiteSpace(targetSha))
+                {
+                    var same = string.Equals(sha, targetSha,
+                        StringComparison.OrdinalIgnoreCase);
+                    status = same
+                        ? "TARIFF_SOURCE_SAME_DOCUMENT_REVIEW"
+                        : "TARIFF_SOURCE_CONTENT_CONFLICT_REVIEW";
+                    explanation = same
+                        ? "Same source URL and original PDF bytes; dependent tariff records still require review."
+                        : "Same source URL but different original PDF hashes; no overwrite or automatic merge.";
+                }
+                else
+                {
+                    status = "TARIFF_SOURCE_OVERLAP_REVIEW";
+                    explanation = "Source URL already exists in target but document evidence is incomplete.";
+                }
             }
             else if (candidates > 0 || relations > 0)
             {
@@ -258,13 +273,21 @@ public sealed class IsolatedRecoveryRelationAuditService
         return command.ExecuteScalar() is not null;
     }
 
-    private static bool HasTariffSourceUrl(SqliteConnection conn, string url)
+    private static bool TryGetTariffDocumentHash(SqliteConnection conn, string url,
+        out string? hash)
     {
         using var command = conn.CreateCommand();
         command.CommandText =
-            "SELECT 1 FROM tariff_publication WHERE source_url=$url LIMIT 1;";
+            "SELECT content_sha256 FROM tariff_publication WHERE source_url=$url LIMIT 1;";
         command.Parameters.AddWithValue("$url", url);
-        return command.ExecuteScalar() is not null;
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            hash = null;
+            return false;
+        }
+        hash = reader.IsDBNull(0) ? null : reader.GetString(0);
+        return true;
     }
 
     private static int SchemaVersion(SqliteConnection conn)

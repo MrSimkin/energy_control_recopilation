@@ -4726,7 +4726,26 @@ try
     graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
     if (graphAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId).State !=
         "TARIFF_SOURCE_OVERLAP_REVIEW")
-        throw new InvalidOperationException("Source URL overlap must require review.");
+        throw new InvalidOperationException("Source URL overlap without PDF must require review.");
+    using (var overlappingTariff = graphTarget.OpenConnection())
+    using (var update = overlappingTariff.CreateCommand())
+    {
+        update.CommandText =
+            "UPDATE tariff_publication SET content_sha256=$sha WHERE source_url=$url;";
+        update.Parameters.AddWithValue("$sha", tariffHash);
+        update.Parameters.AddWithValue("$url", testSourceUrl);
+        update.ExecuteNonQuery();
+        var sameAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+        if (sameAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId).State !=
+            "TARIFF_SOURCE_SAME_DOCUMENT_REVIEW")
+            throw new InvalidOperationException("Identical PDF evidence was not classified.");
+        update.Parameters["$sha"].Value = new string('f', 64);
+        update.ExecuteNonQuery();
+        var conflictAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+        if (conflictAudit.Tariffs.Single(t => t.SourcePublicationId == graphPublicationId).State !=
+            "TARIFF_SOURCE_CONTENT_CONFLICT_REVIEW")
+            throw new InvalidOperationException("Conflicting PDF hashes were not flagged.");
+    }
     if (graphAudit.Bills.Single(b => b.SourceBillId == graphBillId).State !=
         "READING_REMAP_REQUIRED" ||
         !graphAudit.Bills.Single(b => b.SourceBillId == graphBillId)
