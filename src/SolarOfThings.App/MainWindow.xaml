@@ -2739,6 +2739,11 @@
                                                                             Content="{DynamicResource Reports.ExportPdf}"
                                                                             Padding="14,7" Margin="0,0,8,8"
                                                                             Click="ReportExportPdf_Click"/>
+                                                                    <Button x:Name="ReportExportCancelButton"
+                                                                            Content="{DynamicResource Reports.ExportCancel}"
+                                                                            Padding="12,7" Margin="0,0,8,8"
+                                                                            IsEnabled="False"
+                                                                            Click="ReportExportCancel_Click"/>
                                                                     <Button x:Name="ReportOpenLastFileButton"
                                                                             Content="{DynamicResource Reports.OpenLastFile}"
                                                                             Padding="12,7" Margin="0,0,8,8"

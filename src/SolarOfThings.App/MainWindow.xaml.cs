@@ -2226,7 +2226,11 @@ public partial class MainWindow : Window
             _analysisRenderedThresholds = null;
         }
         if (!isBattery) _batteryRefreshGeneration++;
-        if (!isReports) InvalidateReportPreview();
+        if (!isReports)
+        {
+            InvalidateReportPreview();
+            _reportExportCancellation?.Cancel();
+        }
 
         if (!isData) _dataCoverageRefreshGeneration++; // Discard stale coverage reads.
         if (!isDashboard)
@@ -6589,6 +6593,7 @@ public partial class MainWindow : Window
     private string? _reportDraftOriginPage;
     private string? _lastExportedReportPath;
     private bool _reportExportInProgress;
+    private CancellationTokenSource? _reportExportCancellation;
     private int _reportPreviewGeneration;
     private CancellationTokenSource? _reportPreviewCancellation;
     private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
@@ -7492,6 +7497,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ReportExportCancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_reportExportInProgress || _reportExportCancellation is null)
+            return;
+        _reportExportCancellation.Cancel();
+        ReportExportCancelButton.IsEnabled = false;
+        ReportStatusText.Text = _localization.GetString("Reports.ExportCancelPending");
+    }
+
     private async void ReportExportExcel_Click(
         object sender,
         RoutedEventArgs e)
@@ -7537,7 +7551,11 @@ public partial class MainWindow : Window
         }
 
         _reportExportInProgress = true;
+        using var cancellation = new CancellationTokenSource();
+        _reportExportCancellation = cancellation;
+        var cancellationToken = cancellation.Token;
         string? stagedPath = null;
+        ReportExportCancelButton.IsEnabled = true;
         ReportExportExcelButton.IsEnabled = false;
         ReportExportPdfButton.IsEnabled = false;
         ReportExportProgressLabel.Visibility = Visibility.Visible;
@@ -7560,7 +7578,9 @@ public partial class MainWindow : Window
             var exporter =
                 _services.GetRequiredService<EnergyReportExportService>();
 
-            var report = await Task.Run(() => exporter.Build(request));
+            var report = await Task.Run(() => exporter.Build(request, cancellationToken),
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             ReportExportProgressBar.Value = 55;
             ReportExportProgressLabel.Text =
@@ -7574,14 +7594,15 @@ public partial class MainWindow : Window
             {
                 if (format == "xlsx")
                 {
-                    exporter.ExportExcel(outputStage, report);
+                    exporter.ExportExcel(outputStage, report, cancellationToken);
                 }
                 else
                 {
-                    exporter.ExportPdf(outputStage, report);
+                    exporter.ExportPdf(outputStage, report, cancellationToken);
                 }
             });
 
+            cancellationToken.ThrowIfCancellationRequested();
             ReportFilePublicationService.Publish(outputStage, dialog.FileName);
             stagedPath = null;
             ReportExportProgressBar.Value = 100;
@@ -7595,6 +7616,13 @@ public partial class MainWindow : Window
                 dialog.FileName);
             _lastExportedReportPath = dialog.FileName;
             RefreshLastReportActions();
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            ReportExportProgressLabel.Text =
+                _localization.GetString("Reports.ExportCancelled");
+            ReportStatusText.Text =
+                _localization.GetString("Reports.ExportCancelledExplanation");
         }
         catch (Exception ex)
         {
@@ -7623,6 +7651,9 @@ public partial class MainWindow : Window
                 Debug.WriteLine($"Incomplete report staging cleanup failed ({ex.GetType().Name}).");
             }
             _reportExportInProgress = false;
+            if (ReferenceEquals(_reportExportCancellation, cancellation))
+                _reportExportCancellation = null;
+            ReportExportCancelButton.IsEnabled = false;
             ReportExportExcelButton.IsEnabled = true;
             ReportExportPdfButton.IsEnabled = true;
             SetGlobalOperation(false, string.Empty);
@@ -8073,6 +8104,8 @@ public partial class MainWindow : Window
         EventArgs e)
     {
         _windowClosed = true;
+        _reportExportCancellation?.Cancel();
+        _reportPreviewCancellation?.Cancel();
         _dashboardRefreshGeneration++;
         _batteryRefreshGeneration++;
         _analysisRefreshGeneration++;

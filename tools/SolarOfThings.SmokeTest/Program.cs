@@ -2164,6 +2164,35 @@ try
             $"unattributed={reportData.Attribution.UnattributedHouseKwh:F2}.");
     }
 
+    // Cancellation is honored before computation and before creating an
+    // export file; no output should be created by a cancelled request.
+    using (var cancelledReport = new CancellationTokenSource())
+    {
+        cancelledReport.Cancel();
+        var cancelledBuildRejected = false;
+        try { reportExporter.Build(reportData.Request, cancelledReport.Token); }
+        catch (OperationCanceledException) { cancelledBuildRejected = true; }
+        if (!cancelledBuildRejected)
+            throw new InvalidOperationException("Cancelled report Build still ran.");
+
+        var cancelledOutput = Path.Combine(root, "cancelled-report.xlsx");
+        var cancelledOutputRejected = false;
+        try { reportExporter.ExportExcel(cancelledOutput, reportData, cancelledReport.Token); }
+        catch (OperationCanceledException) { cancelledOutputRejected = true; }
+        if (!cancelledOutputRejected || File.Exists(cancelledOutput))
+            throw new InvalidOperationException("Cancelled Excel report wrote an output file.");
+
+        if (OperatingSystem.IsWindows())
+        {
+            var cancelledPdf = Path.Combine(root, "cancelled-report.pdf");
+            var cancelledPdfRejected = false;
+            try { reportExporter.ExportPdf(cancelledPdf, reportData, cancelledReport.Token); }
+            catch (OperationCanceledException) { cancelledPdfRejected = true; }
+            if (!cancelledPdfRejected || File.Exists(cancelledPdf))
+                throw new InvalidOperationException("Cancelled PDF report wrote an output file.");
+        }
+    }
+
     var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
     reportExporter.ExportExcel(xlsxPath, reportData);
 
