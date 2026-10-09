@@ -317,7 +317,7 @@ public sealed class FullBackupService
         {
             using var sql = connection.CreateCommand();
             sql.CommandText = $"""
-                SELECT local_pdf_path, content_sha256
+                SELECT local_pdf_path, content_sha256, content_length
                   FROM {table}
                  WHERE local_pdf_path IS NOT NULL AND TRIM(local_pdf_path) <> '';
                 """;
@@ -343,6 +343,13 @@ public sealed class FullBackupService
                     !string.Equals(included.Sha256, sha, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException(
                         "Referenced document checksum does not match stored original.");
+                // A positive recorded byte length is another independent
+                // SQLite->document dependency. Older records without a known
+                // length continue to rely on verified path/real SHA evidence.
+                if (!rows.IsDBNull(2) && rows.GetInt64(2) > 0 &&
+                    included.Size != rows.GetInt64(2))
+                    throw new InvalidDataException(
+                        "Referenced original document length disagrees with archived bytes.");
             }
         }
     }
@@ -475,14 +482,19 @@ public sealed class FullBackupService
             ("tariff_publication", "documents/Tariffs/")
         })
         {
+            // Keep verified byte lengths by digest: an attacker can rewrite
+            // a ZIP, its manifest AND SQLite so that all per-file digests
+            // pass while the original document's stored length is false.
             var available = files
                 .Where(item => item.RelativePath.StartsWith(
                     archivePrefix, StringComparison.Ordinal))
-                .Select(item => item.Sha256)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                .GroupBy(item => item.Sha256, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key,
+                    group => group.Select(item => item.Size).ToHashSet(),
+                    StringComparer.OrdinalIgnoreCase);
             using var query = database.CreateCommand();
             query.CommandText = $"""
-                SELECT content_sha256 FROM {table}
+                SELECT content_sha256, content_length FROM {table}
                  WHERE local_pdf_path IS NOT NULL
                    AND TRIM(local_pdf_path) <> ''
                    AND content_sha256 IS NOT NULL
@@ -491,9 +503,13 @@ public sealed class FullBackupService
             using var rows = query.ExecuteReader();
             while (rows.Read())
             {
-                if (!available.Contains(rows.GetString(0)))
+                if (!available.TryGetValue(rows.GetString(0), out var sizes))
                     throw new InvalidDataException(
                         "Snapshot references an original document missing from its backup category.");
+                if (!rows.IsDBNull(1) && rows.GetInt64(1) > 0 &&
+                    !sizes.Contains(rows.GetInt64(1)))
+                    throw new InvalidDataException(
+                        "Snapshot document byte length disagrees with verified archive.");
             }
         }
     }
