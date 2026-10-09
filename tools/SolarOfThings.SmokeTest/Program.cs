@@ -4926,9 +4926,14 @@ try
         t.SourcePublicationId == graphPublicationId);
     if (mappedTariff.ReferencedPublicationUrlsInTarget != 1 ||
         mappedTariff.UnresolvedOutgoingRelations != 1 ||
-        referenced.Totals.ReferencedTariffUrlsInTarget != 1 ||
-        referenced.Totals.IncomingTariffLinks < 1 ||
-        referenced.Totals.OutgoingTariffLinks < 3)
+        // Both ends of the reciprocal synthetic tariff graph have URLs in
+        // destination: main -> correction and correction -> main.
+        referenced.Tariffs.Single(t =>
+            t.SourceUrl == "smoke://incoming-source-2026")
+            .ReferencedPublicationUrlsInTarget != 1 ||
+        referenced.Totals.ReferencedTariffUrlsInTarget != 2 ||
+        referenced.Totals.IncomingTariffLinks != 2 ||
+        referenced.Totals.OutgoingTariffLinks != 3)
         throw new InvalidOperationException(
             "Tariff dependency source-URL mapping hints are incomplete.");
 
