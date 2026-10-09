@@ -515,19 +515,30 @@
                                                        FontWeight="SemiBold"
                                                        Foreground="#343A40"
                                                        VerticalAlignment="Center"/>
-                                            <Button Style="{StaticResource SecondaryActionButtonStyle}" Grid.Column="1"
+                                            <Button x:Name="DashboardLatestDayOpenButton"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}" Grid.Column="1"
                                                     Content="{DynamicResource Dashboard.OpenHistory}"
-                                                    Tag="Analysis"
-                                                    Padding="10,5"
+                                                    Padding="10,5" IsEnabled="False"
                                                     Margin="12,0,0,0"
-                                                    Click="Navigation_Click"/>
+                                                    Click="DashboardOpenLatestDay_Click"/>
                                         </Grid>
                                         <TextBlock x:Name="DashboardLatestDayDateText"
                                                    Text="{DynamicResource Dashboard.LatestDayNoData}"
                                                    FontSize="12"
                                                    Foreground="#6C757D"
-                                                   Margin="0,4,0,12"
+                                                   Margin="0,4,0,8"
                                                    TextWrapping="Wrap"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <TextBlock x:Name="DashboardDailyEvidenceText"
+                                                       Text="{DynamicResource Dashboard.DailyEvidenceUnknown}"
+                                                       FontSize="12"
+                                                       Foreground="#805400"
+                                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                            <Button Content="{DynamicResource Dashboard.InspectCoverage}"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"
+                                                    Padding="8,4" Margin="12,0,0,0"
+                                                    Click="DashboardInspectCoverage_Click"/>
+                                        </StackPanel>
 
                                         <Grid>
                                             <Grid.ColumnDefinitions>
