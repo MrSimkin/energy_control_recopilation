@@ -6274,6 +6274,75 @@ try
     catch (InvalidDataException) { partialGraphRefused = true; }
     if (!partialGraphRefused)
         throw new InvalidOperationException("Partial tariff correction graph was silently imported.");
+    // An official supersession recorded only as metadata still depends on
+    // its missing publication; this must be rejected rather than stripped.
+    using (var conn = tariffGraphDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            UPDATE tariff_publication
+            SET corrects_official_document_number='SMOKE-NOT-SELECTED'
+            WHERE official_document_number='SMOKE-OFFICIAL-A';
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var metadataZip = new FullBackupService(tariffGraphDb, tariffGraphPaths)
+        .Create("0.11.0-test", "synthetic", "tariff-metadata-blocked");
+    var metadataPlan = planner.CreatePlan(metadataZip.Path, tariffTargetDb.DatabasePath);
+    var metadataBundle = bundleService.Stage(metadataPlan, metadataZip.Path,
+        tariffTargetDb.DatabasePath,
+        selectedDocumentHashes: new[] { tariffDigestA, tariffDigestB });
+    var outsideMetadataBlocked = false;
+    try { tariffGraphService.Stage(metadataPlan, metadataBundle,
+        metadataZip.Path, tariffTargetDb.DatabasePath); }
+    catch (InvalidDataException) { outsideMetadataBlocked = true; }
+    if (!outsideMetadataBlocked)
+        throw new InvalidOperationException("Unselected official correction metadata was lost.");
+    File.Delete(metadataBundle.Settings.StagedDatabasePath);
+    Directory.Delete(metadataBundle.Evidence.StageDirectory, recursive: true);
+    // A third publication may refer to A using an unresolved official
+    // number even when target_publication_id is NULL. It is NOT safe to
+    // import only A and B as though the incoming correction did not exist.
+    using (var conn = tariffGraphDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            UPDATE tariff_publication SET corrects_official_document_number=NULL
+            WHERE official_document_number='SMOKE-OFFICIAL-A';
+            INSERT INTO tariff_publication(
+                provider,category,title,source_url,capture_status,
+                updated_utc,official_document_number)
+            VALUES('ENEL','REGULATED','Unselected incoming correction',
+                   'smoke://unselected-tariff-c','DISCOVERED',
+                   '2026-10-09T00:00:00Z','SMOKE-OFFICIAL-C');
+            INSERT INTO tariff_publication_relation(
+                source_publication_id,relation_type,target_provider,target_category,
+                target_official_document_number,target_publication_id,evidence_text,
+                created_utc,updated_utc)
+            SELECT publication_id,'CORRECTS','ENEL','REGULATED',
+                   'SMOKE-OFFICIAL-A',NULL,'Unresolved incoming correction',
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z'
+            FROM tariff_publication
+            WHERE official_document_number='SMOKE-OFFICIAL-C';
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var unresolvedZip = new FullBackupService(tariffGraphDb, tariffGraphPaths)
+        .Create("0.11.0-test", "synthetic", "unresolved-incoming-blocked");
+    var unresolvedPlan = planner.CreatePlan(unresolvedZip.Path,
+        tariffTargetDb.DatabasePath);
+    var unresolvedBundle = bundleService.Stage(unresolvedPlan, unresolvedZip.Path,
+        tariffTargetDb.DatabasePath,
+        selectedDocumentHashes: new[] { tariffDigestA, tariffDigestB });
+    var unresolvedIncomingBlocked = false;
+    try { tariffGraphService.Stage(unresolvedPlan, unresolvedBundle,
+        unresolvedZip.Path, tariffTargetDb.DatabasePath); }
+    catch (InvalidDataException) { unresolvedIncomingBlocked = true; }
+    if (!unresolvedIncomingBlocked)
+        throw new InvalidOperationException("Unresolved incoming official correction was lost.");
+    File.Delete(unresolvedBundle.Settings.StagedDatabasePath);
+    Directory.Delete(unresolvedBundle.Evidence.StageDirectory, recursive: true);
+
     // Even a physically distinct PDF is not a new official publication
     // when destination provider/category/official-number already coincide.
     using (var conn = tariffTargetDb.OpenConnection())
