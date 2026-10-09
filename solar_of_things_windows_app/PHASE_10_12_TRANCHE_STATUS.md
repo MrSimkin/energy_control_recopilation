@@ -701,3 +701,24 @@ Additional lifecycle controls (all covered by SQLite smoke): the plan records SH
 **Files:** `src/SolarOfThings.Core/Statistics/DashboardDailyEvidencePolicy.cs`, `src/SolarOfThings.App/MainWindow.xaml`, `src/SolarOfThings.App/MainWindow.xaml.cs`, `src/SolarOfThings.App/Resources/Strings.es.xaml`, `src/SolarOfThings.App/Resources/Strings.en.xaml`, and `tools/SolarOfThings.SmokeTest/Program.cs`.
 
 **Still pending:** target Windows owner-QA for actual button interactions, different widths, data-range behavior on real history and keyboard accessibility. This is no change to energy calculations or accepted Build 684 Enel computations; no live DB opened by developer, no historical restore, release, merge, or user-provisional backup modification. Keep one consolidated v0.11.0 owner handoff and Enel official-data checkpoint conditional on actual supplied new material (planned 2026-10-12). The overall previous rough 65% development estimate is not automatically recalculated from a green CI run.
+
+## Build 740 — contextual Analysis/Battery-to-Reports workflows (2026-10-08 Chile)
+
+**CI:** [Build 740, run 37869285259](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/37869285259) **SUCCESS**, tested code HEAD `56000683b365157a5409d006e7691f4b2dafb17d`. Windows WPF Release build, SQLite synthetic smoke (including draft report date/aggregation selection tests), isolated synthetic 24k and 96k performance corpora, portable win-x64 publish and artifact upload all passed. No owner-PC visual, keyboard or live-DB end-to-end QA; no live Enel/CNE opt-in tests.
+
+**Eight functional advances:**
+
+1. **Analysis → detailed report draft** copies the current applied historical date range and supported aggregation, sets DetailedEnergy, and fills the default localized report title.
+2. **Analysis → simple report draft** reuses the same applied range while selecting SimpleEnergy.
+3. **Analysis → battery report draft** reuses the same applied range and chooses Battery for comparison.
+4. **Selected Analysis table row → report draft** converts the selected `EnergyAggregationRow` UTC start/exclusive-end to the installation timezone's inclusive calendar dates; invalid/unselected rows are refused without opening exports.
+5. **Hourly-to-day conversion explained** because the report UI offers Day/Week/Month/Year, not Hour. The context banner explicitly warns when a short/hourly row or Hour aggregation becomes a full-day report rather than silently claiming an hourly extraction.
+6. **Battery → historical battery report** navigates to Reports, sets Battery and Day aggregation, resolves the `latest-month` report preset relative to last stored data rather than computer today, and prepares a non-exported draft.
+7. **Battery → Analysis of last 7 saved days** navigates to the existing rolling-seven-day historical preset, forcing reselection even if previously selected, using the existing asynchronous preset/coverage resolver.
+8. **Report draft provenance and return navigation** visibly indicates the source (Analysis or Battery), provides a return action, and clears obsolete source context on ordinary Reports navigation. The workflow keeps file export strictly user-triggered.
+
+**Safety and regression checks:** Only the current device's completed Analysis result is eligible (rejects in-flight, unapplied custom ranges or stale device/generation). Pure `ReportContextNavigationPolicy` regression cases verify range retention, kind, Hour-to-Day notice, America/Santiago local date conversion, reversed date rejection and impossible row window rejection. The WPF handlers are compiled and referenced from actual XAML buttons; WPF runtime clicks still need final owner QA.
+
+**Files:** `src/SolarOfThings.Core/Reporting/ReportContextNavigationPolicy.cs`, `src/SolarOfThings.App/MainWindow.xaml`, `src/SolarOfThings.App/MainWindow.xaml.cs`, `src/SolarOfThings.App/Resources/Strings.es.xaml`, `src/SolarOfThings.App/Resources/Strings.en.xaml`, `tools/SolarOfThings.SmokeTest/Program.cs`.
+
+**Limits:** These features prefill existing report generation; they do **not** implement an hourly export engine, auto-export, historical recovery, new scientific calculations, legacy schema remapping, or live restoration. Files and any original data under `D:\SolarEnergyMonitorTest\Data\`, including owner's ~2 GB SQLite, remain untouched. No merge, version bump or release; PR #1 stays Draft and `main` remains `59120a630b0f56684ba7672d960673f5c5c1797b`. The previous rough ~65% development estimate is not automatically recalculated from another passing Build. Continue working toward one consolidated v0.11.0 PC QA handoff and review any 2026-10-12 Enel material only when genuine new official evidence is available.
