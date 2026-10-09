@@ -514,6 +514,11 @@
     <sys:String x:Key="Reports.FromAnalysisSimple">Informe simple de este período</sys:String>
     <sys:String x:Key="Reports.FromAnalysisBattery">Informe de batería de este período</sys:String>
     <sys:String x:Key="Reports.FromSelectedRow">Preparar informe de la fila seleccionada</sys:String>
+    <sys:String x:Key="Reports.BatteryWeekReport">Informe batería · últimos 7 días</sys:String>
+    <sys:String x:Key="Reports.BatteryAllReport">Informe batería · todo el historial</sys:String>
+    <sys:String x:Key="Reports.BatteryMonthAnalysis">Analizar mes del último dato</sys:String>
+    <sys:String x:Key="Reports.DraftFromBatteryWeek">Borrador de batería de los últimos 7 días guardados. Comprueba la cobertura antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.DraftFromBatteryAll">Borrador de batería de todo el historial guardado. Los huecos de datos permanecen visibles y el cálculo puede ser extenso.</sys:String>
     <sys:String x:Key="Reports.FromBattery">Informe del último mes con datos</sys:String>
     <sys:String x:Key="Reports.BatteryHistory">Analizar últimos 7 días guardados</sys:String>
     <sys:String x:Key="Reports.DraftFromData">Borrador del historial guardado desde Datos recopilados. El período comprende las primeras y últimas muestras, pero no garantiza cobertura completa; revisa el informe antes de exportar.</sys:String>

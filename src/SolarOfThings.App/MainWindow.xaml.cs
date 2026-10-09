@@ -6662,7 +6662,16 @@ public partial class MainWindow : Window
         OpenContextReportDraft(draft, "Analysis");
     }
 
-    private void BatteryToReport_Click(object sender, RoutedEventArgs e)
+    private void BatteryToReport_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryReportPreset("latest-month");
+
+    private void BatteryToWeekReport_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryReportPreset("rolling-7");
+
+    private void BatteryToAllReport_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryReportPreset("all");
+
+    private void OpenBatteryReportPreset(string preset)
     {
         if (_windowClosed || BatteryContent.Visibility != Visibility.Visible ||
             _profiles.Get() is null)
@@ -6670,35 +6679,50 @@ public partial class MainWindow : Window
         ShowPage("Reports");
         if (!ReportExportExcelButton.IsEnabled) return;
 
-        // A rolling calendar preset is resolved from the last STORED reading,
-        // not from today or the most recently polled battery SOC.
+        // Ranges are anchored in STORED data rather than today's date.
         _suppressReportRangeSelection = true;
         try
         {
             ReportTypeSelector.SelectedValue = ReportKind.Battery.ToString();
-            ReportRangePresetSelector.SelectedValue = "latest-month";
+            ReportRangePresetSelector.SelectedValue = preset;
             ReportAggregationSelector.SelectedValue = AggregationPeriod.Day.ToString();
         }
         finally { _suppressReportRangeSelection = false; }
-        ApplyReportRangePreset();
+
+        if (!ApplyReportRangePreset())
+        {
+            ReportStatusText.Text = _localization.GetString("Reports.NoData");
+            return;
+        }
         SyncReportDatePartSelectorsFromDates();
         ReportTitleTextBox.Text = GetDefaultReportTitle(ReportKind.Battery);
         UpdateReportSelectionSummary();
-        ShowReportDraftSource("Battery", false);
+        var bannerKey = preset switch
+        {
+            "rolling-7" => "Reports.DraftFromBatteryWeek",
+            "all" => "Reports.DraftFromBatteryAll",
+            _ => "Reports.DraftFromBattery"
+        };
+        ShowReportDraftSource("Battery", false, bannerKey);
     }
 
-    private void BatteryToAnalysis_Click(object sender, RoutedEventArgs e)
+    private void BatteryToAnalysis_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryAnalysisPreset("rolling-7");
+
+    private void BatteryToMonthAnalysis_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryAnalysisPreset("latest-month");
+
+    private void OpenBatteryAnalysisPreset(string preset)
     {
         if (_windowClosed || BatteryContent.Visibility != Visibility.Visible ||
             _profiles.Get() is null)
             return;
         ShowPage("Analysis");
-        // Re-select to dispatch the historical rolling-seven-day resolver
-        // even when this was the currently selected preset earlier.
+        // Re-select intentionally so a past Analysis visit cannot leave stale dates.
         _suppressAnalysisRangeSelection = true;
         try { AnalysisRangePresetSelector.SelectedValue = null; }
         finally { _suppressAnalysisRangeSelection = false; }
-        AnalysisRangePresetSelector.SelectedValue = "rolling-7";
+        AnalysisRangePresetSelector.SelectedValue = preset;
     }
 
     private void OpenContextReportDraft(ReportContextSelection context, string origin)
@@ -6727,11 +6751,13 @@ public partial class MainWindow : Window
         ShowReportDraftSource(origin, context.ExpandedToCalendarDay);
     }
 
-    private void ShowReportDraftSource(string origin, bool expandedDay)
+    private void ShowReportDraftSource(
+        string origin, bool expandedDay, string? localizedMessageKey = null)
     {
         _reportDraftOriginPage = origin;
-        ReportContextText.Text =
-            _localization.GetString(origin switch
+        ReportContextText.Text = localizedMessageKey is not null
+            ? _localization.GetString(localizedMessageKey)
+            : _localization.GetString(origin switch
             {
                 "Battery" => "Reports.DraftFromBattery",
                 "Data" => "Reports.DraftFromData",

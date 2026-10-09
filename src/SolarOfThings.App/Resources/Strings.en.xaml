@@ -514,6 +514,11 @@
     <sys:String x:Key="Reports.FromAnalysisSimple">Simple report for this range</sys:String>
     <sys:String x:Key="Reports.FromAnalysisBattery">Battery report for this range</sys:String>
     <sys:String x:Key="Reports.FromSelectedRow">Prepare report for selected row</sys:String>
+    <sys:String x:Key="Reports.BatteryWeekReport">Battery report · last 7 days</sys:String>
+    <sys:String x:Key="Reports.BatteryAllReport">Battery report · all history</sys:String>
+    <sys:String x:Key="Reports.BatteryMonthAnalysis">Analyze latest stored month</sys:String>
+    <sys:String x:Key="Reports.DraftFromBatteryWeek">Battery draft from the last 7 stored-history days. Check coverage before exporting.</sys:String>
+    <sys:String x:Key="Reports.DraftFromBatteryAll">Battery draft from all stored history. Data gaps remain visible and processing may take longer.</sys:String>
     <sys:String x:Key="Reports.FromBattery">Report from latest saved month</sys:String>
     <sys:String x:Key="Reports.BatteryHistory">Analyze last 7 saved days</sys:String>
     <sys:String x:Key="Reports.DraftFromData">Draft from Data coverage, using the first and last stored samples. The range does not guarantee complete coverage; review the report before exporting.</sys:String>

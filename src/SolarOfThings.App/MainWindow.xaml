@@ -1240,11 +1240,20 @@
                                                            Margin="0,5,0,6"
                                                            TextWrapping="Wrap"/>
                         <WrapPanel Margin="0,0,0,9">
+                            <Button Content="{DynamicResource Reports.BatteryWeekReport}"
+                                    Click="BatteryToWeekReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
                             <Button Content="{DynamicResource Reports.FromBattery}"
                                     Click="BatteryToReport_Click" Padding="10,6"
                                     Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.BatteryAllReport}"
+                                    Click="BatteryToAllReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
                             <Button Content="{DynamicResource Reports.BatteryHistory}"
                                     Click="BatteryToAnalysis_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.BatteryMonthAnalysis}"
+                                    Click="BatteryToMonthAnalysis_Click" Padding="10,6"
                                     Margin="0,0,8,6"/>
                         </WrapPanel>
                         <TextBlock x:Name="BatteryThresholdSourceText"

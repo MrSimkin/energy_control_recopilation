@@ -254,6 +254,20 @@ try
         DateTimeOffset.Parse("2026-10-09T03:00:00Z"),
         "America/Santiago", AggregationPeriod.Month,
         ReportKind.DetailedEnergy, "es");
+    // Battery week/month shortcuts remain anchored to the last stored
+    // historical date instead of the current date.
+    var batteryLastStored = new DateOnly(2026, 8, 19);
+    var batteryTimeResolver = new TimeRangeSelectionService();
+    var batteryMonthWindow = batteryTimeResolver.ForMonth(
+        batteryLastStored.Year, batteryLastStored.Month, "America/Santiago");
+    var batteryWeekWindow = batteryTimeResolver.ForRolling7Days(
+        batteryLastStored, "America/Santiago");
+    if (batteryMonthWindow.LocalStartDate != new DateOnly(2026, 8, 1) ||
+        batteryMonthWindow.LocalEndDate != new DateOnly(2026, 8, 31) ||
+        batteryWeekWindow.LocalStartDate != new DateOnly(2026, 8, 13) ||
+        batteryWeekWindow.LocalEndDate != batteryLastStored)
+        throw new InvalidOperationException("Battery date shortcuts regressed.");
+
     var analysisSelection = ReportContextNavigationPolicy.FromReport(reportSelection);
     if (analysisSelection.From != reportSelection.LocalStartDate ||
         analysisSelection.To != reportSelection.LocalEndDate ||
