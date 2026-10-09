@@ -85,7 +85,7 @@ public sealed class PowerAggregationService
             cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
-        var medianGap = CalculateMedianGapMinutes(samples);
+        var medianGap = CalculateMedianGapMinutes(samples, cancellationToken);
         var continuityThreshold = medianGap > 0
             ? Math.Clamp(medianGap * 3.0, 10.0, 20.0)
             : 15.0;
@@ -322,8 +322,10 @@ public sealed class PowerAggregationService
     }
 
     private static double CalculateMedianGapMinutes(
-        IReadOnlyList<PowerSample> samples)
+        IReadOnlyList<PowerSample> samples,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (samples.Count < 2)
         {
             return 0;
@@ -333,6 +335,7 @@ public sealed class PowerAggregationService
 
         for (var i = 0; i < samples.Count - 1; i++)
         {
+            if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             var gap =
                 (samples[i + 1].TimestampUtc -
                  samples[i].TimestampUtc).TotalMinutes;
@@ -348,7 +351,9 @@ public sealed class PowerAggregationService
             return 0;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         gaps.Sort();
+        cancellationToken.ThrowIfCancellationRequested();
         var middle = gaps.Count / 2;
 
         return gaps.Count % 2 == 0

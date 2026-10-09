@@ -7662,11 +7662,12 @@ public partial class MainWindow : Window
             _performance.Record(format == "xlsx" ? "Data.Reports.ExcelRender" :
                 "Data.Reports.PdfRender", renderElapsed);
             stageWatch.Restart();
-            if (_windowClosed ||
-                !string.Equals(request.DeviceId, _profiles.Get()?.DeviceId,
-                    StringComparison.Ordinal))
+            if (!ReportExportPublicationPolicy.CanPublish(
+                    request, GetCurrentReportRequest(), !_windowClosed,
+                    ReportsContent.Visibility == Visibility.Visible,
+                    cancellation.IsCancellationRequested))
                 throw new InvalidOperationException(
-                    _localization.GetString("Reports.ExportDeviceChanged"));
+                    _localization.GetString("Reports.ExportSelectionChanged"));
             ReportFilePublicationService.Publish(outputStage, dialog.FileName);
             stagedPath = null;
             _performance.Record("Data.Reports.Publish", stageWatch.Elapsed);

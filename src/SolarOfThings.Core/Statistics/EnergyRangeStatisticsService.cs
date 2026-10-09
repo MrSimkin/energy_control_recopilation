@@ -117,7 +117,7 @@ public sealed class EnergyRangeStatisticsService
             }
         }
 
-        var medianGapMinutes = Median(gapsMinutes);
+        var medianGapMinutes = Median(gapsMinutes, cancellationToken);
         var continuityThresholdMinutes = medianGapMinutes > 0
             ? Math.Clamp(medianGapMinutes * 3.0, 10.0, 20.0)
             : 15.0;
@@ -254,14 +254,17 @@ public sealed class EnergyRangeStatisticsService
         }
     }
 
-    private static double Median(IReadOnlyList<double> values)
+    private static double Median(IReadOnlyList<double> values,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (values.Count == 0)
         {
             return 0;
         }
 
         var ordered = values.OrderBy(value => value).ToArray();
+        cancellationToken.ThrowIfCancellationRequested();
         var middle = ordered.Length / 2;
 
         return ordered.Length % 2 == 0

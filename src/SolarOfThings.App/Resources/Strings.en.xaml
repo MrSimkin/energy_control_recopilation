@@ -562,6 +562,7 @@
     <sys:String x:Key="Reports.PreviewQualityPartial">Sources with integrable data: {0}/4; insufficient: {1}. Lowest coverage among available sources: {2:N1}%. This does not establish complete period coverage.</sys:String>
     <sys:String x:Key="Reports.PreviewQualityAll">All 4 sources have some valid integration interval; minimum time coverage is {0:N1}%. This does not establish complete period coverage.</sys:String>
     <sys:String x:Key="Reports.PreviewExportBusy">An export is running. Cancel it or let it finish before starting another preview.</sys:String>
+    <sys:String x:Key="Reports.ExportSelectionChanged">The selected period, device, or language changed during export. The new report was not published.</sys:String>
     <sys:String x:Key="Reports.ExportDeviceChanged">The device changed during export. The new output was not published.</sys:String>
     <sys:String x:Key="Reports.PreviewHeading">Energy and data-quality preview</sys:String>
     <sys:String x:Key="Reports.PreviewIntro">Calculates selected-period readings using the report's own integrator. This is not a PDF preview or proof of complete coverage. No file will be saved.</sys:String>

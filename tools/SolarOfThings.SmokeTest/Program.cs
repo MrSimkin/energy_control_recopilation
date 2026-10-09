@@ -2273,6 +2273,27 @@ try
         reportTimingSamples.Any(x => !x.Operation.StartsWith("Data.Reports.", StringComparison.Ordinal)))
         throw new InvalidOperationException("Report performance instrumentation regressed.");
 
+    // Stale exports must not publish an obsolete device, edited period,
+    // edited type or content generated before the Reports page was left.
+    var originalReport = reportData.Request;
+    if (!ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport, true, true, false) ||
+        ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport with { DeviceId = "changed" },
+            true, true, false) ||
+        ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport with
+            { LocalStartDate = originalReport.LocalStartDate.AddDays(1) },
+            true, true, false) ||
+        ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport with { Kind = ReportKind.Battery },
+            true, true, false) ||
+        ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport, true, false, false) ||
+        ReportExportPublicationPolicy.CanPublish(
+            originalReport, originalReport, true, true, true))
+        throw new InvalidOperationException("Stale report publication policy regressed.");
+
     var xlsxPath = Path.Combine(root, "smoke-report.xlsx");
     reportExporter.ExportExcel(xlsxPath, reportData);
 

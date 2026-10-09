@@ -562,6 +562,7 @@
     <sys:String x:Key="Reports.PreviewQualityPartial">Fuentes con datos integrables: {0}/4; sin datos suficientes: {1}. Cobertura mínima entre las disponibles: {2:N1}%. No equivale a cobertura completa del período.</sys:String>
     <sys:String x:Key="Reports.PreviewQualityAll">Las 4 fuentes tienen algún intervalo integrable; cobertura mínima temporal: {0:N1}%. No equivale a cobertura completa del período.</sys:String>
     <sys:String x:Key="Reports.PreviewExportBusy">Hay una exportación en curso. Cancélala o deja que termine antes de calcular otra vista previa.</sys:String>
+    <sys:String x:Key="Reports.ExportSelectionChanged">La selección de período, dispositivo o idioma cambió durante la exportación. No se publicó el nuevo informe.</sys:String>
     <sys:String x:Key="Reports.ExportDeviceChanged">Cambió el dispositivo durante la exportación. No se publicó el nuevo archivo.</sys:String>
     <sys:String x:Key="Reports.PreviewHeading">Vista previa de energía y calidad de datos</sys:String>
     <sys:String x:Key="Reports.PreviewIntro">Calcula las muestras del período seleccionado con el mismo integrador del informe. No es una vista del PDF ni garantiza cobertura completa. No se guardará ningún archivo.</sys:String>
