@@ -20,6 +20,7 @@
     <sys:String x:Key="Backup.Refresh">Actualizar lista</sys:String>
     <sys:String x:Key="Backup.Verify">Verificar selección</sys:String>
     <sys:String x:Key="Backup.CopySecondary">Copiar selección al segundo destino</sys:String>
+    <sys:String x:Key="Backup.VerifyMirroredPair">Verificar ambas copias</sys:String>
     <sys:String x:Key="Backup.DeleteSelected">Eliminar solo esta copia</sys:String>
     <sys:String x:Key="Backup.ColumnLocation">Ubicación</sys:String>
     <sys:String x:Key="Backup.ColumnName">Archivo</sys:String>

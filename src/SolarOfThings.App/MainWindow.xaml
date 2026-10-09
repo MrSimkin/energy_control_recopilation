@@ -3017,6 +3017,10 @@
                                             Content="{DynamicResource Backup.CopySecondary}"
                                             Padding="12,7" Click="BackupPageCopySecondary_Click"
                                             Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupMirrorAuditButton"
+                                            Content="{DynamicResource Backup.VerifyMirroredPair}"
+                                            Padding="12,7" Click="BackupPageAuditMirror_Click"
+                                            Margin="0,0,8,8"/>
                                     <Button x:Name="BackupDeleteButton" Content="{DynamicResource Backup.DeleteSelected}"
                                             Style="{StaticResource DestructiveActionButtonStyle}"
                                             Padding="12,7" Click="BackupPageDelete_Click" Margin="0,0,8,8"/>

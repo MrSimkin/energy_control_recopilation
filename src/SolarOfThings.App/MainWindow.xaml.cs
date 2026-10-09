@@ -8998,6 +8998,7 @@ public partial class MainWindow : Window
             !_creatingCompleteBackup && selected?.Kind == "COMPLETE" &&
             selected.Location == "LOCAL" &&
             !string.IsNullOrWhiteSpace(ConfiguredSecondaryBackupFolder());
+        BackupMirrorAuditButton.IsEnabled = BackupCopySecondaryButton.IsEnabled;
         BackupOpenSelectedButton.IsEnabled = !_backupInventoryBusy && selected is not null;
         BackupSaveReceiptButton.IsEnabled = !_backupInventoryBusy &&
             selected?.Kind == "COMPLETE" && selected.VerificationStatus == "PASS" &&
@@ -9256,6 +9257,63 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(finalMirrorMessage))
             BackupInventoryStatusText.Text += Environment.NewLine +
                 finalMirrorMessage;
+    }
+
+    private async void BackupPageAuditMirror_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || _creatingCompleteBackup ||
+            BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy selected ||
+            selected.Kind != "COMPLETE" || selected.Location != "LOCAL")
+            return;
+        var secondary = ConfiguredSecondaryBackupFolder();
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(secondary))
+        {
+            BackupInventoryStatusText.Text = spanish
+                ? "Configure primero un segundo destino en Ajustes."
+                : "Configure a secondary destination in Settings first.";
+            return;
+        }
+        SetBackupInventoryBusy(true);
+        BackupInventoryStatusText.Text = spanish
+            ? "Verificando por separado los dos ZIP completos y sus huellas SHA-256..."
+            : "Independently verifying both complete ZIPs and their SHA-256 digests...";
+        try
+        {
+            var checker = new VerifiedBackupMirrorAuditService(_paths);
+            var receipt = await Task.Run(() =>
+                checker.Inspect(selected, secondary));
+            var intro = receipt.TwoExactCopiesVerified
+                ? (spanish
+                    ? "PASS — dos archivos físicos íntegros e idénticos en la inspección."
+                    : "PASS — two intact, byte-identical physical archives at inspection.")
+                : (spanish
+                    ? "AVISO — no se pudo confirmar un par íntegro e idéntico."
+                    : "WARNING — an intact, identical backup pair was not confirmed.");
+            BackupInventoryStatusText.Text =
+                intro + Environment.NewLine +
+                "Estado / Status: " + receipt.Status + Environment.NewLine +
+                "LOCAL: " + receipt.LocalPath + Environment.NewLine +
+                "SECONDARY: " + (receipt.SecondaryPath ?? "—") + Environment.NewLine +
+                "SHA-256 LOCAL: " + receipt.LocalSha256 + Environment.NewLine +
+                (receipt.SecondarySha256 is null ? string.Empty :
+                    "SHA-256 SECONDARY: " + receipt.SecondarySha256 +
+                    Environment.NewLine) +
+                (spanish
+                    ? "Verificar archivos NO prueba restauración ni independencia de discos."
+                    : "File verification does NOT prove restore or separate physical disks.");
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = (spanish
+                ? "No se pudo verificar el respaldo local o el par: "
+                : "Could not verify the local backup or pair: ") + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
     }
 
     private async void BackupPageDelete_Click(object sender, RoutedEventArgs e)
