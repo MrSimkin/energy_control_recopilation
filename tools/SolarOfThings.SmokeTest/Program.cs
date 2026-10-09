@@ -632,6 +632,35 @@ try
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");
+    // A target with a valid schema version but a broken bill foreign key
+    // must be rejected before any recovery counts can be reported.
+    var brokenRecoveryPaths = new AppPaths(Path.Combine(root, "broken-fk-target"));
+    var brokenRecoveryDb = new SqliteDatabase(brokenRecoveryPaths);
+    brokenRecoveryDb.Initialize();
+    using (var brokenConn = brokenRecoveryDb.OpenConnection())
+    using (var brokenCmd = brokenConn.CreateCommand())
+    {
+        brokenCmd.CommandText = "PRAGMA foreign_keys=OFF;";
+        brokenCmd.ExecuteNonQuery();
+        brokenCmd.CommandText = """
+            INSERT INTO utility_bill_line(
+                bill_id,section_key,description,amount_clp,created_utc,updated_utc)
+            VALUES(987654321,'ELECTRICITY','Synthetic dangling FK',100,
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            """;
+        brokenCmd.ExecuteNonQuery();
+        brokenCmd.CommandText = "PRAGMA foreign_key_check;";
+        using var fk = brokenCmd.ExecuteReader();
+        if (!fk.Read())
+            throw new InvalidOperationException(
+                "Synthetic dangling FK fixture did not violate foreign_key_check.");
+    }
+    var brokenPreviewRejected = false;
+    try { previewer.Preview(complete.Path, brokenRecoveryDb.DatabasePath); }
+    catch (InvalidDataException) { brokenPreviewRejected = true; }
+    if (!brokenPreviewRejected)
+        throw new InvalidOperationException("Preview accepted an inconsistent target database.");
+
     // A target can claim the current schema version while a required column
     // is missing. A partial comparison must not masquerade as a full PASS.
     var partialPaths = new AppPaths(Path.Combine(root, "partial-preview-schema"));

@@ -81,6 +81,9 @@ public sealed class IsolatedRecoveryPreviewService
                         "No approved adapter for this target database schema.")],
                     "No import is available. Original ZIP and target unchanged.");
 
+            // A valid schema number does not imply valid pages or intact FKs.
+            // A compromised synthetic target must not yield misleading counts.
+            IsolatedRecoveryTargetHealth.RequireHealthy(to);
             var results = new List<RecoveryCategoryResult>();
             foreach (var specification in Supported)
             {
