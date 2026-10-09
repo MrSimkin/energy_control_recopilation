@@ -19,6 +19,7 @@
     <sys:String x:Key="Backup.InventoryIntro">Se muestra cada archivo por separado (local y secundario). La presencia de un ZIP no demuestra su integridad: selecciona Verificar para reexaminarlo. El disco secundario desconectado se indica aparte.</sys:String>
     <sys:String x:Key="Backup.Refresh">Actualizar lista</sys:String>
     <sys:String x:Key="Backup.Verify">Verificar selección</sys:String>
+    <sys:String x:Key="Backup.CopySecondary">Copiar selección al segundo destino</sys:String>
     <sys:String x:Key="Backup.DeleteSelected">Eliminar solo esta copia</sys:String>
     <sys:String x:Key="Backup.ColumnLocation">Ubicación</sys:String>
     <sys:String x:Key="Backup.ColumnName">Archivo</sys:String>

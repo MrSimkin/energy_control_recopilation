@@ -3013,6 +3013,10 @@
                                             Padding="12,7" Click="BackupPageRefresh_Click" Margin="0,0,8,8"/>
                                     <Button x:Name="BackupVerifyButton" Content="{DynamicResource Backup.Verify}"
                                             Padding="12,7" Click="BackupPageVerify_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupCopySecondaryButton"
+                                            Content="{DynamicResource Backup.CopySecondary}"
+                                            Padding="12,7" Click="BackupPageCopySecondary_Click"
+                                            Margin="0,0,8,8"/>
                                     <Button x:Name="BackupDeleteButton" Content="{DynamicResource Backup.DeleteSelected}"
                                             Style="{StaticResource DestructiveActionButtonStyle}"
                                             Padding="12,7" Click="BackupPageDelete_Click" Margin="0,0,8,8"/>

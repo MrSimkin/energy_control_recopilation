@@ -8979,6 +8979,10 @@ public partial class MainWindow : Window
         }
         BackupVerifyButton.IsEnabled = !_backupInventoryBusy && selected?.Kind == "COMPLETE";
         BackupDeleteButton.IsEnabled = !_backupInventoryBusy && selected?.Kind == "COMPLETE";
+        BackupCopySecondaryButton.IsEnabled = !_backupInventoryBusy &&
+            !_creatingCompleteBackup && selected?.Kind == "COMPLETE" &&
+            selected.Location == "LOCAL" &&
+            !string.IsNullOrWhiteSpace(ConfiguredSecondaryBackupFolder());
         BackupOpenSelectedButton.IsEnabled = !_backupInventoryBusy && selected is not null;
         BackupSaveReceiptButton.IsEnabled = !_backupInventoryBusy &&
             selected?.Kind == "COMPLETE" && selected.VerificationStatus == "PASS" &&
@@ -9176,6 +9180,60 @@ public partial class MainWindow : Window
         {
             SetBackupInventoryBusy(false);
         }
+    }
+
+    private async void BackupPageCopySecondary_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || _creatingCompleteBackup ||
+            BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen ||
+            chosen.Kind != "COMPLETE" || chosen.Location != "LOCAL")
+            return;
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        // Only this explicit click starts a new mirror. The existing core
+        // function verifies the original archive and will never overwrite
+        // a conflicting physical file at the secondary destination.
+        var configured = ConfiguredSecondaryBackupFolder();
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            BackupInventoryStatusText.Text = spanish
+                ? "Configure primero una carpeta secundaria en Ajustes."
+                : "Configure a secondary folder in Settings first.";
+            return;
+        }
+        SetBackupInventoryBusy(true);
+        BackupInventoryStatusText.Text = spanish
+            ? "Verificando respaldo local y copiando al segundo destino..."
+            : "Verifying local backup and copying to secondary destination...";
+        try
+        {
+            var service = _services.GetRequiredService<FullBackupService>();
+            var selected = chosen;
+            var second = await Task.Run(() =>
+            {
+                // Stale selections require a refresh before potentially
+                // expensive copying: size/time/name are checked by inventory.
+                var inventory = new CompleteBackupInventoryService(_paths);
+                inventory.VerifyDetails(selected, configured);
+                return service.CopyVerifiedToSecondary(selected.Path, configured);
+            });
+            BackupInventoryStatusText.Text = (spanish
+                ? "Copia secundaria verificada: "
+                : "Verified secondary copy: ") + second.Path +
+                " · SHA-256 " + second.Sha256;
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = (spanish
+                ? "No se pudo completar la copia secundaria; el respaldo local permanece intacto: "
+                : "Secondary copy did not complete; the local backup is preserved: ") +
+                ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+        await RefreshBackupInventoryAsync();
     }
 
     private async void BackupPageDelete_Click(object sender, RoutedEventArgs e)
