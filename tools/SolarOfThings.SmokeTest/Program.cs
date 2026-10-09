@@ -245,6 +245,38 @@ try
         ReportPreviewEvidencePolicy.CanApply(3, 3, true, "A", "B"))
         throw new InvalidOperationException("Report preview missing-data or stale-result policy regressed.");
 
+    // Stage-and-publish: a failed/empty export must leave an existing
+    // destination unchanged; successful publication replaces it only after
+    // a nonempty sibling has been fully generated.
+    var destination = Path.Combine(root, "existing_report.pdf");
+    File.WriteAllText(destination, "previous accepted report");
+    var failedStage = ReportFilePublicationService.CreateStagingPath(destination);
+    var rejectedUnfinished = false;
+    try { ReportFilePublicationService.Publish(failedStage, destination); }
+    catch (IOException) { rejectedUnfinished = true; }
+    if (!rejectedUnfinished || File.ReadAllText(destination) != "previous accepted report")
+        throw new InvalidOperationException("Incomplete report publish destroyed existing output.");
+    File.WriteAllText(failedStage, string.Empty);
+    var rejectedEmpty = false;
+    try { ReportFilePublicationService.Publish(failedStage, destination); }
+    catch (IOException) { rejectedEmpty = true; }
+    if (!rejectedEmpty || File.ReadAllText(destination) != "previous accepted report")
+        throw new InvalidOperationException("Empty report publish destroyed existing output.");
+    ReportFilePublicationService.DiscardStaging(failedStage);
+    var completeStage = ReportFilePublicationService.CreateStagingPath(destination);
+    File.WriteAllText(completeStage, "completed synthetic report");
+    ReportFilePublicationService.Publish(completeStage, destination);
+    if (File.Exists(completeStage) ||
+        File.ReadAllText(destination) != "completed synthetic report")
+        throw new InvalidOperationException("Completed report was not published atomically.");
+    File.Delete(destination);
+    var invalidReportExtension = false;
+    try { ReportFilePublicationService.CreateStagingPath(
+        Path.Combine(root, "script.exe")); }
+    catch (ArgumentException) { invalidReportExtension = true; }
+    if (!invalidReportExtension)
+        throw new InvalidOperationException("Unexpected output extension accepted for report.");
+
     // The post-export Open buttons must accept only existing user-requested
     // PDF/XLSX outputs, never arbitrary files or a stale missing target.
     Directory.CreateDirectory(root);

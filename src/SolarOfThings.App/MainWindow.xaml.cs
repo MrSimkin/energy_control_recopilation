@@ -6588,6 +6588,7 @@ public partial class MainWindow : Window
 
     private string? _reportDraftOriginPage;
     private string? _lastExportedReportPath;
+    private bool _reportExportInProgress;
     private int _reportPreviewGeneration;
     private CancellationTokenSource? _reportPreviewCancellation;
     private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
@@ -7156,6 +7157,8 @@ public partial class MainWindow : Window
             ReportFromDatePicker.SelectedDate.Value);
         var second = DateOnly.FromDateTime(
             ReportToDatePicker.SelectedDate.Value);
+        if (first > second)
+            return null;
 
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
@@ -7199,7 +7202,9 @@ public partial class MainWindow : Window
         if (request is null)
         {
             ReportSelectionSummaryText.Text =
-                _localization.GetString("Reports.NoData");
+                ReportFromDatePicker.SelectedDate > ReportToDatePicker.SelectedDate
+                    ? _localization.GetString("Reports.InvalidRange")
+                    : _localization.GetString("Reports.NoData");
             return;
         }
 
@@ -7471,9 +7476,11 @@ public partial class MainWindow : Window
 
     private async Task ExportEnergyReportAsync(string format)
     {
+        if (_reportExportInProgress) return;
         var request = GetCurrentReportRequest();
         if (request is null)
         {
+            ReportStatusText.Text = _localization.GetString("Reports.InvalidSelection");
             return;
         }
 
@@ -7497,6 +7504,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        _reportExportInProgress = true;
+        string? stagedPath = null;
         ReportExportExcelButton.IsEnabled = false;
         ReportExportPdfButton.IsEnabled = false;
         ReportExportProgressLabel.Visibility = Visibility.Visible;
@@ -7527,18 +7536,22 @@ public partial class MainWindow : Window
                     ? "Paso 2/3 · " : "Step 2/3 · ") +
                 _localization.GetString("Reports.ExportGenerating");
 
+            stagedPath = ReportFilePublicationService.CreateStagingPath(dialog.FileName);
+            var outputStage = stagedPath;
             await Task.Run(() =>
             {
                 if (format == "xlsx")
                 {
-                    exporter.ExportExcel(dialog.FileName, report);
+                    exporter.ExportExcel(outputStage, report);
                 }
                 else
                 {
-                    exporter.ExportPdf(dialog.FileName, report);
+                    exporter.ExportPdf(outputStage, report);
                 }
             });
 
+            ReportFilePublicationService.Publish(outputStage, dialog.FileName);
+            stagedPath = null;
             ReportExportProgressBar.Value = 100;
             ReportExportProgressLabel.Text =
                 (_localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
@@ -7565,6 +7578,19 @@ public partial class MainWindow : Window
         }
         finally
         {
+            try
+            {
+                ReportFilePublicationService.DiscardStaging(stagedPath);
+            }
+            catch (IOException ex)
+            {
+                Debug.WriteLine($"Incomplete report staging cleanup failed ({ex.GetType().Name}).");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Debug.WriteLine($"Incomplete report staging cleanup failed ({ex.GetType().Name}).");
+            }
+            _reportExportInProgress = false;
             ReportExportExcelButton.IsEnabled = true;
             ReportExportPdfButton.IsEnabled = true;
             SetGlobalOperation(false, string.Empty);

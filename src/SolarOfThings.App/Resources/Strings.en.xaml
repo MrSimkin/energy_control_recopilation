@@ -567,6 +567,8 @@
     <sys:String x:Key="Reports.PreviewHouse">House consumption</sys:String>
     <sys:String x:Key="Reports.PreviewGrid">Grid import</sys:String>
     <sys:String x:Key="Reports.PreviewBattery">Battery</sys:String>
+    <sys:String x:Key="Reports.InvalidRange">The start date is later than the end date. Correct the range before continuing.</sys:String>
+    <sys:String x:Key="Reports.InvalidSelection">Select a valid date range and configured device before exporting.</sys:String>
     <sys:String x:Key="Reports.ExportHeading">Export</sys:String>
     <sys:String x:Key="Reports.ExportIntro">Export the current configuration directly. Excel prioritizes detail and exploration; PDF prioritizes clear reading and printing.</sys:String>
     <sys:String x:Key="Reports.ExportExcel">Export Excel (.xlsx)</sys:String>

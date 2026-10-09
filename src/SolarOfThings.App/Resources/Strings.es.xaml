@@ -567,6 +567,8 @@
     <sys:String x:Key="Reports.PreviewHouse">Consumo del hogar</sys:String>
     <sys:String x:Key="Reports.PreviewGrid">Importación desde la red</sys:String>
     <sys:String x:Key="Reports.PreviewBattery">Batería</sys:String>
+    <sys:String x:Key="Reports.InvalidRange">La fecha inicial es posterior a la final. Corrige el período antes de continuar.</sys:String>
+    <sys:String x:Key="Reports.InvalidSelection">Selecciona un período válido con un equipo configurado antes de exportar.</sys:String>
     <sys:String x:Key="Reports.ExportHeading">Exportar</sys:String>
     <sys:String x:Key="Reports.ExportIntro">Exporta directamente la configuración actual. Excel prioriza detalle y exploración; PDF prioriza lectura clara e impresión.</sys:String>
     <sys:String x:Key="Reports.ExportExcel">Exportar Excel (.xlsx)</sys:String>
