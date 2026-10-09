@@ -4694,7 +4694,8 @@ try
         linkedBill.ChargeLineCount != 1 || linkedBill.FieldEvidenceCount != 1 ||
         !linkedBill.HasFromReading || linkedBill.OriginalDocumentSha256 != billHash ||
         linkedTariff.State != "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED" ||
-        linkedTariff.RateCandidates != 1 || linkedTariff.SourceTextPages != 1)
+        linkedTariff.RateCandidates != 1 || linkedTariff.SourceTextPages != 1 ||
+        linkedBill.TargetHasOriginalDocument)
         throw new InvalidOperationException("Linked source graph dependency audit failed.");
 
     // The destination can contain the identical source document bytes while
@@ -4727,8 +4728,11 @@ try
         "TARIFF_SOURCE_OVERLAP_REVIEW")
         throw new InvalidOperationException("Source URL overlap must require review.");
     if (graphAudit.Bills.Single(b => b.SourceBillId == graphBillId).State !=
-        "READING_REMAP_REQUIRED")
-        throw new InvalidOperationException("Bill's ambiguous reading FK must remain blocked.");
+        "READING_REMAP_REQUIRED" ||
+        !graphAudit.Bills.Single(b => b.SourceBillId == graphBillId)
+            .TargetHasOriginalDocument)
+        throw new InvalidOperationException(
+            "Bill reading FK remains blocked but original-document overlap must be visible.");
     using (var connection = graphTarget.OpenConnection())
     using (var check = connection.CreateCommand())
     {

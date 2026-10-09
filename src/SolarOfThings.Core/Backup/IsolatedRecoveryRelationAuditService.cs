@@ -114,6 +114,10 @@ public sealed class IsolatedRecoveryRelationAuditService
             var to = rows.IsDBNull(4) ? (long?)null : rows.GetInt64(4);
             var lineCount = rows.GetInt64(5);
             var evidenceCount = rows.GetInt64(6);
+            // Overlap is relevant even when a meter-reading foreign key
+            // forces the bill itself into a blocked recovery category.
+            var targetHasDocument = !string.IsNullOrWhiteSpace(sha) &&
+                HasDocumentHash(target, "utility_bill_document", sha);
 
             string status, explanation;
             if (documentId is null)
@@ -147,7 +151,7 @@ public sealed class IsolatedRecoveryRelationAuditService
                 status = "READING_REMAP_REQUIRED";
                 explanation = "Meter-reading IDs are local; identity and bill foreign-key mapping are unresolved.";
             }
-            else if (HasDocumentHash(target, "utility_bill_document", sha))
+            else if (targetHasDocument)
             {
                 status = "DOCUMENT_ALREADY_IN_TARGET_REVIEW";
                 explanation = "The same original document bytes exist in target; bill/lines may still conflict.";
@@ -159,7 +163,10 @@ public sealed class IsolatedRecoveryRelationAuditService
             }
 
             result.Add(new BillGraphPreview(billId, sha, lineCount, evidenceCount,
-                from.HasValue, to.HasValue, status, explanation));
+                from.HasValue, to.HasValue, status, explanation)
+            {
+                TargetHasOriginalDocument = targetHasDocument
+            });
         }
         return result;
     }
@@ -283,7 +290,10 @@ public sealed class IsolatedRecoveryRelationAuditService
 
 public sealed record BillGraphPreview(long SourceBillId, string? OriginalDocumentSha256,
     long ChargeLineCount, long FieldEvidenceCount, bool HasFromReading, bool HasToReading,
-    string State, string Explanation);
+    string State, string Explanation)
+{
+    public bool TargetHasOriginalDocument { get; init; }
+}
 
 public sealed record TariffGraphPreview(long SourcePublicationId, string SourceUrl,
     string? OriginalPdfSha256, long SourceTextPages, long RateCandidates,
