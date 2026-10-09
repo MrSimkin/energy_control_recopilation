@@ -5889,6 +5889,22 @@ try
         planner.CreatePlan(isolatedBillZip.Path, isolatedTargetDb.DatabasePath).PlanId !=
             isolatedBillPlan.PlanId)
         throw new InvalidOperationException("Linked synthetic bill graph remapping failed.");
+    var replayVerifier = new IsolatedRecoveryReplayAuditService();
+    var invoiceReplay = replayVerifier.InspectBills(isolatedBillZip.Path, importedLinkedGraph);
+    if (invoiceReplay.RealRestoreAuthorized ||
+        invoiceReplay.Status != "EXACT_SYNTHETIC_REPLAY_PREVIEW_ONLY" ||
+        invoiceReplay.ExactGraphs != 1)
+        throw new InvalidOperationException("Exact staged invoice replay was not detected.");
+    var forgedInvoiceMap = importedLinkedGraph with
+    {
+        IdMap = importedLinkedGraph.IdMap.Select(x =>
+            x with { StagedBillId = existingTargetBillId }).ToArray()
+    };
+    var forgedReplayBlocked = false;
+    try { replayVerifier.InspectBills(isolatedBillZip.Path, forgedInvoiceMap); }
+    catch (InvalidDataException) { forgedReplayBlocked = true; }
+    if (!forgedReplayBlocked)
+        throw new InvalidOperationException("Forged replay mapping claimed to be identical.");
     using (var check = new Microsoft.Data.Sqlite.SqliteConnection(
         new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
         {
@@ -6033,6 +6049,10 @@ try
             row.GetString(1) != "SMOKE-METER-END-2026" || row.Read())
             throw new InvalidOperationException("Exact staged bill lost verified reading references.");
     }
+    var meterReplay = replayVerifier.InspectBills(exactReadingZip.Path, exactStage);
+    if (meterReplay.Status != "EXACT_SYNTHETIC_REPLAY_PREVIEW_ONLY" ||
+        meterReplay.ExactGraphs != 1)
+        throw new InvalidOperationException("Remapped identical/new meter records failed replay audit.");
     File.Delete(exactStage.StagedDatabasePath);
     File.Delete(exactReadingBundle.Settings.StagedDatabasePath);
     Directory.Delete(exactReadingBundle.Evidence.StageDirectory, recursive: true);
@@ -6308,6 +6328,11 @@ try
         if (Convert.ToInt64(cmd.ExecuteScalar()) != 1)
             throw new InvalidOperationException("Original target tariff page was overwritten.");
     }
+    var exactTariffReplay = replayVerifier.InspectTariffs(tariffGraphZip.Path, tariffImported);
+    if (exactTariffReplay.RealRestoreAuthorized ||
+        exactTariffReplay.Status != "EXACT_SYNTHETIC_REPLAY_PREVIEW_ONLY" ||
+        exactTariffReplay.ExactGraphs != 2)
+        throw new InvalidOperationException("Closed tariff graph failed exact replay identity check.");
     // A partial choice must not import A while silently discarding its
     // correction relationship to the unselected publication B.
     var incompleteTariffBundle = bundleService.Stage(tariffGraphPlan,
@@ -6415,6 +6440,29 @@ try
     if (!tariffConflictRefused)
         throw new InvalidOperationException("Official tariff identifier conflict was imported.");
 
+    // An altered rate value in an already staged, generated test SQLite
+    // cannot pass as an identical/replayable tariff graph.
+    using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(
+        new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+        {
+            DataSource = tariffImported.StagedDatabasePath,
+            Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString()))
+    {
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE tariff_rate_candidate SET net_rate_clp=999
+            WHERE net_rate_clp=100;
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var alteredTariffBlocked = false;
+    try { replayVerifier.InspectTariffs(tariffGraphZip.Path, tariffImported); }
+    catch (InvalidDataException) { alteredTariffBlocked = true; }
+    if (!alteredTariffBlocked)
+        throw new InvalidOperationException("Changed staged tariff rate passed replay identity check.");
     File.Delete(tariffImported.StagedDatabasePath);
     foreach (var bundled in new[] { tariffGraphBundle, incompleteTariffBundle, tariffConflictBundle })
     {
