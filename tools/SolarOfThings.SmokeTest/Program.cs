@@ -218,6 +218,33 @@ try
     if (!invertedCoverageRejected)
         throw new InvalidOperationException("Inverted stored coverage was accepted.");
 
+    // Selected-period energy preview must not show zero as an observed value
+    // when a stream has no samples, a solitary sample, or no covered hours.
+    static PowerMetricStatistics PreviewMetric(int samples, double coveredHours,
+        double coverage, double positive, double negative) =>
+        new("pv_power_w", null, null, samples, null, null, null,
+            positive - negative, positive, negative,
+            coveredHours, 24 - coveredHours, coverage, 5, 15);
+    var noPreview = ReportPreviewEvidencePolicy.Evaluate(
+        PreviewMetric(0, 0, 0, 0, 0));
+    var singlePreview = ReportPreviewEvidencePolicy.Evaluate(
+        PreviewMetric(1, 0, 0, 0, 0));
+    var goodPreview = ReportPreviewEvidencePolicy.Evaluate(
+        PreviewMetric(50, 22, 92, 3.5, 0.4));
+    var invalidPreview = ReportPreviewEvidencePolicy.Evaluate(
+        PreviewMetric(50, 22, double.NaN, 3.5, 0.4));
+    if (noPreview.PositiveEnergyKwh is not null ||
+        singlePreview.PositiveEnergyKwh is not null ||
+        invalidPreview.CoveragePercent is not null ||
+        goodPreview.PositiveEnergyKwh != 3.5 ||
+        goodPreview.NegativeEnergyKwh != 0.4 ||
+        goodPreview.CoveragePercent != 92 ||
+        !ReportPreviewEvidencePolicy.CanApply(3, 3, true, "A", "A") ||
+        ReportPreviewEvidencePolicy.CanApply(2, 3, true, "A", "A") ||
+        ReportPreviewEvidencePolicy.CanApply(3, 3, false, "A", "A") ||
+        ReportPreviewEvidencePolicy.CanApply(3, 3, true, "A", "B"))
+        throw new InvalidOperationException("Report preview missing-data or stale-result policy regressed.");
+
     // The post-export Open buttons must accept only existing user-requested
     // PDF/XLSX outputs, never arbitrary files or a stale missing target.
     Directory.CreateDirectory(root);

@@ -2686,6 +2686,36 @@
                                                             </StackPanel>
                                                         </Border>
 
+                                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Reports.PreviewHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{DynamicResource Reports.PreviewIntro}" FontSize="12"
+                                                   Foreground="#6C757D" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                                        <WrapPanel>
+                                            <Button x:Name="ReportPreviewButton"
+                                                    Content="{DynamicResource Reports.PreviewAction}"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"
+                                                    Click="ReportPreview_Click" Padding="12,7" Margin="0,0,8,8"/>
+                                            <Button x:Name="ReportPreviewCancelButton"
+                                                    Content="{DynamicResource Reports.PreviewCancel}"
+                                                    Click="ReportPreviewCancel_Click" Padding="12,7"
+                                                    IsEnabled="False" Margin="0,0,8,8"/>
+                                        </WrapPanel>
+                                        <TextBlock x:Name="ReportPreviewStatusText"
+                                                   TextWrapping="Wrap" FontSize="12" Foreground="#6C757D"/>
+                                        <StackPanel x:Name="ReportPreviewResultPanel" Visibility="Collapsed">
+                                            <TextBlock Text="{DynamicResource Reports.PreviewSolar}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewSolarText" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{DynamicResource Reports.PreviewHouse}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewHouseText" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{DynamicResource Reports.PreviewGrid}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewGridText" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{DynamicResource Reports.PreviewBattery}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewBatteryText" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
                                 <Border Style="{StaticResource CardStyle}" Margin="0">
                                                             <StackPanel>
                                                                 <TextBlock Text="{DynamicResource Reports.ExportHeading}"

@@ -22,28 +22,31 @@ public sealed class EnergyRangeStatisticsService
     public EnergyRangeSummary Get(
         string deviceId,
         DateTimeOffset fromUtc,
-        DateTimeOffset toUtc)
+        DateTimeOffset toUtc,
+        CancellationToken cancellationToken = default)
     {
         if (toUtc < fromUtc)
         {
             (fromUtc, toUtc) = (toUtc, fromUtc);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         return new EnergyRangeSummary(
             deviceId,
             fromUtc.ToUniversalTime(),
             toUtc.ToUniversalTime(),
-            GetMetric(deviceId, "pv_power_w", fromUtc, toUtc),
-            GetMetric(deviceId, "house_load_power_w", fromUtc, toUtc),
-            GetMetric(deviceId, "grid_import_power_w", fromUtc, toUtc),
-            GetMetric(deviceId, "battery_power_w", fromUtc, toUtc));
+            GetMetric(deviceId, "pv_power_w", fromUtc, toUtc, cancellationToken),
+            GetMetric(deviceId, "house_load_power_w", fromUtc, toUtc, cancellationToken),
+            GetMetric(deviceId, "grid_import_power_w", fromUtc, toUtc, cancellationToken),
+            GetMetric(deviceId, "battery_power_w", fromUtc, toUtc, cancellationToken));
     }
 
     public PowerMetricStatistics GetMetric(
         string deviceId,
         string metricKey,
         DateTimeOffset fromUtc,
-        DateTimeOffset toUtc)
+        DateTimeOffset toUtc,
+        CancellationToken cancellationToken = default)
     {
         if (!PowerMetricKeys.Contains(metricKey, StringComparer.Ordinal))
         {
@@ -79,11 +82,15 @@ public sealed class EnergyRangeStatisticsService
         command.Parameters.AddWithValue("$fromUtc", fromUtc.ToString("O"));
         command.Parameters.AddWithValue("$toUtc", toUtc.ToString("O"));
 
+        cancellationToken.ThrowIfCancellationRequested();
         using var reader = command.ExecuteReader();
         var samples = new List<PowerSample>();
+        var readCount = 0;
 
         while (reader.Read())
         {
+            if ((++readCount & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             if (!DateTimeOffset.TryParse(reader.GetString(0), out var timestamp))
             {
                 continue;
@@ -94,6 +101,7 @@ public sealed class EnergyRangeStatisticsService
                 reader.GetDouble(1)));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         if (samples.Count == 0)
         {
             return Empty(metricKey);
@@ -126,6 +134,8 @@ public sealed class EnergyRangeStatisticsService
 
         for (var i = 0; i < samples.Count - 1; i++)
         {
+            if ((i & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             var current = samples[i];
             var next = samples[i + 1];
             var gap = next.TimestampUtc - current.TimestampUtc;

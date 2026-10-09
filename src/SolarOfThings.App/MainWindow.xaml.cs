@@ -2226,6 +2226,8 @@ public partial class MainWindow : Window
             _analysisRenderedThresholds = null;
         }
         if (!isBattery) _batteryRefreshGeneration++;
+        if (!isReports) InvalidateReportPreview();
+
         if (!isData) _dataCoverageRefreshGeneration++; // Discard stale coverage reads.
         if (!isDashboard)
             _dashboardRefreshGeneration++; // Discard in-flight Dashboard results.
@@ -6586,6 +6588,8 @@ public partial class MainWindow : Window
 
     private string? _reportDraftOriginPage;
     private string? _lastExportedReportPath;
+    private int _reportPreviewGeneration;
+    private CancellationTokenSource? _reportPreviewCancellation;
     private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
 
     private void AnalysisToDetailedReport_Click(object sender, RoutedEventArgs e) =>
@@ -7190,6 +7194,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        InvalidateReportPreview();
         var request = GetCurrentReportRequest();
         if (request is null)
         {
@@ -7211,6 +7216,103 @@ public partial class MainWindow : Window
                     _ => "Reports.Type.Simple"
                 }));
         ReportStatusText.Text = string.Empty;
+    }
+
+    private void InvalidateReportPreview()
+    {
+        _reportPreviewGeneration++;
+        _reportPreviewCancellation?.Cancel();
+        _reportPreviewCancellation = null;
+        if (ReportPreviewButton is null) return;
+        ReportPreviewButton.IsEnabled = true;
+        ReportPreviewCancelButton.IsEnabled = false;
+        ReportPreviewResultPanel.Visibility = Visibility.Collapsed;
+        ReportPreviewStatusText.Text = string.Empty;
+    }
+
+    private void ReportPreviewCancel_Click(object sender, RoutedEventArgs e)
+    {
+        InvalidateReportPreview();
+        ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewCancelled");
+    }
+
+    private string FormatReportPreviewMetric(PowerMetricStatistics metric, bool signedBattery = false)
+    {
+        var evidence = ReportPreviewEvidencePolicy.Evaluate(metric);
+        if (!evidence.PositiveEnergyKwh.HasValue || !evidence.CoveragePercent.HasValue)
+            return string.Format(_localization.GetString("Reports.PreviewInsufficient"), evidence.SampleCount);
+        return signedBattery
+            ? string.Format(_localization.GetString("Reports.PreviewBatteryValue"),
+                evidence.PositiveEnergyKwh.Value, evidence.NegativeEnergyKwh!.Value,
+                evidence.CoveragePercent.Value, evidence.SampleCount)
+            : string.Format(_localization.GetString("Reports.PreviewEnergyValue"),
+                evidence.PositiveEnergyKwh.Value, evidence.CoveragePercent.Value, evidence.SampleCount);
+    }
+
+    private async void ReportPreview_Click(object sender, RoutedEventArgs e)
+    {
+        InvalidateReportPreview();
+        var request = GetCurrentReportRequest();
+        if (request is null || ReportsContent.Visibility != Visibility.Visible)
+        {
+            ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewInvalid");
+            return;
+        }
+
+        var generation = _reportPreviewGeneration;
+        var cancellation = new CancellationTokenSource();
+        _reportPreviewCancellation = cancellation;
+        ReportPreviewButton.IsEnabled = false;
+        ReportPreviewCancelButton.IsEnabled = true;
+        ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewLoading");
+
+        try
+        {
+            // Run only the existing report-equivalent range integrator.
+            // Preview never saves or exports a file.
+            var summary = await Task.Run(() =>
+                _services.GetRequiredService<EnergyRangeStatisticsService>()
+                    .Get(request.DeviceId, request.StartUtc, request.EndUtc, cancellation.Token),
+                cancellation.Token);
+            if (!ReportPreviewEvidencePolicy.CanApply(
+                    generation, _reportPreviewGeneration,
+                    !_windowClosed && ReportsContent.Visibility == Visibility.Visible,
+                    request.DeviceId, _profiles.Get()?.DeviceId) ||
+                request != GetCurrentReportRequest())
+                return;
+
+            ReportPreviewSolarText.Text = FormatReportPreviewMetric(summary.PvPower);
+            ReportPreviewHouseText.Text = FormatReportPreviewMetric(summary.HouseLoadPower);
+            ReportPreviewGridText.Text = FormatReportPreviewMetric(summary.GridImportPower);
+            ReportPreviewBatteryText.Text = FormatReportPreviewMetric(summary.BatteryPower, true);
+            ReportPreviewResultPanel.Visibility = Visibility.Visible;
+            ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewComplete");
+        }
+        catch (OperationCanceledException)
+        {
+            // The explicit Cancel button has already displayed its own state.
+        }
+        catch (Exception ex)
+        {
+            if (ReportPreviewEvidencePolicy.CanApply(
+                generation, _reportPreviewGeneration,
+                !_windowClosed && ReportsContent.Visibility == Visibility.Visible,
+                request.DeviceId, _profiles.Get()?.DeviceId))
+            {
+                ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewFailed");
+                Debug.WriteLine($"Report preview failed ({ex.GetType().Name}).");
+            }
+        }
+        finally
+        {
+            if (generation == _reportPreviewGeneration)
+            {
+                ReportPreviewButton.IsEnabled = true;
+                ReportPreviewCancelButton.IsEnabled = false;
+                _reportPreviewCancellation = null;
+            }
+            cancellation.Dispose();
+        }
     }
 
     private void ReportSavePreset_Click(
