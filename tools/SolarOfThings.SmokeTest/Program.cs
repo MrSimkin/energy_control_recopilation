@@ -92,6 +92,33 @@ try
         DashboardRefreshPolicy.CanApply(10, 10, true, false, "A", null))
         throw new InvalidOperationException("Dashboard stale-result policy regressed.");
 
+    // Dashboard daily evidence: a visually healthy 99% metric must never
+    // conceal a completely absent house or grid stream. This also covers
+    // partial days, unknown/NaN data, and genuinely adequate three-stream days.
+    var evidenceNone = DashboardDailyEvidencePolicy.Assess(0, 0, 1, 100, 0, 0);
+    var evidenceMissing = DashboardDailyEvidencePolicy.Assess(100, 99, 0, 0, 100, 97);
+    var evidenceLow = DashboardDailyEvidencePolicy.Assess(100, 99, 100, 72, 100, 92);
+    var evidenceOk = DashboardDailyEvidencePolicy.Assess(100, 98, 120, 95, 50, 90);
+    var evidenceInvalid = DashboardDailyEvidencePolicy.Assess(100, double.NaN, 100, 90, 100, 100);
+    if (evidenceNone.State != "NO_SAMPLES" ||
+        evidenceNone.AvailableStreams != 0 ||
+        evidenceNone.MinimumAvailableCoveragePercent is not null ||
+        evidenceMissing.State != "MISSING_STREAMS" ||
+        evidenceMissing.AvailableStreams != 2 ||
+        evidenceMissing.MissingStreams != 1 ||
+        evidenceMissing.HasCompleteThreeStreamCoverage ||
+        Math.Abs(evidenceMissing.MinimumAvailableCoveragePercent!.Value - 97) > 0.0001 ||
+        evidenceLow.State != "LOW_COVERAGE" ||
+        !evidenceLow.ShouldWarn ||
+        Math.Abs(evidenceLow.MinimumAvailableCoveragePercent!.Value - 72) > 0.0001 ||
+        evidenceOk.State != "ADEQUATE" ||
+        evidenceOk.ShouldWarn ||
+        !evidenceOk.HasCompleteThreeStreamCoverage ||
+        evidenceInvalid.State != "MISSING_STREAMS" ||
+        evidenceInvalid.AvailableStreams != 2)
+        throw new InvalidOperationException(
+            "Dashboard daily coverage concealed missing, invalid or incomplete measurements.");
+
     // Battery background-result guard: only the visible, current device and
     // request generation may be rendered.
     if (!BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", "A") ||
