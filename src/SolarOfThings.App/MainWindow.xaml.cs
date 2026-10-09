@@ -9330,6 +9330,7 @@ public partial class MainWindow : Window
             "es", StringComparison.OrdinalIgnoreCase);
         // Verify both physical packages before showing the confirmation.
         // Never claim another valid copy exists based on inventory metadata.
+        string? finalDeleteMessage = null;
         SetBackupInventoryBusy(true);
         try
         {
@@ -9360,13 +9361,13 @@ public partial class MainWindow : Window
             }
             await Task.Run(() =>
                 service.DeleteAfterExplicitConfirmation(reviewed, userConfirmed: true));
-            BackupInventoryStatusText.Text = (spanish
+            finalDeleteMessage = (spanish
                 ? "Se eliminó únicamente la copia seleccionada: "
                 : "Only the selected copy was deleted: ") + chosen.Path;
         }
         catch (Exception ex)
         {
-            BackupInventoryStatusText.Text = (spanish
+            finalDeleteMessage = (spanish
                 ? "No se eliminó ninguna copia: " : "No copy was deleted: ") + ex.Message;
         }
         finally
@@ -9374,6 +9375,10 @@ public partial class MainWindow : Window
             SetBackupInventoryBusy(false);
         }
         await RefreshBackupInventoryAsync();
+        // The refreshed inventory is useful, but it must not erase the
+        // outcome of an explicitly confirmed, destructive user action.
+        if (finalDeleteMessage is not null)
+            BackupInventoryStatusText.Text += Environment.NewLine + finalDeleteMessage;
     }
 
     private const string BackupSecondaryPathKey = "backup.complete-secondary-dir";
