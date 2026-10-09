@@ -652,6 +652,7 @@ try
     var repeatedPlan = planner.CreatePlan(complete.Path, previewDatabase.DatabasePath);
     if (planned.Status != "SYNTHETIC_SETTINGS_PLAN" ||
         planned.PlanId.Length != 64 || planned.TargetSettingsSha256.Length != 64 ||
+        planned.TargetOtherTablesSha256.Length != 64 ||
         planned.SourcePackageSha256.Length != 64 ||
         planned.PlanId != repeatedPlan.PlanId ||
         planned.Steps.Count != 8 ||
@@ -681,6 +682,27 @@ try
         plannedStage.Conflicts != planned.ConflictingSettings ||
         plannedStage.AlreadyPresent != planned.IdenticalSettings)
         throw new InvalidOperationException("Planned stage counters did not reconcile.");
+    var stagedPlan = planner.CreatePlan(complete.Path, plannedStage.StagedDatabasePath);
+    if (stagedPlan.TargetOtherTablesSha256 != planned.TargetOtherTablesSha256)
+        throw new InvalidOperationException(
+            "Synthetic stage modified a non-settings SQLite table.");
+    using (var unchangedSettings = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = plannedStage.StagedDatabasePath,
+        Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    {
+        unchangedSettings.Open();
+        using var check = unchangedSettings.CreateCommand();
+        check.CommandText =
+            "SELECT value,updated_utc FROM app_setting WHERE key='smoke.preview.conflict';";
+        using var record = check.ExecuteReader();
+        if (!record.Read() ||
+            record.GetString(0) != "different-live-value" ||
+            record.GetString(1) != "2026-10-08T00:00:00Z")
+            throw new InvalidOperationException(
+                "Synthetic recovery stage altered conflict value or timestamp.");
+    }
     var plannedOutput = previewer.Preview(complete.Path, plannedStage.StagedDatabasePath);
     var plannedSettings = plannedOutput.Categories.Single(x => x.Category == "SETTINGS");
     if (plannedSettings.Missing != 0 ||
@@ -703,6 +725,51 @@ try
     catch (InvalidOperationException) { wrongPairBlocked = true; }
     if (!wrongPairBlocked)
         throw new InvalidOperationException("Plan accepted a different source-package path.");
+
+    // A forged checklist must fail even if it reuses a real plan's hashes
+    // and retains the SETTINGS permission unchanged.
+    var tamperedSteps = planned with
+    {
+        Steps = planned.Steps.Select(step =>
+            step.Category == "ENERGY_TELEMETRY"
+                ? step with { Status = "SYNTHETIC_STAGE_ONLY" }
+                : step).ToArray()
+    };
+    var forgedPlanRejected = false;
+    try { planner.StageSettingsOnly(tamperedSteps, complete.Path, previewDatabase.DatabasePath); }
+    catch (InvalidOperationException) { forgedPlanRejected = true; }
+    if (!forgedPlanRejected)
+        throw new InvalidOperationException("Recovery accepted a forged telemetry stage.");
+
+    // A change ONLY in linked destination data must expire an existing
+    // synthetic plan even if no app_setting key or value changed.
+    var relationStalePaths = new AppPaths(Path.Combine(root, "recovery-plan-relational-stale"));
+    var relationStaleDb = new SqliteDatabase(relationStalePaths);
+    relationStaleDb.Initialize();
+    var relationalPlan = planner.CreatePlan(complete.Path, relationStaleDb.DatabasePath);
+    using (var linked = relationStaleDb.OpenConnection())
+    using (var insert = linked.CreateCommand())
+    {
+        insert.CommandText = """
+            INSERT INTO utility_meter_reading(
+                reading_at_utc,reading_kwh,created_utc,updated_utc)
+            VALUES('2026-10-08T01:00:00Z',320,
+                   '2026-10-08T00:00:00Z','2026-10-08T00:00:00Z');
+            """;
+        insert.ExecuteNonQuery();
+    }
+    var relationalNow = planner.CreatePlan(complete.Path, relationStaleDb.DatabasePath);
+    if (relationalNow.TargetSettingsSha256 != relationalPlan.TargetSettingsSha256 ||
+        relationalNow.TargetOtherTablesSha256 == relationalPlan.TargetOtherTablesSha256 ||
+        relationalNow.PlanId == relationalPlan.PlanId)
+        throw new InvalidOperationException(
+            "Relational target change did not expire original plan.");
+    var staleRelationBlocked = false;
+    try { planner.StageSettingsOnly(relationalPlan, complete.Path, relationStaleDb.DatabasePath); }
+    catch (InvalidOperationException) { staleRelationBlocked = true; }
+    if (!staleRelationBlocked)
+        throw new InvalidOperationException(
+            "Recovery used plan after unrelated destination table changed.");
 
     // Source and destination have independent fingerprints. A WAL-visible
     // target setting update makes an existing plan STALE even if row counts
@@ -763,6 +830,27 @@ try
         throw new InvalidOperationException(
             "Planned synthetic rollback left an output or altered original.");
 
+    // Fault injection AFTER the first complete stage write must delete
+    // the generated stage, not just roll back SQL before its commit.
+    var stageFilesBeforeLateFailure = Directory.GetFiles(root,
+        "recovery-additive-staged-*.db", SearchOption.TopDirectoryOnly).Length;
+    var lateFailure = false;
+    try
+    {
+        planner.StageSettingsOnly(planned, complete.Path, previewDatabase.DatabasePath,
+            simulateFailureAfterStagedCopy: true);
+    }
+    catch (InvalidOperationException ex)
+    {
+        lateFailure = ex.Message == "SYNTHETIC_TEST_INJECTED_AFTER_STAGED_COPY";
+    }
+    if (!lateFailure ||
+        Directory.GetFiles(root, "recovery-additive-staged-*.db",
+            SearchOption.TopDirectoryOnly).Length != stageFilesBeforeLateFailure ||
+        planner.CreatePlan(complete.Path, previewDatabase.DatabasePath).PlanId != planned.PlanId)
+        throw new InvalidOperationException(
+            "Late planned recovery failure left a stage or modified original.");
+
     // A target with a valid schema version but a broken bill foreign key
     // must be rejected before any recovery counts can be reported.
     var brokenRecoveryPaths = new AppPaths(Path.Combine(root, "broken-fk-target"));
@@ -805,6 +893,17 @@ try
         mutate.ExecuteNonQuery();
     }
     var incomplete = previewer.Preview(complete.Path, partialTarget.DatabasePath);
+    var incompletePlan = planner.CreatePlan(complete.Path, partialTarget.DatabasePath);
+    if (incompletePlan.Status != "BLOCKED_INCOMPLETE_PLAN" ||
+        incompletePlan.Steps.Any(step => step.Status == "SYNTHETIC_STAGE_ONLY"))
+        throw new InvalidOperationException(
+            "Unsupported synthetic schema was granted plan execution.");
+    var blockedPlanRejected = false;
+    try { planner.StageSettingsOnly(incompletePlan, complete.Path, partialTarget.DatabasePath); }
+    catch (InvalidOperationException) { blockedPlanRejected = true; }
+    if (!blockedPlanRejected)
+        throw new InvalidOperationException(
+            "Incomplete synthetic plan unexpectedly allowed staging.");
     if (incomplete.Status != "PARTIAL_PREVIEW" ||
         incomplete.Totals.BlockedCategories != 4 ||
         incomplete.Totals.ComparedCategories != 2 ||
@@ -4881,6 +4980,13 @@ try
     graphTarget.Initialize();
     var graphAuditor = new IsolatedRecoveryRelationAuditService();
     var graphAudit = graphAuditor.Audit(graphZip.Path, graphTarget.DatabasePath);
+    var graphPlan = planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath);
+    if (graphPlan.Steps.Single(x => x.Category == "BILL_SOURCE_DOCUMENTS").Records != 2 ||
+        graphPlan.Steps.Single(x => x.Category == "TARIFF_RELATIONS").Records != 3 ||
+        graphPlan.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Status !=
+            "BLOCKED_UNSUPPORTED")
+        throw new InvalidOperationException(
+            "Synthetic plan double-counted shared bill evidence or tariff graph edges.");
     var linkedBill = graphAudit.Bills.Single(b => b.SourceBillId == graphBillId);
     var linkedTariff = graphAudit.Tariffs.Single(t =>
         t.SourcePublicationId == graphPublicationId);
