@@ -115,15 +115,16 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
             }
 
             var graphs = new List<BillGraph>(selected.Length);
+            var uniquePeriods = new HashSet<string>(StringComparer.Ordinal);
             foreach (var evidence in selected)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var docs = Read(source, "utility_bill_document", "content_sha256=$v",
+                var docs = Read(source, "utility_bill_document", "content_sha256=$v COLLATE NOCASE",
                     evidence.Sha256, 2);
                 if (docs.Count != 1 ||
                     Convert.ToInt64(docs[0]["content_length"]) != evidence.Size)
                     throw new InvalidDataException("Source PDF identity or verified byte length is ambiguous.");
-                if (Read(destination, "utility_bill_document", "content_sha256=$v",
+                if (Read(destination, "utility_bill_document", "content_sha256=$v COLLATE NOCASE",
                         evidence.Sha256, 2).Count != 0)
                     throw new InvalidDataException("Target already has these PDF bytes: bill conflict requires review.");
                 var originalDocumentId = Convert.ToInt64(docs[0]["document_id"]);
@@ -134,6 +135,15 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                 var bill = bills[0];
                 if (bill["from_reading_id"] is not null || bill["to_reading_id"] is not null)
                     throw new InvalidDataException("Meter-reading FK remapping is not yet reviewed.");
+                // The schema cannot prove that two differently scanned PDFs
+                // with the same billing period represent separate accounts.
+                // Block instead of silently duplicating an invoice.
+                var start = Convert.ToString(bill["period_start_utc"])!;
+                var end = Convert.ToString(bill["period_end_utc"])!;
+                if (!uniquePeriods.Add(start + "|" + end) ||
+                    HasPeriod(destination, start, end))
+                    throw new InvalidDataException(
+                        "Matching billing period requires explicit identity review.");
                 var oldBillId = Convert.ToInt64(bill["bill_id"]);
                 var lines = Read(source, "utility_bill_line", "bill_id=$v", oldBillId, MaxChildren);
                 var fields = Read(source, "utility_bill_field_evidence", "bill_id=$v", oldBillId, MaxChildren);
@@ -203,15 +213,18 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                             map.StagedBillId, MaxChildren).Count != map.AddedFieldEvidence)
                         throw new InvalidDataException("Staged bill graph/FK remapping verification failed.");
                 }
-                foreach (var (table, delta) in new[]
+                foreach (var (table, key, delta) in new[]
                 {
-                    ("utility_bill_document", remaps.Count),
-                    ("utility_bill", remaps.Count),
-                    ("utility_bill_line", totalLines),
-                    ("utility_bill_field_evidence", totalFields)
+                    ("utility_bill_document", "document_id", remaps.Count),
+                    ("utility_bill", "bill_id", remaps.Count),
+                    ("utility_bill_line", "bill_line_id", totalLines),
+                    ("utility_bill_field_evidence", "evidence_id", totalFields)
                 })
+                {
                     if (Count(check, table) != Count(destination, table) + delta)
                         throw new InvalidDataException("Stage changed unexpected relational row counts.");
+                    RequireOriginalRowsUnchanged(destination, check, table, key, cancellationToken);
+                }
             }
             if (_planner.CreatePlan(verifiedArchive, original).PlanId != approvedPlan.PlanId ||
                 !_documents.VerifyAgainstArchive(bundle.Evidence, verifiedArchive, input))
@@ -240,6 +253,54 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
         while (rows.Read()) found.Add(rows.GetString(1));
         if (!found.SequenceEqual(expected))
             throw new NotSupportedException("Unreviewed relational table schema: " + table);
+        // No fixture-defined DML triggers are permitted to mutate any other
+        // table when inserting the four reviewed relational entity types.
+        using var triggers = c.CreateCommand();
+        triggers.CommandText = "SELECT COUNT(*) FROM sqlite_schema WHERE type='trigger' AND tbl_name=$table;";
+        triggers.Parameters.AddWithValue("$table", table);
+        if (Convert.ToInt64(triggers.ExecuteScalar()) != 0)
+            throw new NotSupportedException("Unreviewed recovery triggers: " + table);
+    }
+
+    private static bool HasPeriod(SqliteConnection c, string start, string end)
+    {
+        using var command = c.CreateCommand();
+        command.CommandText = """
+            SELECT EXISTS(SELECT 1 FROM utility_bill
+            WHERE period_start_utc=$start AND period_end_utc=$end);
+            """;
+        command.Parameters.AddWithValue("$start", start);
+        command.Parameters.AddWithValue("$end", end);
+        return Convert.ToInt64(command.ExecuteScalar()) != 0;
+    }
+
+    // The reviewed tables have AUTOINCREMENT primary keys, so inserted rows
+    // appear after original keys. Compare all preexisting row values, not
+    // only their totals, and stop on the first unexpected alteration.
+    private static void RequireOriginalRowsUnchanged(SqliteConnection original,
+        SqliteConnection staged, string table, string key, CancellationToken token)
+    {
+        using var oldQuery = original.CreateCommand();
+        using var newQuery = staged.CreateCommand();
+        oldQuery.CommandText = "SELECT * FROM " + table + " ORDER BY " + key + ";";
+        newQuery.CommandText = oldQuery.CommandText;
+        using var before = oldQuery.ExecuteReader();
+        using var after = newQuery.ExecuteReader();
+        var rowNumber = 0;
+        while (before.Read())
+        {
+            if (++rowNumber % 256 == 0) token.ThrowIfCancellationRequested();
+            if (!after.Read() || after.FieldCount != before.FieldCount)
+                throw new InvalidDataException("Original relational row disappeared.");
+            for (var i = 0; i < before.FieldCount; i++)
+            {
+                if (before.IsDBNull(i) && after.IsDBNull(i)) continue;
+                if (before.IsDBNull(i) != after.IsDBNull(i) ||
+                    !Equals(before.GetValue(i), after.GetValue(i)))
+                    throw new InvalidDataException(
+                        "Original relational row was modified: " + table);
+            }
+        }
     }
 
     private static List<Dictionary<string, object?>> Read(

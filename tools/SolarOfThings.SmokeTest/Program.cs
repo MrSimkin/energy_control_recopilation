@@ -5727,7 +5727,9 @@ try
                     WHERE content_sha256=$sha),'REVIEW_REQUIRED');
             """;
         cmd.Parameters.AddWithValue("$path", isolatedBillPdf);
-        cmd.Parameters.AddWithValue("$sha", isolatedBillDigest);
+        // Lower-case source digest versus upper-case archive SHA: byte identity
+        // must be case-insensitive throughout the synthetic recovery stages.
+        cmd.Parameters.AddWithValue("$sha", isolatedBillDigest.ToLowerInvariant());
         cmd.Parameters.AddWithValue("$size", new FileInfo(isolatedBillPdf).Length);
         cmd.ExecuteNonQuery();
         cmd.CommandText = "SELECT last_insert_rowid();";
@@ -5861,7 +5863,8 @@ try
         cmd.Parameters.AddWithValue("$id", importedLinkedGraph.IdMap[0].StagedBillId);
         using (var reader = cmd.ExecuteReader())
             if (!reader.Read() || reader.GetDouble(0) != 5099 ||
-                reader.GetString(1) != isolatedBillDigest ||
+                !string.Equals(reader.GetString(1), isolatedBillDigest,
+                    StringComparison.OrdinalIgnoreCase) ||
                 !File.Exists(reader.GetString(2)) || reader.Read())
                 throw new InvalidOperationException("Staged bill lost amount or PDF provenance.");
         cmd.CommandText = "SELECT COUNT(*) FROM utility_bill WHERE bill_id=$id;";
@@ -5902,6 +5905,32 @@ try
     catch (InvalidDataException) { blockedReadingLink = true; }
     if (!blockedReadingLink)
         throw new InvalidOperationException("Unreviewed meter-reading FK restored.");
+
+    // An independent target bill with the exact same period but a different
+    // document must remain a blocker, even when its original bytes differ.
+    using (var conn = isolatedTargetDb.OpenConnection())
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = """
+            INSERT INTO utility_bill(
+                period_start_utc,period_end_utc,created_utc,updated_utc)
+            VALUES('2026-08-01T00:00:00Z','2026-08-31T00:00:00Z',
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z');
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    var collisionPlan = planner.CreatePlan(isolatedBillZip.Path,
+        isolatedTargetDb.DatabasePath);
+    var collisionBundle = bundleService.Stage(collisionPlan, isolatedBillZip.Path,
+        isolatedTargetDb.DatabasePath, selectedDocumentHashes: new[] { isolatedBillDigest });
+    var collisionBlocked = false;
+    try { linkedGraphStage.Stage(collisionPlan, collisionBundle,
+        isolatedBillZip.Path, isolatedTargetDb.DatabasePath); }
+    catch (InvalidDataException) { collisionBlocked = true; }
+    if (!collisionBlocked)
+        throw new InvalidOperationException("Ambiguous billing-period overlap was auto-imported.");
+    File.Delete(collisionBundle.Settings.StagedDatabasePath);
+    Directory.Delete(collisionBundle.Evidence.StageDirectory, recursive: true);
 
     File.Delete(importedLinkedGraph.StagedDatabasePath);
     foreach (var bundled in new[] { isolatedBillBundle, readingLinkedBundle })
