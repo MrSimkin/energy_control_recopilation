@@ -8,7 +8,9 @@ namespace SolarOfThings.Core.Backup;
 /// TEST ONLY: stage one-to-one PDF-backed bills, their charge lines and field
 /// evidence, in a NEW marked temporary SQLite fixture. No production entry
 /// point, restore/activation API, source writes or installation path is accepted.
-/// Meter-reading FKs, shared bill PDFs and tariff dependencies remain blocked.
+/// Meter-reading FKs remain blocked by default; explicitly reviewed, exact,
+/// provenance-bearing synthetic readings can be mapped opt-in. Shared bill
+/// PDFs and tariff dependencies remain blocked.
 /// </summary>
 public sealed class IsolatedRecoveryLinkedBillGraphTestService
 {
@@ -22,6 +24,9 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
         ["document_id","provider","original_file_name","local_pdf_path",
          "content_sha256","content_length","page_count","parser_version",
          "extracted_text","imported_utc"];
+    private static readonly string[] ReadingColumns =
+        ["reading_id","reading_at_utc","reading_kwh","reference","notes",
+         "created_utc","updated_utc","source_kind","time_precision","time_assumption"];
     private static readonly string[] BillColumns =
         ["bill_id","period_start_utc","period_end_utc","billed_consumption_kwh",
          "amount_clp","invoice_reference","notes","created_utc","updated_utc",
@@ -44,7 +49,8 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
         SyntheticRecoveryPlan approvedPlan, SyntheticRecoveryStagedBundle bundle,
         string verifiedArchive, string originalSyntheticTarget,
         CancellationToken cancellationToken = default,
-        bool simulateInterruptionAfterFirstBill = false)
+        bool simulateInterruptionAfterFirstBill = false,
+        bool allowExactReadingRemap = false)
     {
         ArgumentNullException.ThrowIfNull(approvedPlan);
         ArgumentNullException.ThrowIfNull(bundle);
@@ -107,7 +113,8 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                 ("utility_bill_document", DocumentColumns),
                 ("utility_bill", BillColumns),
                 ("utility_bill_line", LineColumns),
-                ("utility_bill_field_evidence", EvidenceColumns)
+                ("utility_bill_field_evidence", EvidenceColumns),
+                ("utility_meter_reading", ReadingColumns)
             })
             {
                 CheckColumns(source, table, columns);
@@ -116,6 +123,7 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
 
             var graphs = new List<BillGraph>(selected.Length);
             var uniquePeriods = new HashSet<string>(StringComparer.Ordinal);
+            var readingPlans = new Dictionary<long, ReadingPlan>();
             foreach (var evidence in selected)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -133,8 +141,16 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                 if (bills.Count != 1)
                     throw new InvalidDataException("PDF must identify exactly one source bill; shared or unlinked documents blocked.");
                 var bill = bills[0];
-                if (bill["from_reading_id"] is not null || bill["to_reading_id"] is not null)
-                    throw new InvalidDataException("Meter-reading FK remapping is not yet reviewed.");
+                foreach (var key in new[] { "from_reading_id", "to_reading_id" })
+                {
+                    if (bill[key] is null) continue;
+                    if (!allowExactReadingRemap)
+                        throw new InvalidDataException(
+                            "Meter-reading FK requires explicit isolated exact-evidence mode.");
+                    var id = Convert.ToInt64(bill[key]);
+                    if (!readingPlans.ContainsKey(id))
+                        readingPlans.Add(id, ReviewReading(source, destination, id));
+                }
                 // The schema cannot prove that two differently scanned PDFs
                 // with the same billing period represent separate accounts.
                 // Block instead of silently duplicating an invoice.
@@ -157,9 +173,24 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
             var remaps = new List<SyntheticLinkedBillIdMap>();
             var totalLines = 0;
             var totalFields = 0;
+            var addedReadings = 0;
+            var reusedReadings = 0;
+            var readingMaps = new Dictionary<long, long>();
             using (var write = Open(output, writable: true))
             using (var tx = write.BeginTransaction())
             {
+                // Dependencies are inserted only into the generated fixture,
+                // in the same transaction as every bill and its evidence.
+                foreach (var (sourceId, plan) in readingPlans.OrderBy(x => x.Key))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var stagedId = plan.IdenticalTargetId ?? Insert(write, tx,
+                        "utility_meter_reading", ReadingColumns, "reading_id",
+                        plan.Source, new Dictionary<string, object?>());
+                    if (plan.IdenticalTargetId.HasValue) reusedReadings++;
+                    else addedReadings++;
+                    readingMaps.Add(sourceId, stagedId);
+                }
                 foreach (var graph in graphs)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -168,7 +199,13 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                         new Dictionary<string, object?> { ["local_pdf_path"] = graph.Pdf.StageFilePath });
                     var newBill = Insert(write, tx, "utility_bill", BillColumns, "bill_id",
                         graph.Bill, new Dictionary<string, object?>
-                        { ["source_document_id"] = newDocument });
+                        {
+                            ["source_document_id"] = newDocument,
+                            ["from_reading_id"] = graph.Bill["from_reading_id"] is null
+                                ? null : readingMaps[Convert.ToInt64(graph.Bill["from_reading_id"])],
+                            ["to_reading_id"] = graph.Bill["to_reading_id"] is null
+                                ? null : readingMaps[Convert.ToInt64(graph.Bill["to_reading_id"])]
+                        });
                     foreach (var row in graph.Lines)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -213,12 +250,37 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
                             map.StagedBillId, MaxChildren).Count != map.AddedFieldEvidence)
                         throw new InvalidDataException("Staged bill graph/FK remapping verification failed.");
                 }
+                foreach (var (sourceId, stagedId) in readingMaps)
+                {
+                    var before = readingPlans[sourceId].Source;
+                    var staged = Read(check, "utility_meter_reading",
+                        "reading_id=$v", stagedId, 2);
+                    if (staged.Count != 1 ||
+                        !SameReading(before, staged[0]))
+                        throw new InvalidDataException("Staged reading is not the verified source reading.");
+                }
+                foreach (var map in remaps)
+                {
+                    var actual = Read(check, "utility_bill", "bill_id=$v", map.StagedBillId, 2).Single();
+                    var sourceBill = graphs.Single(x => x.SourceBillId == map.SourceBillId).Bill;
+                    foreach (var field in new[] { "from_reading_id", "to_reading_id" })
+                    {
+                        var originalKey = sourceBill[field];
+                        var expectedKey = originalKey is null
+                            ? (long?)null : readingMaps[Convert.ToInt64(originalKey)];
+                        var actualKey = actual[field] is null
+                            ? (long?)null : Convert.ToInt64(actual[field]);
+                        if (actualKey != expectedKey)
+                            throw new InvalidDataException("Bill-to-meter dependency remap failed.");
+                    }
+                }
                 foreach (var (table, key, delta) in new[]
                 {
                     ("utility_bill_document", "document_id", remaps.Count),
                     ("utility_bill", "bill_id", remaps.Count),
                     ("utility_bill_line", "bill_line_id", totalLines),
-                    ("utility_bill_field_evidence", "evidence_id", totalFields)
+                    ("utility_bill_field_evidence", "evidence_id", totalFields),
+                    ("utility_meter_reading", "reading_id", addedReadings)
                 })
                 {
                     if (Count(check, table) != Count(destination, table) + delta)
@@ -233,9 +295,17 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
             return new SyntheticLinkedBillGraphImport(output, remaps.Count,
                 totalLines, totalFields, remaps,
                 "STAGED_LINKED_BILL_GRAPHS_SYNTHETIC_ONLY", false,
-                "Only source PDFs with exactly one unlinked-to-readings bill and their charge/evidence " +
-                "children are remapped in an isolated NEW synthetic database. No owner data, " +
-                "meter-reading link, tariff graph or active installation was modified.");
+                "Only one-to-one PDF bills and their charge/evidence children are remapped; " +
+                "exact provenance-bearing meter readings only when explicitly opted in, " +
+                "in a disposable generated SQLite. No live records, tariff graph, " +
+                "active installation or user-provided database was modified.")
+            {
+                AddedMeterReadings = addedReadings,
+                ReusedMeterReadings = reusedReadings,
+                ReadingIdMap = readingMaps
+                    .Select(x => new SyntheticReadingIdMap(x.Key, x.Value,
+                        !readingPlans[x.Key].IdenticalTargetId.HasValue)).ToArray()
+            };
         }
         finally
         {
@@ -243,6 +313,66 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
             if (!success && File.Exists(output)) File.Delete(output);
         }
     }
+
+    // Reject DATE_ONLY / assumed-midnight times, unspecified sources, absent
+    // source references and every multi-candidate identity. A numerical
+    // meter value or timestamp alone NEVER authorizes a portable FK.
+    private static ReadingPlan ReviewReading(SqliteConnection source,
+        SqliteConnection target, long id)
+    {
+        var rows = Read(source, "utility_meter_reading", "reading_id=$v", id, 2);
+        if (rows.Count != 1)
+            throw new InvalidDataException("Missing or ambiguous original meter reading.");
+        var row = rows[0];
+        var kind = Convert.ToString(row["source_kind"]);
+        var utc = Convert.ToString(row["reading_at_utc"]);
+        var reference = Convert.ToString(row["reference"]);
+        if ((kind != "PERSONAL" && kind != "UTILITY_OFFICIAL") ||
+            Convert.ToString(row["time_precision"]) != "EXACT" ||
+            Convert.ToString(row["time_assumption"]) != "EXACT" ||
+            string.IsNullOrWhiteSpace(utc) || string.IsNullOrWhiteSpace(reference) ||
+            !double.IsFinite(Convert.ToDouble(row["reading_kwh"])))
+            throw new InvalidDataException(
+                "Reading lacks exact, finite and explicitly named source provenance.");
+        var sourceAt = ReadReadingsAt(source, kind!, utc!);
+        if (sourceAt.Count != 1 || !SameReading(sourceAt[0], row))
+            throw new InvalidDataException("Source meter source/time has ambiguous provenance.");
+        var targetAt = ReadReadingsAt(target, kind!, utc!);
+        if (targetAt.Count > 1 || (targetAt.Count == 1 &&
+            !SameReading(targetAt[0], row)))
+            throw new InvalidDataException("Target meter source/time conflicts with original reading.");
+        return new ReadingPlan(row, targetAt.Count == 1
+            ? Convert.ToInt64(targetAt[0]["reading_id"]) : null);
+    }
+
+    private static List<Dictionary<string, object?>> ReadReadingsAt(
+        SqliteConnection c, string kind, string utc)
+    {
+        using var command = c.CreateCommand();
+        command.CommandText = """
+            SELECT * FROM utility_meter_reading
+            WHERE source_kind=$kind AND reading_at_utc=$utc LIMIT 3;
+            """;
+        command.Parameters.AddWithValue("$kind", kind);
+        command.Parameters.AddWithValue("$utc", utc);
+        using var rows = command.ExecuteReader();
+        var result = new List<Dictionary<string, object?>>();
+        while (rows.Read())
+        {
+            if (result.Count >= 2)
+                throw new InvalidDataException("Repeated meter provenance/time candidates.");
+            var row = new Dictionary<string, object?>(StringComparer.Ordinal);
+            for (var i = 0; i < rows.FieldCount; i++)
+                row.Add(rows.GetName(i), rows.IsDBNull(i) ? null : rows.GetValue(i));
+            result.Add(row);
+        }
+        return result;
+    }
+
+    private static bool SameReading(IReadOnlyDictionary<string, object?> a,
+        IReadOnlyDictionary<string, object?> b) =>
+        ReadingColumns.Where(x => x != "reading_id")
+            .All(x => Equals(a[x], b[x]));
 
     private static void CheckColumns(SqliteConnection c, string table, string[] expected)
     {
@@ -381,6 +511,8 @@ public sealed class IsolatedRecoveryLinkedBillGraphTestService
     private static bool Linked(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
+    private sealed record ReadingPlan(Dictionary<string, object?> Source, long? IdenticalTargetId);
+
     private sealed record BillGraph(SyntheticStagedDocument Pdf,
         Dictionary<string, object?> Document, Dictionary<string, object?> Bill,
         List<Dictionary<string, object?>> Lines, List<Dictionary<string, object?>> Fields,
@@ -391,7 +523,14 @@ public sealed record SyntheticLinkedBillIdMap(long SourceDocumentId,
     long StagedDocumentId, long SourceBillId, long StagedBillId,
     string DocumentSha256, int AddedLines, int AddedFieldEvidence);
 
+public sealed record SyntheticReadingIdMap(long SourceId, long StagedId, bool Added);
+
 public sealed record SyntheticLinkedBillGraphImport(
     string StagedDatabasePath, int AddedBills, int AddedLines,
     int AddedFieldEvidence, IReadOnlyList<SyntheticLinkedBillIdMap> IdMap,
-    string Status, bool RealRestoreAuthorized, string SafetyDisclaimer);
+    string Status, bool RealRestoreAuthorized, string SafetyDisclaimer)
+{
+    public int AddedMeterReadings { get; init; }
+    public int ReusedMeterReadings { get; init; }
+    public IReadOnlyList<SyntheticReadingIdMap> ReadingIdMap { get; init; } = [];
+}
