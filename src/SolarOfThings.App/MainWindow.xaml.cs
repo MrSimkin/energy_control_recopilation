@@ -6767,6 +6767,7 @@ public partial class MainWindow : Window
             return;
         ShowPage("Reports");
         _pendingBatteryReportPreset = null;
+        _pendingReportRangePreset = null;
         _reportRangeInitializationPending = false;
 
         // A programmatic context should update all selectors atomically.
@@ -6830,6 +6831,10 @@ public partial class MainWindow : Window
         _reportAvailableCoverage = null;
         _reportAvailableCoverageDeviceId = null;
         _reportReadGeneration++;
+        // Data from the prior device/range must not remain visible or
+        // previewable while background coverage is being revalidated.
+        InvalidateReportPreview();
+        ReportPreviewButton.IsEnabled = false;
         ReportExportExcelButton.IsEnabled = false;
         ReportExportPdfButton.IsEnabled = false;
         ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
@@ -6854,6 +6859,7 @@ public partial class MainWindow : Window
                     if (profile is null)
                     {
                         _reportReadAppliedGeneration = generation;
+                        ReportPreviewButton.IsEnabled = false;
                         ReportStatusText.Text = _localization.GetString("Reports.NoProfile");
                         LoadSavedReportPresets();
                         return;
@@ -6891,6 +6897,7 @@ public partial class MainWindow : Window
                     if (generation != _reportReadGeneration) continue;
                     if (_windowClosed || ReportsContent.Visibility != Visibility.Visible)
                         return;
+                    ReportPreviewButton.IsEnabled = false;
                     ReportExportExcelButton.IsEnabled = false;
                     ReportExportPdfButton.IsEnabled = false;
                     ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
@@ -6923,6 +6930,7 @@ public partial class MainWindow : Window
         {
             _pendingReportRangePreset = null;
             _pendingBatteryReportPreset = null;
+            ReportPreviewButton.IsEnabled = false;
             _suppressReportRangeSelection = true;
             try
             {
@@ -6961,6 +6969,7 @@ public partial class MainWindow : Window
             finally { _suppressReportRangeSelection = false; }
         }
 
+        ReportPreviewButton.IsEnabled = !_reportExportInProgress;
         ReportExportExcelButton.IsEnabled = !_reportExportInProgress;
         ReportExportPdfButton.IsEnabled = !_reportExportInProgress;
         InitializeReportDatePartSelectors(profile, coverage);
@@ -7065,6 +7074,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        _pendingReportRangePreset = null;
+        _pendingBatteryReportPreset = null;
+        _reportRangeInitializationPending = false;
         _suppressReportRangeSelection = true;
         ReportRangePresetSelector.SelectedValue = "custom";
         _suppressReportRangeSelection = false;
@@ -7102,6 +7114,9 @@ public partial class MainWindow : Window
             current.Day,
             DateTime.DaysInMonth(year, month));
 
+        _pendingReportRangePreset = null;
+        _pendingBatteryReportPreset = null;
+        _reportRangeInitializationPending = false;
         _suppressReportRangeSelection = true;
         picker.SelectedDate = new DateTime(year, month, day);
         ReportRangePresetSelector.SelectedValue = "custom";
