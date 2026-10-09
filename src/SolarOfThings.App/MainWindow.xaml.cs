@@ -9220,6 +9220,7 @@ public partial class MainWindow : Window
         BackupInventoryStatusText.Text = spanish
             ? "Verificando respaldo local y copiando al segundo destino..."
             : "Verifying local backup and copying to secondary destination...";
+        string? finalMirrorMessage = null;
         try
         {
             var service = _services.GetRequiredService<FullBackupService>();
@@ -9233,14 +9234,14 @@ public partial class MainWindow : Window
                 inventory.RequireCurrentLocalSelection(selected);
                 return service.CopyVerifiedToSecondary(selected.Path, configured);
             });
-            BackupInventoryStatusText.Text = (spanish
+            finalMirrorMessage = (spanish
                 ? "Copia secundaria verificada: "
                 : "Verified secondary copy: ") + second.Path +
                 " · SHA-256 " + second.Sha256;
         }
         catch (Exception ex)
         {
-            BackupInventoryStatusText.Text = (spanish
+            finalMirrorMessage = (spanish
                 ? "No se pudo completar la copia secundaria; el respaldo local permanece intacto: "
                 : "Secondary copy did not complete; the local backup is preserved: ") +
                 ex.Message;
@@ -9250,6 +9251,11 @@ public partial class MainWindow : Window
             SetBackupInventoryBusy(false);
         }
         await RefreshBackupInventoryAsync();
+        // Refresh shows counts, but must not erase the result of the action
+        // the user just requested (especially a secondary failure warning).
+        if (!string.IsNullOrWhiteSpace(finalMirrorMessage))
+            BackupInventoryStatusText.Text += Environment.NewLine +
+                finalMirrorMessage;
     }
 
     private async void BackupPageDelete_Click(object sender, RoutedEventArgs e)
@@ -9415,6 +9421,7 @@ public partial class MainWindow : Window
             _services.GetRequiredService<AppSettingsRepository>()
                 .Set(BackupReminderNextKey, DateTimeOffset.UtcNow.AddDays(7).ToString("O"));
             string secondaryStatus = "";
+            var secondaryFailed = false;
             var configuredSecondary = _services.GetRequiredService<AppSettingsRepository>()
                 .Get(BackupSecondaryPathKey);
             if (!string.IsNullOrWhiteSpace(configuredSecondary))
@@ -9429,6 +9436,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception copyError)
                 {
+                    secondaryFailed = true;
                     secondaryStatus = spanish
                         ? " AVISO: respaldo local verificado, pero falló la segunda copia: " +
                           copyError.Message
@@ -9443,8 +9451,13 @@ public partial class MainWindow : Window
                   $"Saved to {result.Path}") + secondaryStatus;
             RefreshBackupSecondaryPreference();
             MessageBox.Show(SettingsBackupStatusText.Text,
-                spanish ? "Respaldo completo creado" : "Complete backup created",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+                spanish
+                    ? (secondaryFailed ? "Aviso: copia secundaria fallida"
+                                       : "Respaldo completo creado")
+                    : (secondaryFailed ? "Warning: secondary copy failed"
+                                       : "Complete backup created"),
+                MessageBoxButton.OK,
+                secondaryFailed ? MessageBoxImage.Warning : MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
