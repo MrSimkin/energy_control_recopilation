@@ -18,16 +18,30 @@ public sealed class IsolatedRecoveryDocumentStageTestService
         string completeBackupZip,
         string syntheticTargetDatabase,
         CancellationToken cancellationToken = default,
-        bool simulateFailureAfterFirstFile = false)
+        bool simulateFailureAfterFirstFile = false,
+        IReadOnlyCollection<string>? selectedDocumentHashes = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var root = AuthorizeInputs(completeBackupZip, syntheticTargetDatabase);
         var manifest = FullBackupService.VerifyArchive(completeBackupZip);
         cancellationToken.ThrowIfCancellationRequested();
-        var documents = manifest.Files
+        var allDocuments = manifest.Files
             .Where(x => IsDocument(x.RelativePath))
             .OrderBy(x => x.RelativePath, StringComparer.Ordinal)
             .ToArray();
+        // A user-specified selection is ONLY a SHA filter over validated
+        // archive bytes, never a filesystem path or database identity.
+        var chosenHashes = selectedDocumentHashes is null ? null :
+            selectedDocumentHashes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (chosenHashes is not null &&
+            (chosenHashes.Count == 0 ||
+             chosenHashes.Any(x => x.Length != 64 || !x.All(Uri.IsHexDigit)) ||
+             chosenHashes.Any(x => !allDocuments.Any(doc =>
+                 string.Equals(doc.Sha256, x, StringComparison.OrdinalIgnoreCase)))))
+            throw new InvalidOperationException(
+                "Selected evidence must refer to SHA-256 hashes in this verified archive.");
+        var documents = chosenHashes is null ? allDocuments :
+            allDocuments.Where(item => chosenHashes.Contains(item.Sha256)).ToArray();
         if (documents.Length > MaximumDocuments ||
             documents.Any(x => x.Size < 0 || x.Size > MaximumDocumentsBytes) ||
             documents.Sum(x => x.Size) > MaximumDocumentsBytes)
@@ -83,10 +97,18 @@ public sealed class IsolatedRecoveryDocumentStageTestService
             }
             cancellationToken.ThrowIfCancellationRequested();
             finished = true;
+            using var sourceBytes = File.OpenRead(completeBackupZip);
+            var packageSha = Convert.ToHexString(SHA256.HashData(sourceBytes));
             return new SyntheticDocumentStageReceipt(stage, results,
                 "STAGED_SYNTHETIC_DOCUMENT_EVIDENCE_ONLY", false,
                 "Evidence files only; no SQLite rows, FK relationships, live paths, " +
-                "document catalogs or recovery activation were changed.");
+                "document catalogs or recovery activation were changed.")
+            {
+                SourcePackageSha256 = packageSha,
+                TargetFixtureDatabase = Path.GetFullPath(syntheticTargetDatabase),
+                AvailableArchiveDocuments = allDocuments.Length,
+                Selective = chosenHashes is not null
+            };
         }
         finally
         {
@@ -107,6 +129,13 @@ public sealed class IsolatedRecoveryDocumentStageTestService
             .RequireSyntheticFixtureRoot(syntheticTargetDatabase);
         if (receipt.RealRestoreAuthorized || receipt.Status !=
                 "STAGED_SYNTHETIC_DOCUMENT_EVIDENCE_ONLY" ||
+            receipt.SourcePackageSha256.Length != 64 ||
+            !receipt.SourcePackageSha256.All(Uri.IsHexDigit) ||
+            receipt.AvailableArchiveDocuments < receipt.Documents.Count ||
+            receipt.AvailableArchiveDocuments > MaximumDocuments ||
+            !string.Equals(receipt.TargetFixtureDatabase,
+                Path.GetFullPath(syntheticTargetDatabase),
+                StringComparison.OrdinalIgnoreCase) ||
             receipt.Documents.Count > MaximumDocuments ||
             !IsDirectGeneratedStage(root, receipt.StageDirectory) ||
             !Directory.Exists(receipt.StageDirectory) ||
@@ -197,4 +226,10 @@ public sealed record SyntheticStagedDocument(string Category,
     string SourceRelativePath, string Sha256, long Size, string StageFilePath);
 public sealed record SyntheticDocumentStageReceipt(string StageDirectory,
     IReadOnlyList<SyntheticStagedDocument> Documents, string Status,
-    bool RealRestoreAuthorized, string SafetyExplanation);
+    bool RealRestoreAuthorized, string SafetyExplanation)
+{
+    public string SourcePackageSha256 { get; init; } = "";
+    public string TargetFixtureDatabase { get; init; } = "";
+    public int AvailableArchiveDocuments { get; init; }
+    public bool Selective { get; init; }
+}
