@@ -5527,6 +5527,98 @@ try
         planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath).PlanId != graphPlan.PlanId)
         throw new InvalidOperationException(
             "Integrated synthetic bundle altered original data or overstated recovery.");
+    // Build 749: one genuinely staged synthetic relational catalog category.
+    // Unlinked source PDF bytes are bound to a generated stage file; source
+    // surrogate IDs are remapped to new fixture IDs, not reused.
+    var catalogBundle = bundleService.Stage(graphPlan, graphZip.Path,
+        graphTarget.DatabasePath, selectedDocumentHashes: new[] { unlinkedBillHash });
+    var catalogStage = new IsolatedRecoveryUnlinkedBillDocumentTestService();
+    var catalogCountBefore = Directory.GetFiles(root,
+        "recovery-unlinked-documents-staged-*.db").Length;
+    var interruptedCatalog = false;
+    try
+    {
+        catalogStage.Stage(graphPlan, catalogBundle, graphZip.Path,
+            graphTarget.DatabasePath, simulateInterruptionAfterFirstInsert: true);
+    }
+    catch (InvalidOperationException ex) when (
+        ex.Message == "SYNTHETIC_UNLINKED_DOCUMENT_INTERRUPTION")
+    {
+        interruptedCatalog = true;
+    }
+    if (!interruptedCatalog ||
+        Directory.GetFiles(root, "recovery-unlinked-documents-staged-*.db").Length !=
+            catalogCountBefore)
+        throw new InvalidOperationException("Interrupted synthetic catalog kept a partial DB.");
+    using (var cancelledCatalog = new CancellationTokenSource())
+    {
+        cancelledCatalog.Cancel();
+        var refused = false;
+        try { catalogStage.Stage(graphPlan, catalogBundle, graphZip.Path,
+            graphTarget.DatabasePath, cancelledCatalog.Token); }
+        catch (OperationCanceledException) { refused = true; }
+        if (!refused)
+            throw new InvalidOperationException("Cancelled synthetic catalog performed a stage.");
+    }
+    var mergedCatalog = catalogStage.Stage(graphPlan, catalogBundle,
+        graphZip.Path, graphTarget.DatabasePath);
+    if (mergedCatalog.RealRestoreAuthorized ||
+        mergedCatalog.Added != 1 || mergedCatalog.Identical != 0 ||
+        mergedCatalog.IdMap.Count != 1 ||
+        !mergedCatalog.IdMap[0].Added ||
+        mergedCatalog.IdMap[0].Sha256 != unlinkedBillHash.ToUpperInvariant() ||
+        !File.Exists(mergedCatalog.StagedDatabasePath) ||
+        planner.CreatePlan(graphZip.Path, graphTarget.DatabasePath).PlanId != graphPlan.PlanId)
+        throw new InvalidOperationException("Synthetic unlinked document catalog stage failed.");
+    using (var stagedCatalog = new Microsoft.Data.Sqlite.SqliteConnection(
+        new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+        {
+            DataSource = mergedCatalog.StagedDatabasePath,
+            Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly, Pooling = false
+        }.ToString()))
+    {
+        stagedCatalog.Open();
+        using var cmd = stagedCatalog.CreateCommand();
+        cmd.CommandText = """
+            SELECT content_sha256,local_pdf_path FROM utility_bill_document
+            WHERE document_id=$newId;
+            """;
+        cmd.Parameters.AddWithValue("$newId", mergedCatalog.IdMap[0].StagedId);
+        using var row = cmd.ExecuteReader();
+        if (!row.Read() ||
+            !string.Equals(row.GetString(0), unlinkedBillHash,
+                StringComparison.OrdinalIgnoreCase) ||
+            !File.Exists(row.GetString(1)) ||
+            row.Read())
+            throw new InvalidOperationException("Synthetic catalog remap lost verified PDF.");
+    }
+    var documentCandidateForgery = catalogBundle with
+    {
+        Evidence = catalogBundle.Evidence with
+        {
+            SourcePackageSha256 = new string('A', 64)
+        }
+    };
+    var fakeCatalogBlocked = false;
+    try { catalogStage.Stage(graphPlan, documentCandidateForgery,
+        graphZip.Path, graphTarget.DatabasePath); }
+    catch (InvalidDataException) { fakeCatalogBlocked = true; }
+    if (!fakeCatalogBlocked)
+        throw new InvalidOperationException("Forged catalog evidence was accepted.");
+    var linkedOnlyBundle = bundleService.Stage(graphPlan, graphZip.Path,
+        graphTarget.DatabasePath, selectedDocumentHashes: new[] { billHash });
+    var linkedCatalogBlocked = false;
+    try { catalogStage.Stage(graphPlan, linkedOnlyBundle,
+        graphZip.Path, graphTarget.DatabasePath); }
+    catch (InvalidDataException) { linkedCatalogBlocked = true; }
+    if (!linkedCatalogBlocked)
+        throw new InvalidOperationException("Linked bill document was restored without FK adapter.");
+    File.Delete(mergedCatalog.StagedDatabasePath);
+    File.Delete(catalogBundle.Settings.StagedDatabasePath);
+    Directory.Delete(catalogBundle.Evidence.StageDirectory, recursive: true);
+    File.Delete(linkedOnlyBundle.Settings.StagedDatabasePath);
+    Directory.Delete(linkedOnlyBundle.Evidence.StageDirectory, recursive: true);
+
     File.Delete(integrated.Settings.StagedDatabasePath);
     Directory.Delete(integrated.Evidence.StageDirectory, recursive: true);
 
