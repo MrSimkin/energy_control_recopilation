@@ -517,6 +517,10 @@
     <sys:String x:Key="Reports.FromBattery">Report from latest saved month</sys:String>
     <sys:String x:Key="Reports.BatteryHistory">Analyze last 7 saved days</sys:String>
     <sys:String x:Key="Reports.DraftFromData">Draft from Data coverage, using the first and last stored samples. The range does not guarantee complete coverage; review the report before exporting.</sys:String>
+    <sys:String x:Key="Reports.OpenLastFile">Open latest report</sys:String>
+    <sys:String x:Key="Reports.OpenLastFolder">Open report folder</sys:String>
+    <sys:String x:Key="Reports.LastFileUnavailable">The most recently exported report is no longer available at the selected path.</sys:String>
+    <sys:String x:Key="Reports.OpenLastFailed">The report or its folder could not be opened. Check that the path is still available.</sys:String>
     <sys:String x:Key="Reports.BackToSource">Return to source</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysis">Draft prepared from Analysis: review type, dates and aggregation before exporting.</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysisExpanded">Draft from hourly row: the full calendar day will be included. Review dates before exporting.</sys:String>

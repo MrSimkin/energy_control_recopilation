@@ -218,6 +218,23 @@ try
     if (!invertedCoverageRejected)
         throw new InvalidOperationException("Inverted stored coverage was accepted.");
 
+    // The post-export Open buttons must accept only existing user-requested
+    // PDF/XLSX outputs, never arbitrary files or a stale missing target.
+    Directory.CreateDirectory(root);
+    var syntheticPdfPath = Path.Combine(root, "sample_report.PDF");
+    var syntheticExecutablePath = Path.Combine(root, "not_a_report.exe");
+    File.WriteAllText(syntheticPdfPath, "synthetic path guard only");
+    File.WriteAllText(syntheticExecutablePath, "synthetic path guard only");
+    if (!ReportExportLaunchPolicy.CanOpen(syntheticPdfPath) ||
+        ReportExportLaunchPolicy.CanOpen(syntheticExecutablePath) ||
+        ReportExportLaunchPolicy.CanOpen(Path.Combine(root, "missing.xlsx")) ||
+        ReportExportLaunchPolicy.CanOpen(null))
+        throw new InvalidOperationException("Export report open-file gate regressed.");
+    File.Delete(syntheticPdfPath);
+    File.Delete(syntheticExecutablePath);
+    if (ReportExportLaunchPolicy.CanOpen(syntheticPdfPath))
+        throw new InvalidOperationException("Stale exported report was considered available.");
+
     // Battery background-result guard: only the visible, current device and
     // request generation may be rendered.
     if (!BatteryRefreshPolicy.CanApply(4, 4, true, false, "A", "A") ||

@@ -6585,6 +6585,7 @@ public partial class MainWindow : Window
         string Evidence);
 
     private string? _reportDraftOriginPage;
+    private string? _lastExportedReportPath;
     private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
 
     private void AnalysisToDetailedReport_Click(object sender, RoutedEventArgs e) =>
@@ -7307,6 +7308,51 @@ public partial class MainWindow : Window
             _localization.GetString("Reports.PresetDeleted");
     }
 
+    private void RefreshLastReportActions()
+    {
+        var ready = ReportExportLaunchPolicy.CanOpen(_lastExportedReportPath);
+        ReportOpenLastFileButton.IsEnabled = ready;
+        ReportOpenLastFolderButton.IsEnabled = ready;
+    }
+
+    private void ReportOpenLastFile_Click(object sender, RoutedEventArgs e) =>
+        OpenLastReport(folderOnly: false);
+
+    private void ReportOpenLastFolder_Click(object sender, RoutedEventArgs e) =>
+        OpenLastReport(folderOnly: true);
+
+    private void OpenLastReport(bool folderOnly)
+    {
+        // Only a successful explicit export can set this session's path.
+        // Re-check that the file still exists before launching Explorer or its
+        // registered PDF/XLSX viewer; never open arbitrary persisted paths.
+        if (!ReportExportLaunchPolicy.CanOpen(_lastExportedReportPath))
+        {
+            RefreshLastReportActions();
+            ReportStatusText.Text = _localization.GetString("Reports.LastFileUnavailable");
+            return;
+        }
+
+        try
+        {
+            var selected = folderOnly
+                ? Path.GetDirectoryName(Path.GetFullPath(_lastExportedReportPath!))
+                : _lastExportedReportPath;
+            if (string.IsNullOrWhiteSpace(selected))
+                throw new IOException("The report output folder is unavailable.");
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = selected,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            ReportStatusText.Text = _localization.GetString("Reports.OpenLastFailed");
+            Debug.WriteLine($"Opening exported report failed ({ex.GetType().Name}).");
+        }
+    }
+
     private async void ReportExportExcel_Click(
         object sender,
         RoutedEventArgs e)
@@ -7400,6 +7446,8 @@ public partial class MainWindow : Window
             ReportStatusText.Text = string.Format(
                 _localization.GetString("Reports.ExportSaved"),
                 dialog.FileName);
+            _lastExportedReportPath = dialog.FileName;
+            RefreshLastReportActions();
         }
         catch (Exception ex)
         {

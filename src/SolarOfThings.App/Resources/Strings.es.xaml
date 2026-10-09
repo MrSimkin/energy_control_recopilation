@@ -517,6 +517,10 @@
     <sys:String x:Key="Reports.FromBattery">Informe del último mes con datos</sys:String>
     <sys:String x:Key="Reports.BatteryHistory">Analizar últimos 7 días guardados</sys:String>
     <sys:String x:Key="Reports.DraftFromData">Borrador del historial guardado desde Datos recopilados. El período comprende las primeras y últimas muestras, pero no garantiza cobertura completa; revisa el informe antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.OpenLastFile">Abrir último informe</sys:String>
+    <sys:String x:Key="Reports.OpenLastFolder">Abrir carpeta del informe</sys:String>
+    <sys:String x:Key="Reports.LastFileUnavailable">El último informe ya no está disponible en la ruta elegida.</sys:String>
+    <sys:String x:Key="Reports.OpenLastFailed">No se pudo abrir el informe o su carpeta. Comprueba que la ruta sigue disponible.</sys:String>
     <sys:String x:Key="Reports.BackToSource">Volver al origen</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysis">Borrador preparado desde Análisis: revisa tipo, fechas y agrupación antes de exportar.</sys:String>
     <sys:String x:Key="Reports.DraftFromAnalysisExpanded">Borrador desde una fila horaria: se incluirá el día calendario completo. Revisa las fechas antes de exportar.</sys:String>
