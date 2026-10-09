@@ -125,10 +125,10 @@ public sealed class EnergyReportExportService
                 cancellationToken.ThrowIfCancellationRequested();
                 AddEventsSheet(workbook, report);
                 cancellationToken.ThrowIfCancellationRequested();
-                AddEvolutionSheet(workbook, report);
+                AddEvolutionSheet(workbook, report, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
             }
-            AddDetailSheet(workbook, report);
+            AddDetailSheet(workbook, report, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             AddQualitySheet(workbook, report);
             cancellationToken.ThrowIfCancellationRequested();
@@ -225,11 +225,11 @@ public sealed class EnergyReportExportService
 
             if (report.Request.Kind == ReportKind.DetailedEnergy)
             {
-                AddDetailedTable(section, report);
+                AddDetailedTable(section, report, cancellationToken);
             }
             else if (report.Request.Kind == ReportKind.Battery)
             {
-                AddBatteryTable(section, report);
+                AddBatteryTable(section, report, cancellationToken);
             }
 
             AddQuality(section, report);
@@ -1057,7 +1057,8 @@ public sealed class EnergyReportExportService
 
     private static void AddDetailedTable(
         Section section,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var heading = section.AddParagraph(
             L(report, "Detalle", "Detail"));
@@ -1082,8 +1083,10 @@ public sealed class EnergyReportExportService
         header.Cells[3].AddParagraph(L(report, "Red kWh", "Grid kWh"));
         header.Cells[4].AddParagraph(L(report, "Cobertura", "Coverage"));
 
+        var writtenPdfRows = 0;
         foreach (var row in report.Table.Rows.Take(80))
         {
+            if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
             pdfRow.Cells[0].AddParagraph(row.LocalLabel);
             pdfRow.Cells[1].AddParagraph(NullableNumber(row.PvEnergyDisplayKwh));
@@ -1097,7 +1100,8 @@ public sealed class EnergyReportExportService
 
     private static void AddBatteryTable(
         Section section,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var heading = section.AddParagraph(
             L(report, "Detalle de batería", "Battery detail"));
@@ -1122,8 +1126,10 @@ public sealed class EnergyReportExportService
         header.Cells[3].AddParagraph(L(report, "Entregada kWh", "Supplied kWh"));
         header.Cells[4].AddParagraph(L(report, "Cobertura", "Coverage"));
 
+        var writtenPdfRows = 0;
         foreach (var row in report.Table.Rows.Take(80))
         {
+            if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
             pdfRow.Cells[0].AddParagraph(row.LocalLabel);
             pdfRow.Cells[1].AddParagraph(NullableNumber(row.SocAveragePercent));
@@ -1737,7 +1743,8 @@ public sealed class EnergyReportExportService
 
     private static void AddEvolutionSheet(
         XLWorkbook workbook,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Evolución", "Evolution"));
@@ -1767,8 +1774,10 @@ public sealed class EnergyReportExportService
         sheet.Range(3, 1, 3, headers.Length).Style.Font.Bold = true;
 
         var row = 4;
+        var processedEvolutionRows = 0;
         foreach (var item in report.Family.Evolution)
         {
+            if ((++processedEvolutionRows & 63) == 0) cancellationToken.ThrowIfCancellationRequested();
             sheet.Cell(row, 1).Value = item.LocalLabel;
             SetNullableNumber(sheet.Cell(row, 2), item.PvEnergyKwh);
             SetNullableNumber(sheet.Cell(row, 3), item.HouseEnergyKwh);
@@ -1779,9 +1788,11 @@ public sealed class EnergyReportExportService
             row++;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         sheet.SheetView.FreezeRows(3);
         sheet.Range(3, 1, Math.Max(3, row - 1), headers.Length).SetAutoFilter();
         sheet.Columns().AdjustToContents();
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static string AttributionCoverageLabel(EnergyReportData report) =>
@@ -2408,7 +2419,8 @@ public sealed class EnergyReportExportService
 
     private static void AddDetailSheet(
         XLWorkbook workbook,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Detalle", "Detail"));
@@ -2448,8 +2460,10 @@ public sealed class EnergyReportExportService
             .ToDictionary(item => item.StartUtc);
 
         var targetRow = 2;
+        var processedDetailRows = 0;
         foreach (var item in report.Table.Rows)
         {
+            if ((++processedDetailRows & 63) == 0) cancellationToken.ThrowIfCancellationRequested();
             attributionByStart.TryGetValue(item.StartUtc, out var attribution);
 
             sheet.Cell(targetRow, 1).Value = item.LocalLabel;
@@ -2491,10 +2505,12 @@ public sealed class EnergyReportExportService
             targetRow++;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         sheet.Columns(2, 3).Style.DateFormat.Format = "yyyy-mm-dd hh:mm";
         sheet.SheetView.FreezeRows(1);
         sheet.Range(1, 1, Math.Max(1, targetRow - 1), headers.Length).SetAutoFilter();
         sheet.Columns().AdjustToContents();
+        cancellationToken.ThrowIfCancellationRequested();
         for (var column = 1; column <= headers.Length; column++)
         {
             sheet.Column(column).Width = Math.Min(sheet.Column(column).Width, 28);
