@@ -5392,6 +5392,37 @@ try
             originalGraphFingerprint)
         throw new InvalidOperationException(
             "Synthetic document stage changed graph or lost original evidence.");
+    // SHA-selected staging preserves the archive distinction between
+    // bill and tariff evidence without importing a single SQLite relation.
+    var selectedBillEvidence = documentStage.Stage(
+        graphZip.Path, graphTarget.DatabasePath,
+        selectedDocumentHashes: new[] { unlinkedBillHash });
+    if (!selectedBillEvidence.Selective ||
+        selectedBillEvidence.AvailableArchiveDocuments != 3 ||
+        selectedBillEvidence.Documents.Count != 1 ||
+        selectedBillEvidence.Documents[0].Category != "Bills" ||
+        !documentStage.Verify(selectedBillEvidence, graphTarget.DatabasePath))
+        throw new InvalidOperationException("Selective document stage included an unrelated document.");
+    var forgedStageTarget = selectedBillEvidence with
+    {
+        TargetFixtureDatabase = Path.Combine(root, "wrong-target.db")
+    };
+    if (documentStage.Verify(forgedStageTarget, graphTarget.DatabasePath))
+        throw new InvalidOperationException("Document stage accepted a forged target binding.");
+    var forgedPackageSha = selectedBillEvidence with { SourcePackageSha256 = "fake" };
+    if (documentStage.Verify(forgedPackageSha, graphTarget.DatabasePath))
+        throw new InvalidOperationException("Document stage accepted a forged SHA format.");
+    Directory.Delete(selectedBillEvidence.StageDirectory, recursive: true);
+    var missingSelectedHashBlocked = false;
+    try
+    {
+        documentStage.Stage(graphZip.Path, graphTarget.DatabasePath,
+            selectedDocumentHashes: new[] { new string('F', 64) });
+    }
+    catch (InvalidOperationException) { missingSelectedHashBlocked = true; }
+    if (!missingSelectedHashBlocked)
+        throw new InvalidOperationException("Document stage accepted a missing SHA selection.");
+
     // Tamper detection and unexpected file detection operate on an
     // independent staged receipt, not trust in ZIP file names.
     var damagedItem = stagedEvidence.Documents[0];
