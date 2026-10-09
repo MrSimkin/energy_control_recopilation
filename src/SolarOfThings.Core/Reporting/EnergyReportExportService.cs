@@ -54,14 +54,17 @@ public sealed class EnergyReportExportService
             cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
-        var family = _familyAnalysis.Analyze(request);
+        var family = _familyAnalysis.Analyze(request,
+            request.Aggregation == AggregationPeriod.Day ? table : null,
+            cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var attribution = _sourceAttribution.Get(
             request.DeviceId,
             request.StartUtc,
             request.EndUtc,
             request.TimeZoneId,
-            request.Aggregation);
+            request.Aggregation,
+            cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var dailyAttribution =
             request.Aggregation == AggregationPeriod.Day
@@ -71,7 +74,8 @@ public sealed class EnergyReportExportService
                     request.StartUtc,
                     request.EndUtc,
                     request.TimeZoneId,
-                    AggregationPeriod.Day);
+                    AggregationPeriod.Day,
+                    cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
         var gridImportStatistical =
@@ -79,7 +83,8 @@ public sealed class EnergyReportExportService
                 request.DeviceId,
                 request.StartUtc,
                 request.EndUtc,
-                request.TimeZoneId);
+                request.TimeZoneId,
+                cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
         return new EnergyReportData(

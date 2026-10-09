@@ -151,6 +151,23 @@ internal static class SyntheticPerformanceCorpus
                 energy.PvEnergyKwh < 0)
                 throw new InvalidOperationException("Synthetic energy statistics invalid.");
             Measure("energy_day_four_metrics", () => statistics.Get(Device, from, to));
+            var grouped = new EnergyAggregationTableService(
+                new PowerAggregationService(database),
+                new SocAggregationService(database));
+            var groupedHistory = grouped.Get(Device, from, to, "UTC", AggregationPeriod.Day);
+            if (groupedHistory.Rows.Count == 0 ||
+                groupedHistory.Rows.Any(x => !double.IsFinite(x.PvEnergyKwh)))
+                throw new InvalidOperationException("Synthetic grouped report data invalid.");
+            Measure("report_day_five_streams", () =>
+                grouped.Get(Device, from, to, "UTC", AggregationPeriod.Day));
+            using var preCancelledAggregation = new CancellationTokenSource();
+            preCancelledAggregation.Cancel();
+            var cancelled = false;
+            try { grouped.Get(Device, from, to, "UTC", AggregationPeriod.Day,
+                preCancelledAggregation.Token); }
+            catch (OperationCanceledException) { cancelled = true; }
+            if (!cancelled)
+                throw new InvalidOperationException("Grouped report ignored cancellation.");
             Console.WriteLine("PERFORMANCE_CORPUS PASS query_parity=ALL_FIELDS " +
                 "sqlite_schema=17 real_user_data=NOT_ACCESSED");
         }

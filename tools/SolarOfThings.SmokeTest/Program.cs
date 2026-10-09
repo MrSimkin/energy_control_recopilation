@@ -2192,6 +2192,35 @@ try
         sourceAttribution,
         reportGridStatistical);
 
+    // Cancellation must reach the heavy remaining analysis families BEFORE
+    // any SQLite read, statistical simulation or report serialization.
+    using (var preCancelledReportParts = new CancellationTokenSource())
+    {
+        preCancelledReportParts.Cancel();
+        var cancelledParts = 0;
+        var cancellableRequest = new EnergyReportRequest(
+            "cancelled", familySmokeDeviceId,
+            new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 13),
+            familyLocalStart.ToUniversalTime(), familyLocalEnd.ToUniversalTime(),
+            "America/Santiago", AggregationPeriod.Day,
+            ReportKind.SimpleEnergy, "en");
+        try { familyAnalysis.Analyze(cancellableRequest, null,
+            preCancelledReportParts.Token); }
+        catch (OperationCanceledException) { cancelledParts++; }
+        try { sourceAttribution.Get(familySmokeDeviceId,
+            cancellableRequest.StartUtc, cancellableRequest.EndUtc,
+            "America/Santiago", AggregationPeriod.Day,
+            preCancelledReportParts.Token); }
+        catch (OperationCanceledException) { cancelledParts++; }
+        try { reportGridStatistical.Analyze(familySmokeDeviceId,
+            cancellableRequest.StartUtc, cancellableRequest.EndUtc,
+            "America/Santiago", preCancelledReportParts.Token); }
+        catch (OperationCanceledException) { cancelledParts++; }
+        if (cancelledParts != 3)
+            throw new InvalidOperationException(
+                "Report analysis family ignored pre-cancellation.");
+    }
+
     var reportData = reportExporter.Build(new EnergyReportRequest(
         "Smoke family energy report",
         familySmokeDeviceId,
@@ -2203,6 +2232,21 @@ try
         AggregationPeriod.Day,
         ReportKind.SimpleEnergy,
         "en"));
+
+    // Same-day reuse must agree with independent aggregation; incompatible
+    // device/range/day-table provenance must be rejected, not silently mixed.
+    var cachedFamily = familyAnalysis.Analyze(reportData.Request, reportData.Table);
+    var independentFamily = familyAnalysis.Analyze(reportData.Request);
+    if (cachedFamily.ReserveGridEpisodeCount != independentFamily.ReserveGridEpisodeCount ||
+        cachedFamily.ObservableNightCount != independentFamily.ObservableNightCount ||
+        cachedFamily.Events.Count != independentFamily.Events.Count)
+        throw new InvalidOperationException("Reused daily report changed family analysis.");
+    var wrongDayReuseBlocked = false;
+    try { familyAnalysis.Analyze(reportData.Request,
+        reportData.Table with { DeviceId = "WRONG-DEVICE" }); }
+    catch (ArgumentException) { wrongDayReuseBlocked = true; }
+    if (!wrongDayReuseBlocked)
+        throw new InvalidOperationException("Cross-device daily report cache accepted.");
 
     if (reportData.Family.ReserveGridEpisodeCount != 3 ||
         reportData.Family.ObservableNightCount != 3 ||
