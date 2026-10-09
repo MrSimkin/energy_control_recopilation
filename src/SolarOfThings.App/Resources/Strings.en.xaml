@@ -26,6 +26,19 @@
     <sys:String x:Key="Backup.ColumnDate">Date</sys:String>
     <sys:String x:Key="Backup.ColumnSize">Bytes</sys:String>
     <sys:String x:Key="Backup.ColumnStatus">Integrity</sys:String>
+    <sys:String x:Key="Backup.SelectionHeading">Selected backup details</sys:String>
+    <sys:String x:Key="Backup.SelectionHint">Select a file to inspect its listed details; only Verify proves archive integrity.</sys:String>
+    <sys:String x:Key="Backup.NotRestoreWarning">Verifying the ZIP does not prove a restore or authorize replacement of your database.</sys:String>
+    <sys:String x:Key="Backup.OpenSelectedFolder">Open backup folder</sys:String>
+    <sys:String x:Key="Backup.SaveReceipt">Save verification receipt</sys:String>
+    <sys:String x:Key="Backup.ReceiptTitle">Save verification receipt</sys:String>
+    <sys:String x:Key="Backup.SelectionNone">Select a backup from the list.</sys:String>
+    <sys:String x:Key="Backup.SelectionLegacy">Legacy SQLite-only backup: does not include bills/tariffs and cannot be fully verified.</sys:String>
+    <sys:String x:Key="Backup.SelectionUnverified">Not currently verified. Select Verify to inspect the archive.</sys:String>
+    <sys:String x:Key="Backup.VerifiedHeading">VERIFIED ARCHIVE</sys:String>
+    <sys:String x:Key="Backup.VerificationFailed">Verification failed; this copy is NOT a verified backup.</sys:String>
+    <sys:String x:Key="Backup.ReceiptSaved">Verification receipt saved: </sys:String>
+    <sys:String x:Key="Backup.ReceiptError">Unable to save a verified receipt: </sys:String>
     <sys:String x:Key="Backup.LastCopyPolicy">Deletion requires confirmation and another available verified complete backup. It never cascades to the mirror or deletes active data.</sys:String>
 
     <sys:String x:Key="SqlExplorer.ShortcutExecute">Run shortcut:</sys:String>
