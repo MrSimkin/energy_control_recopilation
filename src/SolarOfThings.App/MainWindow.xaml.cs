@@ -8309,6 +8309,7 @@ public partial class MainWindow : Window
         PrepareExportDialog(dialog);
         if (dialog.ShowDialog(this) != true) return;
         SetBackupInventoryBusy(true);
+        var archiveReverified = false;
         try
         {
             // Reverify independently BEFORE issuing a receipt, so an archive
@@ -8316,17 +8317,24 @@ public partial class MainWindow : Window
             var service = _services.GetRequiredService<CompleteBackupInventoryService>();
             var details = await Task.Run(() =>
                 service.VerifyDetails(chosen, ConfiguredSecondaryBackupFolder()));
+            archiveReverified = true;
+            _verifiedBackupInspection = details;
             var spanish = _localization.CurrentLanguage.StartsWith("es",
                 StringComparison.OrdinalIgnoreCase);
             await File.WriteAllTextAsync(dialog.FileName, details.FormatReceipt(spanish));
-            _verifiedBackupInspection = details;
             BackupInventoryStatusText.Text =
                 _localization.GetString("Backup.ReceiptSaved") + dialog.FileName;
         }
         catch (Exception ex)
         {
-            _verifiedBackupInspection = null;
-            UpdateBackupRowStatus(chosen, "FAIL");
+            // Failure to WRITE THE TEXT RECEIPT does not imply the ZIP failed
+            // verification. Only a failed independent archive recheck clears
+            // the previous PASS and marks the archive FAIL.
+            if (!archiveReverified)
+            {
+                _verifiedBackupInspection = null;
+                UpdateBackupRowStatus(chosen, "FAIL");
+            }
             BackupInventoryStatusText.Text =
                 _localization.GetString("Backup.ReceiptError") + ex.Message;
         }
