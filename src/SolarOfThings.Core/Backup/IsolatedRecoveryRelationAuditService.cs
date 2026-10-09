@@ -107,7 +107,8 @@ public sealed class IsolatedRecoveryRelationAuditService
                    (SELECT COUNT(*) FROM utility_bill_field_evidence e WHERE e.bill_id=b.bill_id),
                    (SELECT COUNT(*) FROM utility_bill b2
                     WHERE b2.source_document_id=b.source_document_id
-                      AND b.source_document_id IS NOT NULL)
+                      AND b.source_document_id IS NOT NULL),
+                   b.period_start_utc, b.period_end_utc
               FROM utility_bill b
               LEFT JOIN utility_bill_document d ON d.document_id=b.source_document_id
              ORDER BY b.bill_id LIMIT $limit;
@@ -130,6 +131,11 @@ public sealed class IsolatedRecoveryRelationAuditService
             var sourceBillsForDocument = rows.GetInt64(7);
             var targetBillsForDocument = !string.IsNullOrWhiteSpace(sha)
                 ? CountTargetBillsByDocument(target, sha) : 0;
+            // Exact UTC boundaries are only an overlap signal, never a
+            // portable account/bill identity or proof of byte equality.
+            var targetSamePeriodBills = rows.IsDBNull(8) || rows.IsDBNull(9)
+                ? 0 : CountTargetBillsByPeriod(target, rows.GetString(8),
+                    rows.GetString(9));
             var fromCandidates = ReadingCandidateCounts(source, target, from);
             var toCandidates = ReadingCandidateCounts(source, target, to);
             // Overlap is relevant even when a meter-reading foreign key
@@ -174,6 +180,16 @@ public sealed class IsolatedRecoveryRelationAuditService
                 status = "DOCUMENT_ALREADY_IN_TARGET_REVIEW";
                 explanation = "The same original document bytes exist in target; bill/lines may still conflict.";
             }
+            else if (sourceBillsForDocument != 1)
+            {
+                status = "SHARED_BILL_DOCUMENT_REVIEW";
+                explanation = "Multiple source bills share one PDF; one-to-one identity is not established.";
+            }
+            else if (targetSamePeriodBills > 0)
+            {
+                status = "BILL_PERIOD_COLLISION_REVIEW";
+                explanation = "A destination bill has these exact UTC period boundaries; account identity and equality require review.";
+            }
             else
             {
                 status = "DOCUMENT_ONLY_NEW_CANDIDATE";
@@ -186,6 +202,7 @@ public sealed class IsolatedRecoveryRelationAuditService
                 TargetHasOriginalDocument = targetHasDocument,
                 SourceBillsForDocument = sourceBillsForDocument,
                 TargetBillsForDocument = targetBillsForDocument,
+                TargetSamePeriodBills = targetSamePeriodBills,
                 FromReadingExactCandidates = fromCandidates.Exact,
                 ToReadingExactCandidates = toCandidates.Exact,
                 FromReadingTimestampCandidates = fromCandidates.Timestamp,
@@ -368,6 +385,19 @@ public sealed class IsolatedRecoveryRelationAuditService
         return Convert.ToInt64(cmd.ExecuteScalar());
     }
 
+    private static long CountTargetBillsByPeriod(
+        SqliteConnection target, string startUtc, string endUtc)
+    {
+        using var cmd = target.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM utility_bill
+             WHERE period_start_utc=$start AND period_end_utc=$end;
+            """;
+        cmd.Parameters.AddWithValue("$start", startUtc);
+        cmd.Parameters.AddWithValue("$end", endUtc);
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
     // Exact timestamp and numeric reading candidates are diagnostic only.
     // A reading_id, source_kind, time precision and provenance still require
     // independent identity review; these counters never authorize remapping.
@@ -498,6 +528,8 @@ public sealed record BillGraphPreview(long SourceBillId, string? OriginalDocumen
     public bool TargetHasOriginalDocument { get; init; }
     public long SourceBillsForDocument { get; init; }
     public long TargetBillsForDocument { get; init; }
+    // Period equality is a collision warning only. Never infer account identity.
+    public long TargetSamePeriodBills { get; init; }
     public long FromReadingExactCandidates { get; init; }
     public long ToReadingExactCandidates { get; init; }
     public long FromReadingTimestampCandidates { get; init; }

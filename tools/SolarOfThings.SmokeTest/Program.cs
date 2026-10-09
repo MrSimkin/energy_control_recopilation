@@ -6080,6 +6080,62 @@ try
         cmd.CommandText = "SELECT last_insert_rowid();";
         existingTargetBillId = Convert.ToInt64(cmd.ExecuteScalar());
     }
+    var mixedPreview = new IsolatedRecoveryRelationAuditService();
+    var newBillReview = mixedPreview.Audit(isolatedBillZip.Path,
+        isolatedTargetDb.DatabasePath).Bills.Single();
+    if (newBillReview.State != "DOCUMENT_ONLY_NEW_CANDIDATE" ||
+        newBillReview.SourceBillsForDocument != 1 ||
+        newBillReview.TargetSamePeriodBills != 0 ||
+        newBillReview.TargetHasOriginalDocument)
+        throw new InvalidOperationException(
+            "Mixed synthetic recovery falsely blocked a unique absent invoice.");
+
+    // Another account or a differently scanned bill can use exactly the
+    // same billing period. Never stage it as an absent unique graph.
+    var collisionPaths = new AppPaths(Path.Combine(root, "bill-period-collision-target"));
+    var collisionDatabase = new SqliteDatabase(collisionPaths);
+    collisionDatabase.Initialize();
+    using (var connection = collisionDatabase.OpenConnection())
+    using (var command = connection.CreateCommand())
+    {
+        command.CommandText = """
+            INSERT INTO utility_bill(period_start_utc,period_end_utc,
+                created_utc,updated_utc)
+            VALUES('2026-08-01T00:00:00Z','2026-08-31T00:00:00Z',
+                   '2026-10-09T00:00:00Z','2026-10-09T00:00:00Z');
+            """;
+        command.ExecuteNonQuery();
+    }
+    var collisionPlan = planner.CreatePlan(isolatedBillZip.Path,
+        collisionDatabase.DatabasePath);
+    var collisionReview = mixedPreview.Audit(isolatedBillZip.Path,
+        collisionDatabase.DatabasePath).Bills.Single();
+    if (collisionReview.State != "BILL_PERIOD_COLLISION_REVIEW" ||
+        collisionReview.TargetSamePeriodBills != 1 ||
+        collisionReview.TargetHasOriginalDocument)
+        throw new InvalidOperationException(
+            "Same-period different-PDF invoice not disclosed as a conflict.");
+    var collisionBundle = bundleService.Stage(collisionPlan, isolatedBillZip.Path,
+        collisionDatabase.DatabasePath, selectedDocumentHashes: new[] { isolatedBillDigest });
+    var collisionStageBefore = Directory.GetFiles(root,
+        "recovery-linked-bills-staged-*.db").Length;
+    var collisionRefused = false;
+    try
+    {
+        new IsolatedRecoveryLinkedBillGraphTestService().Stage(collisionPlan,
+            collisionBundle, isolatedBillZip.Path, collisionDatabase.DatabasePath);
+    }
+    catch (InvalidDataException) { collisionRefused = true; }
+    if (!collisionRefused ||
+        Directory.GetFiles(root, "recovery-linked-bills-staged-*.db").Length !=
+            collisionStageBefore ||
+        planner.CreatePlan(isolatedBillZip.Path, collisionDatabase.DatabasePath).PlanId !=
+            collisionPlan.PlanId)
+        throw new InvalidOperationException(
+            "Same-period synthetic import failed closed or changed its target.");
+    File.Delete(collisionBundle.Settings.StagedDatabasePath);
+    Directory.Delete(collisionBundle.Evidence.StageDirectory, recursive: true);
+
     var isolatedBillPlan = planner.CreatePlan(isolatedBillZip.Path,
         isolatedTargetDb.DatabasePath);
     var isolatedBillBundle = bundleService.Stage(isolatedBillPlan, isolatedBillZip.Path,
@@ -6846,6 +6902,9 @@ try
         linkedBill.OriginalDocumentSha256 != billHash ||
         linkedBill.SourceBillsForDocument != 2 ||
         linkedBill.TargetBillsForDocument != 0 ||
+        linkedBill.TargetSamePeriodBills != 0 ||
+        graphAudit.Bills.Single(b => b.SourceBillId != graphBillId).State !=
+            "SHARED_BILL_DOCUMENT_REVIEW" ||
         linkedBill.FromReadingExactCandidates != 0 ||
         linkedBill.ToReadingExactCandidates != 0 ||
         linkedTariff.State != "DEPENDENT_TARIFF_GRAPH_REMAP_REQUIRED" ||
