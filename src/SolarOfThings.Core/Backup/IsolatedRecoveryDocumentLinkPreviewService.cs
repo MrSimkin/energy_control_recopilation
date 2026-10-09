@@ -26,6 +26,20 @@ public sealed class IsolatedRecoveryDocumentLinkPreviewService
             .GroupBy(x => (x.Category, x.Sha256.ToUpperInvariant()))
             .ToDictionary(x => x.Key, x => x.Count());
 
+        var repeatedSourceDigest = graph.Bills
+            .Where(x => !string.IsNullOrWhiteSpace(x.OriginalDocumentSha256))
+            .Select(x => ("Bills", x.OriginalDocumentSha256!.ToUpperInvariant()))
+            .Concat(graph.UnlinkedBillDocuments
+                .Where(x => !string.IsNullOrWhiteSpace(x.OriginalDocumentSha256))
+                .Select(x => ("Bills", x.OriginalDocumentSha256!.ToUpperInvariant())))
+            .Concat(graph.Tariffs
+                .Where(x => !string.IsNullOrWhiteSpace(x.OriginalPdfSha256))
+                .Select(x => ("Tariffs", x.OriginalPdfSha256!.ToUpperInvariant())))
+            .GroupBy(x => x)
+            .Where(x => x.Count() > 1)
+            .Select(x => x.Key)
+            .ToHashSet();
+
         SyntheticDocumentLinkCandidate Classify(
             string kind, long sourceId, string category, string? sha,
             bool targetAlreadyHasEvidence)
@@ -35,6 +49,8 @@ public sealed class IsolatedRecoveryDocumentLinkPreviewService
                 lookup.TryGetValue((category, digest), out var n) ? n : 0;
             var state = string.IsNullOrWhiteSpace(digest) ? "NO_DOCUMENT_HASH" :
                 matches == 0 ? "NOT_IN_SELECTED_STAGED_EVIDENCE" :
+                matches == 1 && repeatedSourceDigest.Contains((category, digest!))
+                    ? "SHARED_SOURCE_DOCUMENT_REVIEW" :
                 matches == 1 ? "DOCUMENT_BYTES_STAGED_REVIEW_ONLY" :
                 "AMBIGUOUS_STAGED_DOCUMENT_BYTES";
             return new SyntheticDocumentLinkCandidate(kind, sourceId,
@@ -62,7 +78,11 @@ public sealed class IsolatedRecoveryDocumentLinkPreviewService
             candidates.Count(x => x.State == "AMBIGUOUS_STAGED_DOCUMENT_BYTES"),
             false,
             "All related bill, meter, tariff and publication identities remain " +
-            "unmapped. Matching a SHA verifies bytes only, not a foreign-key identity.");
+            "unmapped. Matching a SHA verifies bytes only, not a foreign-key identity.")
+        {
+            SharedSourceDocumentCandidates = candidates.Count(x =>
+                x.State == "SHARED_SOURCE_DOCUMENT_REVIEW")
+        };
     }
 }
 
@@ -76,4 +96,7 @@ public sealed record SyntheticDocumentLinkPreview(
     IReadOnlyList<SyntheticDocumentLinkCandidate> Candidates,
     int CandidatesWithUniqueStagedBytes, int CandidatesWithoutSelectedBytes,
     int AmbiguousByteCandidates, bool RelationalRestoreAuthorized,
-    string SafetyExplanation);
+    string SafetyExplanation)
+{
+    public int SharedSourceDocumentCandidates { get; init; }
+}
