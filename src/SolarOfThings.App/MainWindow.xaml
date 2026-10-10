@@ -2914,6 +2914,20 @@
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" Text="{DynamicResource SqlExplorer.SchemaHeading}"
                                            FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                                    <Button x:Name="SqlSchemaColumnsButton"
+                                            Content="{DynamicResource SqlExplorer.CatalogColumns}"
+                                            Click="SqlExplorerCatalogColumns_Click"
+                                            Padding="8,5" Margin="0,0,0,6"/>
+                                    <TextBlock Text="{DynamicResource SqlExplorer.CatalogColumnsIntro}"
+                                               FontSize="11" TextWrapping="Wrap" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="SqlSchemaColumnsStatusText"
+                                               FontSize="11" Margin="0,5,0,0"
+                                               TextWrapping="Wrap" Foreground="#6C757D"/>
+                                    <ListBox x:Name="SqlSchemaColumnsList" Height="185"
+                                             FontFamily="Consolas" FontSize="11"
+                                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                                </StackPanel>
                                 <ListBox x:Name="SqlSchemaList" MouseDoubleClick="SqlExplorerSchemaDoubleClick"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                             </DockPanel>

@@ -8598,6 +8598,7 @@ public partial class MainWindow : Window
         SqlExportCsvButton.IsEnabled = !busy;
         SqlExportXlsxButton.IsEnabled = !busy;
         SqlSchemaRefreshButton.IsEnabled = !busy;
+        SqlSchemaColumnsButton.IsEnabled = !busy;
         SqlOpenScriptButton.IsEnabled = !busy;
         SqlSaveScriptButton.IsEnabled = !busy;
         SqlCreateAnalyticalCopyButton.IsEnabled = !busy;
@@ -8960,6 +8961,64 @@ public partial class MainWindow : Window
 
     private async void SqlExplorerRefreshSchema_Click(object sender, RoutedEventArgs e) =>
         await RefreshSqlSchemaAsync();
+
+
+    private async void SqlExplorerCatalogColumns_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sqlExplorerBusy) return;
+        if (SqlSchemaList.SelectedItem is not SqlSchemaOption selected)
+        {
+            SqlSchemaColumnsStatusText.Text = SqlExplorerSpanish
+                ? "Selecciona una tabla o vista del catálogo."
+                : "Select a table or view from the catalog.";
+            return;
+        }
+
+        SetSqlExplorerBusy(true);
+        SqlSchemaColumnsList.ItemsSource = null;
+        SqlSchemaColumnsStatusText.Text = SqlExplorerSpanish
+            ? "Leyendo columnas declaradas; no se consultan filas de datos."
+            : "Reading declared columns, not table contents.";
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        try
+        {
+            var item = await new SqlSchemaCatalogService(_paths.DatabasePath)
+                .DescribeAsync(selected.Name, cancellation.Token);
+            if (_windowClosed || SqlExplorerContent.Visibility != Visibility.Visible ||
+                SqlSchemaList.SelectedItem is not SqlSchemaOption active ||
+                !string.Equals(active.Name, selected.Name, StringComparison.Ordinal))
+                return;
+            SqlSchemaColumnsList.ItemsSource = item.Columns.Select(column =>
+                column.Name + " : " +
+                (string.IsNullOrWhiteSpace(column.DeclaredType)
+                    ? "ANY" : column.DeclaredType) +
+                (column.PrimaryKey ? " · PK" : "") +
+                (column.NotNull ? " · NOT NULL" : "") +
+                (column.Hidden ? " · HIDDEN" : "")).ToArray();
+            SqlSchemaColumnsStatusText.Text = (SqlExplorerSpanish
+                ? $"Columnas declaradas: {item.Columns.Count}. "
+                : $"Declared columns: {item.Columns.Count}. ") +
+                (item.SemanticWarning ?? (SqlExplorerSpanish
+                    ? "Metadatos del esquema, sin valores." : "Schema metadata only; no values."));
+        }
+        catch (OperationCanceledException)
+        {
+            SqlSchemaColumnsStatusText.Text = SqlExplorerSpanish
+                ? "Lectura de columnas cancelada." : "Column inspection cancelled.";
+        }
+        catch (Exception ex)
+        {
+            SqlSchemaColumnsStatusText.Text = (SqlExplorerSpanish
+                ? "No se pudo inspeccionar el esquema: "
+                : "Unable to inspect schema: ") + ex.Message;
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
 
     private void SqlExplorerSchemaDoubleClick(object sender, MouseButtonEventArgs e)
     {

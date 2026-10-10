@@ -8024,6 +8024,48 @@ try
     var schema = await explorer.SchemaAsync();
     if (!schema.Rows.Any(row => row.Any(cell => cell.Text == "reporting_grid_import")))
         throw new InvalidOperationException("SQL explorer reporting schema discovery failed.");
+    // Independent read-only catalog metadata, not arbitrary user SQL. The
+    // declared unit annotations must NOT rebrand sampled W as energy kWh.
+    var catalog = new SolarOfThings.Core.SqlExplorer.SqlSchemaCatalogService(
+        database.DatabasePath);
+    var tableMetadata = await catalog.DescribeAsync("app_setting");
+    if (tableMetadata.Kind != "table" ||
+        !tableMetadata.Columns.Any(c => c.Name == "key" && c.PrimaryKey) ||
+        !tableMetadata.Columns.Any(c => c.Name == "value") ||
+        tableMetadata.Columns.Any(c => c.Hidden))
+        throw new InvalidOperationException(
+            "Read-only catalog did not return correct declared table columns.");
+    var viewMetadata = await catalog.DescribeAsync("reporting_grid_import");
+    if (viewMetadata.Kind != "view" ||
+        !viewMetadata.Columns.Any(c => c.Name == "grid_import_power_w") ||
+        viewMetadata.SemanticWarning is null ||
+        !viewMetadata.SemanticWarning.Contains("NOT integrated kWh",
+            StringComparison.Ordinal))
+        throw new InvalidOperationException(
+            "Catalog failed to distinguish sampled W from integrated energy kWh.");
+    foreach (var invalidCatalog in new[]
+    {
+        "sqlite_master", "table_missing_from_database", "a\";DROP TABLE app_setting;--"
+    })
+    {
+        var rejected = false;
+        try { await catalog.DescribeAsync(invalidCatalog); }
+        catch (ArgumentException) { rejected = true; }
+        if (!rejected)
+            throw new InvalidOperationException(
+                "Catalog metadata allowed an unknown/internal/unsafe identifier.");
+    }
+    using (var catalogPreCancel = new CancellationTokenSource())
+    {
+        catalogPreCancel.Cancel();
+        var rejected = false;
+        try { await catalog.DescribeAsync("app_setting", catalogPreCancel.Token); }
+        catch (OperationCanceledException) { rejected = true; }
+        if (!rejected)
+            throw new InvalidOperationException(
+                "Cancelled catalog metadata query still produced results.");
+    }
+
     var sqlStatement = """
         SELECT key,value FROM app_setting WHERE key LIKE 'smoke.sql.%'
         ORDER BY key;
