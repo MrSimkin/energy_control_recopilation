@@ -7913,6 +7913,112 @@ try
         seed.ExecuteNonQuery();
     }
 
+
+    // Explicit external-analysis SQLite clone (NOT recognized backup):
+    // exercise native WAL-aware snapshot, independent integrity validation,
+    // immutable owner/source data, no-overwrite and forbidden destinations.
+    var analyticalService = new SolarOfThings.Core.SqlExplorer.SqlAnalyticalCopyService(
+        database.DatabasePath, paths.DataDirectory, paths.BackupDirectory);
+    var analyticalFolder = Path.Combine(root, "isolated-analytical-exports");
+    Directory.CreateDirectory(analyticalFolder);
+    var analyticalPath = Path.Combine(analyticalFolder, "intentional.sqlite");
+    // Keep a synthetic writer open with uncheckpointed committed WAL frames.
+    using (var analyticalWriter = database.OpenConnection())
+    {
+        using var add = analyticalWriter.CreateCommand();
+        add.CommandText = """
+            INSERT INTO app_setting(key,value,updated_utc)
+            VALUES('smoke.analytical.wal','committed-WAL',
+                   '2026-10-09T00:00:00Z');
+            """;
+        add.ExecuteNonQuery();
+        var snapshot = await analyticalService.CreateAsync(analyticalPath);
+        if (snapshot.Classification !=
+                "ANALYTICAL_SQLITE_ONLY_NOT_A_COMPLETE_BACKUP" ||
+            snapshot.SchemaVersion != SqliteDatabase.CurrentSchemaVersion ||
+            snapshot.SizeBytes != new FileInfo(analyticalPath).Length ||
+            !string.Equals(snapshot.Sha256,
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    File.ReadAllBytes(analyticalPath))), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "Analytical export did not verify and describe a complete SQLite copy.");
+        using var snapshotRead = new SqliteConnection(
+            new SqliteConnectionStringBuilder
+            {
+                DataSource = analyticalPath, Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false
+            }.ToString());
+        snapshotRead.Open();
+        using var snapshotQuery = snapshotRead.CreateCommand();
+        snapshotQuery.CommandText = """
+            SELECT value FROM app_setting WHERE key='smoke.analytical.wal';
+            """;
+        if ((string?)snapshotQuery.ExecuteScalar() != "committed-WAL")
+            throw new InvalidOperationException(
+                "Analytical copy lost committed synthetic SQLite WAL pages.");
+        snapshotRead.Close();
+        add.CommandText = """
+            UPDATE app_setting SET value='source-mutated-after-copy'
+            WHERE key='smoke.analytical.wal';
+            """;
+        add.ExecuteNonQuery();
+        snapshotRead.Open();
+        if ((string?)snapshotQuery.ExecuteScalar() != "committed-WAL")
+            throw new InvalidOperationException(
+                "Analytical snapshot changed when the live source SQLite changed.");
+    }
+    var analyticalPreviousHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(analyticalPath)));
+    var analyticalOverwriteRejected = false;
+    try { await analyticalService.CreateAsync(analyticalPath); }
+    catch (IOException) { analyticalOverwriteRejected = true; }
+    if (!analyticalOverwriteRejected ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(analyticalPath))) != analyticalPreviousHash)
+        throw new InvalidOperationException(
+            "Analytical exporter overwrote an existing selected file.");
+    foreach (var analyticalUnsafe in new[]
+    {
+        Path.Combine(paths.DataDirectory, "owner-analytical.sqlite"),
+        Path.Combine(paths.BackupDirectory, "owner-analytical.sqlite"),
+        database.DatabasePath,
+        Path.Combine(analyticalFolder, "bad-extension.zip")
+    })
+    {
+        var rejected = false;
+        try { await analyticalService.CreateAsync(analyticalUnsafe); }
+        catch (InvalidOperationException) { rejected = true; }
+        catch (ArgumentException) { rejected = true; }
+        if (!rejected || (analyticalUnsafe != database.DatabasePath &&
+                File.Exists(analyticalUnsafe)))
+            throw new InvalidOperationException(
+                "Analytical copy accepted forbidden app folder, source path or suffix.");
+    }
+    using (var analyticalCancel = new CancellationTokenSource())
+    {
+        analyticalCancel.Cancel();
+        var cancelledBeforeCopy = false;
+        var cancelledAnalytical = Path.Combine(analyticalFolder, "cancelled.sqlite");
+        try { await analyticalService.CreateAsync(cancelledAnalytical, analyticalCancel.Token); }
+        catch (OperationCanceledException) { cancelledBeforeCopy = true; }
+        if (!cancelledBeforeCopy || File.Exists(cancelledAnalytical))
+            throw new InvalidOperationException(
+                "Cancelled analytical copy created a published destination.");
+    }
+    var missingAnalyticalPath = Path.Combine(analyticalFolder, "absent.sqlite");
+    var nonexistentAnalyticalService =
+        new SolarOfThings.Core.SqlExplorer.SqlAnalyticalCopyService(
+            Path.Combine(root, "not-a-source.sqlite"),
+            paths.DataDirectory, paths.BackupDirectory);
+    var absentAnalyticalRejected = false;
+    try { await nonexistentAnalyticalService.CreateAsync(missingAnalyticalPath); }
+    catch (FileNotFoundException) { absentAnalyticalRejected = true; }
+    if (!absentAnalyticalRejected || File.Exists(missingAnalyticalPath) ||
+        Directory.EnumerateFiles(analyticalFolder, "*.inprogress").Any())
+        throw new InvalidOperationException(
+            "Analytical export published a missing source or left partial candidates.");
+    File.Delete(analyticalPath);
+
     var explorer = new SolarOfThings.Core.SqlExplorer.SafeSqlExplorerService(
         database.DatabasePath);
     var schema = await explorer.SchemaAsync();
