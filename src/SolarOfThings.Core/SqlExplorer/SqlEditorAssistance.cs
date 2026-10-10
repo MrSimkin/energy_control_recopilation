@@ -64,7 +64,7 @@ public static class SqlEditorAssistance
             selectionStart > sql.Length ||
             selectionLength > sql.Length - selectionStart)
             throw new ArgumentOutOfRangeException(nameof(selectionStart));
-        var from = sql.LastIndexOf('\n', Math.Max(0, selectionStart - 1)) + 1;
+        var from = selectionStart == 0 ? 0 :\n            sql.LastIndexOf('\n', selectionStart - 1) + 1;
         var ending = selectionStart + selectionLength;
         // A selection ending at the first column of another line does not
         // include that next line.

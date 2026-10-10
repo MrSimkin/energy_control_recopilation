@@ -7736,6 +7736,61 @@ try
     if (!arbitraryAuditRejected)
         throw new InvalidOperationException("Graph audit accepted a non-fixture target.");
 
+    // Productive SQL editor UX: pure schema suggestions and line comments.
+    // Test never queries owner data, uses only visible artificial names, and
+    // cannot execute generated suggestions or write user SQL files.
+    var schemaHints = new[]
+    {
+        "reporting_grid_import", "reporting_battery", "bad\"table"
+    };
+    var statementHints =
+        SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.Suggest(
+            "SELECT * FROM reporting_gri",
+            "SELECT * FROM reporting_gri".Length, schemaHints);
+    if (statementHints.Count != 1 ||
+        statementHints[0].Label != "reporting_grid_import" ||
+        statementHints[0].Replacement != "\"reporting_grid_import\"" ||
+        statementHints[0].Start != "SELECT * FROM ".Length ||
+        statementHints[0].Length != "reporting_gri".Length)
+        throw new InvalidOperationException("SQL schema completion token/replacement is invalid.");
+    var quotes = SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.Suggest(
+        "SELECT * FROM bad", "SELECT * FROM bad".Length, schemaHints);
+    if (!quotes.Any(x => x.Replacement == "\"bad\"\"table\""))
+        throw new InvalidOperationException("SQL suggestions did not escape quoted identifiers.");
+    foreach (var unfinished in new[]
+    {
+        "SELECT 'report", "SELECT \"report", "-- reporting_gri",
+        "SELECT /* reporting_gri"
+    })
+    {
+        if (SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.Suggest(
+                unfinished, unfinished.Length, schemaHints).Count != 0)
+            throw new InvalidOperationException(
+                "SQL suggestion leaked into a comment or unfinished quoted text.");
+    }
+    var help = SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.Suggest(
+        "SELECT cou", "SELECT cou".Length, schemaHints);
+    if (!help.Any(x => x.Kind == "KEYWORD" && x.Replacement == "COUNT"))
+        throw new InvalidOperationException("SQL keyword assistance is unavailable.");
+    var sqlLines = "  SELECT a;\r\n\tFROM t;\r\n";
+    var commented = SolarOfThings.Core.SqlExplorer.SqlEditorAssistance
+        .ToggleLineComments(sqlLines, 0, sqlLines.Length);
+    if (commented.Text != "  -- SELECT a;\r\n\t-- FROM t;\r\n" ||
+        commented.SelectionStart != 0)
+        throw new InvalidOperationException("SQL block comment toggle lost CRLF or indentation.");
+    var uncommented = SolarOfThings.Core.SqlExplorer.SqlEditorAssistance
+        .ToggleLineComments(commented.Text,
+            commented.SelectionStart, commented.SelectionLength);
+    if (uncommented.Text != sqlLines)
+        throw new InvalidOperationException("SQL line-comment toggle cannot be reversed.");
+    var firstOnly = SolarOfThings.Core.SqlExplorer.SqlEditorAssistance
+        .ToggleLineComments("a\nb\nc", 0, 2);
+    if (firstOnly.Text != "-- a\nb\nc" ||
+        SolarOfThings.Core.SqlExplorer.SqlEditorAssistance
+            .ToggleLineComments("\nSELECT 1", 0, 0).Text != "\nSELECT 1")
+        throw new InvalidOperationException(
+            "SQL comment toggle accidentally modified an unselected line.");
+
     // Safe SQL explorer integrated smoke: artificial local SQLite only.
     using (var writeFixture = database.OpenConnection())
     using (var seed = writeFixture.CreateCommand())
