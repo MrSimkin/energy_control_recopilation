@@ -833,5 +833,6 @@
     <sys:String x:Key="SqlExplorer.Suggest">Sugerir SQL</sys:String>
     <sys:String x:Key="SqlExplorer.CommentLines">Comentar líneas</sys:String>
     <sys:String x:Key="SqlExplorer.SaveSql">Guardar SQL</sys:String>
+    <sys:String x:Key="SqlExplorer.OpenSql">Abrir SQL</sys:String>
 
 </ResourceDictionary>

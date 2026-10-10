@@ -8570,6 +8570,8 @@ public partial class MainWindow : Window
         SqlExportCsvButton.IsEnabled = !busy;
         SqlExportXlsxButton.IsEnabled = !busy;
         SqlSchemaRefreshButton.IsEnabled = !busy;
+        SqlOpenScriptButton.IsEnabled = !busy;
+        SqlSaveScriptButton.IsEnabled = !busy;
         SqlPreviousPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
             _sqlPreviewOffset > 0 && SqlStatementEditor.Text == _sqlLastPreviewSql;
         SqlNextPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
@@ -8754,12 +8756,70 @@ public partial class MainWindow : Window
     private void SqlExplorerSaveScript_Click(object sender, RoutedEventArgs e) =>
         SaveSqlExplorerScript();
 
+    private void SqlExplorerOpenScript_Click(object sender, RoutedEventArgs e) =>
+        OpenSqlExplorerScript();
+
+    private void OpenSqlExplorerScript()
+    {
+        if (_sqlExplorerBusy) return;
+        var dialog = new OpenFileDialog
+        {
+            Filter = "SQL (*.sql)|*.sql",
+            DefaultExt = ".sql",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            if (!string.Equals(Path.GetExtension(dialog.FileName), ".sql",
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Select a .sql script.");
+            var file = new FileInfo(dialog.FileName);
+            if (!file.Exists || file.Length > SqlEditorAssistance.MaxSqlScriptFileBytes)
+                throw new InvalidDataException("SQL script file is missing or too large.");
+            string script;
+            using (var input = new FileStream(file.FullName, FileMode.Open,
+                       FileAccess.Read, FileShare.Read))
+            using (var reader = new StreamReader(input,
+                       new System.Text.UTF8Encoding(false, true),
+                       detectEncodingFromByteOrderMarks: true))
+                script = reader.ReadToEnd();
+            if (!SqlEditorAssistance.IsSupportedScript(script))
+                throw new InvalidDataException("SQL script is empty, oversized or contains NUL.");
+            if (!string.IsNullOrWhiteSpace(SqlStatementEditor.Text) &&
+                MessageBox.Show(this,
+                    SqlExplorerSpanish
+                        ? "¿Reemplazar la consulta actual con el archivo seleccionado?"
+                        : "Replace the current query with the selected file?",
+                    SqlExplorerSpanish ? "Abrir SQL" : "Open SQL",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) !=
+                    MessageBoxResult.Yes)
+                return;
+            SqlStatementEditor.Text = script;
+            SqlStatementEditor.Focus();
+            SqlStatementEditor.CaretOffset = 0;
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Consulta abierta (sin ejecutar): "
+                : "SQL script opened (not executed): ") + file.FullName;
+            SqlExplorerDiagnosticText.Text = "";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                  or InvalidDataException
+                                  or System.Text.DecoderFallbackException)
+        {
+            SqlExplorerDiagnosticText.Text = (SqlExplorerSpanish
+                ? "No se abrió la consulta: " : "SQL script not opened: ") +
+                ex.Message;
+        }
+    }
+
     // Explicit script export: not a database backup, never autocreates files.
     private void SaveSqlExplorerScript()
     {
+        if (_sqlExplorerBusy) return;
         var script = SqlStatementEditor.Text;
-        if (string.IsNullOrWhiteSpace(script) || script.Length > 20_000 ||
-            script.IndexOf('\0') >= 0)
+        if (!SqlEditorAssistance.IsSupportedScript(script))
         {
             SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
                 ? "La consulta está vacía o excede el límite de 20.000 caracteres."
@@ -8979,6 +9039,12 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             ToggleSqlExplorerComments();
+            return;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
+        {
+            e.Handled = true;
+            OpenSqlExplorerScript();
             return;
         }
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)

@@ -2873,7 +2873,9 @@
                                     ToolTip="Ctrl+Space" Padding="12,7" Margin="0,0,8,6"/>
                             <Button Content="{DynamicResource SqlExplorer.CommentLines}" Click="SqlExplorerToggleComments_Click"
                                     ToolTip="Ctrl+/ · Ctrl+K" Padding="12,7" Margin="0,0,8,6"/>
-                            <Button Content="{DynamicResource SqlExplorer.SaveSql}" Click="SqlExplorerSaveScript_Click"
+                            <Button x:Name="SqlOpenScriptButton" Content="{DynamicResource SqlExplorer.OpenSql}" Click="SqlExplorerOpenScript_Click"
+                                    ToolTip="Ctrl+O" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlSaveScriptButton" Content="{DynamicResource SqlExplorer.SaveSql}" Click="SqlExplorerSaveScript_Click"
                                     ToolTip="Ctrl+S" Padding="12,7" Margin="0,0,8,6"/>
                         </WrapPanel>
                         <WrapPanel Margin="0,0,0,10">

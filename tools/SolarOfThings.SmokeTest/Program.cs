@@ -7739,6 +7739,16 @@ try
     // Productive SQL editor UX: pure schema suggestions and line comments.
     // Test never queries owner data, uses only visible artificial names, and
     // cannot execute generated suggestions or write user SQL files.
+    if (!SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.IsSupportedScript(
+            "SELECT FROM unfinished") ||
+        SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.IsSupportedScript("   ") ||
+        SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.IsSupportedScript(
+            "SELECT 1" + (char)0) ||
+        SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.IsSupportedScript(
+            new string('X',
+                SolarOfThings.Core.SqlExplorer.SqlEditorAssistance.MaxSqlScriptCharacters + 1)))
+        throw new InvalidOperationException(
+            "SQL script file/text bounds failed closed or rejected a harmless draft.");
     var schemaHints = new[]
     {
         "reporting_grid_import", "reporting_battery", "bad\"table"

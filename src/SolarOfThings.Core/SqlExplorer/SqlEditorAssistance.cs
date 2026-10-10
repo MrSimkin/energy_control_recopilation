@@ -9,6 +9,15 @@ namespace SolarOfThings.Core.SqlExplorer;
 public static class SqlEditorAssistance
 {
     public const int MaximumSuggestions = 18;
+    public const int MaxSqlScriptCharacters = 20_000;
+    public const int MaxSqlScriptFileBytes = 80_000;
+
+    // Saved drafts can be incomplete SQL; validate file format/size, not SELECT
+    // grammar. Execution/export keep SafeSqlExplorerService's separate gates.
+    public static bool IsSupportedScript(string? text) =>
+        !string.IsNullOrWhiteSpace(text) &&
+        text.Length <= MaxSqlScriptCharacters &&
+        text.IndexOf('\0') < 0;
     private static readonly string[] Keywords =
     [
         "SELECT", "FROM", "WHERE", "ORDER BY", "GROUP BY", "HAVING",
