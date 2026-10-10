@@ -473,41 +473,71 @@ public sealed class FullBackupService
         }
     }
 
+    // Exact archive-name binding matters as well as cryptographic digest:
+    // SHA-only matching can incorrectly count a different retained PDF as
+    // proof for a missing original. Hashless legacy v17 references must not
+    // be silently ignored; a unique archived path must still be present.
     private static void VerifyEmbeddedDocumentHashes(
         SqliteConnection database, IReadOnlyList<CompleteBackupEntry> files)
     {
-        foreach (var (table, archivePrefix) in new[]
+        foreach (var (table, category) in new[]
         {
-            ("utility_bill_document", "documents/Bills/"),
-            ("tariff_publication", "documents/Tariffs/")
+            ("utility_bill_document", "Bills"),
+            ("tariff_publication", "Tariffs")
         })
         {
-            // Keep verified byte lengths by digest: an attacker can rewrite
-            // a ZIP, its manifest AND SQLite so that all per-file digests
-            // pass while the original document's stored length is false.
-            var available = files
+            var archivePrefix = "documents/" + category + "/";
+            var archiveFiles = files
                 .Where(item => item.RelativePath.StartsWith(
                     archivePrefix, StringComparison.Ordinal))
-                .GroupBy(item => item.Sha256, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key,
-                    group => group.Select(item => item.Size).ToHashSet(),
+                .ToDictionary(item => item.RelativePath,
                     StringComparer.OrdinalIgnoreCase);
             using var query = database.CreateCommand();
             query.CommandText = $"""
-                SELECT content_sha256, content_length FROM {table}
+                SELECT local_pdf_path, content_sha256, content_length FROM {table}
                  WHERE local_pdf_path IS NOT NULL
-                   AND TRIM(local_pdf_path) <> ''
-                   AND content_sha256 IS NOT NULL
-                   AND TRIM(content_sha256) <> '';
+                   AND TRIM(local_pdf_path) <> '';
                 """;
             using var rows = query.ExecuteReader();
             while (rows.Read())
             {
-                if (!available.TryGetValue(rows.GetString(0), out var sizes))
+                var originalPath = rows.GetString(0);
+                if (!Path.IsPathFullyQualified(originalPath))
                     throw new InvalidDataException(
-                        "Snapshot references an original document missing from its backup category.");
-                if (!rows.IsDBNull(1) && rows.GetInt64(1) > 0 &&
-                    !sizes.Contains(rows.GetInt64(1)))
+                        "Snapshot original document path is not fully qualified.");
+                // The embedded DB retains its ORIGINAL absolute path. A ZIP
+                // is relocatable, so use a path-segment-anchored suffix, not
+                // that machine's drive letter or installation directory.
+                var normalized = originalPath.Replace('\\', '/');
+                var anchor = "/" + category + "/";
+                var matchCount = 0;
+                CompleteBackupEntry? matched = null;
+                var offset = 0;
+                while (true)
+                {
+                    var index = normalized.IndexOf(anchor, offset,
+                        StringComparison.OrdinalIgnoreCase);
+                    if (index < 0) break;
+                    var relative = normalized[(index + anchor.Length)..];
+                    if (archiveFiles.TryGetValue(archivePrefix + relative,
+                            out var candidate))
+                    {
+                        matched = candidate;
+                        matchCount++;
+                    }
+                    offset = index + anchor.Length;
+                }
+                if (matchCount != 1 || matched is null)
+                    throw new InvalidDataException(
+                        "Snapshot original document has no unique matching archive path.");
+                var storedSha = rows.IsDBNull(1) ? null : rows.GetString(1);
+                if (!string.IsNullOrWhiteSpace(storedSha) &&
+                    !string.Equals(matched.Sha256, storedSha,
+                        StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException(
+                        "Snapshot original document digest differs from archive bytes.");
+                if (!rows.IsDBNull(2) && rows.GetInt64(2) > 0 &&
+                    matched.Size != rows.GetInt64(2))
                     throw new InvalidDataException(
                         "Snapshot document byte length disagrees with verified archive.");
             }
