@@ -805,7 +805,7 @@ try
         try
         {
             change.CommandText = """
-                UPDATE utility_bill_document SET content_sha256=NULL
+                UPDATE utility_bill_document SET content_sha256=''
                 WHERE original_file_name='smoke-original-bill.txt';
                 """;
             if (change.ExecuteNonQuery() != 1)
@@ -894,7 +894,7 @@ try
     }
 
     var missingStoredHash = ForgeOriginalBillReference("hashless-missing",
-        "UPDATE utility_bill_document SET content_sha256=NULL " +
+        "UPDATE utility_bill_document SET content_sha256='' " +
         "WHERE original_file_name='smoke-original-bill.txt';",
         omitOriginalBillFile: true);
     var hashlessOmissionRejected = false;
