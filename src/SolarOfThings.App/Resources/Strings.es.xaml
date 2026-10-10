@@ -830,4 +830,8 @@
     <sys:String x:Key="Data.ImportIntro">Selecciona una instalación anterior o su carpeta Data. La aplicación prepara la copia con avance visible, respalda automáticamente el Data actual y se reinicia para aplicar la importación antes de abrir SQLite. Si la sesión protegida importada puede descifrarse con tu usuario de Windows, se habilita la reconexión automática.</sys:String>
     <sys:String x:Key="Data.ImportButton">Importar datos de otra instalación</sys:String>
 
+    <sys:String x:Key="SqlExplorer.Suggest">Sugerir SQL</sys:String>
+    <sys:String x:Key="SqlExplorer.CommentLines">Comentar líneas</sys:String>
+    <sys:String x:Key="SqlExplorer.SaveSql">Guardar SQL</sys:String>
+
 </ResourceDictionary>

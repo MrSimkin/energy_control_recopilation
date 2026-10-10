@@ -8690,6 +8690,119 @@ public partial class MainWindow : Window
             prefix + codes + ": " + diagnostic.Message + location;
     }
 
+
+    // Editor QoL: completion only from the already loaded, visible schema
+    // catalog and fixed SQL keywords. Does not query the active database.
+    private void SqlExplorerSuggest_Click(object sender, RoutedEventArgs e) =>
+        ShowSqlExplorerSuggestions();
+
+    private void ShowSqlExplorerSuggestions()
+    {
+        var names = SqlSchemaList.Items.OfType<SqlSchemaOption>()
+            .Select(item => item.Name);
+        var candidates = SqlEditorAssistance.Suggest(
+            SqlStatementEditor.Text, SqlStatementEditor.CaretOffset, names);
+        if (candidates.Count == 0)
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "No hay sugerencias para esta posición. Las cadenas y comentarios se omiten."
+                : "No suggestions at this position. Strings and comments are excluded.";
+            return;
+        }
+        var menu = new ContextMenu { PlacementTarget = SqlStatementEditor };
+        foreach (var suggestion in candidates)
+        {
+            var option = suggestion;
+            var item = new MenuItem
+            {
+                Header = option.Label + (option.Kind == "SCHEMA"
+                    ? (SqlExplorerSpanish ? " · tabla/vista" : " · table/view")
+                    : " · SQL")
+            };
+            item.Click += (_, _) =>
+            {
+                // A stale menu must never change a different/newer query.
+                var document = SqlStatementEditor.Document;
+                if (document is null || document.TextLength < option.Start + option.Length)
+                    return;
+                var original = document.GetText(option.Start, option.Length);
+                if (!string.Equals(original, _sqlSuggestionPrefix,
+                        StringComparison.Ordinal))
+                    return;
+                document.Replace(option.Start, option.Length, option.Replacement);
+                SqlStatementEditor.CaretOffset = option.Start + option.Replacement.Length;
+                SqlStatementEditor.Focus();
+            };
+            menu.Items.Add(item);
+        }
+        _sqlSuggestionPrefix = SqlStatementEditor.Document.GetText(
+            candidates[0].Start, candidates[0].Length);
+        SqlStatementEditor.ContextMenu = menu;
+        menu.IsOpen = true;
+    }
+
+    private string _sqlSuggestionPrefix = "";
+
+    private void SqlExplorerToggleComments_Click(object sender, RoutedEventArgs e) =>
+        ToggleSqlExplorerComments();
+
+    private void ToggleSqlExplorerComments()
+    {
+        var result = SqlEditorAssistance.ToggleLineComments(
+            SqlStatementEditor.Text,
+            SqlStatementEditor.SelectionStart, SqlStatementEditor.SelectionLength);
+        SqlStatementEditor.Text = result.Text;
+        SqlStatementEditor.Select(result.SelectionStart, result.SelectionLength);
+        SqlStatementEditor.Focus();
+    }
+
+    private void SqlExplorerSaveScript_Click(object sender, RoutedEventArgs e) =>
+        SaveSqlExplorerScript();
+
+    // Explicit script export: not a database backup, never autocreates files.
+    private void SaveSqlExplorerScript()
+    {
+        var script = SqlStatementEditor.Text;
+        if (string.IsNullOrWhiteSpace(script) || script.Length > 20_000 ||
+            script.IndexOf('\0') >= 0)
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "La consulta está vacía o excede el límite de 20.000 caracteres."
+                : "SQL script is empty or exceeds the 20,000-character limit.";
+            return;
+        }
+        var dialog = new SaveFileDialog
+        {
+            Filter = "SQL (*.sql)|*.sql",
+            DefaultExt = ".sql",
+            AddExtension = true,
+            FileName = "consulta.sql",
+            OverwritePrompt = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            if (!string.Equals(Path.GetExtension(dialog.FileName), ".sql",
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Only .sql scripts can be saved here.");
+            using (var output = new FileStream(dialog.FileName,
+                       FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(output,
+                       new System.Text.UTF8Encoding(false)))
+                writer.Write(script);
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Consulta guardada explícitamente: "
+                : "SQL script explicitly saved: ") + dialog.FileName;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                  or InvalidOperationException)
+        {
+            SqlExplorerDiagnosticText.Text = (SqlExplorerSpanish
+                ? "No se guardó la consulta: " : "SQL script not saved: ") +
+                ex.Message;
+        }
+    }
+
     private async void SqlExplorerRefreshSchema_Click(object sender, RoutedEventArgs e) =>
         await RefreshSqlSchemaAsync();
 
@@ -8860,6 +8973,25 @@ public partial class MainWindow : Window
 
     private void SqlExplorerEditorPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.Space)
+        {
+            e.Handled = true;
+            ShowSqlExplorerSuggestions();
+            return;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.Control &&
+            (e.Key == Key.Oem2 || e.Key == Key.Divide || e.Key == Key.K))
+        {
+            e.Handled = true;
+            ToggleSqlExplorerComments();
+            return;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
+        {
+            e.Handled = true;
+            SaveSqlExplorerScript();
+            return;
+        }
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
         {
             e.Handled = true;

@@ -2869,6 +2869,12 @@
                                     Click="SqlExplorerExportXlsx_Click" Padding="12,7" Margin="0,0,8,6"/>
                             <Button x:Name="SqlSchemaRefreshButton" Content="{DynamicResource SqlExplorer.RefreshSchema}"
                                     Click="SqlExplorerRefreshSchema_Click" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource SqlExplorer.Suggest}" Click="SqlExplorerSuggest_Click"
+                                    ToolTip="Ctrl+Space" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource SqlExplorer.CommentLines}" Click="SqlExplorerToggleComments_Click"
+                                    ToolTip="Ctrl+/ · Ctrl+K" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource SqlExplorer.SaveSql}" Click="SqlExplorerSaveScript_Click"
+                                    ToolTip="Ctrl+S" Padding="12,7" Margin="0,0,8,6"/>
                         </WrapPanel>
                         <WrapPanel Margin="0,0,0,10">
                             <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExecute}" VerticalAlignment="Center" Margin="0,0,5,0"/>

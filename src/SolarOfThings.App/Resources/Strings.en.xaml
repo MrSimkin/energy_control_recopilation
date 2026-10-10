@@ -830,4 +830,8 @@
     <sys:String x:Key="Data.ImportIntro">Select a previous installation or its Data folder. The app stages the copy with visible progress, automatically backs up current Data and restarts to apply the import before SQLite opens. If the imported protected session can be decrypted by your Windows user, automatic reconnection is enabled.</sys:String>
     <sys:String x:Key="Data.ImportButton">Import data from another installation</sys:String>
 
+    <sys:String x:Key="SqlExplorer.Suggest">SQL suggestions</sys:String>
+    <sys:String x:Key="SqlExplorer.CommentLines">Toggle comments</sys:String>
+    <sys:String x:Key="SqlExplorer.SaveSql">Save SQL</sys:String>
+
 </ResourceDictionary>
