@@ -211,3 +211,20 @@ del límite de 50.000 con más datos todavía existentes. Ninguna prueba
 usa la base de datos ni el Windows del propietario. El QA visual y de
 rendimiento con base real se reserva para la **única prueba consolidada**
 posterior; esta funcionalidad todavía no equivale a aceptación del producto.
+
+## Editor SQL: sugerencias, comentarios y reutilización de scripts (Build 818)
+
+**Nuevo en Fase 11, distinto del trabajo de respaldos:** el Explorador SQL integrado conserva sus consultas SELECT/WITH de solo lectura, protección nativa, paginación de 200 filas, exportaciones completas CSV/XLSX, resaltado y diagnóstico de errores. Se añadieron cuatro interacciones reales, disponibles tanto por botones como por atajos:
+
+| Acción | Atajo | Comportamiento |
+|---|---|---|
+| Sugerencias de SQL | `Ctrl+Espacio` | Palabras clave y nombres de tablas/vistas ya visibles en el catálogo del explorador; un menú permite insertar la sugerencia sin ejecutar ninguna consulta |
+| Comentar/descomentar líneas | `Ctrl+/` o `Ctrl+K` | Actúa sobre líneas seleccionadas, respeta sangría y CRLF; en general `Ctrl+/` depende de distribución de teclado, por eso existe `Ctrl+K` |
+| Abrir un archivo SQL | `Ctrl+O` | El usuario elige un `.sql`; verifica extensión, UTF-8/identidad de texto y límites; solicita confirmación antes de reemplazar un editor no vacío; **NO ejecuta el script** |
+| Guardar un archivo SQL | `Ctrl+S` | El usuario elige un `.sql`; permite guardar borradores aún incompletos, solo con contenido de texto válido; crea archivo nuevo sin sobrescribir existentes |
+
+La asistencia de edición es **puramente local y acotada**: no ejecuta SQL, no examina tablas fuera del catálogo visible y no toca SQLite para generar sugerencias. No da sugerencias dentro de comentarios o literales, evita reemplazos con consultas modificadas desde que se abrió el menú y escapa nombres SQL especiales al insertarlos. El catálogo de tablas/vistas se carga por la consulta protegida existente; sin cargarlo, siguen disponibles palabras clave. Las funciones son nuevas, pero **no implican** autocompletado de todas las columnas, análisis semántico estilo IDE, navegación histórica o una vista energética nueva. La apertura de archivos usa límite de 80.000 bytes y límite de 20.000 caracteres; guardar también se limita a 20.000 caracteres. El contenido de un script es texto que el usuario elige expresamente manejar: no es un respaldo de la base.
+
+**Validación:** [Windows Build 818 / run 38009151459](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38009151459) **SUCCESS**, código `8e15cfe6010cce24572391b00dbb9746536ec5ae`, .NET 10/WPF Release build, smoke tests del asistente SQL, paginación y exports previos, corpus de rendimiento 24k y 96k, publicación win-x64. El smoke puro prueba sugerencias filtradas/escapadas, límites fuera de comentarios y literales, inversión del comentario de varias líneas preservando CRLF y validación de contenidos de scripts. La interacción de archivos/menús/atajos se compila en CI pero la experiencia manual del editor requiere la futura **única QA consolidada de Windows**. Builds 815/816 fallaron al compilar por un `\\n` literal introducido en el nuevo helper; se corrigió en `827148baf24892cd2ed3a47ae7503328a8086ca0`; Build 817 PASS para editor y Build 818 PASS para la incorporación final de Abrir SQL.
+
+**No repetir en próximas tandas:** paginación, SQL read-only, exportaciones, números de línea, atajos de ejecución/export, sugerencias de nombres de esquema, comentar/descomentar y abrir/guardar `.sql` quedan implementados y cubiertos por pruebas de CI, pendientes solo de validación visual integrada. Priorizar otras funciones faltantes de informes/análisis/UX o problemas reales reproducibles, no reauditar esta lista sin nueva señal.
