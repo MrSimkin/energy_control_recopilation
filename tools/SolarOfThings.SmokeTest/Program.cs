@@ -862,8 +862,8 @@ try
         using (var zip = ZipFile.Open(package, ZipArchiveMode.Update))
         {
             zip.GetEntry("database/energy.db")!.Delete();
-            using (var output = zip.CreateEntry("database/energy.db").Open())
-                output.Write(rewrittenDb);
+            using (var replacementDbEntry = zip.CreateEntry("database/energy.db").Open())
+                replacementDbEntry.Write(rewrittenDb);
             var manifestEntry = zip.GetEntry("manifest.json")!;
             CompleteBackupManifest updatedManifest;
             using (var input = manifestEntry.Open())
