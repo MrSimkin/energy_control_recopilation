@@ -9431,8 +9431,13 @@ public partial class MainWindow : Window
         await RefreshBackupInventoryAsync();
     }
 
-    private void BackupPageSettings_Click(object sender, RoutedEventArgs e) =>
+    private void BackupPageSettings_Click(object sender, RoutedEventArgs e)
+    {
+        // Destination settings link lands on the actual backup destination
+        // tab, not an unrelated Connection tab.
         ShowPage("Settings");
+        SettingsTabControl.SelectedIndex = 3;
+    }
 
     private void BackupPageOpenFolder_Click(object sender, RoutedEventArgs e)
     {
