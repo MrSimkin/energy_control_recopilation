@@ -200,8 +200,9 @@ public partial class DeveloperDiagnosticsWindow : Window
         var generation = ++_reportGeneration;
         if (!alreadyBusy) SetBusy(true);
         ReportTextBox.Text = "";
-        ActionStatusText.Text =
-            "Leyendo resumen local en segundo plano / Reading local overview in background...";
+        if (!alreadyBusy)
+            ActionStatusText.Text =
+                "Leyendo resumen local en segundo plano / Reading local overview in background...";
         try
         {
             var report = await Task.Run(() =>
@@ -214,7 +215,8 @@ public partial class DeveloperDiagnosticsWindow : Window
                 _diagnostics.BuildSanitizedReport(80));
             if (_windowClosed || generation != _reportGeneration) return;
             ReportTextBox.Text = report;
-            ActionStatusText.Text = "Resumen disponible / Overview ready.";
+            if (!alreadyBusy)
+                ActionStatusText.Text = "Resumen disponible / Overview ready.";
         }
         catch (Exception ex)
         {
