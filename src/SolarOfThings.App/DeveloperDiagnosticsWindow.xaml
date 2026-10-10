@@ -34,7 +34,7 @@
                     <Button x:Name="ConfigReadButton" Content="{DynamicResource Diagnostics.ConfigRead}" Padding="12,7" Margin="0,0,8,8" Click="ConfigRead_Click"/>
                     <Button x:Name="GridEnergyButton" Content="{DynamicResource Diagnostics.GridImportEnergy}" Padding="12,7" Margin="0,0,8,8" Click="GridEnergy_Click"/>
                     <Button x:Name="PhaseEvidenceButton" Content="{DynamicResource Diagnostics.PhaseEvidence}" Padding="12,7" Margin="0,0,8,8" Click="PhaseEvidence_Click"/>
-                    <Button x:Name="BackupButton" Content="{DynamicResource Diagnostics.BackupDatabase}" Padding="12,7" Margin="0,0,8,8" Click="Backup_Click"/>
+                    <Button x:Name="BackupButton" Content="{DynamicResource Diagnostics.OpenDataProtection}" Padding="12,7" Margin="0,0,8,8" Click="Backup_Click"/>
                     <Button x:Name="ExportBundleButton" Content="{DynamicResource Diagnostics.ExportBundle}" Padding="12,7" Margin="0,0,8,8" Click="ExportBundle_Click"/>
                 </WrapPanel>
                 <ProgressBar x:Name="DiagnosticsBusyBar"

@@ -849,4 +849,5 @@
     <sys:String x:Key="Settings.ShortcutsIntro">Configure SQL editor shortcuts here. Existing values are retained and duplicates are rejected.</sys:String>
     <sys:String x:Key="Settings.OpenSqlExplorer">Open SQL Explorer</sys:String>
     <sys:String x:Key="Settings.OpenProtection">Open Data Protection and full inventory</sys:String>
+    <sys:String x:Key="Diagnostics.OpenDataProtection">Open Data Protection</sys:String>
 </ResourceDictionary>

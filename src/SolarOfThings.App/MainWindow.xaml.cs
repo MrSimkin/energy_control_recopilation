@@ -9751,6 +9751,10 @@ public partial class MainWindow : Window
     private void SettingsOpenProtection_Click(object sender, RoutedEventArgs e) =>
         ShowPage("Backup");
 
+    // Developer diagnostics is subordinate to the single recognized backup
+    // workflow. Never launch a second backup operation from a diagnostics pane.
+    internal void OpenProtectionFromDiagnostics() => ShowPage("Backup");
+
     private void SettingsOpenSqlExplorer_Click(object sender, RoutedEventArgs e) =>
         ShowPage("SqlExplorer");
 

@@ -107,18 +107,17 @@ public partial class DeveloperDiagnosticsWindow : Window
         });
     }
 
-    private async void Backup_Click(object sender, RoutedEventArgs e)
+    private void Backup_Click(object sender, RoutedEventArgs e)
     {
-        await RunAsync(async () =>
+        // Only the dedicated Protection screen creates and audits backups.
+        if (Owner is MainWindow main)
         {
-            ActionStatusText.Text = "Creando respaldo COMPLETO (SQLite, boletas y tarifas)...";
-            var result = await Task.Run(() =>
-                _backup.Create(ProductInfo.ProductVersion, ProductInfo.BuildNumber, ProductInfo.SourceRevision));
+            Close();
+            main.OpenProtectionFromDiagnostics();
+        }
+        else
             ActionStatusText.Text =
-                $"Respaldo completo verificado ({result.FileCount} archivos), integridad {result.IntegrityStatus}; " +
-                $"SHA-256 {result.Sha256}; guardado en {result.Path}";
-            System.Media.SystemSounds.Asterisk.Play();
-        });
+                "Open the main window and select Data Protection.";
     }
 
     private async void ExportBundle_Click(object sender, RoutedEventArgs e)
