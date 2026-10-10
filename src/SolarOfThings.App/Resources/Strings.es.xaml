@@ -839,4 +839,7 @@
 
     <sys:String x:Key="Dashboard.LatestDayUnavailable">Energía diaria no disponible; revisa datos y cobertura.</sys:String>
 
+    <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopy">Copia SQLite externa</sys:String>
+    <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopyHint">Copia SQLite puntual para análisis externo; no es un respaldo completo ni una restauración</sys:String>
+
 </ResourceDictionary>

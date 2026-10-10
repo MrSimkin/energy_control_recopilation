@@ -8600,6 +8600,7 @@ public partial class MainWindow : Window
         SqlSchemaRefreshButton.IsEnabled = !busy;
         SqlOpenScriptButton.IsEnabled = !busy;
         SqlSaveScriptButton.IsEnabled = !busy;
+        SqlCreateAnalyticalCopyButton.IsEnabled = !busy;
         SqlPreviousPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
             _sqlPreviewOffset > 0 && SqlStatementEditor.Text == _sqlLastPreviewSql;
         SqlNextPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
@@ -8783,6 +8784,77 @@ public partial class MainWindow : Window
 
     private void SqlExplorerSaveScript_Click(object sender, RoutedEventArgs e) =>
         SaveSqlExplorerScript();
+
+
+    // A one-off, explicitly user-requested analytical SQLite file for
+    // external read-only database clients. NOT a complete recovery backup:
+    // no Bills/Tariffs/settings-document package and no automatic retention.
+    private async void SqlExplorerCreateAnalyticalCopy_Click(
+        object sender, RoutedEventArgs e)
+    {
+        if (_sqlExplorerBusy) return;
+        var spanish = SqlExplorerSpanish;
+        var dialog = new SaveFileDialog
+        {
+            Filter = "SQLite (*.sqlite)|*.sqlite",
+            DefaultExt = ".sqlite",
+            AddExtension = true,
+            FileName = "analisis-solar-lectura.sqlite",
+            OverwritePrompt = false,
+            Title = spanish ? "Copia analítica para herramientas externas"
+                            : "Analytical copy for external SQLite tools"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        var consent = MessageBox.Show(this,
+            spanish
+                ? "Se creará una copia puntual y consistente de SQLite para consultas externas. "
+                  + "Puede contener configuraciones y datos privados. NO es un respaldo completo: "
+                  + "no incluye documentos originales y NO sirve para restaurar esta aplicación. "
+                  + "Guárdala en una carpeta externa a Data y Backups. ¿Continuar?"
+                : "Create a consistent one-off SQLite file for external queries. "
+                  + "It may contain private settings and data. This is NOT a full backup: "
+                  + "original documents are excluded and it must NOT be used to restore the app. "
+                  + "Save outside Data and Backups. Continue?",
+            spanish ? "Copia analítica SQLite" : "SQLite analytical copy",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (consent != MessageBoxResult.Yes) return;
+
+        SetSqlExplorerBusy(true);
+        // Native online SQLite backup is synchronous on a worker; unlike SQL
+        // query execution it has no mid-copy cancellation in this version.
+        // Do not advertise a cancel button that cannot stop the copy.
+        SqlCancelButton.IsEnabled = false;
+        SqlExplorerDiagnosticText.Text = "";
+        SqlExplorerPerformanceText.Text = "";
+        SqlExplorerStatusText.Text = spanish
+            ? "Generando y verificando copia SQLite... No cierres la aplicación."
+            : "Creating and verifying SQLite copy... Keep the app open.";
+        var watch = Stopwatch.StartNew();
+        try
+        {
+            var service = new SqlAnalyticalCopyService(
+                _paths.DatabasePath, _paths.DataDirectory, _paths.BackupDirectory);
+            var receipt = await service.CreateAsync(dialog.FileName);
+            SqlExplorerStatusText.Text = (spanish
+                ? "Copia analítica verificada (NO respaldo completo): "
+                : "Verified analytical SQLite copy (NOT full backup): ")
+                + receipt.Path;
+            SqlExplorerPerformanceText.Text =
+                $"SQLite v{receipt.SchemaVersion} · {receipt.SizeBytes:N0} bytes · "
+                + $"SHA-256 {receipt.Sha256} · {watch.Elapsed.TotalSeconds:N1} s";
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = spanish
+                ? "No se publicó la copia analítica."
+                : "Analytical copy was not published.";
+            SqlExplorerDiagnosticText.Text = ex.Message;
+        }
+        finally
+        {
+            SetSqlExplorerBusy(false);
+        }
+    }
 
     private void SqlExplorerOpenScript_Click(object sender, RoutedEventArgs e) =>
         OpenSqlExplorerScript();

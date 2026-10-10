@@ -2877,6 +2877,11 @@
                                     ToolTip="Ctrl+O" Padding="12,7" Margin="0,0,8,6"/>
                             <Button x:Name="SqlSaveScriptButton" Content="{DynamicResource SqlExplorer.SaveSql}" Click="SqlExplorerSaveScript_Click"
                                     ToolTip="Ctrl+S" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlCreateAnalyticalCopyButton"
+                                    Content="{DynamicResource SqlExplorer.ExternalAnalyticalCopy}"
+                                    Click="SqlExplorerCreateAnalyticalCopy_Click"
+                                    Padding="12,7" Margin="0,0,8,6"
+                                    ToolTip="{DynamicResource SqlExplorer.ExternalAnalyticalCopyHint}"/>
                         </WrapPanel>
                         <WrapPanel Margin="0,0,0,10">
                             <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExecute}" VerticalAlignment="Center" Margin="0,0,5,0"/>
