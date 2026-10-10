@@ -833,7 +833,7 @@ try
     // Forge only DISPOSABLE synthetic ZIPs, updating SQLite, entry checksums,
     // sizes and manifest so ordinary ZIP integrity checks are NOT sufficient.
     string ForgeOriginalBillReference(string label, string sql,
-        bool omitOriginalBillFile = false)
+        bool omitOriginalBillFile = false, bool omitTariffFile = false)
     {
         var extractedDb = Path.Combine(root, "forge-original-ref-" + label + ".db");
         var package = Path.Combine(root, "forge-original-ref-" + label + ".zip");
@@ -872,11 +872,15 @@ try
             manifestEntry.Delete();
             if (omitOriginalBillFile)
                 zip.GetEntry("documents/Bills/smoke-original-bill.txt")!.Delete();
+            if (omitTariffFile)
+                zip.GetEntry("documents/Tariffs/smoke-tariff.txt")!.Delete();
             updatedManifest = updatedManifest with
             {
                 Files = updatedManifest.Files
-                    .Where(x => !omitOriginalBillFile ||
-                        x.RelativePath != "documents/Bills/smoke-original-bill.txt")
+                    .Where(x => (!omitOriginalBillFile ||
+                        x.RelativePath != "documents/Bills/smoke-original-bill.txt") &&
+                        (!omitTariffFile ||
+                        x.RelativePath != "documents/Tariffs/smoke-tariff.txt"))
                     .Select(x => x.RelativePath == "database/energy.db"
                         ? new CompleteBackupEntry("database/energy.db",
                             rewrittenDb.Length, rewrittenHash)
@@ -915,6 +919,39 @@ try
         throw new InvalidOperationException(
             "Verified ZIP accepted a same-SHA PDF under the wrong original filename.");
     File.Delete(wrongOriginalPath);
+
+
+    // Apply the SAME missing-hash/path gate to historical tariff publication
+    // evidence, not only electricity bill PDFs. The forged tariff record and
+    // ZIPs never enter the original synthetic source's active SQLite.
+    var escapedTariffPath = syntheticTariff.Replace("'", "''");
+    var hashlessTariffSql = $"""
+        INSERT INTO tariff_publication(
+            provider,category,title,source_url,effective_from,
+            local_pdf_path,content_sha256,content_length,page_count,
+            capture_status,updated_utc)
+        VALUES('ENEL','REGULATED','Synthetic archived tariff',
+               'smoke://original-tariff','2026-09-01',
+               '{escapedTariffPath}',NULL,{new FileInfo(syntheticTariff).Length},
+               1,'CAPTURED','2026-10-09T00:00:00Z');
+        """;
+    var hashlessTariffValid = ForgeOriginalBillReference(
+        "tariff-hashless-intact", hashlessTariffSql);
+    if (FullBackupService.VerifyArchive(hashlessTariffValid).SchemaVersion != 17)
+        throw new InvalidOperationException(
+            "Intact uniquely archived hashless tariff PDF was rejected.");
+    File.Delete(hashlessTariffValid);
+
+    var hashlessTariffMissing = ForgeOriginalBillReference(
+        "tariff-hashless-missing", hashlessTariffSql,
+        omitTariffFile: true);
+    var missingTariffRejected = false;
+    try { FullBackupService.VerifyArchive(hashlessTariffMissing); }
+    catch (InvalidDataException) { missingTariffRejected = true; }
+    if (!missingTariffRejected)
+        throw new InvalidOperationException(
+            "A hashless SQLite-referenced tariff was omitted from forged ZIP/manifest.");
+    File.Delete(hashlessTariffMissing);
 
     if (FullBackupService.VerifyArchive(complete.Path).SchemaVersion != 17 ||
         fullManifest.Files.Count != FullBackupService.VerifyArchive(complete.Path).Files.Count)
