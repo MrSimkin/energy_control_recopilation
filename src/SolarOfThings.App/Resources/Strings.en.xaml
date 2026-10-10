@@ -852,4 +852,6 @@
     <sys:String x:Key="Diagnostics.OpenDataProtection">Open Data Protection</sys:String>
     <sys:String x:Key="SqlExplorer.CatalogColumns">Show columns</sys:String>
     <sys:String x:Key="SqlExplorer.CatalogColumnsIntro">Select an object to inspect its column metadata without reading data.</sys:String>
+    <sys:String x:Key="Diagnostics.RemoteGroup">API investigation and remote reads (on demand)</sys:String>
+    <sys:String x:Key="Diagnostics.LocalGroup">Local evidence and data protection</sys:String>
 </ResourceDictionary>

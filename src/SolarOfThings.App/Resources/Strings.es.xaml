@@ -852,4 +852,6 @@
     <sys:String x:Key="Diagnostics.OpenDataProtection">Ir a Protección de datos</sys:String>
     <sys:String x:Key="SqlExplorer.CatalogColumns">Ver columnas</sys:String>
     <sys:String x:Key="SqlExplorer.CatalogColumnsIntro">Selecciona un objeto y consulta sus columnas sin leer datos.</sys:String>
+    <sys:String x:Key="Diagnostics.RemoteGroup">Investigación API y lecturas remotas (solo bajo demanda)</sys:String>
+    <sys:String x:Key="Diagnostics.LocalGroup">Evidencia local y protección de datos</sys:String>
 </ResourceDictionary>
