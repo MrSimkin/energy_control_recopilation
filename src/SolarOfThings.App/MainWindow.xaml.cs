@@ -9748,6 +9748,12 @@ public partial class MainWindow : Window
         }
     }
 
+    private void SettingsOpenProtection_Click(object sender, RoutedEventArgs e) =>
+        ShowPage("Backup");
+
+    private void SettingsOpenSqlExplorer_Click(object sender, RoutedEventArgs e) =>
+        ShowPage("SqlExplorer");
+
     private async void SettingsBackupNow_Click(object sender, RoutedEventArgs e)
     {
         await CreateCompleteBackupAsync();

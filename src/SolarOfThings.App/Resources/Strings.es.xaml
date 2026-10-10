@@ -842,4 +842,11 @@
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopy">Copia SQLite externa</sys:String>
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopyHint">Copia SQLite puntual para análisis externo; no es un respaldo completo ni una restauración</sys:String>
 
+    <sys:String x:Key="Settings.Tab.Connection">Conexión</sys:String>
+    <sys:String x:Key="Settings.Tab.Exports">Exportaciones</sys:String>
+    <sys:String x:Key="Settings.Tab.Shortcuts">Atajos</sys:String>
+    <sys:String x:Key="Settings.Tab.Protection">Protección de datos</sys:String>
+    <sys:String x:Key="Settings.ShortcutsIntro">Configura los atajos del editor SQL. Se conservan sus valores anteriores y se impiden duplicados.</sys:String>
+    <sys:String x:Key="Settings.OpenSqlExplorer">Ir al Explorador SQL</sys:String>
+    <sys:String x:Key="Settings.OpenProtection">Abrir Protección de datos e inventario completo</sys:String>
 </ResourceDictionary>

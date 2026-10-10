@@ -2883,29 +2883,7 @@
                                     Padding="12,7" Margin="0,0,8,6"
                                     ToolTip="{DynamicResource SqlExplorer.ExternalAnalyticalCopyHint}"/>
                         </WrapPanel>
-                        <WrapPanel Margin="0,0,0,10">
-                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExecute}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <ComboBox x:Name="SqlExecuteShortcutSelector" Width="125" Margin="0,0,15,0"
-                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
-                                <ComboBoxItem Content="Ctrl+Enter" Tag="Ctrl+Enter"/>
-                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
-                                <ComboBoxItem Content="Ctrl+Shift+Enter" Tag="Ctrl+Shift+Enter"/>
-                            </ComboBox>
-                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutCsv}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <ComboBox x:Name="SqlCsvShortcutSelector" Width="125" Margin="0,0,15,0"
-                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
-                                <ComboBoxItem Content="Ctrl+Shift+C" Tag="Ctrl+Shift+C"/>
-                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
-                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
-                            </ComboBox>
-                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExcel}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <ComboBox x:Name="SqlExcelShortcutSelector" Width="130"
-                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
-                                <ComboBoxItem Content="Ctrl+Shift+E" Tag="Ctrl+Shift+E"/>
-                                <ComboBoxItem Content="Ctrl+Alt+E" Tag="Ctrl+Alt+E"/>
-                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
-                            </ComboBox>
-                        </WrapPanel>
+
                         <WrapPanel Margin="0,0,0,8">
                             <TextBlock Text="{DynamicResource SqlExplorer.FindLabel}" VerticalAlignment="Center"
                                        Margin="0,0,6,0"/>
@@ -3007,13 +2985,18 @@
                                 <TextBlock Text="{DynamicResource Backup.WeeklyInfo}" Foreground="#6C757D"
                                            FontSize="12" Margin="0,5,0,10" TextWrapping="Wrap"/>
                                 <WrapPanel>
-                                    <Button Content="{DynamicResource Backup.CreateNow}" Padding="12,8"
+                                    <Button x:Name="SettingsBackupNowButton"
+                                            Content="{DynamicResource Backup.CreateNow}" Padding="12,8"
                                             Click="BackupPageCreate_Click" Margin="0,0,8,8"/>
                                     <Button Content="{DynamicResource Backup.DestinationSettings}" Padding="12,8"
                                             Click="BackupPageSettings_Click" Margin="0,0,8,8"/>
                                     <Button Content="{DynamicResource Backup.OpenLocal}" Padding="12,8"
                                             Click="BackupPageOpenFolder_Click" Margin="0,0,8,8"/>
                                 </WrapPanel>
+                                <ProgressBar x:Name="SettingsBackupProgressBar" Visibility="Collapsed"
+                                             IsIndeterminate="True" Height="8" Margin="0,6,0,5"/>
+                                <TextBlock x:Name="SettingsBackupStatusText" FontSize="12"
+                                           Foreground="#495057" TextWrapping="Wrap" Margin="0,5,0,0"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
@@ -3081,10 +3064,17 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
+                <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
-                        <TextBlock Text="{DynamicResource Settings.Heading}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40"/>
-                        <TextBlock Text="{DynamicResource Settings.Intro}" FontSize="13" Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
+                        <TextBlock Text="{DynamicResource Settings.Heading}" FontSize="21"
+                                   FontWeight="SemiBold" Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Settings.Intro}" FontSize="13"
+                                   Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
+                        <TabControl x:Name="SettingsTabControl" Style="{StaticResource PageTabControlStyle}">
+                            <TabItem Header="{DynamicResource Settings.Tab.Connection}">
+                                <StackPanel Margin="6,12">
                         <Border Style="{StaticResource CardStyle}" Margin="0">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource Settings.ConnectionHeading}" FontSize="17" FontWeight="SemiBold"/>
@@ -3098,6 +3088,10 @@
                                 <TextBlock Text="{DynamicResource Settings.PasswordPrivacy}" FontSize="11" Foreground="#6C757D" Margin="0,12,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="{DynamicResource Settings.Tab.Exports}">
+                                <StackPanel Margin="6,12">
                         <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource Settings.ExportFolderHeading}" FontSize="17" FontWeight="SemiBold"/>
@@ -3110,6 +3104,42 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="{DynamicResource Settings.Tab.Shortcuts}">
+                                <StackPanel Margin="6,12">
+                                    <TextBlock Text="{DynamicResource Settings.ShortcutsIntro}"
+                                               Margin="0,0,0,10" Foreground="#6C757D" TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,0,0,10">
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExecute}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlExecuteShortcutSelector" Width="125" Margin="0,0,15,0"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Enter" Tag="Ctrl+Enter"/>
+                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
+                                <ComboBoxItem Content="Ctrl+Shift+Enter" Tag="Ctrl+Shift+Enter"/>
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutCsv}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlCsvShortcutSelector" Width="125" Margin="0,0,15,0"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Shift+C" Tag="Ctrl+Shift+C"/>
+                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
+                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExcel}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlExcelShortcutSelector" Width="130"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Shift+E" Tag="Ctrl+Shift+E"/>
+                                <ComboBoxItem Content="Ctrl+Alt+E" Tag="Ctrl+Alt+E"/>
+                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
+                            </ComboBox>
+                        </WrapPanel>
+                                    <Button Content="{DynamicResource Settings.OpenSqlExplorer}"
+                                            Click="SettingsOpenSqlExplorer_Click"
+                                            HorizontalAlignment="Left" Padding="12,7"/>
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="{DynamicResource Settings.Tab.Protection}">
+                                <StackPanel Margin="6,12">
                         <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource Settings.BackupHeading}" FontSize="17" FontWeight="SemiBold"/>
@@ -3123,15 +3153,14 @@
                                         Click="SettingsBackupChooseSecondary_Click"/>
                                 <TextBlock x:Name="SettingsBackupInventoryText" FontSize="12"
                                            TextWrapping="Wrap" Foreground="#495057" Margin="0,0,0,10"/>
-                                <Button x:Name="SettingsBackupNowButton" HorizontalAlignment="Left"
-                                        Content="{DynamicResource Settings.BackupNow}" Padding="14,7"
-                                        Click="SettingsBackupNow_Click"/>
-                                <ProgressBar x:Name="SettingsBackupProgressBar" Visibility="Collapsed"
-                                             IsIndeterminate="True" Height="8" Margin="0,10,0,5"/>
-                                <TextBlock x:Name="SettingsBackupStatusText" FontSize="12" Foreground="#495057"
-                                           TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                <Button Content="{DynamicResource Settings.OpenProtection}" Click="SettingsOpenProtection_Click"
+                                        HorizontalAlignment="Left" Padding="12,7" Margin="0,5,0,0"/>
+
                             </StackPanel>
                         </Border>
+                                </StackPanel>
+                            </TabItem>
+                        </TabControl>
                     </StackPanel>
                 </ScrollViewer>
 

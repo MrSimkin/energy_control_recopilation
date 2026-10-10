@@ -842,4 +842,11 @@
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopy">External SQLite copy</sys:String>
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopyHint">One-off SQLite file for external analysis; not a full backup or a restore point</sys:String>
 
+    <sys:String x:Key="Settings.Tab.Connection">Connection</sys:String>
+    <sys:String x:Key="Settings.Tab.Exports">Exports</sys:String>
+    <sys:String x:Key="Settings.Tab.Shortcuts">Shortcuts</sys:String>
+    <sys:String x:Key="Settings.Tab.Protection">Data protection</sys:String>
+    <sys:String x:Key="Settings.ShortcutsIntro">Configure SQL editor shortcuts here. Existing values are retained and duplicates are rejected.</sys:String>
+    <sys:String x:Key="Settings.OpenSqlExplorer">Open SQL Explorer</sys:String>
+    <sys:String x:Key="Settings.OpenProtection">Open Data Protection and full inventory</sys:String>
 </ResourceDictionary>
