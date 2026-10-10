@@ -18,15 +18,18 @@ public sealed class EnergyAggregationTableService
         DateTimeOffset rangeStartUtc,
         DateTimeOffset rangeEndUtc,
         string timeZoneId,
-        AggregationPeriod period)
+        AggregationPeriod period,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var pv = _power.GetSeries(
             deviceId,
             "pv_power_w",
             rangeStartUtc,
             rangeEndUtc,
             timeZoneId,
-            period);
+            period,
+            cancellationToken);
 
         var house = _power.GetSeries(
             deviceId,
@@ -34,7 +37,8 @@ public sealed class EnergyAggregationTableService
             rangeStartUtc,
             rangeEndUtc,
             timeZoneId,
-            period);
+            period,
+            cancellationToken);
 
         var grid = _power.GetSeries(
             deviceId,
@@ -42,7 +46,8 @@ public sealed class EnergyAggregationTableService
             rangeStartUtc,
             rangeEndUtc,
             timeZoneId,
-            period);
+            period,
+            cancellationToken);
 
         var battery = _power.GetSeries(
             deviceId,
@@ -50,15 +55,18 @@ public sealed class EnergyAggregationTableService
             rangeStartUtc,
             rangeEndUtc,
             timeZoneId,
-            period);
+            period,
+            cancellationToken);
 
         var soc = _soc.GetSeries(
             deviceId,
             rangeStartUtc,
             rangeEndUtc,
             timeZoneId,
-            period);
+            period,
+            cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var pvByStart = pv.Buckets.ToDictionary(
             bucket => bucket.StartUtc);
         var houseByStart = house.Buckets.ToDictionary(
@@ -91,8 +99,10 @@ public sealed class EnergyAggregationTableService
 
         var rows = new List<EnergyAggregationRow>(allStarts.Length);
 
+        var processed = 0;
         foreach (var start in allStarts)
         {
+            if ((++processed & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             pvByStart.TryGetValue(start, out var pvBucket);
             houseByStart.TryGetValue(start, out var houseBucket);
             gridByStart.TryGetValue(start, out var gridBucket);
@@ -167,6 +177,7 @@ public sealed class EnergyAggregationTableService
                 minimumCoverage));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         return new EnergyAggregationTable(
             deviceId,
             period,

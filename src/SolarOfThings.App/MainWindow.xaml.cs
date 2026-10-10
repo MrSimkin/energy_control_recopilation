@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Data;
 using System.Windows;
 using System.Globalization;
 using System.IO;
@@ -18,6 +19,9 @@ using SolarOfThings.Core.Normalization;
 using SolarOfThings.Core.Reporting;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Settings;
+using SolarOfThings.Core.Backup;
+using SolarOfThings.Core.Diagnostics;
+using SolarOfThings.Core.SqlExplorer;
 using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.Utility;
 
@@ -36,8 +40,12 @@ public partial class MainWindow : Window
     private readonly SolarOfThingsSessionManager _session;
     private readonly CommissioningProfileRepository _profiles;
     private readonly IServiceProvider _services;
+    private readonly UiPerformanceRecorder _performance;
+    private int _lastResponsiveColumnCount = -1;
     private readonly DispatcherTimer _dashboardLiveTimer;
     private readonly DispatcherTimer _dashboardProgressTimer;
+    private readonly DispatcherTimer _dispatcherLatenessTimer;
+    private long _previousDispatcherTick;
     private DateTimeOffset _dashboardLiveCycleStartedUtc = DateTimeOffset.UtcNow;
     private CancellationTokenSource? _syncCancellation;
     private bool _currentStateRefreshInProgress;
@@ -51,6 +59,23 @@ public partial class MainWindow : Window
     private long? _editingUtilityBillId;
     private long? _editingUtilityBillLineId;
     private bool _dashboardVisible;
+    private int _batteryRefreshGeneration;
+    private bool _batteryDataLoading;
+    private string? _batteryRenderedDeviceId;
+    private int _analysisRefreshGeneration;
+    private bool _analysisDataLoading;
+    private bool _analysisRangeInitializationPending;
+    private int _analysisPresetGeneration;
+    private bool _analysisPresetLoading;
+    private bool _analysisCustomRangePendingApply;
+    private EnergyAggregationTable? _analysisRenderedAggregation;
+    private BatteryThresholdContext? _analysisRenderedThresholds;
+    private string? _analysisRenderedDeviceId;
+    private int _analysisRenderedGeneration = -1;
+    private int _dashboardRefreshGeneration;
+    private bool _dashboardDataLoading;
+    private int _dataCoverageRefreshGeneration;
+    private bool _windowClosed;
     private bool _suppressLanguageSelection;
     private bool _suppressAnalysisRangeSelection;
     private bool _suppressReportRangeSelection;
@@ -65,13 +90,15 @@ public partial class MainWindow : Window
         LocalizationService localization,
         SolarOfThingsSessionManager session,
         CommissioningProfileRepository profiles,
-        IServiceProvider services)
+        IServiceProvider services,
+        UiPerformanceRecorder performance)
     {
         _paths = paths;
         _localization = localization;
         _session = session;
         _profiles = profiles;
         _services = services;
+        _performance = performance;
 
         _dashboardLiveTimer = new DispatcherTimer(
             DispatcherPriority.Background)
@@ -85,9 +112,20 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(500)
         };
         _dashboardProgressTimer.Tick += DashboardProgressTimer_Tick;
+        _dispatcherLatenessTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _dispatcherLatenessTimer.Tick += DispatcherLatenessTimer_Tick;
+        Activated += MainWindow_Activated;
+        Deactivated += MainWindow_Deactivated;
         Closed += MainWindow_Closed;
 
         InitializeComponent();
+        // Keep live line/column feedback in sync with the WPF code editor.
+        SqlStatementEditor.TextArea.Caret.PositionChanged += (_, _) =>
+            UpdateSqlExplorerCaretStatus();
+        LoadSqlExplorerShortcuts();
 
         AnalysisEnergyPlot.Plot.Axes.Link(
             AnalysisBatteryPlot,
@@ -128,13 +166,46 @@ public partial class MainWindow : Window
 
         AutoConnectCheckBox.IsChecked = GetAutoConnectEnabled();
         RefreshConnectionStatus();
+        RefreshBackupSecondaryPreference();
         RefreshCaptureStartOptions();
-        RefreshDashboardMetrics();
-        RefreshBatteryView();
-        RefreshDataCoverageView();
+        // Dashboard is the only initially visible page. Battery/Data loads are
+        // deferred until their first visit; never query invisible pages on startup.
         ShowPage("Dashboard");
         ApplyResponsiveCardLayouts();
         Loaded += MainWindow_Loaded;
+    }
+
+    // Observe only foreground Dispatcher timer scheduling delay. A late tick
+    // can be caused by rendering, CPU pressure or OS scheduling; it does not
+    // prove a particular UI operation blocked. No background polling thread.
+    private void MainWindow_Activated(object? sender, EventArgs e)
+    {
+        _previousDispatcherTick = Stopwatch.GetTimestamp();
+        _dispatcherLatenessTimer.Start();
+    }
+
+    private void MainWindow_Deactivated(object? sender, EventArgs e)
+    {
+        _dispatcherLatenessTimer.Stop();
+        _previousDispatcherTick = 0;
+    }
+
+    private void DispatcherLatenessTimer_Tick(object? sender, EventArgs e)
+    {
+        var now = Stopwatch.GetTimestamp();
+        if (_previousDispatcherTick == 0 ||
+            !IsActive || WindowState == WindowState.Minimized)
+        {
+            _previousDispatcherTick = now;
+            return;
+        }
+
+        var elapsed = Stopwatch.GetElapsedTime(_previousDispatcherTick, now);
+        _previousDispatcherTick = now;
+        var lateness = DispatcherTimingPolicy.ObserveLateness(
+            elapsed, _dispatcherLatenessTimer.Interval);
+        if (lateness.HasValue)
+            _performance.Record("UI.Dispatcher.TickLateness", lateness.Value);
     }
 
     private void MainWindow_SizeChanged(
@@ -148,12 +219,16 @@ public partial class MainWindow : Window
     private void ApplyResponsiveCardLayouts()
     {
         var usableWidth = Math.Max(0, ActualWidth - 285);
-        var columns = usableWidth switch
-        {
-            < 620 => 1,
-            < 1040 => 2,
-            _ => 4
-        };
+        var columns = ResponsiveGridLayoutPolicy.ColumnsForUsableWidth(usableWidth);
+
+        // WPF already resizes Grid children as the window changes width.
+        // Rebuilding RowDefinitions/ColumnDefinitions on every pixel of
+        // SizeChanged causes avoidable measure/arrange passes and flicker.
+        // Only rebuild when the actual responsive breakpoint changes.
+        if (_lastResponsiveColumnCount == columns)
+            return;
+        _lastResponsiveColumnCount = columns;
+        using var measure = _performance.Measure("UI.Layout.BreakpointChange");
 
         ApplyResponsiveCardGrid(DashboardSummaryCards, columns);
         ApplyResponsiveCardGrid(BatterySummaryCards, columns);
@@ -209,6 +284,7 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        using var measure = _performance.Measure("UI.Loaded.Initialize");
         var profile = _profiles.Get();
         if (profile is null)
         {
@@ -232,8 +308,6 @@ public partial class MainWindow : Window
         if (history.GetSampleCount(profile.DeviceId) == 0)
         {
             RefreshDashboardMetrics();
-            RefreshBatteryView();
-            RefreshDataCoverageView();
             SetGlobalOperation(false, string.Empty);
             return;
         }
@@ -273,40 +347,185 @@ public partial class MainWindow : Window
         }
 
         RefreshDashboardMetrics();
-        RefreshBatteryView();
-        RefreshDataCoverageView();
         SetGlobalOperation(false, string.Empty);
     }
 
+    // Instrument service retrieval independently from UI rendering. These
+    // observations can include CPU aggregation; they are not pure SQL timings.
+    private T MeasureDataCall<T>(string operation, Func<T> call)
+    {
+        using var measure = _performance.Measure(operation);
+        return call();
+    }
+
+    // Queue the latest Dashboard request without waiting on SQLite from the
+    // Dispatcher. A single background reader coalesces rapidly repeated requests
+    // (initialization, navigation, language switches and sync completion).
     private void RefreshDashboardMetrics()
     {
-        var profile = _profiles.Get();
-        if (profile is null)
-        {
-            ResetDashboardMetrics();
+        _dashboardRefreshGeneration++;
+        if (!_dashboardVisible || _windowClosed ||
+            _dashboardDataLoading)
             return;
+
+        _ = LoadDashboardMetricsAsync();
+    }
+
+    private string? _dashboardLastSavedDayDeviceId;
+
+    private sealed record DashboardInstantReadResult(
+        IReadOnlyDictionary<string, NormalizedMetricValue> StoredMetrics,
+        CurrentHouseholdSnapshot? CurrentSnapshot);
+
+    private sealed record DashboardDailyReadResult(
+        DateOnly? LatestSavedDate,
+        EnergyRangeSummary? LatestSavedEnergy);
+
+    private DashboardInstantReadResult ReadDashboardInstantData(
+        string deviceId,
+        NormalizationRepository repository,
+        CurrentHouseholdSnapshotService currentRepository)
+    {
+        using var measure = _performance.Measure("Data.Dashboard.InstantFetch");
+        var stored = MeasureDataCall(
+            "Data.Dashboard.LatestMetrics",
+            () => repository.GetLatestMetrics(deviceId));
+        var current = currentRepository.GetLatest(deviceId);
+        return new DashboardInstantReadResult(stored, current);
+    }
+
+    private DashboardDailyReadResult ReadDashboardDailyData(
+        string deviceId, string? stationTimeZone,
+        HistoryRepository history, EnergyRangeStatisticsService statistics)
+    {
+        using var measure = _performance.Measure("Data.Dashboard.DailyFetch");
+        var coverage = MeasureDataCall(
+            "Data.Dashboard.Coverage",
+            () => history.GetCoverageSummary(deviceId));
+        if (!coverage.LastSampleAtUtc.HasValue)
+            return new DashboardDailyReadResult(null, null);
+        var timeZone = string.IsNullOrWhiteSpace(stationTimeZone)
+            ? "America/Santiago"
+            : stationTimeZone;
+        var date = SolarApiTime.GetLocalDate(
+            coverage.LastSampleAtUtc.Value, timeZone);
+        var window = SolarApiTime.GetLocalDayWindow(date, timeZone);
+        var summary = MeasureDataCall(
+            "Data.Dashboard.LatestDayEnergy",
+            () => statistics.Get(deviceId, window.Start, window.End));
+        return new DashboardDailyReadResult(date, summary);
+    }
+
+    private async Task LoadDashboardMetricsAsync()
+    {
+        _dashboardDataLoading = true;
+        try
+        {
+            while (_dashboardVisible && !_windowClosed)
+            {
+                var requestedGeneration = _dashboardRefreshGeneration;
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        ResetDashboardMetrics();
+                        return;
+                    }
+
+                    // Only immutable IDs, timezone and non-WPF repositories
+                    // cross into the thread-pool readers. No SQLite activity
+                    // is performed from the UI callbacks below.
+                    var normalized = _services.GetRequiredService<NormalizationRepository>();
+                    var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>();
+                    var history = _services.GetRequiredService<HistoryRepository>();
+                    var statistics = _services.GetRequiredService<EnergyRangeStatisticsService>();
+
+                    bool CanPaint()
+                    {
+                        var currentDeviceId = _profiles.Get()?.DeviceId;
+                        if (!string.Equals(currentDeviceId, profile.DeviceId,
+                                StringComparison.Ordinal))
+                            _dashboardRefreshGeneration++;
+                        return DashboardRefreshPolicy.CanApply(
+                            requestedGeneration, _dashboardRefreshGeneration,
+                            _dashboardVisible, _windowClosed,
+                            profile.DeviceId, currentDeviceId);
+                    }
+
+                    var completed = await DashboardStagedRefresh.RunAsync(
+                        () => ReadDashboardInstantData(profile.DeviceId, normalized, current),
+                        () => ReadDashboardDailyData(profile.DeviceId,
+                            profile.StationTimeZone, history, statistics),
+                        CanPaint,
+                        instant =>
+                        {
+                            using var measure = _performance.Measure("UI.Dashboard.InstantPaint");
+                            var useCurrentSnapshot = instant.CurrentSnapshot is
+                                { Metrics.Count: > 0 };
+                            var metrics = useCurrentSnapshot
+                                ? instant.CurrentSnapshot!.Metrics
+                                : instant.StoredMetrics;
+                            SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
+                            SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
+                            SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
+                            SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
+                            RefreshOperatingState(metrics);
+                            RefreshDashboardFreshness(
+                                metrics,
+                                useCurrentSnapshot ? instant.CurrentSnapshot : null);
+
+                            // A stored-day integration from the previous
+                            // device or request must not be shown as fresh.
+                            // Retain known day values only for the same
+                            // device, clearly relabeling them as updating.
+                            if (!string.Equals(_dashboardLastSavedDayDeviceId,
+                                    profile.DeviceId, StringComparison.Ordinal))
+                                ResetDashboardLatestSavedDay();
+                            DashboardLatestDayDateText.SetResourceReference(
+                                TextBlock.TextProperty, "Dashboard.LatestDayLoading");
+                            DashboardLatestDayOpenButton.IsEnabled = false;
+                        },
+                        daily =>
+                        {
+                            using var measure = _performance.Measure("UI.Dashboard.DailyPaint");
+                            RenderDashboardLatestSavedDay(daily, profile.DeviceId);
+                        },
+                        error =>
+                        {
+                            ResetDashboardLatestSavedDay();
+                            DashboardLatestDayDateText.SetResourceReference(
+                                TextBlock.TextProperty, "Dashboard.LatestDayUnavailable");
+                            Debug.WriteLine(
+                                $"Dashboard daily read failed ({error.GetType().Name}); " +
+                                "instantaneous measurements remain available.");
+                        });
+
+                    if (!completed) continue;
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (requestedGeneration != _dashboardRefreshGeneration)
+                        continue;
+                    if (_windowClosed || !_dashboardVisible)
+                        return;
+                    ResetDashboardMetrics();
+                    DashboardFreshnessText.Text =
+                        _localization.CurrentLanguage.StartsWith(
+                            "es", StringComparison.OrdinalIgnoreCase)
+                            ? "No fue posible actualizar los datos del panel."
+                            : "Dashboard data could not be refreshed.";
+                    Debug.WriteLine(
+                        $"Dashboard instant read failed ({ex.GetType().Name}); values hidden.");
+                    return;
+                }
+            }
         }
-
-        var repository = _services.GetRequiredService<NormalizationRepository>();
-        var storedMetrics = repository.GetLatestMetrics(profile.DeviceId);
-        var current = _services
-            .GetRequiredService<CurrentHouseholdSnapshotService>()
-            .GetLatest(profile.DeviceId);
-        var useCurrentSnapshot =
-            current is { Metrics.Count: > 0 };
-        var metrics = useCurrentSnapshot
-            ? current!.Metrics
-            : storedMetrics;
-
-        SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
-        SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
-        SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
-        SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
-        RefreshOperatingState(metrics);
-        RefreshDashboardFreshness(
-            metrics,
-            useCurrentSnapshot ? current : null);
-        RefreshDashboardLatestSavedDay(profile);
+        finally
+        {
+            _dashboardDataLoading = false;
+        }
     }
 
     private void SetPowerMetric(
@@ -382,37 +601,38 @@ public partial class MainWindow : Window
         ResetDashboardLatestSavedDay();
     }
 
-    private void RefreshDashboardLatestSavedDay(
-        CommissioningProfile profile)
+    private void DashboardOpenLatestDay_Click(object sender, RoutedEventArgs e)
     {
-        var history =
-            _services.GetRequiredService<HistoryRepository>();
-        var coverage =
-            history.GetCoverageSummary(profile.DeviceId);
+        // Never follow stale dashboard evidence to a different device, and
+        // never select today's date when the latest STORED date is older.
+        if (_windowClosed || !_dashboardVisible || _dashboardLastSavedDayDeviceId is null ||
+            !string.Equals(_dashboardLastSavedDayDeviceId, _profiles.Get()?.DeviceId,
+                StringComparison.Ordinal))
+            return;
+        ShowPage("Analysis");
+        // Reapplying this preset is necessary even when the user previously
+        // inspected a different day and the selector retained "latest-day".
+        _suppressAnalysisRangeSelection = true;
+        try { AnalysisRangePresetSelector.SelectedValue = null; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        AnalysisRangePresetSelector.SelectedValue = "latest-day";
+    }
 
-        if (!coverage.LastSampleAtUtc.HasValue)
+    private void DashboardInspectCoverage_Click(object sender, RoutedEventArgs e) =>
+        ShowPage("Data");
+
+    private void RenderDashboardLatestSavedDay(DashboardDailyReadResult result, string deviceId)
+    {
+        if (!result.LatestSavedDate.HasValue || result.LatestSavedEnergy is null)
         {
             ResetDashboardLatestSavedDay();
             return;
         }
 
-        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
-            ? "America/Santiago"
-            : profile.StationTimeZone;
-
-        var localDate = SolarApiTime.GetLocalDate(
-            coverage.LastSampleAtUtc.Value,
-            timeZone);
-        var window = SolarApiTime.GetLocalDayWindow(
-            localDate,
-            timeZone);
-
-        var summary =
-            _services.GetRequiredService<EnergyRangeStatisticsService>()
-                .Get(
-                    profile.DeviceId,
-                    window.Start,
-                    window.End);
+        var localDate = result.LatestSavedDate.Value;
+        var summary = result.LatestSavedEnergy;
+        _dashboardLastSavedDayDeviceId = deviceId;
+        DashboardLatestDayOpenButton.IsEnabled = true;
 
         DashboardLatestDayDateText.Text = string.Format(
             _localization.GetString("Dashboard.LatestDayDate"),
@@ -441,16 +661,25 @@ public partial class MainWindow : Window
             .Select(metric => metric.CoveragePercent)
             .ToArray();
 
-        DashboardLatestDayCoverageText.Text =
-            coverages.Length > 0
-                ? $"{coverages.Min():F1} %"
-                : "— %";
+        var evidence = DashboardDailyEvidencePolicy.Assess(
+            summary.PvPower.SampleCount, summary.PvPower.CoveragePercent,
+            summary.HouseLoadPower.SampleCount, summary.HouseLoadPower.CoveragePercent,
+            summary.GridImportPower.SampleCount, summary.GridImportPower.CoveragePercent);
 
+        // The visible minimum percentage describes measured streams ONLY;
+        // the evidence label makes missing streams explicit instead of
+        // misleading the user with a reassuring aggregate percentage.
+        DashboardLatestDayCoverageText.Text =
+            evidence.MinimumAvailableCoveragePercent.HasValue
+                ? $"{evidence.MinimumAvailableCoveragePercent.Value:F1} %"
+                : "— %";
         DashboardLatestDayCoverageText.Foreground =
-            coverages.Length > 0 &&
-            coverages.Min() < 80
-                ? Brushes.DarkOrange
-                : Brushes.Black;
+            evidence.ShouldWarn ? Brushes.DarkOrange : Brushes.Black;
+        DashboardDailyEvidenceText.Text = string.Format(
+            _localization.GetString("Dashboard.DailyEvidence." + evidence.State),
+            evidence.AvailableStreams, evidence.MissingStreams);
+        DashboardDailyEvidenceText.Foreground =
+            evidence.ShouldWarn ? Brushes.DarkOrange : Brushes.DarkGreen;
     }
 
     private static void SetDashboardDailyEnergy(
@@ -472,8 +701,12 @@ public partial class MainWindow : Window
         DashboardLatestDayHouseText.Text = "— kWh";
         DashboardLatestDayGridText.Text = "— kWh";
         DashboardLatestDayCoverageText.Text = "— %";
-        DashboardLatestDayCoverageText.Foreground =
-            Brushes.Black;
+        DashboardLatestDayCoverageText.Foreground = Brushes.Black;
+        DashboardDailyEvidenceText.SetResourceReference(
+            TextBlock.TextProperty, "Dashboard.DailyEvidenceUnknown");
+        DashboardDailyEvidenceText.Foreground = Brushes.DarkOrange;
+        DashboardLatestDayOpenButton.IsEnabled = false;
+        _dashboardLastSavedDayDeviceId = null;
     }
 
     private void RefreshDashboardFreshness(
@@ -543,28 +776,130 @@ public partial class MainWindow : Window
     private void RefreshBatteryView()
     {
         if (!IsInitialized || BatteryContent is null)
-        {
             return;
-        }
-
-        var profile = _profiles.Get();
-        if (profile is null)
-        {
-            ResetBatteryView();
+        _batteryRefreshGeneration++;
+        if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
             return;
+        var currentDevice = _profiles.Get()?.DeviceId;
+        if (_batteryRenderedDeviceId is not null &&
+            !string.Equals(_batteryRenderedDeviceId, currentDevice,
+                StringComparison.Ordinal))
+        {
+            // Device switched: don't show the previous installation's SOC,
+            // voltage or power while the new background read completes.
+            ResetBatteryView(keepCapacity: true);
+            BatteryThresholdSourceText.Text = "—";
+            _batteryRenderedDeviceId = null;
         }
+        BatteryLastReadingText.Text = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase)
+            ? "Actualizando batería..." : "Updating battery...";
+        if (!_batteryDataLoading)
+            _ = LoadBatteryViewAsync();
+    }
 
-        var repository = _services.GetRequiredService<NormalizationRepository>();
-        var storedMetrics = repository.GetLatestMetrics(profile.DeviceId);
-        var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>()
-            .GetLatest(profile.DeviceId);
+    private sealed record BatteryReadResult(
+        IReadOnlyDictionary<string, NormalizedMetricValue> StoredMetrics,
+        CurrentHouseholdSnapshot? CurrentSnapshot,
+        BatteryConfiguration Configuration,
+        BatteryThresholdContext Thresholds);
+
+    private BatteryReadResult ReadBatteryData(
+        string deviceId,
+        NormalizationRepository repository,
+        CurrentHouseholdSnapshotService currentRepository,
+        BatteryConfigurationService configurationService,
+        BatteryThresholdContextService thresholdService)
+    {
+        using var measure = _performance.Measure("Data.Battery.BackgroundFetch");
+        // Worker receives only non-WPF services and value arguments.
+        var stored = MeasureDataCall("Data.Battery.LatestMetrics",
+            () => repository.GetLatestMetrics(deviceId));
+        var current = MeasureDataCall("Data.Battery.CurrentSnapshot",
+            () => currentRepository.GetLatest(deviceId));
+        var configuration = MeasureDataCall("Data.Battery.Configuration",
+            configurationService.Get);
+        var thresholds = MeasureDataCall("Data.Battery.Thresholds",
+            () => thresholdService.Get(deviceId));
+        return new BatteryReadResult(stored, current, configuration, thresholds);
+    }
+
+    private async Task LoadBatteryViewAsync()
+    {
+        _batteryDataLoading = true;
+        try
+        {
+            while (!_windowClosed && BatteryContent.Visibility == Visibility.Visible)
+            {
+                var generation = _batteryRefreshGeneration;
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        ResetBatteryView();
+                        return;
+                    }
+
+                    // Resolve services before Task.Run; no UI control is
+                    // accessed on the worker thread.
+                    var repository = _services.GetRequiredService<NormalizationRepository>();
+                    var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>();
+                    var configuration = _services.GetRequiredService<BatteryConfigurationService>();
+                    var thresholds = _services.GetRequiredService<BatteryThresholdContextService>();
+                    var result = await Task.Run(() => ReadBatteryData(
+                        profile.DeviceId, repository, current, configuration, thresholds));
+
+                    if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
+                        return;
+                    if (generation != _batteryRefreshGeneration)
+                        continue;
+
+                    var deviceNow = _profiles.Get()?.DeviceId;
+                    if (!string.Equals(deviceNow, profile.DeviceId, StringComparison.Ordinal))
+                        _batteryRefreshGeneration++;
+                    if (!BatteryRefreshPolicy.CanApply(
+                        generation, _batteryRefreshGeneration,
+                        BatteryContent.Visibility == Visibility.Visible,
+                        _windowClosed, profile.DeviceId, deviceNow))
+                        continue;
+
+                    using var measure = _performance.Measure("UI.Battery.Refresh");
+                    RenderBatteryData(result);
+                    _batteryRenderedDeviceId = profile.DeviceId;
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (generation != _batteryRefreshGeneration)
+                        continue;
+                    if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
+                        return;
+
+                    ResetBatteryView();
+                    BatteryLastReadingText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible actualizar los datos de batería."
+                        : "Battery data could not be refreshed.";
+                    Debug.WriteLine($"Battery read failed ({ex.GetType().Name}); values hidden.");
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _batteryDataLoading = false;
+        }
+    }
+
+    private void RenderBatteryData(BatteryReadResult result)
+    {
+        var current = result.CurrentSnapshot;
         var useLive = current?.IsFresh == true &&
                       current.Metrics.ContainsKey("battery_soc_pct");
-        var metrics = useLive
-            ? current!.Metrics
-            : storedMetrics;
-        var configuration = _services.GetRequiredService<BatteryConfigurationService>().Get();
-        var thresholds = _services.GetRequiredService<BatteryThresholdContextService>().Get(profile.DeviceId);
+        var metrics = useLive ? current!.Metrics : result.StoredMetrics;
+        var configuration = result.Configuration;
+        var thresholds = result.Thresholds;
 
         RefreshBatteryTechnicalMetrics(metrics);
 
@@ -729,21 +1064,61 @@ public partial class MainWindow : Window
 
     private void AnalysisApply_Click(object sender, RoutedEventArgs e)
     {
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
+        _analysisCustomRangePendingApply = false;
         RefreshAnalysisView();
     }
 
-    private void AnalysisRangePresetSelector_SelectionChanged(
+    private async void AnalysisRangePresetSelector_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (_suppressAnalysisRangeSelection || !IsInitialized)
+        if (_suppressAnalysisRangeSelection || !IsInitialized ||
+            _windowClosed || AnalysisContent is null)
+            return;
+
+        var preset = AnalysisRangePresetSelector.SelectedValue?.ToString() ?? "custom";
+        _analysisCustomRangePendingApply = preset == "custom";
+        var generation = ++_analysisPresetGeneration;
+        // Immediately prevent any in-flight old Analysis range from painting
+        // while the new date preset is resolving from historical coverage.
+        _analysisRefreshGeneration++;
+        if (string.Equals(preset, "custom", StringComparison.Ordinal))
         {
+            _analysisPresetLoading = false;
             return;
         }
 
-        if (ApplyAnalysisRangePreset())
+        _analysisPresetLoading = true;
+        var shouldRefresh = false;
+        try
         {
-            RefreshAnalysisView();
+            shouldRefresh = await ApplyAnalysisRangePresetAsync(preset, generation);
+        }
+        catch (Exception ex)
+        {
+            if (generation == _analysisPresetGeneration &&
+                AnalysisContent.Visibility == Visibility.Visible)
+            {
+                AnalysisStatusText.Text =
+                    _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible seleccionar el rango histórico."
+                        : "The historical range could not be selected.";
+                Debug.WriteLine(
+                    $"Analysis preset coverage failed ({ex.GetType().Name}).");
+            }
+        }
+        finally
+        {
+            if (generation == _analysisPresetGeneration)
+            {
+                _analysisPresetLoading = false;
+                if (shouldRefresh && !_windowClosed &&
+                    AnalysisContent.Visibility == Visibility.Visible)
+                    RefreshAnalysisView();
+            }
         }
     }
 
@@ -758,9 +1133,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        // A manual edit must not implicitly apply the new range.
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
+        _analysisCustomRangePendingApply = true;
+        _analysisRefreshGeneration++;
         _suppressAnalysisRangeSelection = true;
-        AnalysisRangePresetSelector.SelectedValue = "custom";
-        _suppressAnalysisRangeSelection = false;
+        try { AnalysisRangePresetSelector.SelectedValue = "custom"; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        if (AnalysisContent.Visibility == Visibility.Visible)
+            AnalysisStatusText.Text = _localization.CurrentLanguage == "es"
+                ? "Rango modificado. Presiona Aplicar para calcularlo."
+                : "Range changed. Select Apply to calculate it.";
     }
 
     private void AnalysisAggregationSelector_SelectionChanged(
@@ -778,13 +1162,31 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        if (IsInitialized &&
-            AnalysisContent is not null &&
-            AnalysisFromDatePicker is not null &&
-            AnalysisToDatePicker is not null)
+        if (!IsInitialized || _windowClosed || AnalysisContent is null ||
+            AnalysisFromDatePicker is null || AnalysisToDatePicker is null ||
+            AnalysisContent.Visibility != Visibility.Visible)
+            return;
+
+        if (_analysisCustomRangePendingApply) return;
+
+        // Checkbox changes affect *only* the energy plot's visible series.
+        // While an Analysis fetch is in progress the final UI renderer uses
+        // the latest checkbox state, so no redundant query is necessary.
+        if (_analysisDataLoading || _analysisPresetLoading)
+            return;
+
+        if (_analysisRenderedAggregation is not null &&
+            AnalysisRefreshPolicy.CanReuseChart(
+                _analysisRenderedGeneration, _analysisRefreshGeneration,
+                true, false, _analysisRenderedDeviceId,
+                _profiles.Get()?.DeviceId))
         {
-            RefreshAnalysisView();
+            using var measure = _performance.Measure("UI.Analysis.SeriesToggle");
+            RefreshAnalysisEnergyChart(_analysisRenderedAggregation.Rows);
+            return;
         }
+
+        RefreshAnalysisView();
     }
 
     private void AnalysisResetCharts_Click(
@@ -801,107 +1203,268 @@ public partial class MainWindow : Window
         AnalysisBatteryPlot.Refresh();
     }
 
+    // Keep all UI selection, WPF chart operations and text rendering on the
+    // Dispatcher. Only the existing data services run on background workers.
+    // Consecutive requests share one reader and never paint stale ranges.
     private void RefreshAnalysisView(bool initializeRange = false)
     {
-        if (!IsInitialized || AnalysisContent is null)
-        {
+        if (!IsInitialized || AnalysisContent is null || _windowClosed)
             return;
-        }
-
-        var profile = _profiles.Get();
-        if (profile is null)
-        {
-            ResetAnalysisView();
-            return;
-        }
-
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
-
-        if (!coverage.FirstSampleAtUtc.HasValue ||
-            !coverage.LastSampleAtUtc.HasValue)
-        {
-            ResetAnalysisView();
-            AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
-            return;
-        }
-
-        var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
-            ? "America/Santiago"
-            : profile.StationTimeZone;
-
-        var firstLocalDate = SolarApiTime.GetLocalDate(
-            coverage.FirstSampleAtUtc.Value,
-            timeZone);
-        var lastLocalDate = SolarApiTime.GetLocalDate(
-            coverage.LastSampleAtUtc.Value,
-            timeZone);
 
         if (initializeRange)
         {
-            _suppressAnalysisRangeSelection = true;
-            AnalysisRangePresetSelector.SelectedValue = "all";
-            AnalysisFromDatePicker.SelectedDate =
-                firstLocalDate.ToDateTime(TimeOnly.MinValue);
-            AnalysisToDatePicker.SelectedDate =
-                lastLocalDate.ToDateTime(TimeOnly.MinValue);
-            _suppressAnalysisRangeSelection = false;
+            _analysisRangeInitializationPending = true;
+            _analysisCustomRangePendingApply = false;
         }
-        else
+        if (_analysisCustomRangePendingApply) return;
+
+        var currentlySelectedDevice = _profiles.Get()?.DeviceId;
+        if (!string.IsNullOrWhiteSpace(_analysisRenderedDeviceId) &&
+            !string.Equals(_analysisRenderedDeviceId, currentlySelectedDevice,
+                StringComparison.Ordinal))
         {
-            if (!AnalysisFromDatePicker.SelectedDate.HasValue)
-            {
-                AnalysisFromDatePicker.SelectedDate =
-                    firstLocalDate.ToDateTime(TimeOnly.MinValue);
-            }
-
-            if (!AnalysisToDatePicker.SelectedDate.HasValue)
-            {
-                AnalysisToDatePicker.SelectedDate =
-                    lastLocalDate.ToDateTime(TimeOnly.MinValue);
-            }
+            // Never leave another installation's history, SOC, W or graph
+            // visible after an active device switch.
+            ResetAnalysisView();
+            _analysisRangeInitializationPending = true;
         }
+        if (AnalysisContent.Visibility == Visibility.Visible)
+            AnalysisStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase)
+                ? "Actualizando análisis; resultados anteriores no confirmados."
+                : "Updating analysis; previous results are not yet confirmed.";
 
-        var fromDate = DateOnly.FromDateTime(
-            AnalysisFromDatePicker.SelectedDate ??
-            firstLocalDate.ToDateTime(TimeOnly.MinValue));
-        var toDate = DateOnly.FromDateTime(
-            AnalysisToDatePicker.SelectedDate ??
-            lastLocalDate.ToDateTime(TimeOnly.MinValue));
+        _analysisRefreshGeneration++;
+        _analysisRenderedAggregation = null; // data/chart cache invalidated.
+        _analysisRenderedThresholds = null;
+        if (_analysisDataLoading || _analysisPresetLoading ||
+            _analysisCustomRangePendingApply ||
+            AnalysisContent.Visibility != Visibility.Visible)
+            return;
 
-        if (fromDate > toDate)
+        _ = LoadAnalysisViewAsync();
+    }
+
+    private sealed record AnalysisReadResult(
+        EnergyRangeSummary EnergySummary,
+        EnergyAggregationTable Aggregation,
+        HouseholdBehaviorStatistics Behavior,
+        BatteryThresholdContext Thresholds);
+
+    private AnalysisReadResult ReadAnalysisData(
+        string deviceId,
+        DateTimeOffset rangeStart,
+        DateTimeOffset rangeEnd,
+        string timeZone,
+        AggregationPeriod period,
+        EnergyRangeStatisticsService energyService,
+        EnergyAggregationTableService aggregationService,
+        HouseholdBehaviorStatisticsService behaviorService,
+        BatteryThresholdContextService thresholdService)
+    {
+        using var measure = _performance.Measure("Data.Analysis.BackgroundFetch");
+        var energySummary = MeasureDataCall("Data.Analysis.EnergySummary",
+            () => energyService.Get(deviceId, rangeStart, rangeEnd));
+        var aggregation = MeasureDataCall("Data.Analysis.Aggregation",
+            () => aggregationService.Get(
+                deviceId, rangeStart, rangeEnd, timeZone, period));
+        var behavior = MeasureDataCall("Data.Analysis.HouseholdStats",
+            () => behaviorService.Get(deviceId, rangeStart, rangeEnd));
+        var thresholds = MeasureDataCall("Data.Analysis.ChartThresholds",
+            () => thresholdService.Get(deviceId));
+        return new AnalysisReadResult(
+            energySummary, aggregation, behavior, thresholds);
+    }
+
+    private async Task LoadAnalysisViewAsync()
+    {
+        _analysisDataLoading = true;
+        try
         {
-            (fromDate, toDate) = (toDate, fromDate);
-            AnalysisFromDatePicker.SelectedDate =
-                fromDate.ToDateTime(TimeOnly.MinValue);
-            AnalysisToDatePicker.SelectedDate =
-                toDate.ToDateTime(TimeOnly.MinValue);
+            while (!_windowClosed && AnalysisContent.Visibility == Visibility.Visible)
+            {
+                // A preset lookup owns calendar selection until it completes.
+                // Avoid performing an obsolete query against the previous range.
+                if (_analysisPresetLoading || _analysisCustomRangePendingApply)
+                    return;
+                var requestedGeneration = _analysisRefreshGeneration;
+                var initializeRange = _analysisRangeInitializationPending;
+                _analysisRangeInitializationPending = false;
+
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        ResetAnalysisView();
+                        return;
+                    }
+
+                    var history = _services.GetRequiredService<HistoryRepository>();
+                    var coverage = await Task.Run(() => MeasureDataCall(
+                        "Data.Analysis.Coverage",
+                        () => history.GetCoverageSummary(profile.DeviceId)));
+
+                    if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
+                        return;
+
+                    if (requestedGeneration != _analysisRefreshGeneration)
+                    {
+                        if (initializeRange)
+                            _analysisRangeInitializationPending = true;
+                        continue;
+                    }
+
+                    var currentDeviceId = _profiles.Get()?.DeviceId;
+                    if (!string.Equals(currentDeviceId, profile.DeviceId, StringComparison.Ordinal))
+                    {
+                        _analysisRefreshGeneration++;
+                        if (initializeRange)
+                            _analysisRangeInitializationPending = true;
+                        continue;
+                    }
+
+                    if (!coverage.FirstSampleAtUtc.HasValue ||
+                        !coverage.LastSampleAtUtc.HasValue)
+                    {
+                        ResetAnalysisView();
+                        AnalysisStatusText.Text = _localization.GetString("Analysis.NoData");
+                        return;
+                    }
+
+                    var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
+                        ? "America/Santiago"
+                        : profile.StationTimeZone;
+
+                    var firstLocalDate = SolarApiTime.GetLocalDate(
+                        coverage.FirstSampleAtUtc.Value, timeZone);
+                    var lastLocalDate = SolarApiTime.GetLocalDate(
+                        coverage.LastSampleAtUtc.Value, timeZone);
+
+                    // DatePicker changes are initiated here (not by user
+                    // selection); never interpret them as a custom-range edit.
+                    _suppressAnalysisRangeSelection = true;
+                    try
+                    {
+                        if (initializeRange)
+                        {
+                            AnalysisRangePresetSelector.SelectedValue = "all";
+                            AnalysisFromDatePicker.SelectedDate =
+                                firstLocalDate.ToDateTime(TimeOnly.MinValue);
+                            AnalysisToDatePicker.SelectedDate =
+                                lastLocalDate.ToDateTime(TimeOnly.MinValue);
+                        }
+                        else
+                        {
+                            if (!AnalysisFromDatePicker.SelectedDate.HasValue)
+                                AnalysisFromDatePicker.SelectedDate =
+                                    firstLocalDate.ToDateTime(TimeOnly.MinValue);
+                            if (!AnalysisToDatePicker.SelectedDate.HasValue)
+                                AnalysisToDatePicker.SelectedDate =
+                                    lastLocalDate.ToDateTime(TimeOnly.MinValue);
+                        }
+                    }
+                    finally
+                    {
+                        _suppressAnalysisRangeSelection = false;
+                    }
+
+                    var fromDate = DateOnly.FromDateTime(
+                        AnalysisFromDatePicker.SelectedDate ??
+                        firstLocalDate.ToDateTime(TimeOnly.MinValue));
+                    var toDate = DateOnly.FromDateTime(
+                        AnalysisToDatePicker.SelectedDate ??
+                        lastLocalDate.ToDateTime(TimeOnly.MinValue));
+
+                    if (fromDate > toDate)
+                    {
+                        (fromDate, toDate) = (toDate, fromDate);
+                        _suppressAnalysisRangeSelection = true;
+                        try
+                        {
+                            AnalysisFromDatePicker.SelectedDate =
+                                fromDate.ToDateTime(TimeOnly.MinValue);
+                            AnalysisToDatePicker.SelectedDate =
+                                toDate.ToDateTime(TimeOnly.MinValue);
+                        }
+                        finally
+                        {
+                            _suppressAnalysisRangeSelection = false;
+                        }
+                    }
+
+                    var fromWindow = SolarApiTime.GetLocalDayWindow(fromDate, timeZone);
+                    var toWindow = SolarApiTime.GetLocalDayWindow(toDate, timeZone);
+                    var period = GetSelectedAggregationPeriod();
+
+                    // Resolve services on Dispatcher, then pass only plain
+                    // value types and non-WPF services to the worker.
+                    var energyService = _services.GetRequiredService<EnergyRangeStatisticsService>();
+                    var aggregationService = _services.GetRequiredService<EnergyAggregationTableService>();
+                    var behaviorService = _services.GetRequiredService<HouseholdBehaviorStatisticsService>();
+                    var thresholdsService = _services.GetRequiredService<BatteryThresholdContextService>();
+
+                    AnalysisStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "Calculando análisis..."
+                        : "Calculating analysis...";
+
+                    var result = await Task.Run(() => ReadAnalysisData(
+                        profile.DeviceId, fromWindow.Start, toWindow.End,
+                        timeZone, period, energyService,
+                        aggregationService, behaviorService, thresholdsService));
+
+                    if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
+                        return;
+                    if (requestedGeneration != _analysisRefreshGeneration)
+                        continue;
+
+                    currentDeviceId = _profiles.Get()?.DeviceId;
+                    if (!string.Equals(currentDeviceId, profile.DeviceId, StringComparison.Ordinal))
+                        _analysisRefreshGeneration++;
+
+                    if (!AnalysisRefreshPolicy.CanApply(
+                        requestedGeneration, _analysisRefreshGeneration,
+                        AnalysisContent.Visibility == Visibility.Visible,
+                        _windowClosed, profile.DeviceId, currentDeviceId))
+                        continue;
+
+                    using var measure = _performance.Measure("UI.Analysis.Refresh");
+                    RefreshAnalysisEnergySummary(result.EnergySummary);
+                    RenderAnalysisAggregationTable(result.Aggregation, result.Thresholds);
+                    RenderAnalysisBehavior(result.Behavior);
+                    _analysisRenderedAggregation = result.Aggregation;
+                    _analysisRenderedThresholds = result.Thresholds;
+                    _analysisRenderedDeviceId = profile.DeviceId;
+                    _analysisRenderedGeneration = requestedGeneration;
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (requestedGeneration != _analysisRefreshGeneration)
+                        continue;
+                    if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
+                        return;
+
+                    ResetAnalysisView();
+                    AnalysisStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible actualizar el análisis."
+                        : "Analysis could not be refreshed.";
+                    Debug.WriteLine(
+                        $"Analysis read failed ({ex.GetType().Name}); stale values hidden.");
+                    return;
+                }
+            }
         }
+        finally
+        {
+            _analysisDataLoading = false;
+        }
+    }
 
-        var fromWindow = SolarApiTime.GetLocalDayWindow(fromDate, timeZone);
-        var toWindow = SolarApiTime.GetLocalDayWindow(toDate, timeZone);
-
-        var energySummary =
-            _services.GetRequiredService<EnergyRangeStatisticsService>()
-                .Get(
-                    profile.DeviceId,
-                    fromWindow.Start,
-                    toWindow.End);
-
-        RefreshAnalysisEnergySummary(energySummary);
-        RefreshAnalysisAggregationTable(
-            profile.DeviceId,
-            fromWindow.Start,
-            toWindow.End,
-            timeZone);
-
-        var statistics =
-            _services.GetRequiredService<HouseholdBehaviorStatisticsService>()
-                .Get(
-                    profile.DeviceId,
-                    fromWindow.Start,
-                    toWindow.End);
-
+    private void RenderAnalysisBehavior(HouseholdBehaviorStatistics statistics)
+    {
         if (statistics.SampleCount < 2)
         {
             ResetAnalysisValues();
@@ -951,18 +1514,30 @@ public partial class MainWindow : Window
         AnalysisStatusText.Text = string.Empty;
     }
 
-    private bool ApplyAnalysisRangePreset()
+    private async Task<bool> ApplyAnalysisRangePresetAsync(string preset, int generation)
     {
         var profile = _profiles.Get();
-        if (profile is null)
+        if (profile is null || _windowClosed ||
+            AnalysisContent.Visibility != Visibility.Visible)
         {
             return false;
         }
 
         var history =
             _services.GetRequiredService<HistoryRepository>();
-        var coverage =
-            history.GetCoverageSummary(profile.DeviceId);
+        // Read-only historical coverage on a worker, never on Dispatcher.
+        var coverage = await Task.Run(() => MeasureDataCall(
+            "Data.Analysis.PresetCoverage",
+            () => history.GetCoverageSummary(profile.DeviceId)));
+
+        if (_windowClosed ||
+            AnalysisContent.Visibility != Visibility.Visible ||
+            generation != _analysisPresetGeneration ||
+            !string.Equals(_profiles.Get()?.DeviceId,
+                profile.DeviceId, StringComparison.Ordinal) ||
+            !string.Equals(AnalysisRangePresetSelector.SelectedValue?.ToString(),
+                preset, StringComparison.Ordinal))
+            return false;
 
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
@@ -980,10 +1555,6 @@ public partial class MainWindow : Window
         var lastLocalDate = SolarApiTime.GetLocalDate(
             coverage.LastSampleAtUtc.Value,
             timeZone);
-
-        var preset =
-            AnalysisRangePresetSelector.SelectedValue?.ToString() ??
-            "custom";
 
         if (string.Equals(
                 preset,
@@ -1025,36 +1596,30 @@ public partial class MainWindow : Window
         };
 
         _suppressAnalysisRangeSelection = true;
-        AnalysisFromDatePicker.SelectedDate =
-            resolved.LocalStartDate.ToDateTime(TimeOnly.MinValue);
-        AnalysisToDatePicker.SelectedDate =
-            resolved.LocalEndDate.ToDateTime(TimeOnly.MinValue);
-        _suppressAnalysisRangeSelection = false;
+        try
+        {
+            AnalysisFromDatePicker.SelectedDate =
+                resolved.LocalStartDate.ToDateTime(TimeOnly.MinValue);
+            AnalysisToDatePicker.SelectedDate =
+                resolved.LocalEndDate.ToDateTime(TimeOnly.MinValue);
+        }
+        finally
+        {
+            _suppressAnalysisRangeSelection = false;
+        }
 
         return true;
     }
 
-    private void RefreshAnalysisAggregationTable(
-        string deviceId,
-        DateTimeOffset rangeStart,
-        DateTimeOffset rangeEnd,
-        string timeZoneId)
+    private void RenderAnalysisAggregationTable(
+        EnergyAggregationTable table, BatteryThresholdContext thresholds)
     {
-        var period = GetSelectedAggregationPeriod();
-
-        var table =
-            _services.GetRequiredService<EnergyAggregationTableService>()
-                .Get(
-                    deviceId,
-                    rangeStart,
-                    rangeEnd,
-                    timeZoneId,
-                    period);
-
+        // ScottPlot and WPF ItemsSource are constructed only on Dispatcher.
+        using var measure = _performance.Measure("UI.Analysis.ChartSetup");
         _analysisAggregationRows = table.Rows;
         AnalysisAggregationGrid.ItemsSource = table.Rows;
         RefreshAnalysisEnergyChart(table.Rows);
-        RefreshAnalysisBatteryChart(table.Rows);
+        RefreshAnalysisBatteryChart(table.Rows, thresholds);
     }
 
     private void AnalysisEnergyPlot_MouseMove(
@@ -1206,6 +1771,7 @@ public partial class MainWindow : Window
     private void RefreshAnalysisEnergyChart(
         IReadOnlyList<EnergyAggregationRow> rows)
     {
+        using var measure = _performance.Measure("UI.Analysis.EnergyChart");
         var plot = AnalysisEnergyPlot.Plot;
         plot.Clear();
         _analysisChartPositions = BuildAnalysisChartPositions(rows);
@@ -1280,8 +1846,10 @@ public partial class MainWindow : Window
     }
 
     private void RefreshAnalysisBatteryChart(
-        IReadOnlyList<EnergyAggregationRow> rows)
+        IReadOnlyList<EnergyAggregationRow> rows,
+        BatteryThresholdContext thresholds)
     {
+        using var measure = _performance.Measure("UI.Analysis.BatteryChart");
         var plot = AnalysisBatteryPlot.Plot;
         plot.Clear();
 
@@ -1305,9 +1873,6 @@ public partial class MainWindow : Window
 
         AddBatterySeriesSegments(plot, rows, row => row.SocAveragePercent, _localization.GetString("Analysis.BatteryChart.Average"));
         AddBatterySeriesSegments(plot, rows, row => row.SocEndingPercent, _localization.GetString("Analysis.BatteryChart.End"));
-
-        var thresholds = _services.GetRequiredService<BatteryThresholdContextService>()
-            .Get(_profiles.Get()?.DeviceId ?? string.Empty);
 
         var floor = plot.Add.HorizontalLine(
             thresholds.EmergencyFloorSocPercent);
@@ -1519,8 +2084,18 @@ public partial class MainWindow : Window
 
     private void ResetAnalysisView()
     {
-        AnalysisFromDatePicker.SelectedDate = null;
-        AnalysisToDatePicker.SelectedDate = null;
+        _analysisCustomRangePendingApply = false;
+        _analysisRenderedAggregation = null;
+        _analysisRenderedThresholds = null;
+        _analysisRenderedDeviceId = null;
+        _analysisRenderedGeneration = -1;
+        _suppressAnalysisRangeSelection = true;
+        try
+        {
+            AnalysisFromDatePicker.SelectedDate = null;
+            AnalysisToDatePicker.SelectedDate = null;
+        }
+        finally { _suppressAnalysisRangeSelection = false; }
         ResetAnalysisValues();
         ResetAnalysisEnergyValues();
         _analysisAggregationRows = Array.Empty<EnergyAggregationRow>();
@@ -1598,14 +2173,34 @@ public partial class MainWindow : Window
             return;
         }
 
-        var current = _services
-            .GetRequiredService<CurrentHouseholdSnapshotService>()
-            .GetLatest(profile.DeviceId);
-
-        if (current?.IsFresh == true)
+        // The navigation handler must not block WPF on a SQLite read.
+        // A battery page load is already in flight; this separate lookup
+        // decides only whether a remote current-state request is needed.
+        var requestedBatteryGeneration = _batteryRefreshGeneration;
+        CurrentHouseholdSnapshot? current;
+        try
         {
+            var reader = _services
+                .GetRequiredService<CurrentHouseholdSnapshotService>();
+            current = await Task.Run(() => MeasureDataCall(
+                "Data.Battery.NavigationSnapshot",
+                () => reader.GetLatest(profile.DeviceId)));
+        }
+        catch (Exception ex)
+        {
+            // Treat an unreadable snapshot conservatively. Never cause an
+            // unhandled async-void navigation exception or expose its content.
+            Debug.WriteLine(
+                $"Battery navigation snapshot failed ({ex.GetType().Name}).");
             return;
         }
+
+        if (!BatteryNavigationRefreshPolicy.ShouldRefresh(
+                requestedBatteryGeneration, _batteryRefreshGeneration,
+                BatteryContent.Visibility == Visibility.Visible,
+                _windowClosed, profile.DeviceId, _profiles.Get()?.DeviceId,
+                _session.HasSession, current?.IsFresh == true))
+            return;
 
         await RefreshCurrentStateAsync(
             profile,
@@ -1630,6 +2225,7 @@ public partial class MainWindow : Window
 
     private void ShowPage(string pageKey)
     {
+        using var measure = _performance.Measure("UI.Navigation");
         var buttons = new[]
         {
             DashboardNav,
@@ -1638,6 +2234,8 @@ public partial class MainWindow : Window
             GridUtilityNav,
             ReportsNav,
             DataNav,
+            BackupNav,
+            SqlNav,
             DiagnosticsNav,
             HelpNav,
             SettingsNav,
@@ -1672,11 +2270,36 @@ public partial class MainWindow : Window
         var isGridUtility = string.Equals(pageKey, "GridUtility", StringComparison.Ordinal);
         var isReports = string.Equals(pageKey, "Reports", StringComparison.Ordinal);
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
+        var isBackup = string.Equals(pageKey, "Backup", StringComparison.Ordinal);
+        var isSqlExplorer = string.Equals(pageKey, "SqlExplorer", StringComparison.Ordinal);
         var isHelp = string.Equals(pageKey, "Help", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
         var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
 
         _dashboardVisible = isDashboard;
+        if (!isAnalysis)
+        {
+            _analysisRefreshGeneration++; // Invalidate pending Analysis work.
+            _analysisPresetGeneration++;
+            _analysisPresetLoading = false;
+            _analysisRenderedAggregation = null;
+            _analysisRenderedThresholds = null;
+        }
+        if (!isBattery) _batteryRefreshGeneration++;
+        if (!isReports)
+        {
+            _reportReadGeneration++; // Invalidate background report availability read.
+            _pendingReportRangePreset = null;
+            _pendingBatteryReportPreset = null;
+            _reportAvailableCoverage = null;
+            _reportAvailableCoverageDeviceId = null;
+            InvalidateReportPreview();
+            RequestReportExportCancellation();
+        }
+
+        if (!isData) _dataCoverageRefreshGeneration++; // Discard stale coverage reads.
+        if (!isDashboard)
+            _dashboardRefreshGeneration++; // Discard in-flight Dashboard results.
         if (isDashboard)
         {
             ResetDashboardLiveCycle();
@@ -1694,6 +2317,8 @@ public partial class MainWindow : Window
         GridUtilityContent.Visibility = isGridUtility ? Visibility.Visible : Visibility.Collapsed;
         ReportsContent.Visibility = isReports ? Visibility.Visible : Visibility.Collapsed;
         DataContent.Visibility = isData ? Visibility.Visible : Visibility.Collapsed;
+        BackupContent.Visibility = isBackup ? Visibility.Visible : Visibility.Collapsed;
+        SqlExplorerContent.Visibility = isSqlExplorer ? Visibility.Visible : Visibility.Collapsed;
         HelpContent.Visibility = isHelp ? Visibility.Visible : Visibility.Collapsed;
         SettingsContent.Visibility = isSettings ? Visibility.Visible : Visibility.Collapsed;
         AboutContent.Visibility = isAbout ? Visibility.Visible : Visibility.Collapsed;
@@ -1704,14 +2329,21 @@ public partial class MainWindow : Window
             !isGridUtility &&
             !isReports &&
             !isData &&
+            !isBackup &&
+            !isSqlExplorer &&
             !isHelp &&
             !isSettings &&
             !isAbout
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-        if (isAnalysis)
+        if (isDashboard)
         {
+            RefreshDashboardMetrics();
+        }
+        else if (isAnalysis)
+        {
+            _analysisCustomRangePendingApply = false;
             RefreshAnalysisView();
         }
         else if (isBattery)
@@ -1724,11 +2356,22 @@ public partial class MainWindow : Window
         }
         else if (isReports)
         {
+            // Arriving through general navigation clears old source context.
+            _reportDraftOriginPage = null;
+            ReportContextPanel.Visibility = Visibility.Collapsed;
             RefreshReportsView();
         }
         else if (isData)
         {
             RefreshDataCoverageView();
+        }
+        else if (isBackup)
+        {
+            _ = RefreshBackupInventoryAsync();
+        }
+        else if (isSqlExplorer)
+        {
+            _ = RefreshSqlSchemaAsync();
         }
         else if (isHelp || isAbout)
         {
@@ -1744,8 +2387,59 @@ public partial class MainWindow : Window
             pageKey is "Diagnostics"
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        var showPerformance = pageKey == "Diagnostics"
+            ? Visibility.Visible : Visibility.Collapsed;
+        PerformanceSummaryTitle.Visibility = showPerformance;
+        PerformanceSummaryRefreshButton.Visibility = showPerformance;
+        PerformanceSummaryScroll.Visibility = showPerformance;
+        if (showPerformance == Visibility.Visible)
+            RenderPerformanceSummary();
 
-        if (isSettings) RefreshSettingsSessionStatus();
+        if (isSettings)
+        {
+            RefreshSettingsSessionStatus();
+            RefreshExportFolderPreference();
+        }
+    }
+
+    private void PerformanceSummaryRefresh_Click(object sender, RoutedEventArgs e) =>
+        RenderPerformanceSummary();
+
+    private void RenderPerformanceSummary()
+    {
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        var summaries = _performance.Summaries();
+        if (summaries.Count == 0)
+        {
+            PerformanceSummaryText.Text = spanish
+                ? "Sin observaciones todavía. Navega entre las pantallas y vuelve aquí."
+                : "No observations yet. Visit other pages and return.";
+            return;
+        }
+        var header = spanish
+            ? "Mediciones locales de esta sesión; sin datos personales.\n" +
+              "Promedio/p95/máximo observados (ms); no son una garantía ni una comparación entre Builds.\n" +
+              "UI.Dispatcher.TickLateness: sólo retrasos de temporizador >150 ms con ventana activa; no demuestran bloqueos.\n\n"
+            : "Local observations for this session; no personal information.\n" +
+              "Observed mean/p95/max (ms); not a performance guarantee or a build comparison.\n" +
+              "UI.Dispatcher.TickLateness: active-window timer delay >150 ms only; does not prove UI blocking.\n\n";
+        // In-memory summaries are already ranked by observed p95, not name.
+        var visible = summaries.Take(24).ToArray();
+        var rows = visible.Select(x =>
+            $"{x.Operation} | n={x.Samples} | " +
+            $"avg={x.MeanMilliseconds:F0} p95={x.P95Milliseconds:F0} " +
+            $"max={x.MaxMilliseconds:F0} ms");
+        var guide = spanish
+            ? "Ordenado por p95 observado. Con pocas muestras (n) el valor es inestable.\n"
+            : "Sorted by observed p95. With small sample counts (n), estimates are unstable.\n";
+        var hidden = summaries.Count - visible.Length;
+        var suffix = hidden > 0
+            ? (spanish ? $"\n{hidden} operaciones adicionales no mostradas."
+                       : $"\n{hidden} additional operations not shown.")
+            : string.Empty;
+        PerformanceSummaryText.Text = header + guide +
+            string.Join(Environment.NewLine, rows) + suffix;
     }
 
     private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1758,18 +2452,21 @@ public partial class MainWindow : Window
         _localization.SetLanguage(language);
         RefreshConnectionStatus();
         RefreshCaptureStartOptions();
-        RefreshDashboardMetrics();
-        RefreshBatteryView();
-        RefreshGridUtilityView();
-        RefreshDataCoverageView();
-        RefreshAnalysisView();
-        RefreshReportsView();
+        // Inactive pages reload in ShowPage. Avoid expensive SQLite queries
+        // and chart repaints for pages the user cannot see.
+        if (_dashboardVisible) RefreshDashboardMetrics();
+        if (BatteryContent.Visibility == Visibility.Visible) RefreshBatteryView();
+        if (GridUtilityContent.Visibility == Visibility.Visible) RefreshGridUtilityView();
+        if (DataContent.Visibility == Visibility.Visible) RefreshDataCoverageView();
+        if (AnalysisContent.Visibility == Visibility.Visible) RefreshAnalysisView();
+        if (ReportsContent.Visibility == Visibility.Visible) RefreshReportsView();
         RefreshProductExperienceLocalization();
     }
 
 
     private async void RefreshGridUtilityView()
     {
+        using var measure = _performance.Measure("UI.GridUtility.Refresh");
         if (!IsInitialized || GridUtilityContent is null)
         {
             return;
@@ -2654,6 +3351,8 @@ public partial class MainWindow : Window
             FileName = $"Conciliacion-Enel-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
             return;
 
@@ -3031,7 +3730,9 @@ public partial class MainWindow : Window
                     StringComparison.Ordinal) ||
                 item.Status.StartsWith(
                     "FIXED_AMOUNT_RECONCILED",
-                    StringComparison.Ordinal) ||
+                    StringComparison.Ordinal) &&
+                !item.Status.Contains(
+                    "AMBIGUOUS", StringComparison.Ordinal) ||
                 item.Status == "VAT_RECONSTRUCTED_19");
 
             var spanish =
@@ -3116,12 +3817,22 @@ public partial class MainWindow : Window
             UtilityAuditBalanceText.Text =
                 $"{summaryBalance} · {detailBalance}";
 
+            var reconstructed = audit.Lines.Count(item =>
+                item.ReconstructedAmountClp.HasValue);
+            var withAmbiguousApplicability = audit.Lines.Count(item =>
+                item.ReconstructedAmountClp.HasValue &&
+                item.Status.Contains("AMBIGUOUS", StringComparison.Ordinal));
             UtilityAuditStatusText.Text =
                 string.Format(
                     _localization.GetString(
                         "GridUtility.AuditPreviewSummary"),
                     verified,
-                    audit.Lines.Count - verified);
+                    audit.Lines.Count - verified) +
+                (spanish
+                    ? $" · {reconstructed} línea(s) con cálculo; " +
+                      $"{withAmbiguousApplicability} con aplicabilidad tarifaria pendiente"
+                    : $" · {reconstructed} line(s) with calculation; " +
+                      $"{withAmbiguousApplicability} with unresolved tariff applicability");
         }
         catch (Exception ex)
         {
@@ -3441,6 +4152,12 @@ public partial class MainWindow : Window
             "BILL_AMOUNT_RECONCILED_MULTI_PERIOD_APPLICABILITY_AMBIGUOUS" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.ReconstructedAmbiguous"),
+            "FIXED_AMOUNT_RECONCILED_MULTI_PERIOD_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ReconstructedAmbiguous"),
+            "FIXED_AMOUNT_RECONCILED_APPLICABILITY_AMBIGUOUS" =>
+                _localization.GetString(
+                    "GridUtility.AuditStatus.ReconstructedAmbiguous"),
             "VERIFIED_RECONSTRUCTED_APPLICABILITY_AMBIGUOUS" =>
                 _localization.GetString(
                     "GridUtility.AuditStatus.ReconstructedAmbiguous"),
@@ -3492,6 +4209,14 @@ public partial class MainWindow : Window
             _ => status
         };
 
+    private void SetAuditExportProgress(int progress, string label)
+    {
+        UtilityAuditExportProgressBar.Visibility = Visibility.Visible;
+        UtilityAuditExportProgressText.Visibility = Visibility.Visible;
+        UtilityAuditExportProgressBar.Value = progress;
+        UtilityAuditExportProgressText.Text = label;
+    }
+
     private async void UtilityExportBillAudit_Click(
         object sender,
         RoutedEventArgs e)
@@ -3514,6 +4239,8 @@ public partial class MainWindow : Window
             FileName = $"Auditoria-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
             return;
 
@@ -3521,6 +4248,9 @@ public partial class MainWindow : Window
             "es",
             StringComparison.OrdinalIgnoreCase);
 
+        SetAuditExportProgress(15, spanish
+            ? "Paso 1/3 · Preparando auditoría"
+            : "Step 1/3 · Preparing audit");
         UtilityExportBillAuditButton.IsEnabled = false;
         UtilityExportBillAnnexButton.IsEnabled = false;
         UtilityAuditStatusText.Text = spanish
@@ -3534,6 +4264,9 @@ public partial class MainWindow : Window
 
         try
         {
+            SetAuditExportProgress(50, spanish
+                ? "Paso 2/3 · Generando archivo"
+                : "Step 2/3 · Generating file");
             var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
                 ? "America/Santiago"
                 : profile.StationTimeZone;
@@ -3550,12 +4283,19 @@ public partial class MainWindow : Window
                     _localization.CurrentLanguage,
                     ReportProducerIdentity()));
 
+            SetAuditExportProgress(100, spanish
+                ? "Paso 3/3 · PDF guardado: " + dialog.FileName
+                : "Step 3/3 · PDF saved: " + dialog.FileName);
+            System.Media.SystemSounds.Asterisk.Play();
             UtilityAuditStatusText.Text = string.Format(
                 _localization.GetString("GridUtility.ExportBillAuditSaved"),
                 dialog.FileName);
         }
         catch (Exception ex)
         {
+            SetAuditExportProgress(100, spanish
+                ? "Error de exportación: " + ex.Message
+                : "Export failed: " + ex.Message);
             UtilityAuditStatusText.Text = ex.Message;
             MessageBox.Show(
                 ex.Message,
@@ -3596,6 +4336,8 @@ public partial class MainWindow : Window
                 $"Anexo-Tecnico-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.zip"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
             return;
 
@@ -3604,6 +4346,9 @@ public partial class MainWindow : Window
                 "es",
                 StringComparison.OrdinalIgnoreCase);
 
+        SetAuditExportProgress(15, spanish
+            ? "Paso 1/3 · Preparando anexo"
+            : "Step 1/3 · Preparing annex");
         UtilityExportBillAnnexButton.IsEnabled = false;
         UtilityExportBillAuditButton.IsEnabled = false;
         UtilityAuditStatusText.Text =
@@ -3618,6 +4363,9 @@ public partial class MainWindow : Window
 
         try
         {
+            SetAuditExportProgress(50, spanish
+                ? "Paso 2/3 · Generando archivo"
+                : "Step 2/3 · Generating file");
             var timeZone =
                 string.IsNullOrWhiteSpace(
                     profile.StationTimeZone)
@@ -3638,6 +4386,10 @@ public partial class MainWindow : Window
                         _localization.CurrentLanguage,
                         ReportProducerIdentity()));
 
+            SetAuditExportProgress(100, spanish
+                ? "Paso 3/3 · ZIP guardado: " + dialog.FileName
+                : "Step 3/3 · ZIP saved: " + dialog.FileName);
+            System.Media.SystemSounds.Asterisk.Play();
             UtilityAuditStatusText.Text =
                 string.Format(
                     _localization.GetString(
@@ -3646,6 +4398,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            SetAuditExportProgress(100, spanish
+                ? "Error de exportación: " + ex.Message
+                : "Export failed: " + ex.Message);
             UtilityAuditStatusText.Text =
                 ex.Message;
             MessageBox.Show(
@@ -5900,29 +6655,317 @@ public partial class MainWindow : Window
         string Amount,
         string Evidence);
 
+    private string? _reportDraftOriginPage;
+    private string? _lastExportedReportPath;
+    private bool _reportExportInProgress;
+    private CancellationTokenSource? _reportExportCancellation;
+    private long? _reportExportCancellationRequestedAt;
+    private int _reportPreviewGeneration;
+    private CancellationTokenSource? _reportPreviewCancellation;
+    private int _reportReadGeneration;
+    private bool _reportCoverageLoading;
+    private int _reportReadAppliedGeneration = -1;
+    private bool _reportRangeInitializationPending;
+    private string? _reportReadDeviceId;
+    // UI-only last completed coverage; never persisted, never shared across
+    // device changes or history refresh. Preset controls must not read SQLite.
+    private HistoryCoverageSummary? _reportAvailableCoverage;
+    private string? _reportAvailableCoverageDeviceId;
+    private string? _pendingReportRangePreset;
+    private string? _pendingBatteryReportPreset;
+    private (string DeviceId, ReportContextSelection Draft)? _dataCoverageContext;
+
+    private void AnalysisToDetailedReport_Click(object sender, RoutedEventArgs e) =>
+        OpenAnalysisReportDraft(ReportKind.DetailedEnergy);
+
+    private void AnalysisToSimpleReport_Click(object sender, RoutedEventArgs e) =>
+        OpenAnalysisReportDraft(ReportKind.SimpleEnergy);
+
+    private void AnalysisToBatteryReport_Click(object sender, RoutedEventArgs e) =>
+        OpenAnalysisReportDraft(ReportKind.Battery);
+
+    private bool IsCurrentAnalysisReadyForReport()
+    {
+        var device = _profiles.Get()?.DeviceId;
+        return !_windowClosed &&
+               AnalysisContent.Visibility == Visibility.Visible &&
+               _analysisRenderedAggregation is not null &&
+               _analysisAggregationRows.Count > 0 &&
+               !_analysisCustomRangePendingApply &&
+               !_analysisPresetLoading && !_analysisDataLoading &&
+               !string.IsNullOrEmpty(device) &&
+               string.Equals(_analysisRenderedDeviceId, device,
+                   StringComparison.Ordinal) &&
+               _analysisRenderedGeneration == _analysisRefreshGeneration &&
+               AnalysisFromDatePicker.SelectedDate.HasValue &&
+               AnalysisToDatePicker.SelectedDate.HasValue;
+    }
+
+    private void OpenAnalysisReportDraft(ReportKind kind)
+    {
+        if (!IsCurrentAnalysisReadyForReport())
+        {
+            AnalysisStatusText.Text = _localization.GetString(
+                "Reports.AnalysisNotReady");
+            return;
+        }
+
+        var from = DateOnly.FromDateTime(AnalysisFromDatePicker.SelectedDate!.Value);
+        var to = DateOnly.FromDateTime(AnalysisToDatePicker.SelectedDate!.Value);
+        var rawAggregation = AnalysisAggregationSelector.SelectedValue?.ToString();
+        if (!Enum.TryParse<AggregationPeriod>(rawAggregation, true,
+                out var analysisAggregation))
+            analysisAggregation = AggregationPeriod.Day;
+
+        var draft = ReportContextNavigationPolicy.FromAnalysis(
+            from, to, analysisAggregation, kind);
+        OpenContextReportDraft(draft, "Analysis");
+    }
+
+    private void AnalysisSelectedRowReport_Click(object sender, RoutedEventArgs e) =>
+        OpenSelectedAnalysisRowReport(ReportKind.DetailedEnergy);
+
+    private void AnalysisSelectedRowBatteryReport_Click(object sender, RoutedEventArgs e) =>
+        OpenSelectedAnalysisRowReport(ReportKind.Battery);
+
+    private void AnalysisSelectedRowSimpleReport_Click(object sender, RoutedEventArgs e) =>
+        OpenSelectedAnalysisRowReport(ReportKind.SimpleEnergy);
+
+    private void OpenSelectedAnalysisRowReport(ReportKind reportKind)
+    {
+        if (!IsCurrentAnalysisReadyForReport() ||
+            AnalysisAggregationGrid.SelectedItem is not EnergyAggregationRow selected ||
+            !_analysisAggregationRows.Contains(selected))
+        {
+            AnalysisStatusText.Text =
+                _localization.GetString("Reports.SelectAnalysisRow");
+            return;
+        }
+        var timeZone = _profiles.Get()?.StationTimeZone;
+        var draft = ReportContextNavigationPolicy.FromSelectedRow(
+            selected, string.IsNullOrWhiteSpace(timeZone)
+                ? "America/Santiago" : timeZone, reportKind);
+        OpenContextReportDraft(draft, "Analysis");
+    }
+
+    private void BatteryToReport_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryReportPreset("latest-month");
+
+    private void BatteryToWeekReport_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryReportPreset("rolling-7");
+
+    private void BatteryToAllReport_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryReportPreset("all");
+
+    private void OpenBatteryReportPreset(string preset)
+    {
+        if (_windowClosed || BatteryContent.Visibility != Visibility.Visible ||
+            _profiles.Get() is null)
+            return;
+        // Preserve the intended draft until the background coverage check
+        // completes. Do NOT synchronously query large SQLite on navigation.
+        ShowPage("Reports");
+        _pendingBatteryReportPreset = preset;
+        if (!_reportCoverageLoading)
+            RefreshReportsView();
+    }
+
+    private void BatteryToAnalysis_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryAnalysisPreset("rolling-7");
+
+    private void BatteryToMonthAnalysis_Click(object sender, RoutedEventArgs e) =>
+        OpenBatteryAnalysisPreset("latest-month");
+
+    private void OpenBatteryAnalysisPreset(string preset)
+    {
+        if (_windowClosed || BatteryContent.Visibility != Visibility.Visible ||
+            _profiles.Get() is null)
+            return;
+        ShowPage("Analysis");
+        // Re-select intentionally so a past Analysis visit cannot leave stale dates.
+        _suppressAnalysisRangeSelection = true;
+        try { AnalysisRangePresetSelector.SelectedValue = null; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        AnalysisRangePresetSelector.SelectedValue = preset;
+    }
+
+    private void OpenContextReportDraft(ReportContextSelection context, string origin)
+    {
+        if (_windowClosed || _profiles.Get() is null)
+            return;
+        ShowPage("Reports");
+        _pendingBatteryReportPreset = null;
+        _pendingReportRangePreset = null;
+        _reportRangeInitializationPending = false;
+
+        // A programmatic context should update all selectors atomically.
+        // It deliberately only PREFILLS; exporting still requires a click.
+        _suppressReportRangeSelection = true;
+        try
+        {
+            ReportRangePresetSelector.SelectedValue = "custom";
+            ReportFromDatePicker.SelectedDate = context.From.ToDateTime(TimeOnly.MinValue);
+            ReportToDatePicker.SelectedDate = context.To.ToDateTime(TimeOnly.MinValue);
+            ReportTypeSelector.SelectedValue = context.Kind.ToString();
+            ReportAggregationSelector.SelectedValue = context.Aggregation.ToString();
+        }
+        finally { _suppressReportRangeSelection = false; }
+
+        SyncReportDatePartSelectorsFromDates();
+        ReportTitleTextBox.Text = GetDefaultReportTitle(context.Kind);
+        UpdateReportSelectionSummary();
+        ShowReportDraftSource(origin, context.ExpandedToCalendarDay);
+    }
+
+    private void ShowReportDraftSource(
+        string origin, bool expandedDay, string? localizedMessageKey = null)
+    {
+        _reportDraftOriginPage = origin;
+        ReportContextText.Text = localizedMessageKey is not null
+            ? _localization.GetString(localizedMessageKey)
+            : _localization.GetString(origin switch
+            {
+                "Battery" => "Reports.DraftFromBattery",
+                "Data" => "Reports.DraftFromData",
+                _ when expandedDay => "Reports.DraftFromAnalysisExpanded",
+                _ => "Reports.DraftFromAnalysis"
+            });
+        ReportContextPanel.Visibility = Visibility.Visible;
+    }
+
+    private void ReportsBackToSource_Click(object sender, RoutedEventArgs e)
+    {
+        var source = _reportDraftOriginPage;
+        if (source is not ("Analysis" or "Battery" or "Data")) return;
+        _reportDraftOriginPage = null;
+        ReportContextPanel.Visibility = Visibility.Collapsed;
+        ShowPage(source);
+    }
+
+    // Reports' coverage lookup used to run SQLite synchronously on the WPF
+    // navigation thread. Keep one background worker, coalesce repeated
+    // requests, and refuse a stale result after a device/page switch.
     private void RefreshReportsView(bool initializeRange = false)
     {
-        if (!IsInitialized || ReportsContent is null)
-        {
+        if (!IsInitialized || ReportsContent is null || _windowClosed)
             return;
-        }
-
-        var profile = _profiles.Get();
-        if (profile is null)
+        var device = _profiles.Get()?.DeviceId;
+        if (!string.Equals(device, _reportReadDeviceId, StringComparison.Ordinal))
         {
-            ReportStatusText.Text = _localization.GetString("Reports.NoProfile");
-            ReportExportExcelButton.IsEnabled = false;
-            ReportExportPdfButton.IsEnabled = false;
-            LoadSavedReportPresets();
-            return;
+            _reportReadDeviceId = device;
+            initializeRange = true;
         }
+        if (initializeRange) _reportRangeInitializationPending = true;
+        _reportAvailableCoverage = null;
+        _reportAvailableCoverageDeviceId = null;
+        _reportReadGeneration++;
+        // Data from the prior device/range must not remain visible or
+        // previewable while background coverage is being revalidated.
+        InvalidateReportPreview();
+        ReportPreviewButton.IsEnabled = false;
+        ReportExportExcelButton.IsEnabled = false;
+        ReportExportPdfButton.IsEnabled = false;
+        ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase)
+            ? "Leyendo disponibilidad histórica..."
+            : "Reading historical availability...";
+        if (!_reportCoverageLoading && ReportsContent.Visibility == Visibility.Visible)
+            _ = LoadReportsCoverageAsync();
+    }
 
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
+    private async Task LoadReportsCoverageAsync()
+    {
+        _reportCoverageLoading = true;
+        try
+        {
+            while (!_windowClosed && ReportsContent.Visibility == Visibility.Visible)
+            {
+                var generation = _reportReadGeneration;
+                try
+                {
+                    var profile = _profiles.Get();
+                    if (profile is null)
+                    {
+                        _reportReadAppliedGeneration = generation;
+                        ReportPreviewButton.IsEnabled = false;
+                        ReportStatusText.Text = _localization.GetString("Reports.NoProfile");
+                        LoadSavedReportPresets();
+                        return;
+                    }
 
+                    var history = _services.GetRequiredService<HistoryRepository>();
+                    // Repository and device key are immutable worker inputs.
+                    var coverage = await Task.Run(() => MeasureDataCall(
+                        "Data.Reports.Coverage",
+                        () => history.GetCoverageSummary(profile.DeviceId)));
+
+                    if (_windowClosed || ReportsContent.Visibility != Visibility.Visible)
+                        return;
+                    if (generation != _reportReadGeneration)
+                        continue;
+                    if (!ReportReadinessRefreshPolicy.CanApply(
+                            generation, _reportReadGeneration, true, _windowClosed,
+                            profile.DeviceId, _profiles.Get()?.DeviceId))
+                    {
+                        _reportReadGeneration++;
+                        _reportRangeInitializationPending = true;
+                        continue;
+                    }
+
+                    using var measure = _performance.Measure("UI.Reports.Readiness");
+                    ApplyReportsCoverage(profile, coverage, _reportRangeInitializationPending);
+                    _reportAvailableCoverage = coverage;
+                    _reportAvailableCoverageDeviceId = profile.DeviceId;
+                    _reportRangeInitializationPending = false;
+                    _reportReadAppliedGeneration = generation;
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (generation != _reportReadGeneration) continue;
+                    if (_windowClosed || ReportsContent.Visibility != Visibility.Visible)
+                        return;
+                    ReportPreviewButton.IsEnabled = false;
+                    ReportExportExcelButton.IsEnabled = false;
+                    ReportExportPdfButton.IsEnabled = false;
+                    ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                        "es", StringComparison.OrdinalIgnoreCase)
+                        ? "No fue posible leer la disponibilidad para informes."
+                        : "Report availability could not be loaded.";
+                    _reportReadAppliedGeneration = generation;
+                    Debug.WriteLine($"Reports coverage read failed ({ex.GetType().Name}).");
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _reportCoverageLoading = false;
+            // The previous reader can finish after a fast away/back
+            // navigation. Ensure the new generation still gets a reader.
+            if (!_windowClosed && ReportsContent.Visibility == Visibility.Visible &&
+                _reportReadAppliedGeneration != _reportReadGeneration)
+                _ = LoadReportsCoverageAsync();
+        }
+    }
+
+    private void ApplyReportsCoverage(
+        CommissioningProfile profile, HistoryCoverageSummary coverage,
+        bool initializeRange)
+    {
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
         {
+            _pendingReportRangePreset = null;
+            _pendingBatteryReportPreset = null;
+            ReportPreviewButton.IsEnabled = false;
+            _suppressReportRangeSelection = true;
+            try
+            {
+                ReportFromDatePicker.SelectedDate = null;
+                ReportToDatePicker.SelectedDate = null;
+            }
+            finally { _suppressReportRangeSelection = false; }
             ReportStatusText.Text = _localization.GetString("Reports.NoData");
             ReportExportExcelButton.IsEnabled = false;
             ReportExportPdfButton.IsEnabled = false;
@@ -5930,40 +6973,79 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (initializeRange ||
+        // Don't overwrite a draft selected from Analysis/Battery/Data while
+        // the independent availability read was running.
+        if ((initializeRange && _pendingReportRangePreset is null &&
+             _pendingBatteryReportPreset is null) ||
             !ReportFromDatePicker.SelectedDate.HasValue ||
             !ReportToDatePicker.SelectedDate.HasValue)
         {
             var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
                 ? "America/Santiago"
                 : profile.StationTimeZone;
-
             var first = SolarApiTime.GetLocalDate(
-                coverage.FirstSampleAtUtc.Value,
-                timeZone);
+                coverage.FirstSampleAtUtc.Value, timeZone);
             var last = SolarApiTime.GetLocalDate(
-                coverage.LastSampleAtUtc.Value,
-                timeZone);
-
+                coverage.LastSampleAtUtc.Value, timeZone);
             _suppressReportRangeSelection = true;
-            ReportRangePresetSelector.SelectedValue = "all";
-            ReportFromDatePicker.SelectedDate =
-                first.ToDateTime(TimeOnly.MinValue);
-            ReportToDatePicker.SelectedDate =
-                last.ToDateTime(TimeOnly.MinValue);
-            _suppressReportRangeSelection = false;
+            try
+            {
+                ReportRangePresetSelector.SelectedValue = "all";
+                ReportFromDatePicker.SelectedDate = first.ToDateTime(TimeOnly.MinValue);
+                ReportToDatePicker.SelectedDate = last.ToDateTime(TimeOnly.MinValue);
+            }
+            finally { _suppressReportRangeSelection = false; }
         }
 
-        ReportExportExcelButton.IsEnabled = true;
-        ReportExportPdfButton.IsEnabled = true;
+        ReportPreviewButton.IsEnabled = !_reportExportInProgress;
+        ReportExportExcelButton.IsEnabled = !_reportExportInProgress;
+        ReportExportPdfButton.IsEnabled = !_reportExportInProgress;
         InitializeReportDatePartSelectors(profile, coverage);
         SyncReportDatePartSelectorsFromDates();
         if (string.IsNullOrWhiteSpace(ReportTitleTextBox.Text))
-        {
             ReportTitleTextBox.Text = GetDefaultReportTitle(GetReportKind());
-        }
         LoadSavedReportPresets();
+        if (_pendingReportRangePreset is string requestedPreset)
+        {
+            _pendingReportRangePreset = null;
+            _suppressReportRangeSelection = true;
+            try { ReportRangePresetSelector.SelectedValue = requestedPreset; }
+            finally { _suppressReportRangeSelection = false; }
+            ApplyReportRangePreset(profile, coverage);
+            SyncReportDatePartSelectorsFromDates();
+        }
+        if (_pendingBatteryReportPreset is string preset)
+        {
+            _pendingBatteryReportPreset = null;
+            _suppressReportRangeSelection = true;
+            try
+            {
+                ReportTypeSelector.SelectedValue = ReportKind.Battery.ToString();
+                ReportRangePresetSelector.SelectedValue = preset;
+                ReportAggregationSelector.SelectedValue = AggregationPeriod.Day.ToString();
+            }
+            finally { _suppressReportRangeSelection = false; }
+
+            if (!ApplyReportRangePreset(profile, coverage))
+            {
+                ReportStatusText.Text = _localization.GetString("Reports.NoData");
+                return;
+            }
+            SyncReportDatePartSelectorsFromDates();
+            ReportTitleTextBox.Text = GetDefaultReportTitle(ReportKind.Battery);
+            var bannerKey = preset switch
+            {
+                "rolling-7" => "Reports.DraftFromBatteryWeek",
+                "all" => "Reports.DraftFromBatteryAll",
+                _ => "Reports.DraftFromBattery"
+            };
+            ShowReportDraftSource("Battery", false, bannerKey);
+        }
         UpdateReportSelectionSummary();
+        ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase)
+            ? "Disponibilidad cargada. Informes listos para generar."
+            : "Availability loaded. Reports are ready to generate.";
     }
 
     private void LoadSavedReportPresets()
@@ -6006,8 +7088,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyReportRangePreset();
-        SyncReportDatePartSelectorsFromDates();
+        if (ApplyReportRangePreset())
+            SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
     }
 
@@ -6020,6 +7102,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        _pendingReportRangePreset = null;
+        _pendingBatteryReportPreset = null;
+        _reportRangeInitializationPending = false;
         _suppressReportRangeSelection = true;
         ReportRangePresetSelector.SelectedValue = "custom";
         _suppressReportRangeSelection = false;
@@ -6057,6 +7142,9 @@ public partial class MainWindow : Window
             current.Day,
             DateTime.DaysInMonth(year, month));
 
+        _pendingReportRangePreset = null;
+        _pendingBatteryReportPreset = null;
+        _reportRangeInitializationPending = false;
         _suppressReportRangeSelection = true;
         picker.SelectedDate = new DateTime(year, month, day);
         ReportRangePresetSelector.SelectedValue = "custom";
@@ -6181,26 +7269,50 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        ApplyReportRangePreset();
-        SyncReportDatePartSelectorsFromDates();
+        if (ApplyReportRangePreset())
+            SyncReportDatePartSelectorsFromDates();
         UpdateReportSelectionSummary();
     }
 
     private bool ApplyReportRangePreset()
     {
         var profile = _profiles.Get();
-        if (profile is null)
+        if (profile is null || _windowClosed ||
+            ReportsContent.Visibility != Visibility.Visible)
+            return false;
+
+        // The user can choose an exact historical preset without making the
+        // WPF event handler wait for sqlite3. A missing/currently invalidated
+        // coverage cache is resolved by the existing coalesced async reader.
+        if (_reportAvailableCoverage is null ||
+            !string.Equals(_reportAvailableCoverageDeviceId, profile.DeviceId,
+                StringComparison.Ordinal))
         {
+            _pendingReportRangePreset =
+                ReportRangePresetSelector.SelectedValue?.ToString();
+            if (_pendingReportRangePreset is not null &&
+                _pendingReportRangePreset != "custom")
+            {
+                ReportStatusText.Text = _localization.CurrentLanguage.StartsWith(
+                    "es", StringComparison.OrdinalIgnoreCase)
+                    ? "Consultando disponibilidad para el período seleccionado..."
+                    : "Loading availability for selected period...";
+                if (!_reportCoverageLoading)
+                    RefreshReportsView();
+            }
             return false;
         }
 
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
+        _pendingReportRangePreset = null;
+        return ApplyReportRangePreset(profile, _reportAvailableCoverage);
+    }
+
+    private bool ApplyReportRangePreset(
+        CommissioningProfile profile, HistoryCoverageSummary coverage)
+    {
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
-        {
             return false;
-        }
 
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
@@ -6312,6 +7424,8 @@ public partial class MainWindow : Window
             ReportFromDatePicker.SelectedDate.Value);
         var second = DateOnly.FromDateTime(
             ReportToDatePicker.SelectedDate.Value);
+        if (first > second)
+            return null;
 
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
@@ -6350,11 +7464,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        InvalidateReportPreview();
         var request = GetCurrentReportRequest();
         if (request is null)
         {
             ReportSelectionSummaryText.Text =
-                _localization.GetString("Reports.NoData");
+                ReportFromDatePicker.SelectedDate > ReportToDatePicker.SelectedDate
+                    ? _localization.GetString("Reports.InvalidRange")
+                    : _localization.GetString("Reports.NoData");
             return;
         }
 
@@ -6371,6 +7488,169 @@ public partial class MainWindow : Window
                     _ => "Reports.Type.Simple"
                 }));
         ReportStatusText.Text = string.Empty;
+    }
+
+    private void InvalidateReportPreview()
+    {
+        _reportPreviewGeneration++;
+        _reportPreviewCancellation?.Cancel();
+        _reportPreviewCancellation = null;
+        if (ReportPreviewButton is null) return;
+        ReportPreviewButton.IsEnabled = !_reportExportInProgress;
+        ReportPreviewCancelButton.IsEnabled = false;
+        ReportPreviewResultPanel.Visibility = Visibility.Collapsed;
+        ReportPreviewStatusText.Text = string.Empty;
+        ReportPreviewCoverageText.Text = string.Empty;
+        ReportPreviewPeriodCoverageText.Text = string.Empty;
+    }
+
+    private void ReportInspectAnalysis_Click(object sender, RoutedEventArgs e)
+    {
+        var request = GetCurrentReportRequest();
+        if (request is null || _windowClosed ||
+            ReportsContent.Visibility != Visibility.Visible)
+        {
+            ReportStatusText.Text = _localization.GetString("Reports.InvalidSelection");
+            return;
+        }
+
+        var context = ReportContextNavigationPolicy.FromReport(request);
+        ShowPage("Analysis");
+        // Explicitly override any retained Analysis preset instead of
+        // reverting to the last saved day or to the computer's current date.
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
+        _suppressAnalysisRangeSelection = true;
+        try
+        {
+            AnalysisRangePresetSelector.SelectedValue = "custom";
+            AnalysisFromDatePicker.SelectedDate =
+                context.From.ToDateTime(TimeOnly.MinValue);
+            AnalysisToDatePicker.SelectedDate =
+                context.To.ToDateTime(TimeOnly.MinValue);
+            AnalysisAggregationSelector.SelectedValue = context.Aggregation.ToString();
+        }
+        finally { _suppressAnalysisRangeSelection = false; }
+
+        _analysisCustomRangePendingApply = false;
+        RefreshAnalysisView();
+    }
+
+    private void ReportPreviewCancel_Click(object sender, RoutedEventArgs e)
+    {
+        InvalidateReportPreview();
+        ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewCancelled");
+    }
+
+    private string FormatReportPreviewMetric(PowerMetricStatistics metric, bool signedBattery = false)
+    {
+        var evidence = ReportPreviewEvidencePolicy.Evaluate(metric);
+        if (!evidence.PositiveEnergyKwh.HasValue || !evidence.CoveragePercent.HasValue)
+            return string.Format(_localization.GetString("Reports.PreviewInsufficient"), evidence.SampleCount);
+        return signedBattery
+            ? string.Format(_localization.GetString("Reports.PreviewBatteryValue"),
+                evidence.PositiveEnergyKwh.Value, evidence.NegativeEnergyKwh!.Value,
+                evidence.CoveragePercent.Value, evidence.SampleCount)
+            : string.Format(_localization.GetString("Reports.PreviewEnergyValue"),
+                evidence.PositiveEnergyKwh.Value, evidence.CoveragePercent.Value, evidence.SampleCount);
+    }
+
+    private async void ReportPreview_Click(object sender, RoutedEventArgs e)
+    {
+        InvalidateReportPreview();
+        if (_reportExportInProgress)
+        {
+            ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewExportBusy");
+            return;
+        }
+        var request = GetCurrentReportRequest();
+        if (request is null || ReportsContent.Visibility != Visibility.Visible)
+        {
+            ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewInvalid");
+            return;
+        }
+
+        var generation = _reportPreviewGeneration;
+        var cancellation = new CancellationTokenSource();
+        _reportPreviewCancellation = cancellation;
+        ReportPreviewButton.IsEnabled = false;
+        ReportPreviewCancelButton.IsEnabled = true;
+        ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewLoading");
+
+        try
+        {
+            // Run only the existing report-equivalent range integrator.
+            // Preview never saves or exports a file.
+            var rangeService = _services.GetRequiredService<EnergyRangeStatisticsService>();
+            var aggregationService =
+                _services.GetRequiredService<EnergyAggregationTableService>();
+            var evidence = await Task.Run(() =>
+            {
+                var totals = rangeService.Get(
+                    request.DeviceId, request.StartUtc, request.EndUtc,
+                    cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                var buckets = aggregationService.Get(
+                    request.DeviceId, request.StartUtc, request.EndUtc,
+                    request.TimeZoneId, request.Aggregation, cancellation.Token);
+                return (Summary: totals, Buckets: buckets);
+            }, cancellation.Token);
+            if (!ReportPreviewEvidencePolicy.CanApply(
+                    generation, _reportPreviewGeneration,
+                    !_windowClosed && ReportsContent.Visibility == Visibility.Visible,
+                    request.DeviceId, _profiles.Get()?.DeviceId) ||
+                request != GetCurrentReportRequest())
+                return;
+
+            ReportPreviewSolarText.Text = FormatReportPreviewMetric(evidence.Summary.PvPower);
+            ReportPreviewHouseText.Text = FormatReportPreviewMetric(evidence.Summary.HouseLoadPower);
+            ReportPreviewGridText.Text = FormatReportPreviewMetric(evidence.Summary.GridImportPower);
+            ReportPreviewBatteryText.Text = FormatReportPreviewMetric(evidence.Summary.BatteryPower, true);
+            var quality = ReportPreviewEvidencePolicy.Summarize(evidence.Summary);
+            var periodQuality = ReportPeriodQualityPolicy.Summarize(evidence.Buckets);
+            ReportPreviewPeriodCoverageText.Text = string.Format(
+                _localization.GetString("Reports.PreviewPeriodQuality"),
+                periodQuality.AggregatedPeriods,
+                periodQuality.PeriodsWithAnyEnergyEvidence,
+                periodQuality.PeriodsWithAllFourEnergySignals,
+                periodQuality.PeriodsWithoutUsableEnergyEvidence);
+            ReportPreviewCoverageText.Text = quality.EligibleStreams switch
+            {
+                0 => _localization.GetString("Reports.PreviewQualityNone"),
+                4 => string.Format(_localization.GetString("Reports.PreviewQualityAll"),
+                    quality.MinimumEligibleCoveragePercent!.Value),
+                _ => string.Format(_localization.GetString("Reports.PreviewQualityPartial"),
+                    quality.EligibleStreams, quality.UnavailableStreams,
+                    quality.MinimumEligibleCoveragePercent!.Value)
+            };
+            ReportPreviewResultPanel.Visibility = Visibility.Visible;
+            ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewComplete");
+        }
+        catch (OperationCanceledException)
+        {
+            // The explicit Cancel button has already displayed its own state.
+        }
+        catch (Exception ex)
+        {
+            if (ReportPreviewEvidencePolicy.CanApply(
+                generation, _reportPreviewGeneration,
+                !_windowClosed && ReportsContent.Visibility == Visibility.Visible,
+                request.DeviceId, _profiles.Get()?.DeviceId))
+            {
+                ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewFailed");
+                Debug.WriteLine($"Report preview failed ({ex.GetType().Name}).");
+            }
+        }
+        finally
+        {
+            if (generation == _reportPreviewGeneration)
+            {
+                ReportPreviewButton.IsEnabled = true;
+                ReportPreviewCancelButton.IsEnabled = false;
+                _reportPreviewCancellation = null;
+            }
+            cancellation.Dispose();
+        }
     }
 
     private void ReportSavePreset_Click(
@@ -6468,6 +7748,69 @@ public partial class MainWindow : Window
             _localization.GetString("Reports.PresetDeleted");
     }
 
+    private void RefreshLastReportActions()
+    {
+        var ready = ReportExportLaunchPolicy.CanOpen(_lastExportedReportPath);
+        ReportOpenLastFileButton.IsEnabled = ready;
+        ReportOpenLastFolderButton.IsEnabled = ready;
+    }
+
+    private void ReportOpenLastFile_Click(object sender, RoutedEventArgs e) =>
+        OpenLastReport(folderOnly: false);
+
+    private void ReportOpenLastFolder_Click(object sender, RoutedEventArgs e) =>
+        OpenLastReport(folderOnly: true);
+
+    private void OpenLastReport(bool folderOnly)
+    {
+        // Only a successful explicit export can set this session's path.
+        // Re-check that the file still exists before launching Explorer or its
+        // registered PDF/XLSX viewer; never open arbitrary persisted paths.
+        if (!ReportExportLaunchPolicy.CanOpen(_lastExportedReportPath))
+        {
+            RefreshLastReportActions();
+            ReportStatusText.Text = _localization.GetString("Reports.LastFileUnavailable");
+            return;
+        }
+
+        try
+        {
+            var selected = folderOnly
+                ? Path.GetDirectoryName(Path.GetFullPath(_lastExportedReportPath!))
+                : _lastExportedReportPath;
+            if (string.IsNullOrWhiteSpace(selected))
+                throw new IOException("The report output folder is unavailable.");
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = selected,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            ReportStatusText.Text = _localization.GetString("Reports.OpenLastFailed");
+            Debug.WriteLine($"Opening exported report failed ({ex.GetType().Name}).");
+        }
+    }
+
+    private void RequestReportExportCancellation()
+    {
+        if (_reportExportCancellation is null ||
+            _reportExportCancellation.IsCancellationRequested)
+            return;
+        _reportExportCancellationRequestedAt = Stopwatch.GetTimestamp();
+        _reportExportCancellation.Cancel();
+    }
+
+    private void ReportExportCancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_reportExportInProgress || _reportExportCancellation is null)
+            return;
+        RequestReportExportCancellation();
+        ReportExportCancelButton.IsEnabled = false;
+        ReportStatusText.Text = _localization.GetString("Reports.ExportCancelPending");
+    }
+
     private async void ReportExportExcel_Click(
         object sender,
         RoutedEventArgs e)
@@ -6484,9 +7827,11 @@ public partial class MainWindow : Window
 
     private async Task ExportEnergyReportAsync(string format)
     {
+        if (_reportExportInProgress) return;
         var request = GetCurrentReportRequest();
         if (request is null)
         {
+            ReportStatusText.Text = _localization.GetString("Reports.InvalidSelection");
             return;
         }
 
@@ -6503,20 +7848,35 @@ public partial class MainWindow : Window
                 $"{SafeReportFileStem(request.Title)}_{request.LocalStartDate:yyyyMMdd}_{request.LocalEndDate:yyyyMMdd}.{extension}"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
         {
             return;
         }
 
+        _reportExportInProgress = true;
+        InvalidateReportPreview();
+        using var cancellation = new CancellationTokenSource();
+        _reportExportCancellation = cancellation;
+        _reportExportCancellationRequestedAt = null;
+        var cancellationToken = cancellation.Token;
+        string? stagedPath = null;
+        var overallWatch = Stopwatch.StartNew();
+        var stageWatch = Stopwatch.StartNew();
+        ReportExportCancelButton.IsEnabled = true;
         ReportExportExcelButton.IsEnabled = false;
         ReportExportPdfButton.IsEnabled = false;
         ReportExportProgressLabel.Visibility = Visibility.Visible;
         ReportExportProgressBar.Visibility = Visibility.Visible;
-        ReportExportProgressBar.IsIndeterminate = false;
-        ReportExportProgressBar.Value = 15;
+        // These stages represent progress through operations, not measured
+        // percent complete. Keep the long-running indicator indeterminate.
+        ReportExportProgressBar.IsIndeterminate = true;
+        ReportExportProgressBar.Value = 0;
         ReportExportProgressLabel.Text =
             _localization.GetString("Reports.ExportPreparing");
         ReportStatusText.Text = string.Empty;
+        ReportExportTimingText.Text = string.Empty;
         SetGlobalOperation(
             true,
             _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
@@ -6528,34 +7888,92 @@ public partial class MainWindow : Window
             var exporter =
                 _services.GetRequiredService<EnergyReportExportService>();
 
-            var report = await Task.Run(() => exporter.Build(request));
+            var report = await Task.Run(() => exporter.Build(request, cancellationToken),
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            var readElapsed = stageWatch.Elapsed;
+            _performance.Record("Data.Reports.Build", readElapsed);
+            stageWatch.Restart();
 
-            ReportExportProgressBar.Value = 55;
             ReportExportProgressLabel.Text =
                 _localization.GetString("Reports.ExportGenerating");
 
+            stagedPath = ReportFilePublicationService.CreateStagingPath(dialog.FileName);
+            var outputStage = stagedPath;
             await Task.Run(() =>
             {
                 if (format == "xlsx")
                 {
-                    exporter.ExportExcel(dialog.FileName, report);
+                    exporter.ExportExcel(outputStage, report, cancellationToken);
                 }
                 else
                 {
-                    exporter.ExportPdf(dialog.FileName, report);
+                    exporter.ExportPdf(outputStage, report, cancellationToken);
                 }
             });
 
+            cancellationToken.ThrowIfCancellationRequested();
+            var renderElapsed = stageWatch.Elapsed;
+            _performance.Record(format == "xlsx" ? "Data.Reports.ExcelRender" :
+                "Data.Reports.PdfRender", renderElapsed);
+            stageWatch.Restart();
+            if (!ReportExportPublicationPolicy.CanPublish(
+                    request, GetCurrentReportRequest(), !_windowClosed,
+                    ReportsContent.Visibility == Visibility.Visible,
+                    cancellation.IsCancellationRequested))
+                throw new InvalidOperationException(
+                    _localization.GetString("Reports.ExportSelectionChanged"));
+            ReportFilePublicationService.Publish(outputStage, dialog.FileName);
+            stagedPath = null;
+            _performance.Record("Data.Reports.Publish", stageWatch.Elapsed);
+            _performance.Record("Data.Reports.Total", overallWatch.Elapsed);
+            ReportExportTimingText.Text = string.Format(
+                _localization.GetString("Reports.ExportTiming"),
+                readElapsed.TotalSeconds, renderElapsed.TotalSeconds,
+                overallWatch.Elapsed.TotalSeconds);
+            ReportExportProgressBar.IsIndeterminate = false;
             ReportExportProgressBar.Value = 100;
             ReportExportProgressLabel.Text =
                 _localization.GetString("Reports.ExportComplete");
+            System.Media.SystemSounds.Asterisk.Play();
             ReportStatusText.Text = string.Format(
                 _localization.GetString("Reports.ExportSaved"),
                 dialog.FileName);
+            _lastExportedReportPath = dialog.FileName;
+            RefreshLastReportActions();
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            _performance.Record("Data.Reports.CancelObserved", overallWatch.Elapsed);
+            if (_reportExportCancellationRequestedAt is long requestTick)
+            {
+                var cancelLatency = Stopwatch.GetElapsedTime(requestTick);
+                _performance.Record("Data.Reports.CancelLatency", cancelLatency);
+                ReportExportTimingText.Text = string.Format(
+                    _localization.GetString("Reports.ExportCancelLatency"),
+                    overallWatch.Elapsed.TotalSeconds, cancelLatency.TotalSeconds);
+            }
+            else
+            {
+                ReportExportTimingText.Text = string.Format(
+                    _localization.GetString("Reports.ExportCancelTiming"),
+                    overallWatch.Elapsed.TotalSeconds);
+            }
+            ReportExportProgressBar.IsIndeterminate = false;
+            ReportExportProgressBar.Value = 0;
+            ReportExportProgressLabel.Text =
+                _localization.GetString("Reports.ExportCancelled");
+            ReportStatusText.Text =
+                _localization.GetString("Reports.ExportCancelledExplanation");
         }
         catch (Exception ex)
         {
-            ReportExportProgressBar.Value = 100;
+            _performance.Record("Data.Reports.Failed", overallWatch.Elapsed);
+            ReportExportTimingText.Text = string.Format(
+                _localization.GetString("Reports.ExportFailedTiming"),
+                overallWatch.Elapsed.TotalSeconds);
+            ReportExportProgressBar.IsIndeterminate = false;
+            ReportExportProgressBar.Value = 0;
             ReportExportProgressLabel.Text =
                 _localization.GetString("Reports.ExportFailed");
             ReportStatusText.Text = ex.Message;
@@ -6567,6 +7985,27 @@ public partial class MainWindow : Window
         }
         finally
         {
+            try
+            {
+                ReportFilePublicationService.DiscardStaging(stagedPath);
+            }
+            catch (IOException ex)
+            {
+                Debug.WriteLine($"Incomplete report staging cleanup failed ({ex.GetType().Name}).");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Debug.WriteLine($"Incomplete report staging cleanup failed ({ex.GetType().Name}).");
+            }
+            _reportExportInProgress = false;
+            if (ReferenceEquals(_reportExportCancellation, cancellation))
+            {
+                _reportExportCancellation = null;
+                _reportExportCancellationRequestedAt = null;
+            }
+            ReportExportCancelButton.IsEnabled = false;
+            if (!_windowClosed && ReportsContent.Visibility == Visibility.Visible)
+                ReportPreviewButton.IsEnabled = true;
             ReportExportExcelButton.IsEnabled = true;
             ReportExportPdfButton.IsEnabled = true;
             SetGlobalOperation(false, string.Empty);
@@ -6747,9 +8186,11 @@ public partial class MainWindow : Window
                     await behavior.RebuildAsync(profile.DeviceId);
 
                     EvaluateInstallationHealth(profile);
-                    RefreshDashboardMetrics();
-                    RefreshBatteryView();
-                    RefreshAnalysisView();
+                    // Hidden pages refresh on ShowPage, without redundant queries
+                    // or chart work immediately after a data rebuild.
+                    if (_dashboardVisible) RefreshDashboardMetrics();
+                    if (BatteryContent.Visibility == Visibility.Visible) RefreshBatteryView();
+                    if (AnalysisContent.Visibility == Visibility.Visible) RefreshAnalysisView();
                 }
             }
             catch (Exception normalizationError)
@@ -6833,9 +8274,9 @@ public partial class MainWindow : Window
             SetGlobalOperation(false, string.Empty);
             RefreshCaptureStartOptions();
             RefreshConnectionStatus();
-            RefreshDataCoverageView();
-            RefreshAnalysisView();
-            RefreshReportsView();
+            if (DataContent.Visibility == Visibility.Visible) RefreshDataCoverageView();
+            if (AnalysisContent.Visibility == Visibility.Visible) RefreshAnalysisView();
+            if (ReportsContent.Visibility == Visibility.Visible) RefreshReportsView();
         }
     }
 
@@ -6904,9 +8345,10 @@ public partial class MainWindow : Window
             if (refreshed)
             {
                 EvaluateInstallationHealth(profile);
-                RefreshDashboardMetrics();
-                RefreshBatteryView();
-                RefreshDataCoverageView();
+                // A hidden page is reloaded when visited by ShowPage.
+                if (_dashboardVisible) RefreshDashboardMetrics();
+                if (BatteryContent.Visibility == Visibility.Visible) RefreshBatteryView();
+                if (DataContent.Visibility == Visibility.Visible) RefreshDataCoverageView();
             }
 
             RefreshConnectionStatus();
@@ -7013,10 +8455,1568 @@ public partial class MainWindow : Window
         object? sender,
         EventArgs e)
     {
+        _windowClosed = true;
+        RequestReportExportCancellation();
+        _reportPreviewCancellation?.Cancel();
+        _dashboardRefreshGeneration++;
+        _batteryRefreshGeneration++;
+        _analysisRefreshGeneration++;
+        _reportReadGeneration++;
+        _analysisPresetGeneration++;
+        _analysisPresetLoading = false;
+        _analysisRenderedAggregation = null;
+        _analysisRenderedThresholds = null;
         _dashboardLiveTimer.Stop();
         _dashboardLiveTimer.Tick -= DashboardLiveTimer_Tick;
         _dashboardProgressTimer.Stop();
         _dashboardProgressTimer.Tick -= DashboardProgressTimer_Tick;
+        _dispatcherLatenessTimer.Stop();
+        _dispatcherLatenessTimer.Tick -= DispatcherLatenessTimer_Tick;
+        Activated -= MainWindow_Activated;
+        Deactivated -= MainWindow_Deactivated;
+    }
+
+    private CancellationTokenSource? _sqlRunning;
+    private bool _sqlExplorerBusy;
+    private string? _sqlLastPreviewSql;
+    private int _sqlPreviewOffset;
+    private bool _sqlPreviewHasMore;
+    private const string SqlExecuteShortcutKey = "sql.explorer.shortcut.execute";
+    private const string SqlCsvShortcutKey = "sql.explorer.shortcut.csv";
+    private const string SqlExcelShortcutKey = "sql.explorer.shortcut.xlsx";
+    private string _sqlExecuteShortcut = "Ctrl+Enter";
+    private string _sqlCsvShortcut = "Ctrl+Shift+C";
+    private string _sqlExcelShortcut = "Ctrl+Shift+E";
+    private bool _loadingSqlShortcutSelectors;
+
+    private void LoadSqlExplorerShortcuts()
+    {
+        _loadingSqlShortcutSelectors = true;
+        try
+        {
+            var repo = _services.GetRequiredService<AppSettingsRepository>();
+            _sqlExecuteShortcut = SelectAllowedGesture(SqlExecuteShortcutSelector,
+                repo.Get(SqlExecuteShortcutKey), "Ctrl+Enter");
+            _sqlCsvShortcut = SelectAllowedGesture(SqlCsvShortcutSelector,
+                repo.Get(SqlCsvShortcutKey), "Ctrl+Shift+C");
+            _sqlExcelShortcut = SelectAllowedGesture(SqlExcelShortcutSelector,
+                repo.Get(SqlExcelShortcutKey), "Ctrl+Shift+E");
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!seen.Add(_sqlExecuteShortcut) || !seen.Add(_sqlCsvShortcut) ||
+                !seen.Add(_sqlExcelShortcut))
+            {
+                // Invalid persisted configuration must fail closed to distinct defaults.
+                _sqlExecuteShortcut = "Ctrl+Enter";
+                _sqlCsvShortcut = "Ctrl+Shift+C";
+                _sqlExcelShortcut = "Ctrl+Shift+E";
+                SqlExecuteShortcutSelector.SelectedValue = _sqlExecuteShortcut;
+                SqlCsvShortcutSelector.SelectedValue = _sqlCsvShortcut;
+                SqlExcelShortcutSelector.SelectedValue = _sqlExcelShortcut;
+            }
+        }
+        finally { _loadingSqlShortcutSelectors = false; }
+    }
+
+    private static string SelectAllowedGesture(ComboBox selector,
+        string? configured, string fallback)
+    {
+        var valid = selector.Items.OfType<ComboBoxItem>().Any(i =>
+            string.Equals(i.Tag?.ToString(), configured, StringComparison.OrdinalIgnoreCase));
+        var result = valid ? configured! : fallback;
+        selector.SelectedValue = result;
+        return result;
+    }
+
+    private void SqlExplorerShortcutChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingSqlShortcutSelectors || !IsLoaded ||
+            sender is not ComboBox selector || selector.SelectedValue is not string chosen)
+            return;
+
+        string key, previous;
+        if (ReferenceEquals(selector, SqlExecuteShortcutSelector))
+        { key = SqlExecuteShortcutKey; previous = _sqlExecuteShortcut; }
+        else if (ReferenceEquals(selector, SqlCsvShortcutSelector))
+        { key = SqlCsvShortcutKey; previous = _sqlCsvShortcut; }
+        else if (ReferenceEquals(selector, SqlExcelShortcutSelector))
+        { key = SqlExcelShortcutKey; previous = _sqlExcelShortcut; }
+        else return;
+
+        var conflicts = new[]
+        {
+            ReferenceEquals(selector, SqlExecuteShortcutSelector) ? null : _sqlExecuteShortcut,
+            ReferenceEquals(selector, SqlCsvShortcutSelector) ? null : _sqlCsvShortcut,
+            ReferenceEquals(selector, SqlExcelShortcutSelector) ? null : _sqlExcelShortcut
+        }.Any(assigned => string.Equals(assigned, chosen, StringComparison.OrdinalIgnoreCase));
+        if (conflicts)
+        {
+            _loadingSqlShortcutSelectors = true;
+            try { selector.SelectedValue = previous; }
+            finally { _loadingSqlShortcutSelectors = false; }
+            MessageBox.Show(
+                SqlExplorerSpanish
+                    ? "El atajo ya está asignado a otra acción SQL."
+                    : "This shortcut is already assigned to another SQL action.",
+                SqlExplorerSpanish ? "Conflicto de atajos" : "Shortcut conflict",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        _services.GetRequiredService<AppSettingsRepository>().Set(key, chosen);
+        if (key == SqlExecuteShortcutKey) _sqlExecuteShortcut = chosen;
+        else if (key == SqlCsvShortcutKey) _sqlCsvShortcut = chosen;
+        else _sqlExcelShortcut = chosen;
+    }
+
+    private static string? SqlGestureFromKey(KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var normalized = key switch
+        {
+            Key.Enter => "Enter",
+            Key.R => "R",
+            Key.E => "E",
+            Key.C => "C",
+            _ => null
+        };
+        if (normalized is null) return null;
+        var modifiers = Keyboard.Modifiers;
+        if (!modifiers.HasFlag(ModifierKeys.Control)) return null;
+        return "Ctrl+" +
+            (modifiers.HasFlag(ModifierKeys.Shift) ? "Shift+" : "") +
+            (modifiers.HasFlag(ModifierKeys.Alt) ? "Alt+" : "") +
+            normalized;
+    }
+
+    private SafeSqlExplorerService CreateSqlExplorer() =>
+        new(_paths.DatabasePath);
+
+    private void SetSqlExplorerBusy(bool busy)
+    {
+        _sqlExplorerBusy = busy;
+        SqlExplorerBusyBar.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        SqlExecuteButton.IsEnabled = !busy;
+        SqlExportCsvButton.IsEnabled = !busy;
+        SqlExportXlsxButton.IsEnabled = !busy;
+        SqlSchemaRefreshButton.IsEnabled = !busy;
+        SqlSchemaColumnsButton.IsEnabled = !busy;
+        SqlOpenScriptButton.IsEnabled = !busy;
+        SqlSaveScriptButton.IsEnabled = !busy;
+        SqlCreateAnalyticalCopyButton.IsEnabled = !busy;
+        SqlPreviousPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
+            _sqlPreviewOffset > 0 && SqlStatementEditor.Text == _sqlLastPreviewSql;
+        SqlNextPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
+            _sqlPreviewHasMore &&
+            _sqlPreviewOffset + SafeSqlExplorerService.PreviewLimit <=
+                SafeSqlExplorerService.MaxPreviewOffset &&
+            SqlStatementEditor.Text == _sqlLastPreviewSql;
+        SqlCancelButton.IsEnabled = busy;
+    }
+
+    private bool SqlExplorerSpanish =>
+        _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase);
+
+    private async Task RefreshSqlSchemaAsync()
+    {
+        if (_sqlExplorerBusy) return;
+        SetSqlExplorerBusy(true);
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        try
+        {
+            var result = await CreateSqlExplorer().SchemaAsync(cancellation.Token);
+            SqlSchemaList.ItemsSource = result.Rows.Select(row =>
+                new SqlSchemaOption(row[0].Text ?? "", row[1].Text ?? "")).ToArray();
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Objetos SQL disponibles: " : "Available SQL objects: ") +
+                result.Rows.Count;
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "No se pudo leer el esquema: " : "Unable to read schema: ") + ex.Message;
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private void SqlExplorerFindNext_Click(object sender, RoutedEventArgs e) =>
+        FindNextSqlText();
+
+    private void SqlExplorerFindKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Enter or Key.F3)
+        {
+            e.Handled = true;
+            FindNextSqlText();
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            SqlStatementEditor.Focus();
+        }
+    }
+
+    private void FindNextSqlText()
+    {
+        var text = SqlFindTextBox.Text;
+        var statement = SqlStatementEditor.Text;
+        if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(statement))
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "Escribe un texto para buscar." : "Enter search text.";
+            return;
+        }
+        var from = Math.Clamp(SqlStatementEditor.SelectionStart +
+            SqlStatementEditor.SelectionLength, 0, statement.Length);
+        var found = statement.IndexOf(text, from, StringComparison.OrdinalIgnoreCase);
+        var wrapped = false;
+        if (found < 0)
+        {
+            found = statement.IndexOf(text, 0, StringComparison.OrdinalIgnoreCase);
+            wrapped = found >= 0;
+        }
+        if (found < 0)
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "Texto no encontrado en la consulta."
+                : "Text not found in SQL statement.";
+            return;
+        }
+        SqlStatementEditor.Select(found, text.Length);
+        SqlStatementEditor.ScrollToLine(SqlStatementEditor.Document.GetLineByOffset(found).LineNumber);
+        SqlStatementEditor.Focus();
+        SqlExplorerDiagnosticText.Text = wrapped
+            ? (SqlExplorerSpanish ? "Búsqueda reiniciada desde el principio."
+                                  : "Search wrapped to the start.")
+            : "";
+    }
+
+    private void ShowSqlExplorerError(Exception ex, string statement)
+    {
+        var diagnostic = SqlErrorDiagnostics.Describe(ex, statement);
+        var position = diagnostic.ApproximateOffset;
+        var prefix = SqlExplorerSpanish ? "Diagnóstico SQL" : "SQL diagnostic";
+        var codes = diagnostic.SqliteCode is int sqliteCode
+            ? $" [SQLite {sqliteCode}, extended {diagnostic.SqliteExtendedCode}]"
+            : "";
+        var location = "";
+        if (position.HasValue && diagnostic.ApproximateLine.HasValue &&
+            diagnostic.ApproximateColumn.HasValue &&
+            position.Value >= 0 && position.Value < SqlStatementEditor.Text.Length)
+        {
+            location = SqlExplorerSpanish
+                ? $" Referencia aproximada: línea {diagnostic.ApproximateLine}, " +
+                  $"columna {diagnostic.ApproximateColumn}; no es la ubicación exacta del error."
+                : $" Approximate reference: line {diagnostic.ApproximateLine}, " +
+                  $"column {diagnostic.ApproximateColumn}; not an exact parser error location.";
+            SqlStatementEditor.Select(position.Value, 1);
+            SqlStatementEditor.ScrollToLine(diagnostic.ApproximateLine.Value);
+        }
+        else location = SqlExplorerSpanish
+            ? " SQLite no proporcionó una ubicación verificable."
+            : " SQLite did not provide a reliable error location.";
+        SqlExplorerDiagnosticText.Text =
+            prefix + codes + ": " + diagnostic.Message + location;
+    }
+
+
+    // Editor QoL: completion only from the already loaded, visible schema
+    // catalog and fixed SQL keywords. Does not query the active database.
+    private void SqlExplorerSuggest_Click(object sender, RoutedEventArgs e) =>
+        ShowSqlExplorerSuggestions();
+
+    private void ShowSqlExplorerSuggestions()
+    {
+        var names = SqlSchemaList.Items.OfType<SqlSchemaOption>()
+            .Select(item => item.Name);
+        var candidates = SqlEditorAssistance.Suggest(
+            SqlStatementEditor.Text, SqlStatementEditor.CaretOffset, names);
+        if (candidates.Count == 0)
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "No hay sugerencias para esta posición. Las cadenas y comentarios se omiten."
+                : "No suggestions at this position. Strings and comments are excluded.";
+            return;
+        }
+        var sqlSnapshot = SqlStatementEditor.Text;
+        var menu = new ContextMenu { PlacementTarget = SqlStatementEditor };
+        foreach (var suggestion in candidates)
+        {
+            var option = suggestion;
+            var item = new MenuItem
+            {
+                Header = option.Label + (option.Kind == "SCHEMA"
+                    ? (SqlExplorerSpanish ? " · tabla/vista" : " · table/view")
+                    : " · SQL")
+            };
+            item.Click += (_, _) =>
+            {
+                // A stale menu must never change a different/newer query.
+                var document = SqlStatementEditor.Document;
+                if (document is null || document.TextLength < option.Start + option.Length ||
+                    !string.Equals(SqlStatementEditor.Text, sqlSnapshot,
+                        StringComparison.Ordinal))
+                    return;
+                document.Replace(option.Start, option.Length, option.Replacement);
+                SqlStatementEditor.CaretOffset = option.Start + option.Replacement.Length;
+                SqlStatementEditor.Focus();
+            };
+            menu.Items.Add(item);
+        }
+        SqlStatementEditor.ContextMenu = menu;
+        menu.IsOpen = true;
+    }
+
+    private void SqlExplorerToggleComments_Click(object sender, RoutedEventArgs e) =>
+        ToggleSqlExplorerComments();
+
+    private void ToggleSqlExplorerComments()
+    {
+        var result = SqlEditorAssistance.ToggleLineComments(
+            SqlStatementEditor.Text,
+            SqlStatementEditor.SelectionStart, SqlStatementEditor.SelectionLength);
+        SqlStatementEditor.Text = result.Text;
+        SqlStatementEditor.Select(result.SelectionStart, result.SelectionLength);
+        SqlStatementEditor.Focus();
+    }
+
+    private void SqlExplorerSaveScript_Click(object sender, RoutedEventArgs e) =>
+        SaveSqlExplorerScript();
+
+
+    // A one-off, explicitly user-requested analytical SQLite file for
+    // external read-only database clients. NOT a complete recovery backup:
+    // no Bills/Tariffs/settings-document package and no automatic retention.
+    private async void SqlExplorerCreateAnalyticalCopy_Click(
+        object sender, RoutedEventArgs e)
+    {
+        if (_sqlExplorerBusy) return;
+        var spanish = SqlExplorerSpanish;
+        var dialog = new SaveFileDialog
+        {
+            Filter = "SQLite (*.sqlite)|*.sqlite",
+            DefaultExt = ".sqlite",
+            AddExtension = true,
+            FileName = "analisis-solar-lectura.sqlite",
+            OverwritePrompt = false,
+            Title = spanish ? "Copia analítica para herramientas externas"
+                            : "Analytical copy for external SQLite tools"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        var consent = MessageBox.Show(this,
+            spanish
+                ? "Se creará una copia puntual y consistente de SQLite para consultas externas. "
+                  + "Puede contener configuraciones y datos privados. NO es un respaldo completo: "
+                  + "no incluye documentos originales y NO sirve para restaurar esta aplicación. "
+                  + "Guárdala en una carpeta externa a Data y Backups. ¿Continuar?"
+                : "Create a consistent one-off SQLite file for external queries. "
+                  + "It may contain private settings and data. This is NOT a full backup: "
+                  + "original documents are excluded and it must NOT be used to restore the app. "
+                  + "Save outside Data and Backups. Continue?",
+            spanish ? "Copia analítica SQLite" : "SQLite analytical copy",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (consent != MessageBoxResult.Yes) return;
+
+        SetSqlExplorerBusy(true);
+        // Native online SQLite backup is synchronous on a worker; unlike SQL
+        // query execution it has no mid-copy cancellation in this version.
+        // Do not advertise a cancel button that cannot stop the copy.
+        SqlCancelButton.IsEnabled = false;
+        SqlExplorerDiagnosticText.Text = "";
+        SqlExplorerPerformanceText.Text = "";
+        SqlExplorerStatusText.Text = spanish
+            ? "Generando y verificando copia SQLite... No cierres la aplicación."
+            : "Creating and verifying SQLite copy... Keep the app open.";
+        var watch = Stopwatch.StartNew();
+        try
+        {
+            var service = new SqlAnalyticalCopyService(
+                _paths.DatabasePath, _paths.DataDirectory, _paths.BackupDirectory);
+            var receipt = await service.CreateAsync(dialog.FileName);
+            SqlExplorerStatusText.Text = (spanish
+                ? "Copia analítica verificada (NO respaldo completo): "
+                : "Verified analytical SQLite copy (NOT full backup): ")
+                + receipt.Path;
+            SqlExplorerPerformanceText.Text =
+                $"SQLite v{receipt.SchemaVersion} · {receipt.SizeBytes:N0} bytes · "
+                + $"SHA-256 {receipt.Sha256} · {watch.Elapsed.TotalSeconds:N1} s";
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = spanish
+                ? "No se publicó la copia analítica."
+                : "Analytical copy was not published.";
+            SqlExplorerDiagnosticText.Text = ex.Message;
+        }
+        finally
+        {
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private void SqlExplorerOpenScript_Click(object sender, RoutedEventArgs e) =>
+        OpenSqlExplorerScript();
+
+    private void OpenSqlExplorerScript()
+    {
+        if (_sqlExplorerBusy) return;
+        var dialog = new OpenFileDialog
+        {
+            Filter = "SQL (*.sql)|*.sql",
+            DefaultExt = ".sql",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            if (!string.Equals(Path.GetExtension(dialog.FileName), ".sql",
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Select a .sql script.");
+            var file = new FileInfo(dialog.FileName);
+            if (!file.Exists || file.Length > SqlEditorAssistance.MaxSqlScriptFileBytes)
+                throw new InvalidDataException("SQL script file is missing or too large.");
+            string script;
+            using (var input = new FileStream(file.FullName, FileMode.Open,
+                       FileAccess.Read, FileShare.Read))
+            using (var reader = new StreamReader(input,
+                       new System.Text.UTF8Encoding(false, true),
+                       detectEncodingFromByteOrderMarks: true))
+                script = reader.ReadToEnd();
+            if (!SqlEditorAssistance.IsSupportedScript(script))
+                throw new InvalidDataException("SQL script is empty, oversized or contains NUL.");
+            if (!string.IsNullOrWhiteSpace(SqlStatementEditor.Text) &&
+                MessageBox.Show(this,
+                    SqlExplorerSpanish
+                        ? "¿Reemplazar la consulta actual con el archivo seleccionado?"
+                        : "Replace the current query with the selected file?",
+                    SqlExplorerSpanish ? "Abrir SQL" : "Open SQL",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) !=
+                    MessageBoxResult.Yes)
+                return;
+            SqlStatementEditor.Text = script;
+            SqlStatementEditor.Focus();
+            SqlStatementEditor.CaretOffset = 0;
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Consulta abierta (sin ejecutar): "
+                : "SQL script opened (not executed): ") + file.FullName;
+            SqlExplorerDiagnosticText.Text = "";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                  or InvalidDataException
+                                  or System.Text.DecoderFallbackException)
+        {
+            SqlExplorerDiagnosticText.Text = (SqlExplorerSpanish
+                ? "No se abrió la consulta: " : "SQL script not opened: ") +
+                ex.Message;
+        }
+    }
+
+    // Explicit script export: not a database backup, never autocreates files.
+    private void SaveSqlExplorerScript()
+    {
+        if (_sqlExplorerBusy) return;
+        var script = SqlStatementEditor.Text;
+        if (!SqlEditorAssistance.IsSupportedScript(script))
+        {
+            SqlExplorerDiagnosticText.Text = SqlExplorerSpanish
+                ? "La consulta está vacía o excede el límite de 20.000 caracteres."
+                : "SQL script is empty or exceeds the 20,000-character limit.";
+            return;
+        }
+        var dialog = new SaveFileDialog
+        {
+            Filter = "SQL (*.sql)|*.sql",
+            DefaultExt = ".sql",
+            AddExtension = true,
+            FileName = "consulta.sql",
+            OverwritePrompt = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            if (!string.Equals(Path.GetExtension(dialog.FileName), ".sql",
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Only .sql scripts can be saved here.");
+            using (var output = new FileStream(dialog.FileName,
+                       FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(output,
+                       new System.Text.UTF8Encoding(false)))
+                writer.Write(script);
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Consulta guardada explícitamente: "
+                : "SQL script explicitly saved: ") + dialog.FileName;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                  or InvalidOperationException)
+        {
+            SqlExplorerDiagnosticText.Text = (SqlExplorerSpanish
+                ? "No se guardó la consulta: " : "SQL script not saved: ") +
+                ex.Message;
+        }
+    }
+
+    private async void SqlExplorerRefreshSchema_Click(object sender, RoutedEventArgs e) =>
+        await RefreshSqlSchemaAsync();
+
+
+    private async void SqlExplorerCatalogColumns_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sqlExplorerBusy) return;
+        if (SqlSchemaList.SelectedItem is not SqlSchemaOption selected)
+        {
+            SqlSchemaColumnsStatusText.Text = SqlExplorerSpanish
+                ? "Selecciona una tabla o vista del catálogo."
+                : "Select a table or view from the catalog.";
+            return;
+        }
+
+        SetSqlExplorerBusy(true);
+        SqlSchemaColumnsList.ItemsSource = null;
+        SqlSchemaColumnsStatusText.Text = SqlExplorerSpanish
+            ? "Leyendo columnas declaradas; no se consultan filas de datos."
+            : "Reading declared columns, not table contents.";
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        try
+        {
+            var item = await new SqlSchemaCatalogService(_paths.DatabasePath)
+                .DescribeAsync(selected.Name, cancellation.Token);
+            if (_windowClosed || SqlExplorerContent.Visibility != Visibility.Visible ||
+                SqlSchemaList.SelectedItem is not SqlSchemaOption active ||
+                !string.Equals(active.Name, selected.Name, StringComparison.Ordinal))
+                return;
+            SqlSchemaColumnsList.ItemsSource = item.Columns.Select(column =>
+                column.Name + " : " +
+                (string.IsNullOrWhiteSpace(column.DeclaredType)
+                    ? "ANY" : column.DeclaredType) +
+                (column.PrimaryKey ? " · PK" : "") +
+                (column.NotNull ? " · NOT NULL" : "") +
+                (column.Hidden ? " · HIDDEN" : "")).ToArray();
+            SqlSchemaColumnsStatusText.Text = (SqlExplorerSpanish
+                ? $"Columnas declaradas: {item.Columns.Count}. "
+                : $"Declared columns: {item.Columns.Count}. ") +
+                (item.SemanticWarning ?? (SqlExplorerSpanish
+                    ? "Metadatos del esquema, sin valores." : "Schema metadata only; no values."));
+        }
+        catch (OperationCanceledException)
+        {
+            SqlSchemaColumnsStatusText.Text = SqlExplorerSpanish
+                ? "Lectura de columnas cancelada." : "Column inspection cancelled.";
+        }
+        catch (Exception ex)
+        {
+            SqlSchemaColumnsStatusText.Text = (SqlExplorerSpanish
+                ? "No se pudo inspeccionar el esquema: "
+                : "Unable to inspect schema: ") + ex.Message;
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private void SqlExplorerSchemaDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (SqlSchemaList.SelectedItem is not SqlSchemaOption selected) return;
+        SqlStatementEditor.Text = "SELECT * FROM \"" +
+            selected.Name.Replace("\"", "\"\"") + "\" LIMIT 200;";
+        SqlStatementEditor.Focus();
+        SqlStatementEditor.CaretOffset = SqlStatementEditor.Text.Length;
+    }
+
+    private async void SqlExplorerExecute_Click(object sender, RoutedEventArgs e) =>
+        await ExecuteSqlExplorerAsync();
+
+    private async void SqlExplorerPreviousPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sqlLastPreviewSql is not null && _sqlPreviewOffset >= SafeSqlExplorerService.PreviewLimit)
+            await ExecuteSqlExplorerAsync(_sqlPreviewOffset - SafeSqlExplorerService.PreviewLimit);
+    }
+
+    private async void SqlExplorerNextPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sqlLastPreviewSql is not null && _sqlPreviewHasMore &&
+            _sqlPreviewOffset + SafeSqlExplorerService.PreviewLimit <=
+                SafeSqlExplorerService.MaxPreviewOffset)
+            await ExecuteSqlExplorerAsync(_sqlPreviewOffset + SafeSqlExplorerService.PreviewLimit);
+    }
+
+    private async Task ExecuteSqlExplorerAsync(int requestedOffset = 0)
+    {
+        if (_sqlExplorerBusy) return;
+        var sql = SqlStatementEditor.Text;
+        if (!string.Equals(sql, _sqlLastPreviewSql, StringComparison.Ordinal))
+            requestedOffset = 0;
+        SetSqlExplorerBusy(true);
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        SqlExplorerStatusText.Text = SqlExplorerSpanish
+            ? "Ejecutando SELECT en modo de solo lectura..."
+            : "Executing read-only SELECT...";
+        SqlExplorerDiagnosticText.Text = "";
+        SqlExplorerPerformanceText.Text = "";
+        try
+        {
+            var result = await CreateSqlExplorer().PreviewPageAsync(sql,
+                requestedOffset, cancellationToken: cancellation.Token);
+            var table = new DataTable();
+            foreach (var (label, index) in result.Columns.Select((label, index) => (label, index)))
+            {
+                var name = label.Length == 0 ? "Columna " + (index + 1) : label;
+                if (table.Columns.Contains(name))
+                    name += " (" + (index + 1) + ")";
+                table.Columns.Add(name, typeof(string));
+            }
+            foreach (var values in result.Rows)
+                table.Rows.Add(values.Select(cell =>
+                    cell.IsNull ? (object)DBNull.Value : cell.Text ?? "").ToArray());
+            SqlExplorerResultGrid.ItemsSource = table.DefaultView;
+            _sqlLastPreviewSql = sql;
+            _sqlPreviewOffset = requestedOffset;
+            _sqlPreviewHasMore = result.HasMore;
+            var firstDisplayedRow = result.Rows.Count == 0 ? 0 : requestedOffset + 1;
+            var lastDisplayedRow = requestedOffset + result.Rows.Count;
+            var navigationCapped = result.HasMore &&
+                requestedOffset + SafeSqlExplorerService.PreviewLimit >
+                SafeSqlExplorerService.MaxPreviewOffset;
+            SqlExplorerPageText.Text = SqlExplorerSpanish
+                ? $"Filas {firstDisplayedRow:N0}–{lastDisplayedRow:N0}" +
+                  (navigationCapped
+                      ? " · límite de páginas; exportar SELECT completo"
+                      : result.HasMore ? " · hay otra página" : " · fin de resultados")
+                : $"Rows {firstDisplayedRow:N0}–{lastDisplayedRow:N0}" +
+                  (navigationCapped
+                      ? " · page limit; export full SELECT"
+                      : result.HasMore ? " · next page available" : " · end of results");
+            SqlExplorerResultTitle.Text = SqlExplorerSpanish
+                ? $"Vista previa: página {requestedOffset / SafeSqlExplorerService.PreviewLimit + 1}" +
+                  (result.HasMore ? " (otras páginas disponibles)" : "")
+                : $"Preview: page {requestedOffset / SafeSqlExplorerService.PreviewLimit + 1}" +
+                  (result.HasMore ? " (more pages available)" : "");
+            SqlExplorerStatusText.Text = SqlExplorerSpanish
+                ? "Consulta completada. Base de datos sin modificaciones."
+                : "Query completed. Database unchanged.";
+            SqlExplorerPerformanceText.Text =
+                (SqlExplorerSpanish ? "SQLite: " : "SQLite: ") +
+                result.Elapsed.TotalMilliseconds.ToString("N0") + " ms · " +
+                result.Rows.Count.ToString("N0") +
+                (SqlExplorerSpanish ? " filas en vista previa" : " preview rows") +
+                (result.HasMore ? (SqlExplorerSpanish ? " (hay más)" : " (more available)") : "");
+        }
+        catch (OperationCanceledException)
+        {
+            SqlExplorerStatusText.Text = SqlExplorerSpanish
+                ? "Consulta cancelada." : "Query cancelled.";
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = cancellation.IsCancellationRequested
+                ? (SqlExplorerSpanish ? "Consulta cancelada." : "Query cancelled.")
+                : (SqlExplorerSpanish ? "Error al ejecutar SQL." : "SQL execution error.");
+            ShowSqlExplorerError(ex, sql);
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private void SqlExplorerCancel_Click(object sender, RoutedEventArgs e) =>
+        _sqlRunning?.Cancel();
+
+    private async void SqlExplorerExportCsv_Click(object sender, RoutedEventArgs e) =>
+        await ExportSqlExplorerAsync(SqlExportFormat.Csv);
+
+    private async void SqlExplorerExportXlsx_Click(object sender, RoutedEventArgs e) =>
+        await ExportSqlExplorerAsync(SqlExportFormat.Xlsx);
+
+    private async Task ExportSqlExplorerAsync(SqlExportFormat format)
+    {
+        if (_sqlExplorerBusy) return;
+        var excel = format == SqlExportFormat.Xlsx;
+        var dialog = new SaveFileDialog
+        {
+            Filter = excel ? "Excel Workbook (*.xlsx)|*.xlsx" : "CSV UTF-8 (*.csv)|*.csv",
+            DefaultExt = excel ? ".xlsx" : ".csv",
+            AddExtension = true,
+            FileName = excel ? "consulta-sql.xlsx" : "consulta-sql.csv",
+            OverwritePrompt = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        SetSqlExplorerBusy(true);
+        using var cancellation = new CancellationTokenSource();
+        _sqlRunning = cancellation;
+        SqlExplorerStatusText.Text = SqlExplorerSpanish
+            ? "Exportando consulta completa... No se publicarán archivos parciales."
+            : "Exporting full query... Partial files will not be published.";
+        SqlExplorerDiagnosticText.Text = "";
+        SqlExplorerPerformanceText.Text = "";
+        try
+        {
+            var result = await CreateSqlExplorer().ExportAsync(
+                SqlStatementEditor.Text, dialog.FileName, format, cancellation.Token);
+            SqlExplorerStatusText.Text = (SqlExplorerSpanish
+                ? "Exportación completa, filas: " : "Full export, rows: ") +
+                result.Rows + " — " + result.Path;
+            SqlExplorerPerformanceText.Text =
+                (SqlExplorerSpanish ? "Duración: " : "Duration: ") +
+                result.Elapsed.TotalSeconds.ToString("N1") + " s · " +
+                result.Rows.ToString("N0") +
+                (SqlExplorerSpanish ? " filas · " : " rows · ") +
+                result.FileSizeBytes.ToString("N0") +
+                (SqlExplorerSpanish ? " bytes escritos" : " bytes written");
+        }
+        catch (Exception ex)
+        {
+            SqlExplorerStatusText.Text = SqlExplorerSpanish
+                ? "No se completó la exportación." : "Export did not complete.";
+            ShowSqlExplorerError(ex, SqlStatementEditor.Text);
+        }
+        finally
+        {
+            _sqlRunning = null;
+            SetSqlExplorerBusy(false);
+        }
+    }
+
+    private void SqlExplorerEditorPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.Space)
+        {
+            e.Handled = true;
+            ShowSqlExplorerSuggestions();
+            return;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.Control &&
+            (e.Key == Key.Oem2 || e.Key == Key.Divide || e.Key == Key.K))
+        {
+            e.Handled = true;
+            ToggleSqlExplorerComments();
+            return;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
+        {
+            e.Handled = true;
+            OpenSqlExplorerScript();
+            return;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
+        {
+            e.Handled = true;
+            SaveSqlExplorerScript();
+            return;
+        }
+        if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            SqlFindTextBox.Focus();
+            SqlFindTextBox.SelectAll();
+            return;
+        }
+        if (e.Key == Key.F3 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            FindNextSqlText();
+            return;
+        }
+        if (e.Key == Key.Escape && _sqlRunning is not null)
+        {
+            e.Handled = true;
+            _sqlRunning.Cancel();
+            return;
+        }
+
+        var gesture = SqlGestureFromKey(e);
+        var runAliasF5 = e.Key == Key.F5 && Keyboard.Modifiers == ModifierKeys.None;
+        if (runAliasF5 ||
+            string.Equals(gesture, _sqlExecuteShortcut, StringComparison.OrdinalIgnoreCase))
+        {
+            e.Handled = true;
+            _ = ExecuteSqlExplorerAsync();
+        }
+        else if (string.Equals(gesture, _sqlCsvShortcut, StringComparison.OrdinalIgnoreCase))
+        {
+            e.Handled = true;
+            _ = ExportSqlExplorerAsync(SqlExportFormat.Csv);
+        }
+        else if (string.Equals(gesture, _sqlExcelShortcut, StringComparison.OrdinalIgnoreCase))
+        {
+            e.Handled = true;
+            _ = ExportSqlExplorerAsync(SqlExportFormat.Xlsx);
+        }
+    }
+
+    private void SqlExplorerEditorTextChanged(object? sender, EventArgs e)
+    {
+        // Old next/previous controls can never run a changed SQL statement
+        // using an offset from the previous query.
+        if (_sqlLastPreviewSql is not null &&
+            !string.Equals(SqlStatementEditor.Text, _sqlLastPreviewSql, StringComparison.Ordinal))
+        {
+            _sqlLastPreviewSql = null;
+            _sqlPreviewOffset = 0;
+            _sqlPreviewHasMore = false;
+            SqlPreviousPageButton.IsEnabled = false;
+            SqlNextPageButton.IsEnabled = false;
+            SqlExplorerPageText.Text = SqlExplorerSpanish
+                ? "Consulta modificada; ejecutar para reiniciar páginas."
+                : "Query edited; execute to reset paging.";
+        }
+        UpdateSqlExplorerCaretStatus();
+    }
+
+    private void UpdateSqlExplorerCaretStatus()
+    {
+        if (SqlStatementEditor is null || SqlExplorerStatusText is null ||
+            _sqlExplorerBusy) return;
+        var cursor = SqlStatementEditor.TextArea.Caret;
+        SqlExplorerStatusText.Text =
+            $"Ln {cursor.Line}, Col {cursor.Column} — SELECT only";
+    }
+
+    private sealed record SqlSchemaOption(string Kind, string Name)
+    {
+        public override string ToString() => Kind.ToUpperInvariant() + " · " + Name;
+    }
+
+    private bool _backupInventoryBusy;
+    private VerifiedBackupInspection? _verifiedBackupInspection;
+
+    private void BackupInventorySelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        RefreshBackupSelectionDetails();
+
+    private void RefreshBackupSelectionDetails()
+    {
+        if (BackupInventoryGrid is null || BackupSelectionDetailsText is null ||
+            BackupVerifiedContentsText is null)
+            return;
+
+        var selected = BackupInventoryGrid.SelectedItem as PhysicalBackupCopy;
+        if (selected is null)
+        {
+            BackupSelectionDetailsText.Text = _localization.GetString("Backup.SelectionNone");
+            BackupVerifiedContentsText.Text = "";
+        }
+        else
+        {
+            BackupSelectionDetailsText.Text =
+                selected.Name + Environment.NewLine +
+                selected.Location + " · " + selected.Kind + " · " +
+                selected.SizeBytes.ToString("N0") + " bytes · " +
+                selected.ModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") +
+                Environment.NewLine + selected.Path;
+            var verified = _verifiedBackupInspection;
+            if (verified is not null &&
+                selected.VerificationStatus == "PASS" &&
+                string.Equals(selected.Path, verified.Summary.Path,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                BackupVerifiedContentsText.Text =
+                    _localization.GetString("Backup.VerifiedHeading") +
+                    Environment.NewLine +
+                    "SHA-256: " + verified.Summary.Sha256 + Environment.NewLine +
+                    "UTC: " + verified.Summary.CreatedUtc.ToString("u") +
+                    " · App: " + verified.Manifest.AppVersion +
+                    " · Build: " + verified.Manifest.BuildNumber +
+                    " · SQLite schema: " + verified.Summary.SchemaVersion +
+                    Environment.NewLine +
+                    "SQLite: " + verified.DatabaseFiles + " file(s), " +
+                    verified.DatabaseBytes.ToString("N0") + " bytes" +
+                    Environment.NewLine +
+                    "Bills: " + verified.BillDocuments + " document(s), " +
+                    verified.BillBytes.ToString("N0") + " bytes" +
+                    Environment.NewLine +
+                    "Tariffs: " + verified.TariffDocuments + " document(s), " +
+                    verified.TariffBytes.ToString("N0") + " bytes";
+            }
+            else
+            {
+                BackupVerifiedContentsText.Text = selected.Kind == "COMPLETE"
+                    ? selected.VerificationStatus == "FAIL"
+                        ? _localization.GetString("Backup.VerificationFailed")
+                        : _localization.GetString("Backup.SelectionUnverified")
+                    : _localization.GetString("Backup.SelectionLegacy");
+            }
+        }
+        BackupVerifyButton.IsEnabled = !_backupInventoryBusy && selected?.Kind == "COMPLETE";
+        BackupDeleteButton.IsEnabled = !_backupInventoryBusy && selected?.Kind == "COMPLETE";
+        BackupCopySecondaryButton.IsEnabled = !_backupInventoryBusy &&
+            !_creatingCompleteBackup && selected?.Kind == "COMPLETE" &&
+            selected.Location == "LOCAL" &&
+            !string.IsNullOrWhiteSpace(ConfiguredSecondaryBackupFolder());
+        BackupMirrorAuditButton.IsEnabled = BackupCopySecondaryButton.IsEnabled;
+        BackupOpenSelectedButton.IsEnabled = !_backupInventoryBusy && selected is not null;
+        BackupSaveReceiptButton.IsEnabled = !_backupInventoryBusy &&
+            selected?.Kind == "COMPLETE" && selected.VerificationStatus == "PASS" &&
+            _verifiedBackupInspection is not null &&
+            string.Equals(selected.Path, _verifiedBackupInspection.Summary.Path,
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void UpdateBackupRowStatus(PhysicalBackupCopy selected, string status)
+    {
+        var rows = (BackupInventoryGrid.ItemsSource as IEnumerable<PhysicalBackupCopy>)?.ToList()
+            ?? new List<PhysicalBackupCopy>();
+        var index = rows.FindIndex(r => string.Equals(r.Path, selected.Path,
+            StringComparison.OrdinalIgnoreCase) && r.Location == selected.Location);
+        if (index < 0) return;
+        rows[index] = selected with { VerificationStatus = status };
+        BackupInventoryGrid.ItemsSource = rows;
+        BackupInventoryGrid.SelectedItem = rows[index];
+        RefreshBackupSelectionDetails();
+    }
+
+    private string? ConfiguredSecondaryBackupFolder() =>
+        _services.GetRequiredService<AppSettingsRepository>().Get(BackupSecondaryPathKey);
+
+    private void SetBackupInventoryBusy(bool busy)
+    {
+        _backupInventoryBusy = busy;
+        BackupInventoryProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        BackupRefreshButton.IsEnabled = !busy;
+        BackupInventoryGrid.IsEnabled = !busy;
+        RefreshBackupSelectionDetails();
+    }
+
+    private async Task RefreshBackupInventoryAsync()
+    {
+        if (_backupInventoryBusy)
+            return;
+        SetBackupInventoryBusy(true);
+        try
+        {
+            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            var previousSelection = (BackupInventoryGrid.SelectedItem as PhysicalBackupCopy);
+            var snapshot = await Task.Run(() => service.List(ConfiguredSecondaryBackupFolder()));
+            // A refreshed inventory invalidates any previous PASS: the files
+            // must be explicitly verified again, even if their names match.
+            _verifiedBackupInspection = null;
+            BackupInventoryGrid.ItemsSource = snapshot.Copies;
+            if (previousSelection is not null)
+                BackupInventoryGrid.SelectedItem = snapshot.Copies.FirstOrDefault(c =>
+                    c.Location == previousSelection.Location &&
+                    string.Equals(c.Path, previousSelection.Path, StringComparison.OrdinalIgnoreCase));
+            RefreshBackupSelectionDetails();
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            BackupInventoryStatusText.Text = (spanish
+                    ? "Copias reconocidas: " : "Recognized copies: ") +
+                snapshot.Copies.Count +
+                (string.IsNullOrEmpty(snapshot.SecondaryWarning)
+                    ? string.Empty
+                    : (spanish ? ". AVISO: " : ". WARNING: ") + snapshot.SecondaryWarning);
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = "Error: " + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+    }
+
+    private async void BackupPageRefresh_Click(object sender, RoutedEventArgs e) =>
+        await RefreshBackupInventoryAsync();
+
+    private async void BackupPageCreate_Click(object sender, RoutedEventArgs e)
+    {
+        await CreateCompleteBackupAsync();
+        await RefreshBackupInventoryAsync();
+    }
+
+    private void BackupPageSettings_Click(object sender, RoutedEventArgs e)
+    {
+        // Destination settings link lands on the actual backup destination
+        // tab, not an unrelated Connection tab.
+        ShowPage("Settings");
+        SettingsTabControl.SelectedIndex = 3;
+    }
+
+    private void BackupPageOpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = _paths.BackupDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = ex.Message;
+        }
+    }
+
+    private void BackupPageOpenSelected_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen)
+            return;
+        try
+        {
+            if (!File.Exists(chosen.Path))
+                throw new FileNotFoundException("The selected backup is no longer available.");
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = Path.GetDirectoryName(chosen.Path)!,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = "Error: " + ex.Message;
+        }
+    }
+
+    private async void BackupPageSaveReceipt_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen ||
+            chosen.Kind != "COMPLETE" || chosen.VerificationStatus != "PASS" ||
+            _verifiedBackupInspection is null ||
+            !string.Equals(_verifiedBackupInspection.Summary.Path, chosen.Path,
+                StringComparison.OrdinalIgnoreCase))
+            return;
+        var dialog = new SaveFileDialog
+        {
+            Title = _localization.GetString("Backup.ReceiptTitle"),
+            FileName = Path.GetFileNameWithoutExtension(chosen.Name) + "-verification.txt",
+            Filter = "Text (*.txt)|*.txt|All files (*.*)|*.*",
+            DefaultExt = ".txt"
+        };
+        PrepareExportDialog(dialog);
+        if (dialog.ShowDialog(this) != true) return;
+        SetBackupInventoryBusy(true);
+        var archiveReverified = false;
+        try
+        {
+            // Reverify independently BEFORE issuing a receipt, so an archive
+            // modified since the prior PASS cannot generate stale evidence.
+            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            var details = await Task.Run(() =>
+                service.VerifyDetails(chosen, ConfiguredSecondaryBackupFolder()));
+            archiveReverified = true;
+            _verifiedBackupInspection = details;
+            var spanish = _localization.CurrentLanguage.StartsWith("es",
+                StringComparison.OrdinalIgnoreCase);
+            await File.WriteAllTextAsync(dialog.FileName, details.FormatReceipt(spanish));
+            BackupInventoryStatusText.Text =
+                _localization.GetString("Backup.ReceiptSaved") + dialog.FileName;
+        }
+        catch (Exception ex)
+        {
+            // Failure to WRITE THE TEXT RECEIPT does not imply the ZIP failed
+            // verification. Only a failed independent archive recheck clears
+            // the previous PASS and marks the archive FAIL.
+            if (!archiveReverified)
+            {
+                _verifiedBackupInspection = null;
+                UpdateBackupRowStatus(chosen, "FAIL");
+            }
+            BackupInventoryStatusText.Text =
+                _localization.GetString("Backup.ReceiptError") + ex.Message;
+        }
+        finally { SetBackupInventoryBusy(false); }
+    }
+
+    private async void BackupPageVerify_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen)
+            return;
+        SetBackupInventoryBusy(true);
+        try
+        {
+            var service = _services.GetRequiredService<CompleteBackupInventoryService>();
+            var details = await Task.Run(() =>
+                service.VerifyDetails(chosen, ConfiguredSecondaryBackupFolder()));
+            _verifiedBackupInspection = details;
+            UpdateBackupRowStatus(chosen, "PASS");
+            BackupInventoryStatusText.Text = "PASS — " + details.Summary.Path +
+                " · SHA-256 " + details.Summary.Sha256 +
+                " · schema " + details.Summary.SchemaVersion +
+                " · files " + details.Summary.FileCount;
+        }
+        catch (Exception ex)
+        {
+            _verifiedBackupInspection = null;
+            UpdateBackupRowStatus(chosen, "FAIL");
+            BackupInventoryStatusText.Text =
+                _localization.GetString("Backup.VerificationFailed") + " " + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+    }
+
+    private async void BackupPageCopySecondary_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || _creatingCompleteBackup ||
+            BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen ||
+            chosen.Kind != "COMPLETE" || chosen.Location != "LOCAL")
+            return;
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        // Only this explicit click starts a new mirror. The existing core
+        // function verifies the original archive and will never overwrite
+        // a conflicting physical file at the secondary destination.
+        var configured = ConfiguredSecondaryBackupFolder();
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            BackupInventoryStatusText.Text = spanish
+                ? "Configure primero una carpeta secundaria en Ajustes."
+                : "Configure a secondary folder in Settings first.";
+            return;
+        }
+        SetBackupInventoryBusy(true);
+        BackupInventoryStatusText.Text = spanish
+            ? "Verificando respaldo local y copiando al segundo destino..."
+            : "Verifying local backup and copying to secondary destination...";
+        string? finalMirrorMessage = null;
+        try
+        {
+            var service = _services.GetRequiredService<FullBackupService>();
+            var selected = chosen;
+            var second = await Task.Run(() =>
+            {
+                // Fast stale-selection preflight; CopyVerifiedToSecondary
+                // itself still hashes and verifies every source ZIP byte.
+                // Avoid redundant multi-GB full-ZIP verification passes.
+                var inventory = new CompleteBackupInventoryService(_paths);
+                inventory.RequireCurrentLocalSelection(selected);
+                return service.CopyVerifiedToSecondary(selected.Path, configured);
+            });
+            finalMirrorMessage = (spanish
+                ? "Copia secundaria verificada: "
+                : "Verified secondary copy: ") + second.Path +
+                " · SHA-256 " + second.Sha256;
+        }
+        catch (Exception ex)
+        {
+            finalMirrorMessage = (spanish
+                ? "No se pudo completar la copia secundaria; el respaldo local permanece intacto: "
+                : "Secondary copy did not complete; the local backup is preserved: ") +
+                ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+        await RefreshBackupInventoryAsync();
+        // Refresh shows counts, but must not erase the result of the action
+        // the user just requested (especially a secondary failure warning).
+        if (!string.IsNullOrWhiteSpace(finalMirrorMessage))
+            BackupInventoryStatusText.Text += Environment.NewLine +
+                finalMirrorMessage;
+    }
+
+    private async void BackupPageAuditMirror_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || _creatingCompleteBackup ||
+            BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy selected ||
+            selected.Kind != "COMPLETE" || selected.Location != "LOCAL")
+            return;
+        var secondary = ConfiguredSecondaryBackupFolder();
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(secondary))
+        {
+            BackupInventoryStatusText.Text = spanish
+                ? "Configure primero un segundo destino en Ajustes."
+                : "Configure a secondary destination in Settings first.";
+            return;
+        }
+        SetBackupInventoryBusy(true);
+        BackupInventoryStatusText.Text = spanish
+            ? "Verificando por separado los dos ZIP completos y sus huellas SHA-256..."
+            : "Independently verifying both complete ZIPs and their SHA-256 digests...";
+        try
+        {
+            var checker = new VerifiedBackupMirrorAuditService(_paths);
+            var receipt = await Task.Run(() =>
+                checker.Inspect(selected, secondary));
+            var intro = receipt.TwoExactCopiesVerified
+                ? (spanish
+                    ? "PASS — dos archivos físicos íntegros e idénticos en la inspección."
+                    : "PASS — two intact, byte-identical physical archives at inspection.")
+                : (spanish
+                    ? "AVISO — no se pudo confirmar un par íntegro e idéntico."
+                    : "WARNING — an intact, identical backup pair was not confirmed.");
+            BackupInventoryStatusText.Text =
+                intro + Environment.NewLine +
+                "Estado / Status: " + receipt.Status + Environment.NewLine +
+                "LOCAL: " + receipt.LocalPath + Environment.NewLine +
+                "SECONDARY: " + (receipt.SecondaryPath ?? "—") + Environment.NewLine +
+                "SHA-256 LOCAL: " + receipt.LocalSha256 + Environment.NewLine +
+                (receipt.SecondarySha256 is null ? string.Empty :
+                    "SHA-256 SECONDARY: " + receipt.SecondarySha256 +
+                    Environment.NewLine) +
+                (spanish
+                    ? "Verificar archivos NO prueba restauración ni independencia de discos."
+                    : "File verification does NOT prove restore or separate physical disks.");
+        }
+        catch (Exception ex)
+        {
+            BackupInventoryStatusText.Text = (spanish
+                ? "No se pudo verificar el respaldo local o el par: "
+                : "Could not verify the local backup or pair: ") + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+    }
+
+    private async void BackupPageDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backupInventoryBusy || BackupInventoryGrid.SelectedItem is not PhysicalBackupCopy chosen)
+            return;
+        if (chosen.Kind != "COMPLETE")
+        {
+            BackupInventoryStatusText.Text =
+                "Los respaldos antiguos SQLite no pueden eliminarse desde el administrador de copias completas.";
+            return;
+        }
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        // Verify both physical packages before showing the confirmation.
+        // Never claim another valid copy exists based on inventory metadata.
+        string? finalDeleteMessage = null;
+        SetBackupInventoryBusy(true);
+        try
+        {
+            var secondary = ConfiguredSecondaryBackupFolder();
+            var service = new CompleteBackupDeletionReviewService(_paths);
+            var reviewed = await Task.Run(() => service.Prepare(chosen, secondary));
+            var warning = spanish
+                ? "Se verificaron DOS respaldos completos independientes.\n\n" +
+                  "Eliminar únicamente esta copia física?\n" + chosen.Path +
+                  "\n\nCopia que se conservará (verificada):\n" +
+                  reviewed.Survivor.Path +
+                  "\n\nLa eliminación NO afecta otras ubicaciones. " +
+                  "Se volverán a comprobar ambas copias antes de borrar."
+                : "TWO independent complete backups passed verification.\n\n" +
+                  "Delete only this physical copy?\n" + chosen.Path +
+                  "\n\nVerified copy that will be kept:\n" +
+                  reviewed.Survivor.Path +
+                  "\n\nOther locations will not be changed. " +
+                  "Both backups will be checked again before deletion.";
+            if (MessageBox.Show(warning,
+                    spanish ? "Confirmar eliminación" : "Confirm deletion",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                BackupInventoryStatusText.Text = spanish
+                    ? "Eliminación cancelada; no se borró ningún respaldo."
+                    : "Deletion cancelled; no backups were deleted.";
+                return;
+            }
+            await Task.Run(() =>
+                service.DeleteAfterExplicitConfirmation(reviewed, userConfirmed: true));
+            finalDeleteMessage = (spanish
+                ? "Se eliminó únicamente la copia seleccionada: "
+                : "Only the selected copy was deleted: ") + chosen.Path;
+        }
+        catch (Exception ex)
+        {
+            finalDeleteMessage = (spanish
+                ? "No se eliminó ninguna copia: " : "No copy was deleted: ") + ex.Message;
+        }
+        finally
+        {
+            SetBackupInventoryBusy(false);
+        }
+        await RefreshBackupInventoryAsync();
+        // The refreshed inventory is useful, but it must not erase the
+        // outcome of an explicitly confirmed, destructive user action.
+        if (finalDeleteMessage is not null)
+            BackupInventoryStatusText.Text += Environment.NewLine + finalDeleteMessage;
+    }
+
+    private const string BackupSecondaryPathKey = "backup.complete-secondary-dir";
+    private const string BackupReminderNextKey = "backup.complete-reminder-next-utc";
+    private const string BackupLastSuccessKey = "backup.complete-last-success-utc";
+    private bool _creatingCompleteBackup;
+
+    /// <summary>
+    /// Shows a skippable reminder, not a scheduled backup job.
+    /// A first installation with no successful complete backup is prompted
+    /// when its normal window is ready; postponement survives restarts.
+    /// </summary>
+    public async Task ShowWeeklyBackupReminderIfDueAsync()
+    {
+        try
+        {
+            var settings = _services.GetRequiredService<AppSettingsRepository>();
+            var full = _services.GetRequiredService<FullBackupService>();
+            var now = DateTimeOffset.UtcNow;
+
+            var lastSuccessful = settings.Get(BackupLastSuccessKey);
+            var lastCompleteUtc = DateTimeOffset.TryParse(lastSuccessful, out var parsed)
+                ? parsed.ToUniversalTime()
+                : DateTimeOffset.MinValue;
+            if (!full.ListLocal().Any())
+                lastCompleteUtc = DateTimeOffset.MinValue;
+
+            var nextReminder = settings.Get(BackupReminderNextKey);
+            if (DateTimeOffset.TryParse(nextReminder, out var due) && now < due)
+                return;
+            if (lastCompleteUtc > now.AddDays(-7))
+                return;
+
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            var choice = MessageBox.Show(
+                spanish
+                    ? "No hay constancia de un respaldo completo reciente.\n\n" +
+                      "Sí: crear ahora un respaldo completo verificado.\n" +
+                      "No: posponer el recordatorio 24 horas.\n" +
+                      "Cancelar: omitirlo durante esta semana.\n\n" +
+                      "La aplicación no crea respaldos diarios automáticamente."
+                    : "No recent successful complete backup is recorded.\n\n" +
+                      "Yes: create a verified complete backup now.\n" +
+                      "No: remind me again in 24 hours.\n" +
+                      "Cancel: skip this week's reminder.\n\n" +
+                      "No daily backups are created automatically.",
+                spanish ? "Recordatorio semanal de respaldo" : "Weekly backup reminder",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (choice == MessageBoxResult.Yes)
+            {
+                await CreateCompleteBackupAsync();
+            }
+            else if (choice == MessageBoxResult.No)
+            {
+                settings.Set(BackupReminderNextKey, now.AddDays(1).ToString("O"));
+            }
+            else
+            {
+                settings.Set(BackupReminderNextKey, now.AddDays(7).ToString("O"));
+            }
+        }
+        catch (Exception ex)
+        {
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            MessageBox.Show((spanish
+                ? "No se pudo revisar el estado de respaldos: "
+                : "Unable to inspect backup status: ") + ex.Message,
+                spanish ? "Protección de datos" : "Data protection",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void SettingsOpenProtection_Click(object sender, RoutedEventArgs e) =>
+        ShowPage("Backup");
+
+    // Developer diagnostics is subordinate to the single recognized backup
+    // workflow. Never launch a second backup operation from a diagnostics pane.
+    internal void OpenProtectionFromDiagnostics() => ShowPage("Backup");
+
+    private void SettingsOpenSqlExplorer_Click(object sender, RoutedEventArgs e) =>
+        ShowPage("SqlExplorer");
+
+    private async void SettingsBackupNow_Click(object sender, RoutedEventArgs e)
+    {
+        await CreateCompleteBackupAsync();
+    }
+
+    private async Task CreateCompleteBackupAsync()
+    {
+        if (_creatingCompleteBackup)
+            return;
+        _creatingCompleteBackup = true;
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        SettingsBackupNowButton.IsEnabled = false;
+        SettingsBackupProgressBar.Visibility = Visibility.Visible;
+        SettingsBackupProgressBar.IsIndeterminate = true;
+        SettingsBackupStatusText.Text = spanish
+            ? "Creando paquete completo: SQLite, boletas y tarifas. Puede tardar..."
+            : "Creating complete package: SQLite, bills and tariffs. This may take a while...";
+        try
+        {
+            var service = _services.GetRequiredService<FullBackupService>();
+            var result = await Task.Run(() => service.Create(
+                ProductInfo.ProductVersion, ProductInfo.BuildNumber,
+                ProductInfo.SourceRevision));
+            _services.GetRequiredService<AppSettingsRepository>()
+                .Set(BackupLastSuccessKey, DateTimeOffset.UtcNow.ToString("O"));
+            _services.GetRequiredService<AppSettingsRepository>()
+                .Set(BackupReminderNextKey, DateTimeOffset.UtcNow.AddDays(7).ToString("O"));
+            string secondaryStatus = "";
+            var secondaryFailed = false;
+            var configuredSecondary = _services.GetRequiredService<AppSettingsRepository>()
+                .Get(BackupSecondaryPathKey);
+            if (!string.IsNullOrWhiteSpace(configuredSecondary))
+            {
+                try
+                {
+                    var second = await Task.Run(() => service.CopyVerifiedToSecondary(
+                        result.Path, configuredSecondary));
+                    secondaryStatus = spanish
+                        ? " Copia secundaria verificada en " + second.Path
+                        : " Verified secondary copy at " + second.Path;
+                }
+                catch (Exception copyError)
+                {
+                    secondaryFailed = true;
+                    secondaryStatus = spanish
+                        ? " AVISO: respaldo local verificado, pero falló la segunda copia: " +
+                          copyError.Message
+                        : " WARNING: local backup verified, secondary copy failed: " +
+                          copyError.Message;
+                }
+            }
+            SettingsBackupStatusText.Text = (spanish
+                ? $"Respaldo completo verificado ({result.FileCount} archivos). " +
+                  $"Guardado en {result.Path}"
+                : $"Verified complete backup ({result.FileCount} files). " +
+                  $"Saved to {result.Path}") + secondaryStatus;
+            RefreshBackupSecondaryPreference();
+            MessageBox.Show(SettingsBackupStatusText.Text,
+                spanish
+                    ? (secondaryFailed ? "Aviso: copia secundaria fallida"
+                                       : "Respaldo completo creado")
+                    : (secondaryFailed ? "Warning: secondary copy failed"
+                                       : "Complete backup created"),
+                MessageBoxButton.OK,
+                secondaryFailed ? MessageBoxImage.Warning : MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            SettingsBackupStatusText.Text = (spanish
+                ? "No se pudo crear el respaldo completo: "
+                : "Unable to create complete backup: ") + ex.Message;
+            MessageBox.Show(SettingsBackupStatusText.Text,
+                spanish ? "Protección de datos" : "Data protection",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            SettingsBackupProgressBar.IsIndeterminate = false;
+            SettingsBackupProgressBar.Value = 100;
+            SettingsBackupNowButton.IsEnabled = true;
+            _creatingCompleteBackup = false;
+        }
+    }
+
+    private void RefreshBackupSecondaryPreference()
+    {
+        var settings = _services.GetRequiredService<AppSettingsRepository>();
+        var destination = settings.Get(BackupSecondaryPathKey);
+        var spanish = _localization.CurrentLanguage.StartsWith(
+            "es", StringComparison.OrdinalIgnoreCase);
+        SettingsBackupSecondaryFolderText.Text = string.IsNullOrWhiteSpace(destination)
+            ? (spanish ? "No configurada: solo copia local." : "Not configured: local copy only.")
+            : destination + (Directory.Exists(destination) ? "" :
+                (spanish ? " — destino no disponible" : " — destination unavailable"));
+
+        var packages = _services.GetRequiredService<FullBackupService>().ListLocal();
+        SettingsBackupInventoryText.Text = packages.Count == 0
+            ? (spanish ? "No hay respaldos completos locales reconocidos." :
+                "No recognized local complete backups.")
+            : (spanish ? "Respaldos completos locales: " : "Local complete backup packages: ") +
+              packages.Count + (spanish ? " (sin revalidación al listar). " :
+                                        " (not reverified during listing). ") +
+              (spanish ? "Último archivo: " : "Most recent: ") +
+              Path.GetFileName(packages[0].Path);
+    }
+
+    private void SettingsBackupChooseSecondary_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = _localization.CurrentLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase)
+                ? "Elegir ubicación secundaria para respaldos"
+                : "Choose secondary backup folder",
+            Multiselect = false
+        };
+        var settings = _services.GetRequiredService<AppSettingsRepository>();
+        var existing = settings.Get(BackupSecondaryPathKey);
+        if (!string.IsNullOrWhiteSpace(existing) && Directory.Exists(existing))
+            dialog.InitialDirectory = existing;
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        string destination;
+        try
+        {
+            // Apply the same restriction used by backup creation and inventory.
+            destination = BackupDestinationPolicy.Validate(_paths, dialog.FolderName);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or
+                                  IOException or UnauthorizedAccessException)
+        {
+            var spanish = _localization.CurrentLanguage.StartsWith(
+                "es", StringComparison.OrdinalIgnoreCase);
+            MessageBox.Show(
+                (spanish ? "La carpeta secundaria no es segura: "
+                         : "Unsafe secondary backup folder: ") + ex.Message,
+                spanish ? "Protección de datos" : "Data protection",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        settings.Set(BackupSecondaryPathKey, destination);
+        RefreshBackupSecondaryPreference();
+    }
+
+    private const string DefaultExportFolderKey = "exports.default-folder";
+
+    private void PrepareExportDialog(SaveFileDialog dialog)
+    {
+        var folder = _services.GetRequiredService<AppSettingsRepository>()
+            .Get(DefaultExportFolderKey);
+        if (!string.IsNullOrWhiteSpace(folder) && Directory.Exists(folder))
+            dialog.InitialDirectory = folder;
+    }
+
+    private void RefreshExportFolderPreference()
+    {
+        if (!IsInitialized || SettingsExportFolderText is null)
+            return;
+        var folder = _services.GetRequiredService<AppSettingsRepository>()
+            .Get(DefaultExportFolderKey);
+        SettingsExportFolderText.Text =
+            string.IsNullOrWhiteSpace(folder)
+                ? _localization.GetString("Settings.ExportFolderSystemDefault")
+                : folder + (Directory.Exists(folder) ? string.Empty :
+                    " — " + _localization.GetString("Settings.ExportFolderMissing"));
+    }
+
+    private void SettingsChooseExportFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = _localization.GetString("Settings.ChooseExportFolder"),
+            Multiselect = false
+        };
+        var current = _services.GetRequiredService<AppSettingsRepository>()
+            .Get(DefaultExportFolderKey);
+        if (!string.IsNullOrWhiteSpace(current) && Directory.Exists(current))
+            dialog.InitialDirectory = current;
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        // This preference only changes where user-triggered Save dialogs
+        // start; it does not move the SQLite database or existing exports.
+        _services.GetRequiredService<AppSettingsRepository>()
+            .Set(DefaultExportFolderKey, dialog.FolderName);
+        RefreshExportFolderPreference();
+    }
+
+    private void SettingsResetExportFolder_Click(object sender, RoutedEventArgs e)
+    {
+        _services.GetRequiredService<AppSettingsRepository>()
+            .Delete(DefaultExportFolderKey);
+        RefreshExportFolderPreference();
     }
 
     private bool GetAutoConnectEnabled()
@@ -7064,6 +10064,9 @@ public partial class MainWindow : Window
     private void OpenDiagnostics_Click(object sender, RoutedEventArgs e)
     {
         var window = _services.GetRequiredService<DeveloperDiagnosticsWindow>();
+        window.SetSelectedBillId(
+            UtilityAuditBillSelector.SelectedValue is long selectedBill
+                ? selectedBill : null);
         window.Owner = this;
         window.ShowDialog();
     }
@@ -7175,122 +10178,208 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RefreshDataCoverageView()
+    private void DataCoverageToAnalysis_Click(object sender, RoutedEventArgs e)
     {
-        if (!IsInitialized || DataContent is null)
-        {
+        if (!TryGetDataCoverageContext(out _))
             return;
-        }
+        ShowPage("Analysis");
+        // Force re-resolution even when a previous visit already selected All.
+        _suppressAnalysisRangeSelection = true;
+        try { AnalysisRangePresetSelector.SelectedValue = null; }
+        finally { _suppressAnalysisRangeSelection = false; }
+        AnalysisRangePresetSelector.SelectedValue = "all";
+    }
 
+    private void DataCoverageToReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (TryGetDataCoverageContext(out var context))
+            OpenContextReportDraft(context, "Data");
+    }
+
+    private bool TryGetDataCoverageContext(out ReportContextSelection context)
+    {
+        context = null!;
+        if (_windowClosed || DataContent.Visibility != Visibility.Visible ||
+            _dataCoverageContext is not { } current ||
+            !string.Equals(current.DeviceId, _profiles.Get()?.DeviceId,
+                StringComparison.Ordinal))
+            return false;
+        context = current.Draft;
+        return true;
+    }
+
+    private sealed record DataCoverageSnapshot(
+        DateTimeOffset? FirstSampleAtUtc,
+        DateTimeOffset? LastSampleAtUtc,
+        string ReviewedDays,
+        string IssueDays,
+        string EmptyDays,
+        string PartialDays,
+        string UnavailableDays,
+        string SavedReadings,
+        string ReadyReadings,
+        string InstallationDate,
+        string NextDownloadDate,
+        string? HealthStatus,
+        string HealthConfirmed,
+        string HealthDrift,
+        string HealthUnresolved);
+
+    // Data queries can be expensive on multi-GB SQLite histories. Only the
+    // current visible page and matching device may receive an async result.
+    private async void RefreshDataCoverageView()
+    {
+        using var measure = _performance.Measure("UI.DataCoverage.Refresh");
+        if (!IsInitialized || DataContent is null || _windowClosed ||
+            DataContent.Visibility != Visibility.Visible)
+            return;
+
+        var generation = ++_dataCoverageRefreshGeneration;
+        _dataCoverageContext = null;
+        DataCoverageAnalyzeButton.IsEnabled = false;
+        DataCoverageReportButton.IsEnabled = false;
+        var none = _localization.GetString("Data.None");
         var profile = _profiles.Get();
+
+        DataStoredFromText.Text = none;
+        DataStoredToText.Text = none;
+        DataInstallationDateText.Text = none;
+        DataNextDownloadText.Text = none;
+        DataReviewedDaysText.Text = "—";
+        DataIssueDaysText.Text = "—";
+        DataEmptyDaysText.Text = "—";
+        DataPartialDaysText.Text = "—";
+        DataUnavailableDaysText.Text = "—";
+        DataSavedReadingsText.Text = "—";
+        DataReadyReadingsText.Text = "—";
+        ConfigurationHealthText.SetResourceReference(
+            TextBlock.TextProperty, "Data.ConfigurationUnresolved");
+        ConfigurationHealthDetailText.Text = string.Empty;
+        ConfigurationHealthText.Foreground = Brushes.Gray;
+
         if (profile is null)
         {
-            var none = _localization.GetString("Data.None");
-            DataStoredFromText.Text = none;
-            DataStoredToText.Text = none;
-            DataReviewedDaysText.Text = "0";
-            DataIssueDaysText.Text = "0";
-            DataInstallationDateText.Text = none;
-            DataNextDownloadText.Text = none;
-            DataEmptyDaysText.Text = "0";
-            DataPartialDaysText.Text = "0";
-            DataUnavailableDaysText.Text = "0";
-            DataSavedReadingsText.Text = "0";
-            DataReadyReadingsText.Text = "0";
-            ConfigurationHealthText.SetResourceReference(
-                TextBlock.TextProperty,
-                "Data.ConfigurationUnresolved");
-            ConfigurationHealthDetailText.Text = string.Empty;
-            ConfigurationHealthText.Foreground = Brushes.Gray;
+            DataCoverageStatusText.Text = none;
             return;
         }
 
-        var history = _services.GetRequiredService<HistoryRepository>();
-        var normalized = _services.GetRequiredService<NormalizationRepository>();
-        var ingestion = _services.GetRequiredService<HistoryIngestionService>();
-        var coverage = history.GetCoverageSummary(profile.DeviceId);
-
+        var deviceId = profile.DeviceId;
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
             : profile.StationTimeZone;
-
-        DataStoredFromText.Text = coverage.FirstSampleAtUtc.HasValue
-            ? SolarApiTime.GetLocalDate(
-                coverage.FirstSampleAtUtc.Value,
-                timeZone).ToString("dd-MM-yyyy")
-            : _localization.GetString("Data.None");
-
-        DataStoredToText.Text = coverage.LastSampleAtUtc.HasValue
-            ? SolarApiTime.GetLocalDate(
-                coverage.LastSampleAtUtc.Value,
-                timeZone).ToString("dd-MM-yyyy")
-            : _localization.GetString("Data.None");
-
-        var reviewedDays =
-            coverage.CompleteDays +
-            coverage.EmptyDays +
-            coverage.OpenDays;
-
-        var issueDays =
-            coverage.PartialDays +
-            coverage.UnavailableDays;
-
-        DataReviewedDaysText.Text = reviewedDays.ToString("N0");
-        DataIssueDaysText.Text = issueDays.ToString("N0");
-
-        var installationDate = ingestion.GetInstallationDate(profile);
-        DataInstallationDateText.Text = installationDate.HasValue
-            ? installationDate.Value.ToString("dd-MM-yyyy")
-            : _localization.GetString("Data.None");
-
-        DataNextDownloadText.Text =
-            ingestion.GetSuggestedAutomaticStartDate(profile)
-                .ToString("dd-MM-yyyy");
-
-        DataEmptyDaysText.Text = coverage.EmptyDays.ToString("N0");
-        DataPartialDaysText.Text = coverage.PartialDays.ToString("N0");
-        DataUnavailableDaysText.Text = coverage.UnavailableDays.ToString("N0");
-        DataSavedReadingsText.Text = coverage.RawSampleCount.ToString("N0");
-        DataReadyReadingsText.Text =
-            normalized.GetNormalizedSampleCount(profile.DeviceId).ToString("N0");
-
-        var healthRepository =
-            _services.GetRequiredService<InstallationHealthRepository>();
-        var health = healthRepository.GetSummary(profile.DeviceId);
-
-        if (health is null)
+        DataCoverageStatusText.Text = _localization.GetString("Data.CoverageLoading");
+        try
         {
-            ConfigurationHealthText.SetResourceReference(
-                TextBlock.TextProperty,
-                "Data.ConfigurationUnresolved");
-            ConfigurationHealthDetailText.Text = string.Empty;
-            ConfigurationHealthText.Foreground = Brushes.Gray;
+            var result = await Task.Run(() =>
+            {
+                var history = _services.GetRequiredService<HistoryRepository>();
+                var normalized = _services.GetRequiredService<NormalizationRepository>();
+                var ingestion = _services.GetRequiredService<HistoryIngestionService>();
+                var coverage = MeasureDataCall(
+                    "Data.Coverage.Summary",
+                    () => history.GetCoverageSummary(deviceId));
+                var ready = MeasureDataCall(
+                    "Data.Coverage.NormalizedCount",
+                    () => normalized.GetNormalizedSampleCount(deviceId));
+                var installation = ingestion.GetInstallationDate(profile);
+                var nextDownload = ingestion.GetSuggestedAutomaticStartDate(profile);
+                var healthRepository =
+                    _services.GetRequiredService<InstallationHealthRepository>();
+                var health = MeasureDataCall(
+                    "Data.Coverage.Health",
+                    () => healthRepository.GetSummary(deviceId));
+
+                return new DataCoverageSnapshot(
+                    coverage.FirstSampleAtUtc,
+                    coverage.LastSampleAtUtc,
+                    (coverage.CompleteDays + coverage.EmptyDays + coverage.OpenDays)
+                        .ToString("N0"),
+                    (coverage.PartialDays + coverage.UnavailableDays).ToString("N0"),
+                    coverage.EmptyDays.ToString("N0"),
+                    coverage.PartialDays.ToString("N0"),
+                    coverage.UnavailableDays.ToString("N0"),
+                    coverage.RawSampleCount.ToString("N0"),
+                    ready.ToString("N0"),
+                    installation?.ToString("dd-MM-yyyy") ?? string.Empty,
+                    nextDownload.ToString("dd-MM-yyyy"),
+                    health?.OverallStatus,
+                    health?.ConfirmedCount.ToString() ?? "0",
+                    health?.DriftCount.ToString() ?? "0",
+                    health?.UnresolvedCount.ToString() ?? "0");
+            });
+
+            if (!DataCoverageRefreshPolicy.CanApply(
+                    generation, _dataCoverageRefreshGeneration,
+                    DataContent.Visibility == Visibility.Visible && !_windowClosed,
+                    deviceId, _profiles.Get()?.DeviceId))
+                return;
+
+            DataStoredFromText.Text = result.FirstSampleAtUtc.HasValue
+                ? SolarApiTime.GetLocalDate(result.FirstSampleAtUtc.Value, timeZone)
+                    .ToString("dd-MM-yyyy") : none;
+            DataStoredToText.Text = result.LastSampleAtUtc.HasValue
+                ? SolarApiTime.GetLocalDate(result.LastSampleAtUtc.Value, timeZone)
+                    .ToString("dd-MM-yyyy") : none;
+            DataInstallationDateText.Text = string.IsNullOrEmpty(result.InstallationDate)
+                ? none : result.InstallationDate;
+            DataNextDownloadText.Text = result.NextDownloadDate;
+            DataReviewedDaysText.Text = result.ReviewedDays;
+            DataIssueDaysText.Text = result.IssueDays;
+            DataEmptyDaysText.Text = result.EmptyDays;
+            DataPartialDaysText.Text = result.PartialDays;
+            DataUnavailableDaysText.Text = result.UnavailableDays;
+            DataSavedReadingsText.Text = result.SavedReadings;
+            DataReadyReadingsText.Text = result.ReadyReadings;
+            if (result.HealthStatus is null)
+            {
+                ConfigurationHealthText.SetResourceReference(
+                    TextBlock.TextProperty, "Data.ConfigurationUnresolved");
+            }
+            else
+            {
+                ConfigurationHealthText.SetResourceReference(
+                    TextBlock.TextProperty, result.HealthStatus switch
+                    {
+                        "CONFIG_CONFIRMED" => "Data.ConfigurationConfirmed",
+                        "CONFIG_DRIFT" => "Data.ConfigurationDrift",
+                        _ => "Data.ConfigurationUnresolved"
+                    });
+                ConfigurationHealthText.Foreground = result.HealthStatus switch
+                {
+                    "CONFIG_CONFIRMED" => Brushes.Green,
+                    "CONFIG_DRIFT" => Brushes.DarkOrange,
+                    _ => Brushes.Gray
+                };
+                ConfigurationHealthDetailText.Text = string.Format(
+                    _localization.GetString("Data.ConfigurationDetail"),
+                    result.HealthConfirmed, result.HealthDrift, result.HealthUnresolved);
+            }
+
+            if (result.FirstSampleAtUtc is { } firstStored &&
+                result.LastSampleAtUtc is { } lastStored &&
+                firstStored <= lastStored)
+            {
+                _dataCoverageContext = (deviceId,
+                    ReportContextNavigationPolicy.FromStoredCoverage(
+                        firstStored, lastStored, timeZone, ReportKind.DetailedEnergy));
+                DataCoverageAnalyzeButton.IsEnabled = true;
+                DataCoverageReportButton.IsEnabled = true;
+            }
+            DataCoverageStatusText.Text = string.Empty;
         }
-        else
+        catch (Exception ex)
         {
-            var resourceKey = health.OverallStatus switch
-            {
-                "CONFIG_CONFIRMED" => "Data.ConfigurationConfirmed",
-                "CONFIG_DRIFT" => "Data.ConfigurationDrift",
-                _ => "Data.ConfigurationUnresolved"
-            };
-
-            ConfigurationHealthText.SetResourceReference(
-                TextBlock.TextProperty,
-                resourceKey);
-
-            ConfigurationHealthText.Foreground = health.OverallStatus switch
-            {
-                "CONFIG_CONFIRMED" => Brushes.Green,
-                "CONFIG_DRIFT" => Brushes.DarkOrange,
-                _ => Brushes.Gray
-            };
-
-            ConfigurationHealthDetailText.Text = string.Format(
-                _localization.GetString("Data.ConfigurationDetail"),
-                health.ConfirmedCount,
-                health.DriftCount,
-                health.UnresolvedCount);
+            if (!DataCoverageRefreshPolicy.CanApply(
+                    generation, _dataCoverageRefreshGeneration,
+                    DataContent.Visibility == Visibility.Visible && !_windowClosed,
+                    deviceId, _profiles.Get()?.DeviceId))
+                return;
+            _dataCoverageContext = null;
+            DataCoverageAnalyzeButton.IsEnabled = false;
+            DataCoverageReportButton.IsEnabled = false;
+            DataCoverageStatusText.Text =
+                _localization.GetString("Data.CoverageLoadFailed");
+            Debug.WriteLine($"Data coverage failed ({ex.GetType().Name}).");
         }
     }
 

@@ -5,7 +5,7 @@ namespace SolarOfThings.Core.Data;
 
 public sealed class SqliteDatabase
 {
-    public const int CurrentSchemaVersion = 16;
+    public const int CurrentSchemaVersion = 17;
 
     private readonly AppPaths _paths;
 
@@ -127,6 +127,12 @@ public sealed class SqliteDatabase
         if (current < 16)
         {
             ApplyMigration16(connection);
+            current = 16;
+        }
+
+        if (current < 17)
+        {
+            ApplyMigration17(connection);
         }
 
         var finalVersion = GetSchemaVersion(connection);
@@ -832,6 +838,92 @@ public sealed class SqliteDatabase
             16,
             "Phase 10 bill summary fidelity: preserve printed previous balance separately from current-period charges.");
 
+        transaction.Commit();
+    }
+
+    private static void ApplyMigration17(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        Execute(connection, """
+            -- These views expose measured/recorded facts. A power sample
+            -- is never misrepresented as an integrated kWh total.
+            CREATE VIEW reporting_grid_import AS
+            SELECT device_id, recorded_at_utc,
+                   normalized_value AS grid_import_power_w,
+                   confidence, quality, normalization_rule_version
+            FROM normalized_metric_sample
+            WHERE metric_key = 'grid_import_power_w';
+
+            -- Counts and arithmetic averages of measured power samples,
+            -- NOT time-weighted energy/kWh (gaps are not interpolated).
+            CREATE VIEW reporting_hourly_power_samples AS
+            SELECT device_id, substr(recorded_at_utc,1,13) AS utc_hour,
+                   metric_key, COUNT(*) AS sample_count,
+                   AVG(normalized_value) AS sample_average_w,
+                   MIN(normalized_value) AS sample_minimum_w,
+                   MAX(normalized_value) AS sample_maximum_w
+            FROM normalized_metric_sample
+            WHERE metric_key IN (
+                'pv_power_w','house_load_power_w',
+                'grid_import_power_w','battery_power_w'
+            ) AND normalized_value IS NOT NULL
+            GROUP BY device_id, substr(recorded_at_utc,1,13), metric_key;
+
+            CREATE VIEW reporting_daily_power_samples AS
+            SELECT device_id, substr(recorded_at_utc,1,10) AS utc_day,
+                   metric_key, COUNT(*) AS sample_count,
+                   AVG(normalized_value) AS sample_average_w,
+                   MIN(normalized_value) AS sample_minimum_w,
+                   MAX(normalized_value) AS sample_maximum_w
+            FROM normalized_metric_sample
+            WHERE metric_key IN (
+                'pv_power_w','house_load_power_w',
+                'grid_import_power_w','battery_power_w'
+            ) AND normalized_value IS NOT NULL
+            GROUP BY device_id, substr(recorded_at_utc,1,10), metric_key;
+
+            CREATE VIEW reporting_battery AS
+            SELECT device_id, recorded_at_utc,
+                   MAX(CASE WHEN metric_key = 'battery_soc_pct'
+                            THEN normalized_value END) AS soc_pct,
+                   MAX(CASE WHEN metric_key = 'battery_voltage_v'
+                            THEN normalized_value END) AS voltage_v,
+                   MAX(CASE WHEN metric_key = 'battery_power_w'
+                            THEN normalized_value END) AS power_w
+            FROM normalized_metric_sample
+            WHERE metric_key IN (
+                'battery_soc_pct', 'battery_voltage_v', 'battery_power_w'
+            )
+            GROUP BY device_id, recorded_at_utc;
+
+            CREATE VIEW reporting_utility_bills AS
+            SELECT bill_id, period_start_utc, period_end_utc,
+                   period_precision, billed_consumption_kwh,
+                   meter_start_kwh, meter_end_kwh, tariff_plan,
+                   taxable_amount_clp, iva_clp, exempt_amount_clp,
+                   gross_bill_amount_clp, other_charges_clp,
+                   previous_balance_clp, total_due_clp,
+                   review_state, source_kind
+            FROM utility_bill;
+
+            CREATE VIEW reporting_bill_line_evidence AS
+            SELECT l.bill_line_id, l.bill_id, b.period_start_utc,
+                   b.period_end_utc, l.category_key, l.description,
+                   l.amount_clp, l.quantity, l.unit, l.unit_rate_clp,
+                   l.evidence_state, l.source_kind
+            FROM utility_bill_line l
+            INNER JOIN utility_bill b ON b.bill_id = l.bill_id;
+
+            CREATE VIEW data_quality_summary AS
+            SELECT device_id, local_date, timezone, source, status,
+                   frame_count, page_count, first_at_utc,
+                   last_at_utc, updated_utc
+            FROM history_day_status;
+            """, transaction);
+
+        RecordMigration(connection, transaction, 17,
+            "Phase 11 read-only reporting views over recorded measurements, bills and quality evidence.");
         transaction.Commit();
     }
 

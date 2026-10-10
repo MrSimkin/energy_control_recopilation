@@ -5,13 +5,80 @@
     <sys:String x:Key="Brand.Title">SOLAR ENERGY</sys:String>
     <sys:String x:Key="Brand.Subtitle">Monitor del hogar</sys:String>
 
-    <sys:String x:Key="Nav.Dashboard">Inicio</sys:String>
-    <sys:String x:Key="Nav.Analysis">Historial y gráficos</sys:String>
+    <sys:String x:Key="Nav.Backup">Protección de datos</sys:String>
+    <sys:String x:Key="Page.Backup.Title">Protección de datos</sys:String>
+    <sys:String x:Key="Page.Backup.Subtitle">Respaldos completos, copias y verificación</sys:String>
+    <sys:String x:Key="Backup.PageHeading">Protección de datos</sys:String>
+    <sys:String x:Key="Backup.PageIntro">Administra copias completas verificables. Las copias SQLite antiguas aparecen solo para información; no equivalen a un respaldo completo.</sys:String>
+    <sys:String x:Key="Backup.WeeklyHeading">Crear respaldo completo</sys:String>
+    <sys:String x:Key="Backup.WeeklyInfo">Puedes crear ahora un paquete completo con la base SQLite, boletas y tarifas. El recordatorio semanal permite crear, posponer u omitir esta semana. No se eliminan copias automáticamente.</sys:String>
+    <sys:String x:Key="Backup.CreateNow">Crear respaldo completo ahora</sys:String>
+    <sys:String x:Key="Backup.DestinationSettings">Configurar ubicación secundaria</sys:String>
+    <sys:String x:Key="Backup.OpenLocal">Abrir carpeta local</sys:String>
+    <sys:String x:Key="Backup.InventoryHeading">Copias físicas reconocidas</sys:String>
+    <sys:String x:Key="Backup.InventoryIntro">Se muestra cada archivo por separado (local y secundario). La presencia de un ZIP no demuestra su integridad: selecciona Verificar para reexaminarlo. El disco secundario desconectado se indica aparte.</sys:String>
+    <sys:String x:Key="Backup.Refresh">Actualizar lista</sys:String>
+    <sys:String x:Key="Backup.Verify">Verificar selección</sys:String>
+    <sys:String x:Key="Backup.CopySecondary">Copiar selección al segundo destino</sys:String>
+    <sys:String x:Key="Backup.VerifyMirroredPair">Verificar ambas copias</sys:String>
+    <sys:String x:Key="Backup.DeleteSelected">Eliminar solo esta copia</sys:String>
+    <sys:String x:Key="Backup.ColumnLocation">Ubicación</sys:String>
+    <sys:String x:Key="Backup.ColumnName">Archivo</sys:String>
+    <sys:String x:Key="Backup.ColumnKind">Tipo</sys:String>
+    <sys:String x:Key="Backup.ColumnDate">Fecha</sys:String>
+    <sys:String x:Key="Backup.ColumnSize">Bytes</sys:String>
+    <sys:String x:Key="Backup.ColumnStatus">Integridad</sys:String>
+    <sys:String x:Key="Backup.SelectionHeading">Detalle de la copia seleccionada</sys:String>
+    <sys:String x:Key="Backup.SelectionHint">Selecciona un archivo para ver sus datos; solo Verificar acredita integridad.</sys:String>
+    <sys:String x:Key="Backup.NotRestoreWarning">La verificación del ZIP no prueba una restauración ni permite reemplazar tu base de datos.</sys:String>
+    <sys:String x:Key="Backup.OpenSelectedFolder">Abrir carpeta de la copia</sys:String>
+    <sys:String x:Key="Backup.SaveReceipt">Guardar comprobante</sys:String>
+    <sys:String x:Key="Backup.ReceiptTitle">Guardar comprobante de verificación</sys:String>
+    <sys:String x:Key="Backup.SelectionNone">Selecciona una copia de la lista.</sys:String>
+    <sys:String x:Key="Backup.SelectionLegacy">Copia SQLite antigua: no contiene boletas ni tarifas y no admite verificación completa.</sys:String>
+    <sys:String x:Key="Backup.SelectionUnverified">Sin verificación actual. Selecciona Verificar para inspeccionar el contenido.</sys:String>
+    <sys:String x:Key="Backup.VerifiedHeading">ARCHIVO VERIFICADO</sys:String>
+    <sys:String x:Key="Backup.VerificationFailed">La verificación falló; esta copia NO es válida como respaldo verificado.</sys:String>
+    <sys:String x:Key="Backup.ReceiptSaved">Comprobante guardado: </sys:String>
+    <sys:String x:Key="Backup.ReceiptError">No se pudo guardar un comprobante verificado: </sys:String>
+    <sys:String x:Key="Backup.LastCopyPolicy">El borrado requiere confirmación y otra copia completa disponible y verificada. Nunca elimina la copia secundaria junto con la local ni borra datos activos.</sys:String>
+
+    <sys:String x:Key="SqlExplorer.ShortcutExecute">Atajo ejecutar:</sys:String>
+    <sys:String x:Key="SqlExplorer.ShortcutCsv">Atajo CSV:</sys:String>
+    <sys:String x:Key="SqlExplorer.ShortcutExcel">Atajo Excel:</sys:String>
+    <sys:String x:Key="SqlExplorer.FindLabel">Buscar:</sys:String>
+    <sys:String x:Key="SqlExplorer.FindHint">Buscar texto dentro de la consulta SQL</sys:String>
+    <sys:String x:Key="SqlExplorer.FindNext">Buscar siguiente</sys:String>
+    <sys:String x:Key="SqlExplorer.FindShortcuts">Ctrl+F buscar · F3 siguiente</sys:String>
+    <sys:String x:Key="Diagnostics.PerformanceTitle">Rendimiento observado (solo esta sesión)</sys:String>
+    <sys:String x:Key="Diagnostics.PerformanceRefresh">Actualizar mediciones</sys:String>
+    <sys:String x:Key="Nav.SqlExplorer">Explorador SQL</sys:String>
+    <sys:String x:Key="Page.SqlExplorer.Title">Explorador SQL</sys:String>
+    <sys:String x:Key="Page.SqlExplorer.Subtitle">Consultas de solo lectura y exportaciones</sys:String>
+    <sys:String x:Key="SqlExplorer.Heading">Explorador SQL — solo lectura</sys:String>
+    <sys:String x:Key="SqlExplorer.Intro">Consulta la base con SELECT. Las operaciones que escriben, los adjuntos y los cambios de estructura están bloqueados. Vista previa de hasta 200 filas; CSV y Excel ejecutan la consulta completa dentro de límites seguros.</sys:String>
+    <sys:String x:Key="SqlExplorer.Execute">Ejecutar SQL (F5)</sys:String>
+    <sys:String x:Key="SqlExplorer.Cancel">Cancelar (Esc)</sys:String>
+    <sys:String x:Key="SqlExplorer.ExportCsv">Exportar CSV completo</sys:String>
+    <sys:String x:Key="SqlExplorer.ExportXlsx">Exportar Excel completo</sys:String>
+    <sys:String x:Key="SqlExplorer.RefreshSchema">Actualizar esquema</sys:String>
+    <sys:String x:Key="SqlExplorer.SchemaHeading">Tablas y vistas</sys:String>
+    <sys:String x:Key="SqlExplorer.EditorHeading">Editor de consulta</sys:String>
+    <sys:String x:Key="SqlExplorer.ResultsHeading">Resultados (vista previa)</sys:String>
+
+    <sys:String x:Key="Nav.Group.Home">INICIO</sys:String>
+    <sys:String x:Key="Nav.Group.Energy">ENERGÍA</sys:String>
+    <sys:String x:Key="Nav.Group.Reports">INFORMES</sys:String>
+    <sys:String x:Key="Nav.Group.DataTools">DATOS Y HERRAMIENTAS</sys:String>
+    <sys:String x:Key="Nav.Group.System">SISTEMA Y AYUDA</sys:String>
+
+    <sys:String x:Key="Nav.Dashboard">Panel principal</sys:String>
+    <sys:String x:Key="Nav.Analysis">Análisis de energía</sys:String>
     <sys:String x:Key="Nav.Battery">Batería</sys:String>
-    <sys:String x:Key="Nav.GridUtility">Red eléctrica</sys:String>
-    <sys:String x:Key="Nav.Reports">Informes</sys:String>
-    <sys:String x:Key="Nav.Data">Datos y actualizaciones</sys:String>
-    <sys:String x:Key="Nav.Diagnostics">Ayuda técnica</sys:String>
+    <sys:String x:Key="Nav.GridUtility">Red eléctrica y Enel</sys:String>
+    <sys:String x:Key="Nav.Reports">Informes y exportaciones</sys:String>
+    <sys:String x:Key="Nav.Data">Datos recopilados</sys:String>
+    <sys:String x:Key="Nav.Diagnostics">Diagnósticos</sys:String>
     <sys:String x:Key="Nav.Settings">Configuración</sys:String>
 
     <sys:String x:Key="Action.UpdateData">Actualizar datos</sys:String>
@@ -34,9 +101,9 @@
     <sys:String x:Key="Language.Spanish">Español</sys:String>
     <sys:String x:Key="Language.English">English</sys:String>
 
-    <sys:String x:Key="Page.Dashboard.Title">Inicio</sys:String>
+    <sys:String x:Key="Page.Dashboard.Title">Panel principal</sys:String>
     <sys:String x:Key="Page.Dashboard.Subtitle">Análisis local de energía de Solar of Things</sys:String>
-    <sys:String x:Key="Page.Analysis.Title">Historial y gráficos</sys:String>
+    <sys:String x:Key="Page.Analysis.Title">Análisis de energía</sys:String>
     <sys:String x:Key="Page.Analysis.Subtitle">Análisis interactivo de métricas y períodos</sys:String>
     <sys:String x:Key="Page.Analysis.Placeholder">Esta sección se implementará después de validar la telemetría real y la normalización.</sys:String>
     <sys:String x:Key="Analysis.Heading">Historial de funcionamiento</sys:String>
@@ -169,7 +236,7 @@
     <sys:String x:Key="Tooltip.BatteryRemaining">Estimación de la energía que queda en la batería. Se calcula multiplicando el porcentaje de carga por la capacidad útil configurada; no es una medición independiente.</sys:String>
     <sys:String x:Key="Tooltip.BatteryActivity">Indica si la batería está recibiendo energía, entregando energía o prácticamente en reposo según las lecturas del inversor.</sys:String>
 
-    <sys:String x:Key="Page.GridUtility.Title">Red y compañía eléctrica</sys:String>
+    <sys:String x:Key="Page.GridUtility.Title">Red eléctrica y Enel</sys:String>
     <sys:String x:Key="Page.GridUtility.Subtitle">Importación desde la red y reconciliación con mediciones de la compañía</sys:String>
     <sys:String x:Key="Page.GridUtility.Placeholder">Las funciones de red y compañía eléctrica se incorporarán en fases posteriores.</sys:String>
     <sys:String x:Key="Analysis.Tab.Summary">Resumen</sys:String>
@@ -314,6 +381,7 @@
     <sys:String x:Key="GridUtility.SavedBillsIntro">Selecciona una boleta para revisar su trazabilidad, corregirla o continuar con el detalle de cargos. Las boletas legacy quedan visibles pero no se consideran revisadas automáticamente.</sys:String>
     <sys:String x:Key="GridUtility.BillLineEditorHeading">Detalle de cargos, créditos y ajustes</sys:String>
     <sys:String x:Key="GridUtility.AuditCoverageCard">Monto con reconstrucción explícita</sys:String>
+    <sys:String x:Key="GridUtility.AuditCoverageBasis">Monto absoluto real de líneas reconstruidas ÷ monto absoluto de todas las líneas. No es % del total a pagar.</sys:String>
     <sys:String x:Key="GridUtility.AuditVatCard">IVA 19%</sys:String>
     <sys:String x:Key="GridUtility.AuditBalanceCard">Cuadratura y ajustes</sys:String>
     <sys:String x:Key="GridUtility.AuditColumn.ActualAmount">Monto real</sys:String>
@@ -441,9 +509,33 @@
     <sys:String x:Key="GridUtility.Quality.METER_RESET_OR_REPLACEMENT">Revisar medidor</sys:String>
     <sys:String x:Key="GridUtility.Quality.INVALID_INTERVAL">Intervalo inválido</sys:String>
     <sys:String x:Key="GridUtility.Quality.ASSUMED_TIME">Hora asumida</sys:String>
-    <sys:String x:Key="Page.Reports.Title">Informes</sys:String>
+    <sys:String x:Key="Page.Reports.Title">Informes y exportaciones</sys:String>
     <sys:String x:Key="Page.Reports.Subtitle">Informes guardados, Excel y PDF</sys:String>
     <sys:String x:Key="Page.Reports.Placeholder">Informes reutilizables y exportaciones.</sys:String>
+    <sys:String x:Key="Reports.FromAnalysisDetailed">Informe detallado de este período</sys:String>
+    <sys:String x:Key="Reports.FromAnalysisSimple">Informe simple de este período</sys:String>
+    <sys:String x:Key="Reports.FromAnalysisBattery">Informe de batería de este período</sys:String>
+    <sys:String x:Key="Reports.FromSelectedRowBattery">Informe de batería de la fila</sys:String>
+    <sys:String x:Key="Reports.FromSelectedRowSimple">Resumen simple de la fila</sys:String>
+    <sys:String x:Key="Reports.FromSelectedRow">Preparar informe de la fila seleccionada</sys:String>
+    <sys:String x:Key="Reports.BatteryWeekReport">Informe batería · últimos 7 días</sys:String>
+    <sys:String x:Key="Reports.BatteryAllReport">Informe batería · todo el historial</sys:String>
+    <sys:String x:Key="Reports.BatteryMonthAnalysis">Analizar mes del último dato</sys:String>
+    <sys:String x:Key="Reports.DraftFromBatteryWeek">Borrador de batería de los últimos 7 días guardados. Comprueba la cobertura antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.DraftFromBatteryAll">Borrador de batería de todo el historial guardado. Los huecos de datos permanecen visibles y el cálculo puede ser extenso.</sys:String>
+    <sys:String x:Key="Reports.FromBattery">Informe del último mes con datos</sys:String>
+    <sys:String x:Key="Reports.BatteryHistory">Analizar últimos 7 días guardados</sys:String>
+    <sys:String x:Key="Reports.DraftFromData">Borrador del historial guardado desde Datos recopilados. El período comprende las primeras y últimas muestras, pero no garantiza cobertura completa; revisa el informe antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.OpenLastFile">Abrir último informe</sys:String>
+    <sys:String x:Key="Reports.OpenLastFolder">Abrir carpeta del informe</sys:String>
+    <sys:String x:Key="Reports.LastFileUnavailable">El último informe ya no está disponible en la ruta elegida.</sys:String>
+    <sys:String x:Key="Reports.OpenLastFailed">No se pudo abrir el informe o su carpeta. Comprueba que la ruta sigue disponible.</sys:String>
+    <sys:String x:Key="Reports.BackToSource">Volver al origen</sys:String>
+    <sys:String x:Key="Reports.DraftFromAnalysis">Borrador preparado desde Análisis: revisa tipo, fechas y agrupación antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.DraftFromAnalysisExpanded">Borrador desde una fila horaria: se incluirá el día calendario completo. Revisa las fechas antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.DraftFromBattery">Borrador de batería con el último mes guardado. Verifica las fechas antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.AnalysisNotReady">Aplica el período y espera a que termine el análisis antes de preparar un informe.</sys:String>
+    <sys:String x:Key="Reports.SelectAnalysisRow">Selecciona una fila de la tabla ya calculada para preparar su informe.</sys:String>
     <sys:String x:Key="Reports.Heading">Informes</sys:String>
     <sys:String x:Key="Reports.Intro">Crea un informe reutilizable desde los mismos cálculos y coberturas que usa Historial y gráficos. Los huecos de datos permanecen visibles; no se inventan ceros.</sys:String>
     <sys:String x:Key="Reports.PeriodHeading">Configura y genera el informe</sys:String>
@@ -468,6 +560,40 @@
     <sys:String x:Key="Reports.PresetsIntro">Un preset guarda sólo la configuración (tipo, período y agrupación) para reutilizarla después. El nombre del informe se define arriba y no depende del preset.</sys:String>
     <sys:String x:Key="Reports.SavePreset">Guardar preset</sys:String>
     <sys:String x:Key="Reports.DeletePreset">Eliminar</sys:String>
+    <sys:String x:Key="Reports.PreviewPeriodQuality">Períodos agrupados: {0:N0}; con alguna fuente de energía integrable: {1:N0}; con las cuatro: {2:N0}; sin energía integrable: {3:N0}. Un período sin evidencia no representa energía cero.</sys:String>
+    <sys:String x:Key="Reports.PreviewQualityNone">Ninguna de las 4 fuentes tiene intervalos válidos para integrar energía; esto no significa consumo cero.</sys:String>
+    <sys:String x:Key="Reports.PreviewQualityPartial">Fuentes con datos integrables: {0}/4; sin datos suficientes: {1}. Cobertura mínima entre las disponibles: {2:N1}%. No equivale a cobertura completa del período.</sys:String>
+    <sys:String x:Key="Reports.PreviewQualityAll">Las 4 fuentes tienen algún intervalo integrable; cobertura mínima temporal: {0:N1}%. No equivale a cobertura completa del período.</sys:String>
+    <sys:String x:Key="Reports.PreviewExportBusy">Hay una exportación en curso. Cancélala o deja que termine antes de calcular otra vista previa.</sys:String>
+    <sys:String x:Key="Reports.ExportSelectionChanged">La selección de período, dispositivo o idioma cambió durante la exportación. No se publicó el nuevo informe.</sys:String>
+    <sys:String x:Key="Reports.ExportDeviceChanged">Cambió el dispositivo durante la exportación. No se publicó el nuevo archivo.</sys:String>
+    <sys:String x:Key="Reports.PreviewHeading">Vista previa de energía y calidad de datos</sys:String>
+    <sys:String x:Key="Reports.PreviewIntro">Calcula las muestras del período seleccionado con el mismo integrador del informe. No es una vista del PDF ni garantiza cobertura completa. No se guardará ningún archivo.</sys:String>
+    <sys:String x:Key="Reports.InspectAnalysis">Ver período en Análisis</sys:String>
+    <sys:String x:Key="Reports.PreviewAction">Calcular vista previa</sys:String>
+    <sys:String x:Key="Reports.PreviewCancel">Cancelar cálculo</sys:String>
+    <sys:String x:Key="Reports.PreviewInvalid">Elige un período válido con datos antes de calcular.</sys:String>
+    <sys:String x:Key="Reports.PreviewLoading">Calculando muestras y cobertura del período…</sys:String>
+    <sys:String x:Key="Reports.PreviewCancelled">Cálculo cancelado. No se generaron archivos.</sys:String>
+    <sys:String x:Key="Reports.PreviewComplete">Vista previa calculada. Los datos insuficientes no se interpretan como cero.</sys:String>
+    <sys:String x:Key="Reports.PreviewFailed">No se pudo calcular la vista previa. Revisa la selección o vuelve a intentar.</sys:String>
+    <sys:String x:Key="Reports.PreviewInsufficient">Datos insuficientes ({0} muestras); energía y cobertura no disponibles.</sys:String>
+    <sys:String x:Key="Reports.PreviewEnergyValue">Energía integrada: {0:N2} kWh · Cobertura temporal: {1:N1}% · {2:N0} muestras</sys:String>
+    <sys:String x:Key="Reports.PreviewBatteryValue">Descarga: {0:N2} kWh · Carga: {1:N2} kWh · Cobertura: {2:N1}% · {3:N0} muestras</sys:String>
+    <sys:String x:Key="Reports.PreviewSolar">Producción solar</sys:String>
+    <sys:String x:Key="Reports.PreviewHouse">Consumo del hogar</sys:String>
+    <sys:String x:Key="Reports.PreviewGrid">Importación desde la red</sys:String>
+    <sys:String x:Key="Reports.PreviewBattery">Batería</sys:String>
+    <sys:String x:Key="Reports.InvalidRange">La fecha inicial es posterior a la final. Corrige el período antes de continuar.</sys:String>
+    <sys:String x:Key="Reports.InvalidSelection">Selecciona un período válido con un equipo configurado antes de exportar.</sys:String>
+    <sys:String x:Key="Reports.ExportCancelLatency">Exportación detenida tras {0:N1} s desde el inicio; tiempo transcurrido desde solicitar la cancelación: {1:N1} s. No es una garantía de respuesta inmediata.</sys:String>
+    <sys:String x:Key="Reports.ExportTiming">Tiempos medidos en esta exportación: cálculo {0:N1} s · archivo {1:N1} s · total {2:N1} s. No son porcentajes ni una predicción.</sys:String>
+    <sys:String x:Key="Reports.ExportCancelTiming">La operación se detuvo tras {0:N1} s desde su inicio; la cancelación puede depender del paso en curso.</sys:String>
+    <sys:String x:Key="Reports.ExportFailedTiming">La operación terminó con error tras {0:N1} s. El destino anterior permanece protegido.</sys:String>
+    <sys:String x:Key="Reports.ExportCancel">Cancelar exportación</sys:String>
+    <sys:String x:Key="Reports.ExportCancelPending">Cancelación solicitada. El proceso puede terminar el paso actual antes de detenerse.</sys:String>
+    <sys:String x:Key="Reports.ExportCancelled">Exportación cancelada</sys:String>
+    <sys:String x:Key="Reports.ExportCancelledExplanation">No se publicó ningún informe nuevo. Se mantiene intacto el informe guardado previamente, si existía.</sys:String>
     <sys:String x:Key="Reports.ExportHeading">Exportar</sys:String>
     <sys:String x:Key="Reports.ExportIntro">Exporta directamente la configuración actual. Excel prioriza detalle y exploración; PDF prioriza lectura clara e impresión.</sys:String>
     <sys:String x:Key="Reports.ExportExcel">Exportar Excel (.xlsx)</sys:String>
@@ -489,9 +615,14 @@
     <sys:String x:Key="Reports.ExportComplete">3/3 · Exportación completada ✓</sys:String>
     <sys:String x:Key="Reports.ExportFailed">La exportación no pudo completarse.</sys:String>
 
-    <sys:String x:Key="Page.Data.Title">Datos</sys:String>
+    <sys:String x:Key="Page.Data.Title">Datos recopilados</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">La sincronización histórica local ya está activa mediante “Actualizar datos”. El análisis se construirá sobre este corpus validado.</sys:String>
+    <sys:String x:Key="Data.CoverageLoading">Cargando cobertura del historial guardado…</sys:String>
+    <sys:String x:Key="Data.CoverageLoadFailed">No se pudo cargar la cobertura. Los accesos al historial permanecen deshabilitados hasta actualizar los datos.</sys:String>
+    <sys:String x:Key="Data.CoverageAnalyze">Analizar historial guardado</sys:String>
+    <sys:String x:Key="Data.CoverageReport">Preparar informe del historial</sys:String>
+    <sys:String x:Key="Data.CoverageActionsHint">Estos accesos se habilitan al encontrar muestras guardadas. No implican días completos ni generan archivos automáticamente.</sys:String>
     <sys:String x:Key="Data.CoverageHeading">Qué información está guardada</sys:String>
     <sys:String x:Key="Data.CoverageIntro">Aquí puede revisar hasta qué fecha hay información guardada en este computador.</sys:String>
     <sys:String x:Key="Data.StoredFrom">Datos guardados desde</sys:String>
@@ -517,7 +648,7 @@
     <sys:String x:Key="Tooltip.EmptyDays">No es un error: Solar of Things respondió correctamente, pero ese día no entregó lecturas.</sys:String>
     <sys:String x:Key="Tooltip.UnavailableDays">Después de varios intentos fallidos, la aplicación deja de insistir automáticamente para evitar solicitudes repetidas. Usted puede revisarlos manualmente más adelante.</sys:String>
 
-    <sys:String x:Key="Page.Diagnostics.Title">Ayuda técnica</sys:String>
+    <sys:String x:Key="Page.Diagnostics.Title">Diagnósticos</sys:String>
     <sys:String x:Key="Page.Diagnostics.Subtitle">Diagnóstico técnico y estado interno de la aplicación</sys:String>
     <sys:String x:Key="Page.Diagnostics.Placeholder">Los diagnósticos actuales se escriben localmente; esta vista crecerá a medida que se incorporen integraciones reales.</sys:String>
     <sys:String x:Key="Page.Settings.Title">Configuración</sys:String>
@@ -525,6 +656,17 @@
     <sys:String x:Key="Page.Settings.Placeholder">Configuración de aplicación, conexión y credenciales.</sys:String>
     <sys:String x:Key="Settings.Heading">Configuración</sys:String>
     <sys:String x:Key="Settings.Intro">Opciones de uso normal de esta copia de Solar Energy Monitor.</sys:String>
+    <sys:String x:Key="Settings.BackupHeading">Respaldo completo</sys:String>
+    <sys:String x:Key="Settings.BackupDescription">Crea bajo demanda un ZIP verificado con SQLite, boletas y tarifas. No copia secretos ni reemplaza información. Al iniciar, un recordatorio semanal permite crear, posponer u omitir. La recuperación sigue en desarrollo.</sys:String>
+    <sys:String x:Key="Settings.BackupSecondLocation">Segunda ubicación para respaldos</sys:String>
+    <sys:String x:Key="Settings.BackupChooseSecondary">Elegir carpeta secundaria...</sys:String>
+    <sys:String x:Key="Settings.BackupNow">Crear respaldo completo ahora</sys:String>
+    <sys:String x:Key="Settings.ExportFolderHeading">Guardar exportaciones en</sys:String>
+    <sys:String x:Key="Settings.ExportFolderDescription">Carpeta inicial para PDF, Excel, anexos y ayuda. No mueve los datos ni los respaldos.</sys:String>
+    <sys:String x:Key="Settings.ChooseExportFolder">Cambiar carpeta...</sys:String>
+    <sys:String x:Key="Settings.ResetExportFolder">Usar ubicación de Windows</sys:String>
+    <sys:String x:Key="Settings.ExportFolderSystemDefault">Ubicación predeterminada de Windows</sys:String>
+    <sys:String x:Key="Settings.ExportFolderMissing">Carpeta no disponible; se usará la ubicación de Windows</sys:String>
     <sys:String x:Key="Settings.ConnectionHeading">Conexión y sesión</sys:String>
     <sys:String x:Key="Settings.AutoConnect">Conectarme automáticamente al iniciar</sys:String>
     <sys:String x:Key="Settings.AutoConnectHint">Si existe una sesión recordada, la aplicación verifica el estado al iniciar. Mientras Inicio esté visible, consulta automáticamente el estado actual cada 150 segundos (2,5 minutos); al salir de Inicio, ese polling se detiene.</sys:String>
@@ -535,6 +677,12 @@
     <sys:String x:Key="Settings.ForgetCredentials">Cerrar y olvidar sesión</sys:String>
     <sys:String x:Key="Settings.PasswordPrivacy">Por seguridad, una contraseña recordada nunca se rellena ni se muestra en el campo de contraseña.</sys:String>
 
+    <sys:String x:Key="Dashboard.InspectCoverage">Revisar cobertura</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidenceUnknown">Aún no hay mediciones suficientes para evaluar el día guardado.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.NO_SAMPLES">Sin datos suficientes de solar, casa ni red: no se infiere energía cero.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.MISSING_STREAMS">Día incompleto: solo {0} de 3 mediciones tienen datos suficientes; faltan {1}. La cobertura porcentual incluye solo las disponibles.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.LOW_COVERAGE">Cobertura limitada del último día: las 3 mediciones existen, pero hay períodos sin datos.</sys:String>
+    <sys:String x:Key="Dashboard.DailyEvidence.ADEQUATE">3 de 3 mediciones disponibles; la cobertura se refiere al último día guardado, no necesariamente a hoy.</sys:String>
     <sys:String x:Key="Dashboard.Overview">Estado actual de la casa</sys:String>
     <sys:String x:Key="Dashboard.FreshnessRecent">Lectura reciente: {0}</sys:String>
     <sys:String x:Key="Dashboard.FreshnessStale">Atención: la última lectura guardada es del {0}. No representa necesariamente el estado actual.</sys:String>
@@ -657,6 +805,8 @@
     <sys:String x:Key="Diagnostics.ConfigCache">Leer cache de configuración</sys:String>
     <sys:String x:Key="Diagnostics.ConfigRead">Lectura directa de configuración</sys:String>
     <sys:String x:Key="Diagnostics.GridImportEnergy">Comprobar energía comprada a red</sys:String>
+    <sys:String x:Key="Diagnostics.PhaseEvidence">Exportar evidencia Fases 10–12</sys:String>
+    <sys:String x:Key="Diagnostics.BackupDatabase">Crear respaldo completo</sys:String>
     <sys:String x:Key="Diagnostics.ExportBundle">Exportar paquete de investigación</sys:String>
 
     <!-- Product experience / help / import -->
@@ -680,4 +830,28 @@
     <sys:String x:Key="Data.ImportIntro">Selecciona una instalación anterior o su carpeta Data. La aplicación prepara la copia con avance visible, respalda automáticamente el Data actual y se reinicia para aplicar la importación antes de abrir SQLite. Si la sesión protegida importada puede descifrarse con tu usuario de Windows, se habilita la reconexión automática.</sys:String>
     <sys:String x:Key="Data.ImportButton">Importar datos de otra instalación</sys:String>
 
+    <sys:String x:Key="SqlExplorer.Suggest">Sugerir SQL</sys:String>
+    <sys:String x:Key="SqlExplorer.CommentLines">Comentar líneas</sys:String>
+    <sys:String x:Key="SqlExplorer.SaveSql">Guardar SQL</sys:String>
+    <sys:String x:Key="SqlExplorer.OpenSql">Abrir SQL</sys:String>
+
+    <sys:String x:Key="Dashboard.LatestDayLoading">Calculando energía del último día guardado…</sys:String>
+
+    <sys:String x:Key="Dashboard.LatestDayUnavailable">Energía diaria no disponible; revisa datos y cobertura.</sys:String>
+
+    <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopy">Copia SQLite externa</sys:String>
+    <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopyHint">Copia SQLite puntual para análisis externo; no es un respaldo completo ni una restauración</sys:String>
+
+    <sys:String x:Key="Settings.Tab.Connection">Conexión</sys:String>
+    <sys:String x:Key="Settings.Tab.Exports">Exportaciones</sys:String>
+    <sys:String x:Key="Settings.Tab.Shortcuts">Atajos</sys:String>
+    <sys:String x:Key="Settings.Tab.Protection">Protección de datos</sys:String>
+    <sys:String x:Key="Settings.ShortcutsIntro">Configura los atajos del editor SQL. Se conservan sus valores anteriores y se impiden duplicados.</sys:String>
+    <sys:String x:Key="Settings.OpenSqlExplorer">Ir al Explorador SQL</sys:String>
+    <sys:String x:Key="Settings.OpenProtection">Abrir Protección de datos e inventario completo</sys:String>
+    <sys:String x:Key="Diagnostics.OpenDataProtection">Ir a Protección de datos</sys:String>
+    <sys:String x:Key="SqlExplorer.CatalogColumns">Ver columnas</sys:String>
+    <sys:String x:Key="SqlExplorer.CatalogColumnsIntro">Selecciona un objeto y consulta sus columnas sin leer datos.</sys:String>
+    <sys:String x:Key="Diagnostics.RemoteGroup">Investigación API y lecturas remotas (solo bajo demanda)</sys:String>
+    <sys:String x:Key="Diagnostics.LocalGroup">Evidencia local y protección de datos</sys:String>
 </ResourceDictionary>

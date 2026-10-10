@@ -1,0 +1,282 @@
+using System.IO.Compression;
+using System.Security.Cryptography;
+
+namespace SolarOfThings.Core.Backup;
+
+/// <summary>
+/// TEST-ONLY document-evidence staging in a NEW disposable synthetic folder.
+/// No database table is modified, no user data paths are opened, and the
+/// returned files cannot be activated by this service.
+/// </summary>
+public sealed class IsolatedRecoveryDocumentStageTestService
+{
+    private const int MaximumDocuments = 2_000;
+    private const long MaximumDocumentsBytes = 256L * 1024 * 1024;
+    private const string StagePrefix = "recovery-documents-staged-";
+
+    public SyntheticDocumentStageReceipt Stage(
+        string completeBackupZip,
+        string syntheticTargetDatabase,
+        CancellationToken cancellationToken = default,
+        bool simulateFailureAfterFirstFile = false,
+        IReadOnlyCollection<string>? selectedDocumentHashes = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var root = AuthorizeInputs(completeBackupZip, syntheticTargetDatabase);
+        var manifest = FullBackupService.VerifyArchive(completeBackupZip);
+        cancellationToken.ThrowIfCancellationRequested();
+        var allDocuments = manifest.Files
+            .Where(x => IsDocument(x.RelativePath))
+            .OrderBy(x => x.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        // A user-specified selection is ONLY a SHA filter over validated
+        // archive bytes, never a filesystem path or database identity.
+        var chosenHashes = selectedDocumentHashes is null ? null :
+            selectedDocumentHashes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (chosenHashes is not null &&
+            (chosenHashes.Count == 0 ||
+             chosenHashes.Any(x => x.Length != 64 || !x.All(Uri.IsHexDigit)) ||
+             chosenHashes.Any(x => !allDocuments.Any(doc =>
+                 string.Equals(doc.Sha256, x, StringComparison.OrdinalIgnoreCase)))))
+            throw new InvalidOperationException(
+                "Selected evidence must refer to SHA-256 hashes in this verified archive.");
+        var documents = chosenHashes is null ? allDocuments :
+            allDocuments.Where(item => chosenHashes.Contains(item.Sha256)).ToArray();
+        if (documents.Length > MaximumDocuments ||
+            documents.Any(x => x.Size < 0 || x.Size > MaximumDocumentsBytes) ||
+            documents.Sum(x => x.Size) > MaximumDocumentsBytes)
+            throw new InvalidDataException("Synthetic document stage exceeds bounded limits.");
+
+        var stage = Path.Combine(root, StagePrefix + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(stage);
+        var finished = false;
+        try
+        {
+            var results = new List<SyntheticStagedDocument>(documents.Length);
+            using var archive = ZipFile.OpenRead(completeBackupZip);
+            for (var i = 0; i < documents.Length; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var item = documents[i];
+                var category = item.RelativePath.StartsWith(
+                    "documents/Bills/", StringComparison.Ordinal) ? "Bills" : "Tariffs";
+                var folder = Path.Combine(stage, category);
+                Directory.CreateDirectory(folder);
+                // Generated destination names: no arbitrary archived path is
+                // ever interpreted as a filesystem path at the destination.
+                var name = (i + 1).ToString("D6") + "-" +
+                           item.Sha256.ToUpperInvariant() + ".pdf";
+                var target = Path.Combine(folder, name);
+                var entry = archive.GetEntry(item.RelativePath) ??
+                    throw new InvalidDataException("Verified document is absent.");
+                using var input = entry.Open();
+                using var output = new FileStream(target, FileMode.CreateNew,
+                    FileAccess.Write, FileShare.None);
+                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                var buffer = new byte[64 * 1024];
+                long total = 0;
+                int count;
+                while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    total = checked(total + count);
+                    if (total > item.Size)
+                        throw new InvalidDataException("Archived document grew during staging.");
+                    output.Write(buffer, 0, count);
+                    hash.AppendData(buffer, 0, count);
+                }
+                output.Flush(flushToDisk: true);
+                var digest = Convert.ToHexString(hash.GetHashAndReset());
+                if (total != item.Size ||
+                    !string.Equals(digest, item.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Synthetic staged document failed SHA-256.");
+                results.Add(new SyntheticStagedDocument(category, item.RelativePath,
+                    item.Sha256.ToUpperInvariant(), total, target));
+                if (simulateFailureAfterFirstFile)
+                    throw new InvalidOperationException("SYNTHETIC_INJECTED_DOCUMENT_INTERRUPTION");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            finished = true;
+            using var sourceBytes = File.OpenRead(completeBackupZip);
+            var packageSha = Convert.ToHexString(SHA256.HashData(sourceBytes));
+            return new SyntheticDocumentStageReceipt(stage, results,
+                "STAGED_SYNTHETIC_DOCUMENT_EVIDENCE_ONLY", false,
+                "Evidence files only; no SQLite rows, FK relationships, live paths, " +
+                "document catalogs or recovery activation were changed.")
+            {
+                SourcePackageSha256 = packageSha,
+                TargetFixtureDatabase = Path.GetFullPath(syntheticTargetDatabase),
+                AvailableArchiveDocuments = allDocuments.Length,
+                Selective = chosenHashes is not null
+            };
+        }
+        finally
+        {
+            if (!finished && Directory.Exists(stage))
+                Directory.Delete(stage, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Independent verification of the disposable staging folder; never
+    /// trusts just the original archive check or unverified caller paths.
+    /// </summary>
+    public bool Verify(SyntheticDocumentStageReceipt receipt,
+        string syntheticTargetDatabase)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+        var root = IsolatedRecoveryAdditiveTestService
+            .RequireSyntheticFixtureRoot(syntheticTargetDatabase);
+        if (receipt.RealRestoreAuthorized || receipt.Status !=
+                "STAGED_SYNTHETIC_DOCUMENT_EVIDENCE_ONLY" ||
+            receipt.SourcePackageSha256.Length != 64 ||
+            !receipt.SourcePackageSha256.All(Uri.IsHexDigit) ||
+            receipt.AvailableArchiveDocuments < receipt.Documents.Count ||
+            receipt.AvailableArchiveDocuments > MaximumDocuments ||
+            !string.Equals(receipt.TargetFixtureDatabase,
+                Path.GetFullPath(syntheticTargetDatabase),
+                StringComparison.OrdinalIgnoreCase) ||
+            receipt.Documents.Count > MaximumDocuments ||
+            !IsDirectGeneratedStage(root, receipt.StageDirectory) ||
+            !Directory.Exists(receipt.StageDirectory) ||
+            IsLinked(receipt.StageDirectory))
+            return false;
+        var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long total = 0;
+        foreach (var item in receipt.Documents)
+        {
+            if (item.Category is not ("Bills" or "Tariffs") ||
+                item.Size < 0 || item.Size > MaximumDocumentsBytes ||
+                item.Sha256.Length != 64 ||
+                !item.Sha256.All(Uri.IsHexDigit) ||
+                !item.SourceRelativePath.StartsWith(
+                    "documents/" + item.Category + "/", StringComparison.Ordinal) ||
+                !string.Equals(Path.GetDirectoryName(item.StageFilePath),
+                    Path.Combine(receipt.StageDirectory, item.Category),
+                    StringComparison.OrdinalIgnoreCase) ||
+                !Path.GetFileName(item.StageFilePath).EndsWith(
+                    "-" + item.Sha256 + ".pdf", StringComparison.OrdinalIgnoreCase) ||
+                !File.Exists(item.StageFilePath) || IsLinked(item.StageFilePath) ||
+                !expected.Add(Path.GetFullPath(item.StageFilePath)) ||
+                new FileInfo(item.StageFilePath).Length != item.Size)
+                return false;
+            total = checked(total + item.Size);
+            if (total > MaximumDocumentsBytes) return false;
+            using var stream = File.OpenRead(item.StageFilePath);
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(stream)),
+                    item.Sha256, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        // Any unlisted file, including an unexpected extra document or
+        // a junction nested under the stage, fails verification.
+        if (Directory.EnumerateDirectories(receipt.StageDirectory, "*",
+                SearchOption.TopDirectoryOnly).Any(dir =>
+                (Path.GetFileName(dir) is not ("Bills" or "Tariffs")) || IsLinked(dir)))
+            return false;
+        if (Directory.EnumerateFiles(receipt.StageDirectory, "*",
+                SearchOption.TopDirectoryOnly).Any())
+            return false;
+        var actual = Directory.EnumerateFiles(receipt.StageDirectory, "*",
+                SearchOption.AllDirectories)
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return actual.SetEquals(expected);
+    }
+
+    /// <summary>
+    /// Cross-checks staged bytes against the *current fully verified* archive.
+    /// The source ZIP must remain in the same marked synthetic fixture.
+    /// This does not authorize foreign-key or document-database writes.
+    /// </summary>
+    public bool VerifyAgainstArchive(SyntheticDocumentStageReceipt receipt,
+        string completeBackupZip, string syntheticTargetDatabase)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+        AuthorizeInputs(completeBackupZip, syntheticTargetDatabase);
+        if (!Verify(receipt, syntheticTargetDatabase)) return false;
+        using (var file = File.OpenRead(completeBackupZip))
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(file)),
+                    receipt.SourcePackageSha256, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+        var manifest = FullBackupService.VerifyArchive(completeBackupZip);
+        var allDocs = manifest.Files.Where(x => IsDocument(x.RelativePath))
+            .OrderBy(x => x.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        if (allDocs.Length != receipt.AvailableArchiveDocuments)
+            return false;
+
+        IReadOnlyList<CompleteBackupEntry> expected = allDocs;
+        if (receipt.Selective)
+        {
+            var chosenHashes = receipt.Documents.Select(x => x.Sha256)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (chosenHashes.Count == 0) return false;
+            expected = allDocs.Where(x => chosenHashes.Contains(x.Sha256))
+                .ToArray();
+        }
+
+        if (expected.Count != receipt.Documents.Count) return false;
+        var actualBySource = receipt.Documents.ToDictionary(
+            x => x.SourceRelativePath, StringComparer.OrdinalIgnoreCase);
+        foreach (var document in expected)
+        {
+            if (!actualBySource.TryGetValue(document.RelativePath, out var staged) ||
+                staged.Size != document.Size ||
+                !string.Equals(staged.Sha256, document.Sha256,
+                    StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        return true;
+    }
+
+    private static string AuthorizeInputs(string zip, string database)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(zip);
+        ArgumentException.ThrowIfNullOrWhiteSpace(database);
+        var root = IsolatedRecoveryAdditiveTestService.RequireSyntheticFixtureRoot(database);
+        var file = Path.GetFullPath(zip);
+        var relative = Path.GetRelativePath(root, file);
+        if (relative == "." || relative == ".." ||
+            relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+            Path.IsPathRooted(relative) || !File.Exists(file) || IsLinked(file))
+            throw new InvalidOperationException(
+                "Synthetic staging requires an archive inside its marked fixture.");
+        var cursor = Path.GetDirectoryName(file);
+        while (cursor is not null &&
+               !string.Equals(cursor, root, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!Directory.Exists(cursor) || IsLinked(cursor))
+                throw new InvalidOperationException("Linked/missing synthetic source parent.");
+            cursor = Path.GetDirectoryName(cursor);
+        }
+        if (cursor is null) throw new InvalidOperationException("Archive outside fixture.");
+        return root;
+    }
+
+    private static bool IsDirectGeneratedStage(string root, string stage) =>
+        string.Equals(Path.GetDirectoryName(Path.GetFullPath(stage)),
+            root, StringComparison.OrdinalIgnoreCase) &&
+        Path.GetFileName(stage).StartsWith(StagePrefix, StringComparison.Ordinal) &&
+        Guid.TryParseExact(Path.GetFileName(stage)[StagePrefix.Length..], "N", out _);
+
+    private static bool IsLinked(string path) =>
+        (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+
+    private static bool IsDocument(string path) =>
+        (path.StartsWith("documents/Bills/", StringComparison.Ordinal) ||
+         path.StartsWith("documents/Tariffs/", StringComparison.Ordinal)) &&
+        path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+}
+
+public sealed record SyntheticStagedDocument(string Category,
+    string SourceRelativePath, string Sha256, long Size, string StageFilePath);
+public sealed record SyntheticDocumentStageReceipt(string StageDirectory,
+    IReadOnlyList<SyntheticStagedDocument> Documents, string Status,
+    bool RealRestoreAuthorized, string SafetyExplanation)
+{
+    public string SourcePackageSha256 { get; init; } = "";
+    public string TargetFixtureDatabase { get; init; } = "";
+    public int AvailableArchiveDocuments { get; init; }
+    public bool Selective { get; init; }
+}

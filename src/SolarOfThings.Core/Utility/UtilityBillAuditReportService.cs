@@ -1693,8 +1693,8 @@ public sealed class UtilityBillAuditReportService
 
         var intro = section.AddParagraph(
             L(
-                "Para comparar escenarios sin discutir cargos ajenos al consumo, se recalculan sólo los componentes respaldados en $/kWh. El resto del total real se conserva sin cambios.",
-                "To compare scenarios without disputing charges unrelated to consumption, only supported $/kWh components are recalculated. The remainder of the actual bill total is preserved unchanged."));
+                "Para comparar escenarios se calcula el subtotal de componentes variables sustentados en $/kWh más el cargo fijo reconstruido, si existe. Los demás importes de la boleta se conservan sin cambios.",
+                "For comparable scenarios, the subtotal includes supported variable $/kWh components plus any reconstructed fixed charge. All other bill amounts are preserved unchanged."));
         intro.Format.Font.Size = 8.5;
         intro.Format.Font.Color = Colors.DimGray;
         intro.Format.SpaceAfter = Unit.FromPoint(5);
@@ -1737,7 +1737,7 @@ public sealed class UtilityBillAuditReportService
         h.Format.Font.Bold = true;
         h.Cells[0].AddParagraph(L("Escenario", "Scenario"));
         h.Cells[1].AddParagraph("kWh");
-        h.Cells[2].AddParagraph(L("Variable", "Variable"));
+        h.Cells[2].AddParagraph(L("Subtotal modelado", "Modeled subtotal"));
         h.Cells[3].AddParagraph(L("Total comparable", "Comparable total"));
         h.Cells[4].AddParagraph(L("Dif. vs Enel", "Diff. vs utility"));
 

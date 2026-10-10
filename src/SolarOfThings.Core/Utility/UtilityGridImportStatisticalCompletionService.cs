@@ -31,8 +31,10 @@ public sealed class UtilityGridImportStatisticalCompletionService
         string deviceId,
         DateTimeOffset fromUtc,
         DateTimeOffset toUtc,
-        string timeZoneId)
+        string timeZoneId,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (toUtc < fromUtc)
             (fromUtc, toUtc) = (toUtc, fromUtc);
 
@@ -43,14 +45,17 @@ public sealed class UtilityGridImportStatisticalCompletionService
             deviceId,
             "grid_import_power_w",
             fromUtc,
-            toUtc);
+            toUtc,
+            cancellationToken);
 
         var samples = LoadSamples(
             deviceId,
             fromUtc,
             toUtc,
-            timeZoneId);
+            timeZoneId,
+            cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var gaps = BuildGaps(
             samples,
             fromUtc,
@@ -98,13 +103,18 @@ public sealed class UtilityGridImportStatisticalCompletionService
              simulation < SimulationCount;
              simulation++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var missingKwh = 0.0;
 
             foreach (var gap in gaps)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var cursor = gap.StartUtc;
+                var segments = 0;
                 while (cursor < gap.EndUtc)
                 {
+                    if ((++segments & 127) == 0)
+                        cancellationToken.ThrowIfCancellationRequested();
                     var next = cursor.AddMinutes(SegmentMinutes);
                     if (next > gap.EndUtc)
                         next = gap.EndUtc;
@@ -139,6 +149,7 @@ public sealed class UtilityGridImportStatisticalCompletionService
                 stats.PositiveEnergyKwh + missingKwh;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         Array.Sort(outcomes);
 
         var mean = outcomes.Average();
@@ -170,8 +181,10 @@ public sealed class UtilityGridImportStatisticalCompletionService
         string deviceId,
         DateTimeOffset fromUtc,
         DateTimeOffset toUtc,
-        string timeZoneId)
+        string timeZoneId,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -195,9 +208,12 @@ public sealed class UtilityGridImportStatisticalCompletionService
 
         using var reader = command.ExecuteReader();
         var result = new List<StatSample>();
+        var scanned = 0;
 
         while (reader.Read())
         {
+            if ((++scanned & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             if (!DateTimeOffset.TryParse(
                     reader.GetString(0),
                     CultureInfo.InvariantCulture,

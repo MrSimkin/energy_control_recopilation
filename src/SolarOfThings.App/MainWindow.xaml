@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
         xmlns:controls="clr-namespace:SolarOfThings.App.Controls"
+        xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         Title="{DynamicResource Window.Title}"
         Width="1440"
         Height="820"
@@ -29,6 +30,13 @@
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
+        </Style>
+        <Style x:Key="SidebarGroupHeadingStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#B9C3CD"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="22,15,8,5"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="Background" Value="White"/>
@@ -294,18 +302,28 @@
                     </StackPanel>
                 </Border>
 
-                <StackPanel Margin="0,12,0,0">
-                    <Button x:Name="DashboardNav" Style="{StaticResource SidebarButtonStyle}" Tag="Dashboard" Click="Navigation_Click" Content="{DynamicResource Nav.Dashboard}"/>
-                    <Button x:Name="AnalysisNav" Style="{StaticResource SidebarButtonStyle}" Tag="Analysis" Click="Navigation_Click" Content="{DynamicResource Nav.Analysis}"/>
-                    <Button x:Name="BatteryNav" Style="{StaticResource SidebarButtonStyle}" Tag="Battery" Click="Navigation_Click" Content="{DynamicResource Nav.Battery}"/>
-                    <Button x:Name="GridUtilityNav" Style="{StaticResource SidebarButtonStyle}" Tag="GridUtility" Click="Navigation_Click" Content="{DynamicResource Nav.GridUtility}"/>
-                    <Button x:Name="ReportsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Reports" Click="Navigation_Click" Content="{DynamicResource Nav.Reports}"/>
-                    <Button x:Name="DataNav" Style="{StaticResource SidebarButtonStyle}" Tag="Data" Click="Navigation_Click" Content="{DynamicResource Nav.Data}"/>
-                    <Button x:Name="DiagnosticsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Diagnostics" Click="Navigation_Click" Content="{DynamicResource Nav.Diagnostics}"/>
-                    <Button x:Name="HelpNav" Style="{StaticResource SidebarButtonStyle}" Tag="Help" Click="Navigation_Click" Content="{DynamicResource Nav.Help}"/>
-                    <Button x:Name="SettingsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Settings" Click="Navigation_Click" Content="{DynamicResource Nav.Settings}"/>
-                    <Button x:Name="AboutNav" Style="{StaticResource SidebarButtonStyle}" Tag="About" Click="Navigation_Click" Content="{DynamicResource Nav.About}"/>
-                </StackPanel>
+                <!-- Always-scrollable sidebar; named navigation buttons and existing routes are preserved. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <StackPanel Margin="0,8,0,12">
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.Home}"/>
+                        <Button x:Name="DashboardNav" Style="{StaticResource SidebarButtonStyle}" Tag="Dashboard" Click="Navigation_Click" Content="{DynamicResource Nav.Dashboard}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.Energy}"/>
+                        <Button x:Name="AnalysisNav" Style="{StaticResource SidebarButtonStyle}" Tag="Analysis" Click="Navigation_Click" Content="{DynamicResource Nav.Analysis}"/>
+                        <Button x:Name="BatteryNav" Style="{StaticResource SidebarButtonStyle}" Tag="Battery" Click="Navigation_Click" Content="{DynamicResource Nav.Battery}"/>
+                        <Button x:Name="GridUtilityNav" Style="{StaticResource SidebarButtonStyle}" Tag="GridUtility" Click="Navigation_Click" Content="{DynamicResource Nav.GridUtility}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.Reports}"/>
+                        <Button x:Name="ReportsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Reports" Click="Navigation_Click" Content="{DynamicResource Nav.Reports}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.DataTools}"/>
+                        <Button x:Name="DataNav" Style="{StaticResource SidebarButtonStyle}" Tag="Data" Click="Navigation_Click" Content="{DynamicResource Nav.Data}"/>
+                        <Button x:Name="BackupNav" Style="{StaticResource SidebarButtonStyle}" Tag="Backup" Click="Navigation_Click" Content="{DynamicResource Nav.Backup}"/>
+                        <Button x:Name="SqlNav" Style="{StaticResource SidebarButtonStyle}" Tag="SqlExplorer" Click="Navigation_Click" Content="{DynamicResource Nav.SqlExplorer}"/>
+                        <TextBlock Style="{StaticResource SidebarGroupHeadingStyle}" Text="{DynamicResource Nav.Group.System}"/>
+                        <Button x:Name="SettingsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Settings" Click="Navigation_Click" Content="{DynamicResource Nav.Settings}"/>
+                        <Button x:Name="DiagnosticsNav" Style="{StaticResource SidebarButtonStyle}" Tag="Diagnostics" Click="Navigation_Click" Content="{DynamicResource Nav.Diagnostics}"/>
+                        <Button x:Name="HelpNav" Style="{StaticResource SidebarButtonStyle}" Tag="Help" Click="Navigation_Click" Content="{DynamicResource Nav.Help}"/>
+                        <Button x:Name="AboutNav" Style="{StaticResource SidebarButtonStyle}" Tag="About" Click="Navigation_Click" Content="{DynamicResource Nav.About}"/>
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
@@ -497,19 +515,30 @@
                                                        FontWeight="SemiBold"
                                                        Foreground="#343A40"
                                                        VerticalAlignment="Center"/>
-                                            <Button Style="{StaticResource SecondaryActionButtonStyle}" Grid.Column="1"
+                                            <Button x:Name="DashboardLatestDayOpenButton"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}" Grid.Column="1"
                                                     Content="{DynamicResource Dashboard.OpenHistory}"
-                                                    Tag="Analysis"
-                                                    Padding="10,5"
+                                                    Padding="10,5" IsEnabled="False"
                                                     Margin="12,0,0,0"
-                                                    Click="Navigation_Click"/>
+                                                    Click="DashboardOpenLatestDay_Click"/>
                                         </Grid>
                                         <TextBlock x:Name="DashboardLatestDayDateText"
                                                    Text="{DynamicResource Dashboard.LatestDayNoData}"
                                                    FontSize="12"
                                                    Foreground="#6C757D"
-                                                   Margin="0,4,0,12"
+                                                   Margin="0,4,0,8"
                                                    TextWrapping="Wrap"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <TextBlock x:Name="DashboardDailyEvidenceText"
+                                                       Text="{DynamicResource Dashboard.DailyEvidenceUnknown}"
+                                                       FontSize="12"
+                                                       Foreground="#805400"
+                                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                            <Button Content="{DynamicResource Dashboard.InspectCoverage}"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"
+                                                    Padding="8,4" Margin="12,0,0,0"
+                                                    Click="DashboardInspectCoverage_Click"/>
+                                        </StackPanel>
 
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -666,8 +695,19 @@
                         <TextBlock Text="{DynamicResource Analysis.Intro}"
                                                            FontSize="13"
                                                            Foreground="#6C757D"
-                                                           Margin="0,5,0,16"
+                                                           Margin="0,5,0,8"
                                                            TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,0,0,14">
+                            <Button Content="{DynamicResource Reports.FromAnalysisDetailed}"
+                                    Click="AnalysisToDetailedReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.FromAnalysisSimple}"
+                                    Click="AnalysisToSimpleReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.FromAnalysisBattery}"
+                                    Click="AnalysisToBatteryReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                        </WrapPanel>
                         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
                                                     <StackPanel>
                                                         <StackPanel Orientation="Horizontal"
@@ -1097,6 +1137,17 @@
                                                                            Foreground="#6C757D"
                                                                            Margin="0,4,0,10"
                                                                            TextWrapping="Wrap"/>
+                                                                <WrapPanel Margin="0,0,0,10">
+                                                                    <Button Content="{DynamicResource Reports.FromSelectedRow}"
+                                                                            Click="AnalysisSelectedRowReport_Click"
+                                                                            Padding="10,6" Margin="0,0,8,6"/>
+                                                                    <Button Content="{DynamicResource Reports.FromSelectedRowBattery}"
+                                                                            Click="AnalysisSelectedRowBatteryReport_Click"
+                                                                            Padding="10,6" Margin="0,0,8,6"/>
+                                                                    <Button Content="{DynamicResource Reports.FromSelectedRowSimple}"
+                                                                            Click="AnalysisSelectedRowSimpleReport_Click"
+                                                                            Padding="10,6" Margin="0,0,8,6"/>
+                                                                </WrapPanel>
 
                                                                 <StackPanel Orientation="Horizontal"
                                                                             Margin="0,0,0,10">
@@ -1195,6 +1246,23 @@
                                                            Foreground="#6C757D"
                                                            Margin="0,5,0,6"
                                                            TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,0,0,9">
+                            <Button Content="{DynamicResource Reports.BatteryWeekReport}"
+                                    Click="BatteryToWeekReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.FromBattery}"
+                                    Click="BatteryToReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.BatteryAllReport}"
+                                    Click="BatteryToAllReport_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.BatteryHistory}"
+                                    Click="BatteryToAnalysis_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource Reports.BatteryMonthAnalysis}"
+                                    Click="BatteryToMonthAnalysis_Click" Padding="10,6"
+                                    Margin="0,0,8,6"/>
+                        </WrapPanel>
                         <TextBlock x:Name="BatteryThresholdSourceText"
                                                            Text="{DynamicResource Battery.ThresholdSourceManual}"
                                                            FontSize="12"
@@ -2080,6 +2148,14 @@
                                                 Margin="0,0,0,10"
                                                 Click="UtilityExportBillAnnex_Click"/>
                                     </WrapPanel>
+                                    <ProgressBar x:Name="UtilityAuditExportProgressBar"
+                                                 Height="8" Minimum="0" Maximum="100" Value="0"
+                                                 IsIndeterminate="False" Visibility="Collapsed"
+                                                 Margin="0,0,0,5"/>
+                                    <TextBlock x:Name="UtilityAuditExportProgressText"
+                                               Visibility="Collapsed" TextWrapping="Wrap"
+                                               FontSize="12" Foreground="#495057"
+                                               Margin="0,0,0,8"/>
 
                                     <TextBlock x:Name="UtilityAuditStatusText"
                                                Text="{DynamicResource GridUtility.AuditEvidencePending}"
@@ -2097,7 +2173,8 @@
                                         <Border Grid.Column="0" Style="{StaticResource WorkspaceSectionStyle}" Margin="0">
                                             <StackPanel>
                                                 <TextBlock Text="{DynamicResource GridUtility.AuditCoverageCard}" Style="{StaticResource FieldLabelStyle}"/>
-                                                <TextBlock x:Name="UtilityAuditReconstructionCoverageText" Text="—" FontSize="18" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="UtilityAuditReconstructionCoverageText" Text="—" FontSize="18" FontWeight="SemiBold" ToolTip="{DynamicResource GridUtility.AuditCoverageBasis}"/>
+                                                <TextBlock Text="{DynamicResource GridUtility.AuditCoverageBasis}" FontSize="10" Foreground="#495057" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                             </StackPanel>
                                         </Border>
                                         <Border Grid.Column="2" Style="{StaticResource WorkspaceSectionStyle}" Margin="0">
@@ -2359,6 +2436,25 @@
                                                                 </StackPanel>
                                                             </Border>
                                                         </Grid>
+                                <StackPanel Margin="0,0,0,18">
+                                    <WrapPanel>
+                                        <Button x:Name="DataCoverageAnalyzeButton"
+                                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                                Content="{DynamicResource Data.CoverageAnalyze}"
+                                                Click="DataCoverageToAnalysis_Click"
+                                                Padding="12,7" Margin="0,0,8,7" IsEnabled="False"/>
+                                        <Button x:Name="DataCoverageReportButton"
+                                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                                Content="{DynamicResource Data.CoverageReport}"
+                                                Click="DataCoverageToReport_Click"
+                                                Padding="12,7" Margin="0,0,8,7" IsEnabled="False"/>
+                                    </WrapPanel>
+                                    <TextBlock Text="{DynamicResource Data.CoverageActionsHint}"
+                                               Foreground="#6C757D" FontSize="12"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="DataCoverageStatusText" Foreground="#6C757D"
+                                               FontSize="12" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
 
                                 <Border Style="{StaticResource CardStyle}" Margin="0">
                                                             <Grid>
@@ -2476,8 +2572,17 @@
                         <TextBlock Text="{DynamicResource Reports.Intro}"
                                                            FontSize="13"
                                                            Foreground="#6C757D"
-                                                           Margin="0,5,0,16"
+                                                           Margin="0,5,0,9"
                                                            TextWrapping="Wrap"/>
+                        <StackPanel x:Name="ReportContextPanel" Visibility="Collapsed"
+                                    Orientation="Horizontal" Margin="0,0,0,12">
+                            <TextBlock x:Name="ReportContextText" TextWrapping="Wrap"
+                                       Foreground="#495057" FontSize="12"
+                                       VerticalAlignment="Center"/>
+                            <Button Content="{DynamicResource Reports.BackToSource}"
+                                    Click="ReportsBackToSource_Click" Padding="8,4"
+                                    Margin="12,0,0,0"/>
+                        </StackPanel>
                         <TabControl Style="{StaticResource PageTabControlStyle}">
                         <TabItem Header="{DynamicResource Reports.Tab.Create}"
                                  Style="{StaticResource PageTabItemStyle}">
@@ -2597,6 +2702,46 @@
                                                             </StackPanel>
                                                         </Border>
 
+                                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Reports.PreviewHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{DynamicResource Reports.PreviewIntro}" FontSize="12"
+                                                   Foreground="#6C757D" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                                        <WrapPanel>
+                                            <Button x:Name="ReportPreviewButton"
+                                                    Content="{DynamicResource Reports.PreviewAction}"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"
+                                                    Click="ReportPreview_Click" Padding="12,7" Margin="0,0,8,8"/>
+                                            <Button Content="{DynamicResource Reports.InspectAnalysis}"
+                                                    Click="ReportInspectAnalysis_Click" Padding="12,7"
+                                                    Margin="0,0,8,8"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"/>
+                                            <Button x:Name="ReportPreviewCancelButton"
+                                                    Content="{DynamicResource Reports.PreviewCancel}"
+                                                    Click="ReportPreviewCancel_Click" Padding="12,7"
+                                                    IsEnabled="False" Margin="0,0,8,8"/>
+                                        </WrapPanel>
+                                        <TextBlock x:Name="ReportPreviewStatusText"
+                                                   TextWrapping="Wrap" FontSize="12" Foreground="#6C757D"/>
+                                        <StackPanel x:Name="ReportPreviewResultPanel" Visibility="Collapsed">
+                                            <TextBlock x:Name="ReportPreviewCoverageText"
+                                                       FontWeight="SemiBold" Foreground="#495057"
+                                                       TextWrapping="Wrap" Margin="0,8,0,6"/>
+                                            <TextBlock x:Name="ReportPreviewPeriodCoverageText"
+                                                       FontSize="12" Foreground="#495057"
+                                                       TextWrapping="Wrap" Margin="0,6,0,8"/>
+                                            <TextBlock Text="{DynamicResource Reports.PreviewSolar}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewSolarText" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{DynamicResource Reports.PreviewHouse}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewHouseText" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{DynamicResource Reports.PreviewGrid}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewGridText" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{DynamicResource Reports.PreviewBattery}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                                            <TextBlock x:Name="ReportPreviewBatteryText" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
                                 <Border Style="{StaticResource CardStyle}" Margin="0">
                                                             <StackPanel>
                                                                 <TextBlock Text="{DynamicResource Reports.ExportHeading}"
@@ -2607,17 +2752,31 @@
                                                                            Foreground="#6C757D"
                                                                            Margin="0,4,0,12"
                                                                            TextWrapping="Wrap"/>
-                                                                <StackPanel Orientation="Horizontal">
+                                                                <WrapPanel>
                                                                     <Button x:Name="ReportExportExcelButton"
                                                                             Content="{DynamicResource Reports.ExportExcel}"
-                                                                            Padding="14,7"
+                                                                            Padding="14,7" Margin="0,0,8,8"
                                                                             Click="ReportExportExcel_Click"/>
                                                                     <Button x:Name="ReportExportPdfButton"
                                                                             Content="{DynamicResource Reports.ExportPdf}"
-                                                                            Padding="14,7"
-                                                                            Margin="8,0,0,0"
+                                                                            Padding="14,7" Margin="0,0,8,8"
                                                                             Click="ReportExportPdf_Click"/>
-                                                                </StackPanel>
+                                                                    <Button x:Name="ReportExportCancelButton"
+                                                                            Content="{DynamicResource Reports.ExportCancel}"
+                                                                            Padding="12,7" Margin="0,0,8,8"
+                                                                            IsEnabled="False"
+                                                                            Click="ReportExportCancel_Click"/>
+                                                                    <Button x:Name="ReportOpenLastFileButton"
+                                                                            Content="{DynamicResource Reports.OpenLastFile}"
+                                                                            Padding="12,7" Margin="0,0,8,8"
+                                                                            IsEnabled="False"
+                                                                            Click="ReportOpenLastFile_Click"/>
+                                                                    <Button x:Name="ReportOpenLastFolderButton"
+                                                                            Content="{DynamicResource Reports.OpenLastFolder}"
+                                                                            Padding="12,7" Margin="0,0,8,8"
+                                                                            IsEnabled="False"
+                                                                            Click="ReportOpenLastFolder_Click"/>
+                                                                </WrapPanel>
                                                                 <TextBlock x:Name="ReportExportProgressLabel"
                                                                            FontSize="12"
                                                                            FontWeight="SemiBold"
@@ -2631,6 +2790,10 @@
                                                                              Maximum="100"
                                                                              Value="0"
                                                                              Visibility="Collapsed"/>
+                                                                <TextBlock x:Name="ReportExportTimingText"
+                                                                           FontSize="12"
+                                                                           Foreground="#6C757D"
+                                                                           TextWrapping="Wrap" Margin="0,6,0,0"/>
                                                                 <TextBlock x:Name="ReportStatusText"
                                                                            FontSize="12"
                                                                            Foreground="#6C757D"
@@ -2683,10 +2846,249 @@
 </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
+                <!-- Only complete archives can be verified/deleted here; legacy snapshots are read-only. -->
+                <!-- SQL result grid is limited to preview rows; export reruns full SELECT. -->
+                <Grid x:Name="SqlExplorerContent" Visibility="Collapsed" Margin="20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource SqlExplorer.Heading}" FontSize="21"
+                                   FontWeight="SemiBold" Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource SqlExplorer.Intro}" TextWrapping="Wrap"
+                                   Foreground="#6C757D" Margin="0,5,0,10"/>
+                        <WrapPanel Margin="0,0,0,7">
+                            <Button x:Name="SqlExecuteButton" Content="{DynamicResource SqlExplorer.Execute}"
+                                    Click="SqlExplorerExecute_Click" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlCancelButton" Content="{DynamicResource SqlExplorer.Cancel}"
+                                    Click="SqlExplorerCancel_Click" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlExportCsvButton" Content="{DynamicResource SqlExplorer.ExportCsv}"
+                                    Click="SqlExplorerExportCsv_Click" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlExportXlsxButton" Content="{DynamicResource SqlExplorer.ExportXlsx}"
+                                    Click="SqlExplorerExportXlsx_Click" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlSchemaRefreshButton" Content="{DynamicResource SqlExplorer.RefreshSchema}"
+                                    Click="SqlExplorerRefreshSchema_Click" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource SqlExplorer.Suggest}" Click="SqlExplorerSuggest_Click"
+                                    ToolTip="Ctrl+Space" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button Content="{DynamicResource SqlExplorer.CommentLines}" Click="SqlExplorerToggleComments_Click"
+                                    ToolTip="Ctrl+/ · Ctrl+K" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlOpenScriptButton" Content="{DynamicResource SqlExplorer.OpenSql}" Click="SqlExplorerOpenScript_Click"
+                                    ToolTip="Ctrl+O" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlSaveScriptButton" Content="{DynamicResource SqlExplorer.SaveSql}" Click="SqlExplorerSaveScript_Click"
+                                    ToolTip="Ctrl+S" Padding="12,7" Margin="0,0,8,6"/>
+                            <Button x:Name="SqlCreateAnalyticalCopyButton"
+                                    Content="{DynamicResource SqlExplorer.ExternalAnalyticalCopy}"
+                                    Click="SqlExplorerCreateAnalyticalCopy_Click"
+                                    Padding="12,7" Margin="0,0,8,6"
+                                    ToolTip="{DynamicResource SqlExplorer.ExternalAnalyticalCopyHint}"/>
+                        </WrapPanel>
+
+                        <WrapPanel Margin="0,0,0,8">
+                            <TextBlock Text="{DynamicResource SqlExplorer.FindLabel}" VerticalAlignment="Center"
+                                       Margin="0,0,6,0"/>
+                            <TextBox x:Name="SqlFindTextBox" Width="260" Margin="0,0,8,0"
+                                     ToolTip="{DynamicResource SqlExplorer.FindHint}"
+                                     KeyDown="SqlExplorerFindKeyDown"/>
+                            <Button Content="{DynamicResource SqlExplorer.FindNext}" Margin="0,0,10,0"
+                                    Click="SqlExplorerFindNext_Click" Padding="9,5"/>
+                            <TextBlock Text="{DynamicResource SqlExplorer.FindShortcuts}" VerticalAlignment="Center"
+                                       Foreground="#6C757D" FontSize="11"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="SqlExplorerPerformanceText" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="#455A64" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="SqlExplorerDiagnosticText" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="#B42318" Margin="0,0,0,5"/>
+                        <ProgressBar x:Name="SqlExplorerBusyBar" IsIndeterminate="True"
+                                     Height="6" Visibility="Collapsed" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="SqlExplorerStatusText" TextWrapping="Wrap"
+                                   FontSize="12" Foreground="#495057" Margin="0,0,0,8"/>
+                    </StackPanel>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Background="White" BorderBrush="#DEE2E6" BorderThickness="1" Padding="8">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="{DynamicResource SqlExplorer.SchemaHeading}"
+                                           FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                                    <Button x:Name="SqlSchemaColumnsButton"
+                                            Content="{DynamicResource SqlExplorer.CatalogColumns}"
+                                            Click="SqlExplorerCatalogColumns_Click"
+                                            Padding="8,5" Margin="0,0,0,6"/>
+                                    <TextBlock Text="{DynamicResource SqlExplorer.CatalogColumnsIntro}"
+                                               FontSize="11" TextWrapping="Wrap" Foreground="#6C757D"/>
+                                    <TextBlock x:Name="SqlSchemaColumnsStatusText"
+                                               FontSize="11" Margin="0,5,0,0"
+                                               TextWrapping="Wrap" Foreground="#6C757D"/>
+                                    <ListBox x:Name="SqlSchemaColumnsList" Height="185"
+                                             FontFamily="Consolas" FontSize="11"
+                                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                                </StackPanel>
+                                <ListBox x:Name="SqlSchemaList" MouseDoubleClick="SqlExplorerSchemaDoubleClick"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                            </DockPanel>
+                        </Border>
+                        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch"
+                                      ResizeBehavior="PreviousAndNext"/>
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="230"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" BorderBrush="#DEE2E6" BorderThickness="1" Background="White">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource SqlExplorer.EditorHeading}"
+                                               FontWeight="SemiBold" Margin="10,8,0,5"/>
+                                    <avalonedit:TextEditor x:Name="SqlStatementEditor"
+                                             FontFamily="Consolas" FontSize="13"
+                                             ShowLineNumbers="True" WordWrap="False"
+                                             SyntaxHighlighting="TSQL"
+                                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                             TextChanged="SqlExplorerEditorTextChanged"
+                                             PreviewKeyDown="SqlExplorerEditorPreviewKeyDown"
+                                             Text="SELECT * FROM reporting_grid_import ORDER BY recorded_at_utc DESC LIMIT 200;"/>
+                                </DockPanel>
+                            </Border>
+                            <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch"
+                                          ResizeBehavior="PreviousAndNext"/>
+                            <Border Grid.Row="2" Background="White" BorderBrush="#DEE2E6" BorderThickness="1">
+                                <DockPanel>
+                                    <TextBlock x:Name="SqlExplorerResultTitle" DockPanel.Dock="Top" Margin="8"
+                                               Text="{DynamicResource SqlExplorer.ResultsHeading}"/>
+                                    <WrapPanel DockPanel.Dock="Top" Margin="8,0,8,8">
+                                        <Button x:Name="SqlPreviousPageButton" Content="◀"
+                                                ToolTip="Página anterior / Previous page"
+                                                IsEnabled="False" Click="SqlExplorerPreviousPage_Click"
+                                                Padding="12,5" Margin="0,0,8,0"/>
+                                        <Button x:Name="SqlNextPageButton" Content="▶"
+                                                ToolTip="Página siguiente / Next page"
+                                                IsEnabled="False" Click="SqlExplorerNextPage_Click"
+                                                Padding="12,5" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="SqlExplorerPageText"
+                                                   Text="Página 1 / Page 1"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#455A64"/>
+                                    </WrapPanel>
+                                    <DataGrid x:Name="SqlExplorerResultGrid" AutoGenerateColumns="True"
+                                              IsReadOnly="True" EnableRowVirtualization="True"
+                                              EnableColumnVirtualization="True"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Auto"/>
+                                </DockPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <ScrollViewer x:Name="BackupContent" Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
                     <StackPanel Margin="20">
-                        <TextBlock Text="{DynamicResource Settings.Heading}" FontSize="21" FontWeight="SemiBold" Foreground="#343A40"/>
-                        <TextBlock Text="{DynamicResource Settings.Intro}" FontSize="13" Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
+                        <TextBlock Text="{DynamicResource Backup.PageHeading}" FontSize="21"
+                                   FontWeight="SemiBold" Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Backup.PageIntro}" FontSize="13"
+                                   Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Backup.WeeklyHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Backup.WeeklyInfo}" Foreground="#6C757D"
+                                           FontSize="12" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                <WrapPanel>
+                                    <Button x:Name="SettingsBackupNowButton"
+                                            Content="{DynamicResource Backup.CreateNow}" Padding="12,8"
+                                            Click="BackupPageCreate_Click" Margin="0,0,8,8"/>
+                                    <Button Content="{DynamicResource Backup.DestinationSettings}" Padding="12,8"
+                                            Click="BackupPageSettings_Click" Margin="0,0,8,8"/>
+                                    <Button Content="{DynamicResource Backup.OpenLocal}" Padding="12,8"
+                                            Click="BackupPageOpenFolder_Click" Margin="0,0,8,8"/>
+                                </WrapPanel>
+                                <ProgressBar x:Name="SettingsBackupProgressBar" Visibility="Collapsed"
+                                             IsIndeterminate="True" Height="8" Margin="0,6,0,5"/>
+                                <TextBlock x:Name="SettingsBackupStatusText" FontSize="12"
+                                           Foreground="#495057" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Backup.InventoryHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Backup.InventoryIntro}" Foreground="#6C757D"
+                                           FontSize="12" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                                <WrapPanel Margin="0,0,0,10">
+                                    <Button x:Name="BackupRefreshButton" Content="{DynamicResource Backup.Refresh}"
+                                            Padding="12,7" Click="BackupPageRefresh_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupVerifyButton" Content="{DynamicResource Backup.Verify}"
+                                            Padding="12,7" Click="BackupPageVerify_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupCopySecondaryButton"
+                                            Content="{DynamicResource Backup.CopySecondary}"
+                                            Padding="12,7" Click="BackupPageCopySecondary_Click"
+                                            Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupMirrorAuditButton"
+                                            Content="{DynamicResource Backup.VerifyMirroredPair}"
+                                            Padding="12,7" Click="BackupPageAuditMirror_Click"
+                                            Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupDeleteButton" Content="{DynamicResource Backup.DeleteSelected}"
+                                            Style="{StaticResource DestructiveActionButtonStyle}"
+                                            Padding="12,7" Click="BackupPageDelete_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupOpenSelectedButton" Content="{DynamicResource Backup.OpenSelectedFolder}"
+                                            Padding="12,7" Click="BackupPageOpenSelected_Click" Margin="0,0,8,8"/>
+                                    <Button x:Name="BackupSaveReceiptButton" Content="{DynamicResource Backup.SaveReceipt}"
+                                            Padding="12,7" Click="BackupPageSaveReceipt_Click" Margin="0,0,8,8"/>
+                                </WrapPanel>
+                                <ProgressBar x:Name="BackupInventoryProgress" IsIndeterminate="True"
+                                             Height="7" Margin="0,0,0,10" Visibility="Collapsed"/>
+                                <DataGrid x:Name="BackupInventoryGrid" AutoGenerateColumns="False"
+                                          IsReadOnly="True" SelectionMode="Single"
+                                          SelectionChanged="BackupInventorySelectionChanged"
+                                          Height="305" HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnLocation}" Binding="{Binding Location}" Width="100"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnName}" Binding="{Binding Name}" Width="275"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnKind}" Binding="{Binding Kind}" Width="145"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnDate}" Binding="{Binding ModifiedUtc}" Width="145"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnSize}" Binding="{Binding SizeBytes, StringFormat=N0}" Width="115"/>
+                                        <DataGridTextColumn Header="{DynamicResource Backup.ColumnStatus}" Binding="{Binding VerificationStatus}" Width="125"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock x:Name="BackupInventoryStatusText" FontSize="12"
+                                           Foreground="#495057" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                                <Border BorderBrush="#DEE2E6" BorderThickness="1" Padding="12"
+                                        Margin="0,12,0,8" Background="#F8F9FA">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Backup.SelectionHeading}"
+                                                   FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                        <TextBlock x:Name="BackupSelectionDetailsText"
+                                                   Text="{DynamicResource Backup.SelectionHint}"
+                                                   FontSize="12" TextWrapping="Wrap" Margin="0,0,0,7"/>
+                                        <TextBlock x:Name="BackupVerifiedContentsText"
+                                                   FontSize="12" TextWrapping="Wrap" FontFamily="Consolas"/>
+                                        <TextBlock Text="{DynamicResource Backup.NotRestoreWarning}"
+                                                   Foreground="#805400" FontSize="11" TextWrapping="Wrap"
+                                                   Margin="0,9,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Text="{DynamicResource Backup.LastCopyPolicy}" Foreground="#6C757D"
+                                           FontSize="12" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="SettingsContent" Visibility="Collapsed"
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="PageScrollViewer_PreviewMouseWheel">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{DynamicResource Settings.Heading}" FontSize="21"
+                                   FontWeight="SemiBold" Foreground="#343A40"/>
+                        <TextBlock Text="{DynamicResource Settings.Intro}" FontSize="13"
+                                   Foreground="#6C757D" Margin="0,5,0,16" TextWrapping="Wrap"/>
+                        <TabControl x:Name="SettingsTabControl" Style="{StaticResource PageTabControlStyle}">
+                            <TabItem Header="{DynamicResource Settings.Tab.Connection}">
+                                <StackPanel Margin="6,12">
                         <Border Style="{StaticResource CardStyle}" Margin="0">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource Settings.ConnectionHeading}" FontSize="17" FontWeight="SemiBold"/>
@@ -2700,6 +3102,79 @@
                                 <TextBlock Text="{DynamicResource Settings.PasswordPrivacy}" FontSize="11" Foreground="#6C757D" Margin="0,12,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="{DynamicResource Settings.Tab.Exports}">
+                                <StackPanel Margin="6,12">
+                        <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Settings.ExportFolderHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Settings.ExportFolderDescription}" FontSize="12" Foreground="#6C757D" Margin="0,5,0,8" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="SettingsExportFolderText" TextWrapping="Wrap" FontSize="13" Foreground="#343A40" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="{DynamicResource Settings.ChooseExportFolder}" Click="SettingsChooseExportFolder_Click" Padding="12,6"/>
+                                    <Button Content="{DynamicResource Settings.ResetExportFolder}" Style="{StaticResource SecondaryActionButtonStyle}"
+                                            Click="SettingsResetExportFolder_Click" Padding="12,6" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="{DynamicResource Settings.Tab.Shortcuts}">
+                                <StackPanel Margin="6,12">
+                                    <TextBlock Text="{DynamicResource Settings.ShortcutsIntro}"
+                                               Margin="0,0,0,10" Foreground="#6C757D" TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,0,0,10">
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExecute}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlExecuteShortcutSelector" Width="125" Margin="0,0,15,0"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Enter" Tag="Ctrl+Enter"/>
+                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
+                                <ComboBoxItem Content="Ctrl+Shift+Enter" Tag="Ctrl+Shift+Enter"/>
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutCsv}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlCsvShortcutSelector" Width="125" Margin="0,0,15,0"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Shift+C" Tag="Ctrl+Shift+C"/>
+                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
+                                <ComboBoxItem Content="Ctrl+R" Tag="Ctrl+R"/>
+                            </ComboBox>
+                            <TextBlock Text="{DynamicResource SqlExplorer.ShortcutExcel}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="SqlExcelShortcutSelector" Width="130"
+                                      SelectedValuePath="Tag" SelectionChanged="SqlExplorerShortcutChanged">
+                                <ComboBoxItem Content="Ctrl+Shift+E" Tag="Ctrl+Shift+E"/>
+                                <ComboBoxItem Content="Ctrl+Alt+E" Tag="Ctrl+Alt+E"/>
+                                <ComboBoxItem Content="Ctrl+E" Tag="Ctrl+E"/>
+                            </ComboBox>
+                        </WrapPanel>
+                                    <Button Content="{DynamicResource Settings.OpenSqlExplorer}"
+                                            Click="SettingsOpenSqlExplorer_Click"
+                                            HorizontalAlignment="Left" Padding="12,7"/>
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="{DynamicResource Settings.Tab.Protection}">
+                                <StackPanel Margin="6,12">
+                        <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Settings.BackupHeading}" FontSize="17" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource Settings.BackupDescription}" FontSize="12" Foreground="#6C757D" TextWrapping="Wrap" Margin="0,5,0,10"/>
+                                <TextBlock Text="{DynamicResource Settings.BackupSecondLocation}" FontSize="13"
+                                           FontWeight="SemiBold" Margin="0,5,0,4"/>
+                                <TextBlock x:Name="SettingsBackupSecondaryFolderText" FontSize="12"
+                                           TextWrapping="Wrap" Foreground="#495057" Margin="0,0,0,8"/>
+                                <Button Content="{DynamicResource Settings.BackupChooseSecondary}" HorizontalAlignment="Left"
+                                        Style="{StaticResource SecondaryActionButtonStyle}" Margin="0,0,0,12"
+                                        Click="SettingsBackupChooseSecondary_Click"/>
+                                <TextBlock x:Name="SettingsBackupInventoryText" FontSize="12"
+                                           TextWrapping="Wrap" Foreground="#495057" Margin="0,0,0,10"/>
+                                <Button Content="{DynamicResource Settings.OpenProtection}" Click="SettingsOpenProtection_Click"
+                                        HorizontalAlignment="Left" Padding="12,7" Margin="0,5,0,0"/>
+
+                            </StackPanel>
+                        </Border>
+                                </StackPanel>
+                            </TabItem>
+                        </TabControl>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -2812,6 +3287,21 @@
                                         Margin="8,0,0,0"
                                         Click="OpenDiagnostics_Click"/>
                             </StackPanel>
+                            <TextBlock x:Name="PerformanceSummaryTitle" Text="{DynamicResource Diagnostics.PerformanceTitle}"
+                                       FontWeight="SemiBold" Foreground="#343A40" Visibility="Collapsed"
+                                       Margin="0,18,0,6" HorizontalAlignment="Center"/>
+                            <Button x:Name="PerformanceSummaryRefreshButton"
+                                    Content="{DynamicResource Diagnostics.PerformanceRefresh}"
+                                    Click="PerformanceSummaryRefresh_Click"
+                                    Visibility="Collapsed"
+                                    HorizontalAlignment="Center" Padding="10,5" Margin="0,0,0,8"/>
+                            <ScrollViewer x:Name="PerformanceSummaryScroll"
+                                          Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                                          MaxHeight="260" MinWidth="460">
+                                <TextBlock x:Name="PerformanceSummaryText" FontSize="11"
+                                           FontFamily="Consolas" Foreground="#495057"
+                                           TextWrapping="Wrap" TextAlignment="Left"/>
+                            </ScrollViewer>
                         </StackPanel>
                     </Border>
                 </Grid>

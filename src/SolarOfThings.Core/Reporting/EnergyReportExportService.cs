@@ -33,27 +33,39 @@ public sealed class EnergyReportExportService
         _gridImportStatistical = gridImportStatistical;
     }
 
-    public EnergyReportData Build(EnergyReportRequest request)
+    public EnergyReportData Build(
+        EnergyReportRequest request, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var summary = _statistics.Get(
             request.DeviceId,
             request.StartUtc,
-            request.EndUtc);
+            request.EndUtc,
+            cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var table = _aggregation.Get(
             request.DeviceId,
             request.StartUtc,
             request.EndUtc,
             request.TimeZoneId,
-            request.Aggregation);
+            request.Aggregation,
+            cancellationToken);
 
-        var family = _familyAnalysis.Analyze(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        var family = _familyAnalysis.Analyze(request,
+            request.Aggregation == AggregationPeriod.Day ? table : null,
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         var attribution = _sourceAttribution.Get(
             request.DeviceId,
             request.StartUtc,
             request.EndUtc,
             request.TimeZoneId,
-            request.Aggregation);
+            request.Aggregation,
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         var dailyAttribution =
             request.Aggregation == AggregationPeriod.Day
                 ? attribution
@@ -62,15 +74,19 @@ public sealed class EnergyReportExportService
                     request.StartUtc,
                     request.EndUtc,
                     request.TimeZoneId,
-                    AggregationPeriod.Day);
+                    AggregationPeriod.Day,
+                    cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var gridImportStatistical =
             _gridImportStatistical.Analyze(
                 request.DeviceId,
                 request.StartUtc,
                 request.EndUtc,
-                request.TimeZoneId);
+                request.TimeZoneId,
+                cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         return new EnergyReportData(
             request,
             summary,
@@ -84,9 +100,11 @@ public sealed class EnergyReportExportService
 
     public void ExportExcel(
         string path,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        cancellationToken.ThrowIfCancellationRequested();
 
         string? chartDirectory = null;
         IReadOnlyList<string>? familyCharts = null;
@@ -100,20 +118,31 @@ public sealed class EnergyReportExportService
                     .RenderFamilyCharts(report, chartDirectory);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             using var workbook = new XLWorkbook();
             AddSummarySheet(workbook, report, familyCharts);
+            cancellationToken.ThrowIfCancellationRequested();
             if (report.Request.Kind == ReportKind.SimpleEnergy)
             {
                 AddPatternsSheet(workbook, report);
+                cancellationToken.ThrowIfCancellationRequested();
                 AddGridUseSheet(workbook, report);
+                cancellationToken.ThrowIfCancellationRequested();
                 AddEventsSheet(workbook, report);
-                AddEvolutionSheet(workbook, report);
+                cancellationToken.ThrowIfCancellationRequested();
+                AddEvolutionSheet(workbook, report, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
             }
-            AddDetailSheet(workbook, report);
+            AddDetailSheet(workbook, report, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             AddQualitySheet(workbook, report);
+            cancellationToken.ThrowIfCancellationRequested();
             AddGlossarySheet(workbook, report);
+            cancellationToken.ThrowIfCancellationRequested();
             ApplyWorkbookTypography(workbook);
+            cancellationToken.ThrowIfCancellationRequested();
             workbook.SaveAs(path);
+            cancellationToken.ThrowIfCancellationRequested();
         }
         finally
         {
@@ -123,9 +152,11 @@ public sealed class EnergyReportExportService
 
     public void ExportPdf(
         string path,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        cancellationToken.ThrowIfCancellationRequested();
         EnsurePdfFonts();
 
         string? chartDirectory = null;
@@ -140,6 +171,7 @@ public sealed class EnergyReportExportService
 
         try
         {
+        cancellationToken.ThrowIfCancellationRequested();
         var document = new Document();
         document.Info.Title = DisplayReportTitle(report);
         document.Info.Subject = "Solar Energy Monitor";
@@ -198,17 +230,18 @@ public sealed class EnergyReportExportService
 
             if (report.Request.Kind == ReportKind.DetailedEnergy)
             {
-                AddDetailedTable(section, report);
+                AddDetailedTable(section, report, cancellationToken);
             }
             else if (report.Request.Kind == ReportKind.Battery)
             {
-                AddBatteryTable(section, report);
+                AddBatteryTable(section, report, cancellationToken);
             }
 
             AddQuality(section, report);
             AddGlossary(section, report);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var footer = section.Footers.Primary.AddParagraph();
         footer.Format.Alignment = ParagraphAlignment.Center;
         footer.AddText("Solar Energy Monitor · ");
@@ -221,7 +254,9 @@ public sealed class EnergyReportExportService
             Document = document
         };
         renderer.RenderDocument();
+        cancellationToken.ThrowIfCancellationRequested();
         renderer.PdfDocument.Save(path);
+        cancellationToken.ThrowIfCancellationRequested();
         }
         finally
         {
@@ -1027,7 +1062,8 @@ public sealed class EnergyReportExportService
 
     private static void AddDetailedTable(
         Section section,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var heading = section.AddParagraph(
             L(report, "Detalle", "Detail"));
@@ -1052,8 +1088,10 @@ public sealed class EnergyReportExportService
         header.Cells[3].AddParagraph(L(report, "Red kWh", "Grid kWh"));
         header.Cells[4].AddParagraph(L(report, "Cobertura", "Coverage"));
 
+        var writtenPdfRows = 0;
         foreach (var row in report.Table.Rows.Take(80))
         {
+            if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
             pdfRow.Cells[0].AddParagraph(row.LocalLabel);
             pdfRow.Cells[1].AddParagraph(NullableNumber(row.PvEnergyDisplayKwh));
@@ -1067,7 +1105,8 @@ public sealed class EnergyReportExportService
 
     private static void AddBatteryTable(
         Section section,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var heading = section.AddParagraph(
             L(report, "Detalle de batería", "Battery detail"));
@@ -1092,8 +1131,10 @@ public sealed class EnergyReportExportService
         header.Cells[3].AddParagraph(L(report, "Entregada kWh", "Supplied kWh"));
         header.Cells[4].AddParagraph(L(report, "Cobertura", "Coverage"));
 
+        var writtenPdfRows = 0;
         foreach (var row in report.Table.Rows.Take(80))
         {
+            if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
             pdfRow.Cells[0].AddParagraph(row.LocalLabel);
             pdfRow.Cells[1].AddParagraph(NullableNumber(row.SocAveragePercent));
@@ -1707,7 +1748,8 @@ public sealed class EnergyReportExportService
 
     private static void AddEvolutionSheet(
         XLWorkbook workbook,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Evolución", "Evolution"));
@@ -1737,8 +1779,10 @@ public sealed class EnergyReportExportService
         sheet.Range(3, 1, 3, headers.Length).Style.Font.Bold = true;
 
         var row = 4;
+        var processedEvolutionRows = 0;
         foreach (var item in report.Family.Evolution)
         {
+            if ((++processedEvolutionRows & 63) == 0) cancellationToken.ThrowIfCancellationRequested();
             sheet.Cell(row, 1).Value = item.LocalLabel;
             SetNullableNumber(sheet.Cell(row, 2), item.PvEnergyKwh);
             SetNullableNumber(sheet.Cell(row, 3), item.HouseEnergyKwh);
@@ -1749,9 +1793,11 @@ public sealed class EnergyReportExportService
             row++;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         sheet.SheetView.FreezeRows(3);
         sheet.Range(3, 1, Math.Max(3, row - 1), headers.Length).SetAutoFilter();
         sheet.Columns().AdjustToContents();
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static string AttributionCoverageLabel(EnergyReportData report) =>
@@ -2378,7 +2424,8 @@ public sealed class EnergyReportExportService
 
     private static void AddDetailSheet(
         XLWorkbook workbook,
-        EnergyReportData report)
+        EnergyReportData report,
+        CancellationToken cancellationToken)
     {
         var sheet = workbook.Worksheets.Add(
             L(report, "Detalle", "Detail"));
@@ -2418,8 +2465,10 @@ public sealed class EnergyReportExportService
             .ToDictionary(item => item.StartUtc);
 
         var targetRow = 2;
+        var processedDetailRows = 0;
         foreach (var item in report.Table.Rows)
         {
+            if ((++processedDetailRows & 63) == 0) cancellationToken.ThrowIfCancellationRequested();
             attributionByStart.TryGetValue(item.StartUtc, out var attribution);
 
             sheet.Cell(targetRow, 1).Value = item.LocalLabel;
@@ -2461,10 +2510,12 @@ public sealed class EnergyReportExportService
             targetRow++;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         sheet.Columns(2, 3).Style.DateFormat.Format = "yyyy-mm-dd hh:mm";
         sheet.SheetView.FreezeRows(1);
         sheet.Range(1, 1, Math.Max(1, targetRow - 1), headers.Length).SetAutoFilter();
         sheet.Columns().AdjustToContents();
+        cancellationToken.ThrowIfCancellationRequested();
         for (var column = 1; column <= headers.Length; column++)
         {
             sheet.Column(column).Width = Math.Min(sheet.Column(column).Width, 28);
