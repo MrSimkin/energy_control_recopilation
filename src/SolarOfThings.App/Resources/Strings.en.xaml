@@ -835,4 +835,8 @@
     <sys:String x:Key="SqlExplorer.SaveSql">Save SQL</sys:String>
     <sys:String x:Key="SqlExplorer.OpenSql">Open SQL</sys:String>
 
+    <sys:String x:Key="Dashboard.LatestDayLoading">Calculating latest saved-day energy…</sys:String>
+
+    <sys:String x:Key="Dashboard.LatestDayUnavailable">Daily energy unavailable; check data and coverage.</sys:String>
+
 </ResourceDictionary>

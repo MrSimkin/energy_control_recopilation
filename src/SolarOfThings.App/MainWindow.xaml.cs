@@ -373,33 +373,37 @@ public partial class MainWindow : Window
 
     private string? _dashboardLastSavedDayDeviceId;
 
-    private sealed record DashboardReadResult(
+    private sealed record DashboardInstantReadResult(
         IReadOnlyDictionary<string, NormalizedMetricValue> StoredMetrics,
-        CurrentHouseholdSnapshot? CurrentSnapshot,
+        CurrentHouseholdSnapshot? CurrentSnapshot);
+
+    private sealed record DashboardDailyReadResult(
         DateOnly? LatestSavedDate,
         EnergyRangeSummary? LatestSavedEnergy);
 
-    private DashboardReadResult ReadDashboardData(
+    private DashboardInstantReadResult ReadDashboardInstantData(
         string deviceId,
-        string? stationTimeZone,
         NormalizationRepository repository,
-        CurrentHouseholdSnapshotService currentRepository,
-        HistoryRepository history,
-        EnergyRangeStatisticsService statistics)
+        CurrentHouseholdSnapshotService currentRepository)
     {
-        using var measure = _performance.Measure("Data.Dashboard.BackgroundFetch");
-        // Each repository opens its own short-lived SQLite connection. No
-        // WPF control, DependencyObject or Dispatcher is accessed on this thread.
+        using var measure = _performance.Measure("Data.Dashboard.InstantFetch");
         var stored = MeasureDataCall(
             "Data.Dashboard.LatestMetrics",
             () => repository.GetLatestMetrics(deviceId));
         var current = currentRepository.GetLatest(deviceId);
+        return new DashboardInstantReadResult(stored, current);
+    }
+
+    private DashboardDailyReadResult ReadDashboardDailyData(
+        string deviceId, string? stationTimeZone,
+        HistoryRepository history, EnergyRangeStatisticsService statistics)
+    {
+        using var measure = _performance.Measure("Data.Dashboard.DailyFetch");
         var coverage = MeasureDataCall(
             "Data.Dashboard.Coverage",
             () => history.GetCoverageSummary(deviceId));
         if (!coverage.LastSampleAtUtc.HasValue)
-            return new DashboardReadResult(stored, current, null, null);
-
+            return new DashboardDailyReadResult(null, null);
         var timeZone = string.IsNullOrWhiteSpace(stationTimeZone)
             ? "America/Santiago"
             : stationTimeZone;
@@ -409,7 +413,7 @@ public partial class MainWindow : Window
         var summary = MeasureDataCall(
             "Data.Dashboard.LatestDayEnergy",
             () => statistics.Get(deviceId, window.Start, window.End));
-        return new DashboardReadResult(stored, current, date, summary);
+        return new DashboardDailyReadResult(date, summary);
     }
 
     private async Task LoadDashboardMetricsAsync()
@@ -429,48 +433,75 @@ public partial class MainWindow : Window
                         return;
                     }
 
-                    // Resolve scoped/singleton dependencies on the UI thread;
-                    // the worker receives only concrete services and immutable
-                    // value arguments. It never touches WPF controls.
+                    // Only immutable IDs, timezone and non-WPF repositories
+                    // cross into the thread-pool readers. No SQLite activity
+                    // is performed from the UI callbacks below.
                     var normalized = _services.GetRequiredService<NormalizationRepository>();
                     var current = _services.GetRequiredService<CurrentHouseholdSnapshotService>();
                     var history = _services.GetRequiredService<HistoryRepository>();
                     var statistics = _services.GetRequiredService<EnergyRangeStatisticsService>();
-                    var result = await Task.Run(() => ReadDashboardData(
-                        profile.DeviceId, profile.StationTimeZone,
-                        normalized, current, history, statistics));
 
-                    if (_windowClosed || !_dashboardVisible)
-                        return;
-                    if (requestedGeneration != _dashboardRefreshGeneration)
-                        continue;
-
-                    var currentDeviceId = _profiles.Get()?.DeviceId;
-                    if (!string.Equals(currentDeviceId, profile.DeviceId,
-                            StringComparison.Ordinal))
-                        _dashboardRefreshGeneration++;
-                    if (!DashboardRefreshPolicy.CanApply(
+                    bool CanPaint()
+                    {
+                        var currentDeviceId = _profiles.Get()?.DeviceId;
+                        if (!string.Equals(currentDeviceId, profile.DeviceId,
+                                StringComparison.Ordinal))
+                            _dashboardRefreshGeneration++;
+                        return DashboardRefreshPolicy.CanApply(
                             requestedGeneration, _dashboardRefreshGeneration,
                             _dashboardVisible, _windowClosed,
-                            profile.DeviceId, currentDeviceId))
-                        continue;
+                            profile.DeviceId, currentDeviceId);
+                    }
 
-                    using var measure = _performance.Measure("UI.Dashboard.Refresh");
-                    var useCurrentSnapshot = result.CurrentSnapshot is
-                        { Metrics.Count: > 0 };
-                    var metrics = useCurrentSnapshot
-                        ? result.CurrentSnapshot!.Metrics
-                        : result.StoredMetrics;
+                    var completed = await DashboardStagedRefresh.RunAsync(
+                        () => ReadDashboardInstantData(profile.DeviceId, normalized, current),
+                        () => ReadDashboardDailyData(profile.DeviceId,
+                            profile.StationTimeZone, history, statistics),
+                        CanPaint,
+                        instant =>
+                        {
+                            using var measure = _performance.Measure("UI.Dashboard.InstantPaint");
+                            var useCurrentSnapshot = instant.CurrentSnapshot is
+                                { Metrics.Count: > 0 };
+                            var metrics = useCurrentSnapshot
+                                ? instant.CurrentSnapshot!.Metrics
+                                : instant.StoredMetrics;
+                            SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
+                            SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
+                            SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
+                            SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
+                            RefreshOperatingState(metrics);
+                            RefreshDashboardFreshness(
+                                metrics,
+                                useCurrentSnapshot ? instant.CurrentSnapshot : null);
 
-                    SetPowerMetric(metrics, "pv_power_w", PvPowerValueText, PvPowerMetaText);
-                    SetPowerMetric(metrics, "house_load_power_w", HouseLoadValueText, HouseLoadMetaText);
-                    SetSocMetric(metrics, "battery_soc_pct", BatterySocValueText, BatterySocMetaText);
-                    SetPowerMetric(metrics, "grid_import_power_w", GridImportValueText, GridImportMetaText);
-                    RefreshOperatingState(metrics);
-                    RefreshDashboardFreshness(
-                        metrics,
-                        useCurrentSnapshot ? result.CurrentSnapshot : null);
-                    RenderDashboardLatestSavedDay(result, profile.DeviceId);
+                            // A stored-day integration from the previous
+                            // device or request must not be shown as fresh.
+                            // Retain known day values only for the same
+                            // device, clearly relabeling them as updating.
+                            if (!string.Equals(_dashboardLastSavedDayDeviceId,
+                                    profile.DeviceId, StringComparison.Ordinal))
+                                ResetDashboardLatestSavedDay();
+                            DashboardLatestDayDateText.SetResourceReference(
+                                TextBlock.TextProperty, "Dashboard.LatestDayLoading");
+                            DashboardLatestDayOpenButton.IsEnabled = false;
+                        },
+                        daily =>
+                        {
+                            using var measure = _performance.Measure("UI.Dashboard.DailyPaint");
+                            RenderDashboardLatestSavedDay(daily, profile.DeviceId);
+                        },
+                        error =>
+                        {
+                            ResetDashboardLatestSavedDay();
+                            DashboardLatestDayDateText.SetResourceReference(
+                                TextBlock.TextProperty, "Dashboard.LatestDayUnavailable");
+                            Debug.WriteLine(
+                                $"Dashboard daily read failed ({error.GetType().Name}); " +
+                                "instantaneous measurements remain available.");
+                        });
+
+                    if (!completed) continue;
                     return;
                 }
                 catch (Exception ex)
@@ -479,9 +510,6 @@ public partial class MainWindow : Window
                         continue;
                     if (_windowClosed || !_dashboardVisible)
                         return;
-
-                    // Fail closed: never leave potentially stale energy values
-                    // on-screen when the latest read cannot be completed.
                     ResetDashboardMetrics();
                     DashboardFreshnessText.Text =
                         _localization.CurrentLanguage.StartsWith(
@@ -489,7 +517,7 @@ public partial class MainWindow : Window
                             ? "No fue posible actualizar los datos del panel."
                             : "Dashboard data could not be refreshed.";
                     Debug.WriteLine(
-                        $"Dashboard read failed ({ex.GetType().Name}); values hidden.");
+                        $"Dashboard instant read failed ({ex.GetType().Name}); values hidden.");
                     return;
                 }
             }
@@ -593,7 +621,7 @@ public partial class MainWindow : Window
     private void DashboardInspectCoverage_Click(object sender, RoutedEventArgs e) =>
         ShowPage("Data");
 
-    private void RenderDashboardLatestSavedDay(DashboardReadResult result, string deviceId)
+    private void RenderDashboardLatestSavedDay(DashboardDailyReadResult result, string deviceId)
     {
         if (!result.LatestSavedDate.HasValue || result.LatestSavedEnergy is null)
         {
