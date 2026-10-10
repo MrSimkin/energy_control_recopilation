@@ -1928,6 +1928,54 @@ try
         exactMirror.SecondaryPath != mirrored.Path)
         throw new InvalidOperationException(
             "Pair verification did not prove independent matching local/secondary ZIPs.");
+    // Two VALID, independently verifiable full packages with the same ZIP
+    // filename are not necessarily byte-identical mirrors. A new manifest
+    // revision is enough to distinguish their identities; never overwrite
+    // that existing second complete backup to make the mirror test pass.
+    var differentValidFolder = Path.Combine(root, "secondary-valid-but-different");
+    Directory.CreateDirectory(differentValidFolder);
+    var differentValidZip = Path.Combine(differentValidFolder, localPhysical.Name);
+    File.Copy(complete.Path, differentValidZip);
+    using (var differentZip = ZipFile.Open(differentValidZip, ZipArchiveMode.Update))
+    {
+        var existingManifest = differentZip.GetEntry("manifest.json")!;
+        CompleteBackupManifest anotherManifest;
+        using (var reader = existingManifest.Open())
+            anotherManifest = System.Text.Json.JsonSerializer
+                .Deserialize<CompleteBackupManifest>(reader)!;
+        existingManifest.Delete();
+        anotherManifest = anotherManifest with
+        {
+            SourceRevision = "SYNTHETIC_UNRELATED_COMPLETE_REVISION"
+        };
+        using var writer = differentZip.CreateEntry("manifest.json").Open();
+        System.Text.Json.JsonSerializer.Serialize(writer, anotherManifest);
+    }
+    if (FullBackupService.VerifyArchive(differentValidZip).Files.Count !=
+            fullManifest.Files.Count)
+        throw new InvalidOperationException(
+            "Synthetic independently valid different archive was not constructed.");
+    var differentValidBefore = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(differentValidZip)));
+    var differentMirror = mirrorAudit.Inspect(localPhysical, differentValidFolder);
+    if (differentMirror.TwoExactCopiesVerified ||
+        differentMirror.Status != "SECONDARY_DIFFERENT" ||
+        string.Equals(differentMirror.LocalSha256,
+            differentMirror.SecondarySha256, StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException(
+            "Two valid DIFFERENT packages were incorrectly certified as byte-identical replicas.");
+    var differentOverwriteBlocked = false;
+    try { completeService.CopyVerifiedToSecondary(complete.Path, differentValidFolder); }
+    catch (IOException) { differentOverwriteBlocked = true; }
+    if (!differentOverwriteBlocked ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(differentValidZip))) != differentValidBefore ||
+        File.Exists(differentValidZip + ".inprogress") ||
+        !File.Exists(complete.Path))
+        throw new InvalidOperationException(
+            "Mirror attempted to replace a separate valid existing package.");
+    File.Delete(differentValidZip);
+
     var invalidSourceRejected = false;
     try { mirrorAudit.Inspect(secondaryPhysical, syntheticSecondary); }
     catch (InvalidOperationException) { invalidSourceRejected = true; }
