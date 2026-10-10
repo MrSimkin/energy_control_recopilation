@@ -92,6 +92,98 @@ try
         DashboardRefreshPolicy.CanApply(10, 10, true, false, "A", null))
         throw new InvalidOperationException("Dashboard stale-result policy regressed.");
 
+    // The two-stage dashboard must paint last-observed W/SOC BEFORE costly
+    // integrated kWh completes. Simulate slow work, no UI controls or actual
+    // power data. A stale generation must never paint stale daily energy.
+    var syntheticDailyGate = new TaskCompletionSource<int>(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    var syntheticDailyStarted = new TaskCompletionSource<bool>(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    var syntheticInstantPainted = false;
+    var syntheticDailyPainted = false;
+    var stagedDashboard = DashboardStagedRefresh.RunAsync(
+        () => 1500.0,
+        () =>
+        {
+            syntheticDailyStarted.TrySetResult(true);
+            return syntheticDailyGate.Task.GetAwaiter().GetResult();
+        },
+        () => true,
+        value =>
+        {
+            if (value != 1500.0) throw new InvalidOperationException("Instant W changed.");
+            syntheticInstantPainted = true;
+        },
+        value =>
+        {
+            if (value != 250) throw new InvalidOperationException("Daily payload changed.");
+            syntheticDailyPainted = true;
+        },
+        error => throw new InvalidOperationException(
+            "A valid staged refresh unexpectedly failed.", error));
+    await syntheticDailyStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    if (!syntheticInstantPainted || syntheticDailyPainted)
+        throw new InvalidOperationException(
+            "Dashboard withheld latest power/SOC until daily integration finished.");
+    syntheticDailyGate.SetResult(250);
+    if (!await stagedDashboard || !syntheticDailyPainted)
+        throw new InvalidOperationException(
+            "Dashboard did not paint measured daily integration after fast cards.");
+
+    var staleDailyGate = new TaskCompletionSource<int>(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    var staleDailyStarted = new TaskCompletionSource<bool>(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    var activeGeneration = 5;
+    var fastOnlyPainted = false;
+    var staleDailyPainted = false;
+    var staleTask = DashboardStagedRefresh.RunAsync(
+        () => 42,
+        () =>
+        {
+            staleDailyStarted.TrySetResult(true);
+            return staleDailyGate.Task.GetAwaiter().GetResult();
+        },
+        () => DashboardRefreshPolicy.CanApply(
+            5, activeGeneration, true, false, "synthetic-A", "synthetic-A"),
+        _ => fastOnlyPainted = true,
+        _ => staleDailyPainted = true,
+        error => throw new InvalidOperationException(
+            "A stale completion reached error UI.", error));
+    await staleDailyStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    if (!fastOnlyPainted)
+        throw new InvalidOperationException("Stale refresh test did not reach fast phase.");
+    activeGeneration++;
+    staleDailyGate.SetResult(30);
+    if (await staleTask || staleDailyPainted)
+        throw new InvalidOperationException(
+            "A stale dashboard daily result overwrote a newer request.");
+
+    var partialFast = false;
+    var partialDaily = false;
+    var partialError = false;
+    var partialComplete = await DashboardStagedRefresh.RunAsync(
+        () => 42,
+        (Func<int>)(() => throw new IOException("Synthetic daily read failure")),
+        () => true,
+        _ => partialFast = true,
+        _ => partialDaily = true,
+        _ => partialError = true);
+    if (!partialComplete || !partialFast || partialDaily || !partialError)
+        throw new InvalidOperationException(
+            "Daily calculation failure erased valid instant power/SOC.");
+    var instantFailureRejected = false;
+    try
+    {
+        await DashboardStagedRefresh.RunAsync(
+            (Func<int>)(() => throw new InvalidDataException("Synthetic instant read failure")),
+            () => 1, () => true, _ => { }, _ => { }, _ => { });
+    }
+    catch (InvalidDataException) { instantFailureRejected = true; }
+    if (!instantFailureRejected)
+        throw new InvalidOperationException(
+            "First-stage data error must not be interpreted as daily-only failure.");
+
     // Dashboard daily evidence: a visually healthy 99% metric must never
     // conceal a completely absent house or grid stream. This also covers
     // partial days, unknown/NaN data, and genuinely adequate three-stream days.
