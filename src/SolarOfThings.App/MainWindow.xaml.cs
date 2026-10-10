@@ -8709,6 +8709,7 @@ public partial class MainWindow : Window
                 : "No suggestions at this position. Strings and comments are excluded.";
             return;
         }
+        var sqlSnapshot = SqlStatementEditor.Text;
         var menu = new ContextMenu { PlacementTarget = SqlStatementEditor };
         foreach (var suggestion in candidates)
         {
@@ -8723,10 +8724,8 @@ public partial class MainWindow : Window
             {
                 // A stale menu must never change a different/newer query.
                 var document = SqlStatementEditor.Document;
-                if (document is null || document.TextLength < option.Start + option.Length)
-                    return;
-                var original = document.GetText(option.Start, option.Length);
-                if (!string.Equals(original, _sqlSuggestionPrefix,
+                if (document is null || document.TextLength < option.Start + option.Length ||
+                    !string.Equals(SqlStatementEditor.Text, sqlSnapshot,
                         StringComparison.Ordinal))
                     return;
                 document.Replace(option.Start, option.Length, option.Replacement);
@@ -8735,13 +8734,9 @@ public partial class MainWindow : Window
             };
             menu.Items.Add(item);
         }
-        _sqlSuggestionPrefix = SqlStatementEditor.Document.GetText(
-            candidates[0].Start, candidates[0].Length);
         SqlStatementEditor.ContextMenu = menu;
         menu.IsOpen = true;
     }
-
-    private string _sqlSuggestionPrefix = "";
 
     private void SqlExplorerToggleComments_Click(object sender, RoutedEventArgs e) =>
         ToggleSqlExplorerComments();
