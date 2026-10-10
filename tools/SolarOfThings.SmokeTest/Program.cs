@@ -795,6 +795,131 @@ try
         throw new InvalidOperationException("Complete backup package smoke failed.");
     }
 
+
+    // A SHA-less v17 legacy row can still be recoverable if its *exact*
+    // original path and stored length bind to one independently hashed ZIP
+    // member. VerifyArchive must not silently ignore such source references.
+    using (var source = database.OpenConnection())
+    using (var change = source.CreateCommand())
+    {
+        try
+        {
+            change.CommandText = """
+                UPDATE utility_bill_document SET content_sha256=NULL
+                WHERE original_file_name='smoke-original-bill.txt';
+                """;
+            if (change.ExecuteNonQuery() != 1)
+                throw new InvalidOperationException("Hashless legacy fixture setup failed.");
+            var hashlessComplete = completeService.Create("0.11.0-test",
+                "synthetic", "hashless-legacy-document");
+            if (FullBackupService.VerifyArchive(hashlessComplete.Path).SchemaVersion != 17)
+                throw new InvalidOperationException(
+                    "Hashless but uniquely archived original PDF was rejected.");
+            File.Delete(hashlessComplete.Path);
+        }
+        finally
+        {
+            change.CommandText = """
+                UPDATE utility_bill_document SET content_sha256=$digest
+                WHERE original_file_name='smoke-original-bill.txt';
+                """;
+            change.Parameters.AddWithValue("$digest",
+                fullManifest.Files.Single(x =>
+                    x.RelativePath == "documents/Bills/smoke-original-bill.txt").Sha256);
+            change.ExecuteNonQuery();
+        }
+    }
+
+    // Forge only DISPOSABLE synthetic ZIPs, updating SQLite, entry checksums,
+    // sizes and manifest so ordinary ZIP integrity checks are NOT sufficient.
+    string ForgeOriginalBillReference(string label, string sql,
+        bool omitOriginalBillFile = false)
+    {
+        var extractedDb = Path.Combine(root, "forge-original-ref-" + label + ".db");
+        var package = Path.Combine(root, "forge-original-ref-" + label + ".zip");
+        using (var inputZip = ZipFile.OpenRead(complete.Path))
+        using (var input = inputZip.GetEntry("database/energy.db")!.Open())
+        using (var output = new FileStream(extractedDb,
+                   FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            input.CopyTo(output);
+        using (var changed = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = extractedDb, Mode = SqliteOpenMode.ReadWrite, Pooling = false
+        }.ToString()))
+        {
+            changed.Open();
+            using var cmd = changed.CreateCommand();
+            cmd.CommandText = sql;
+            if (cmd.ExecuteNonQuery() != 1)
+                throw new InvalidOperationException(
+                    "Synthetic forged reference setup must alter one original.");
+        }
+        var rewrittenDb = File.ReadAllBytes(extractedDb);
+        var rewrittenHash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(rewrittenDb))
+            .ToLowerInvariant();
+        File.Copy(complete.Path, package);
+        using (var zip = ZipFile.Open(package, ZipArchiveMode.Update))
+        {
+            zip.GetEntry("database/energy.db")!.Delete();
+            using (var output = zip.CreateEntry("database/energy.db").Open())
+                output.Write(rewrittenDb);
+            var manifestEntry = zip.GetEntry("manifest.json")!;
+            CompleteBackupManifest updatedManifest;
+            using (var input = manifestEntry.Open())
+                updatedManifest = System.Text.Json.JsonSerializer
+                    .Deserialize<CompleteBackupManifest>(input)!;
+            manifestEntry.Delete();
+            if (omitOriginalBillFile)
+                zip.GetEntry("documents/Bills/smoke-original-bill.txt")!.Delete();
+            updatedManifest = updatedManifest with
+            {
+                Files = updatedManifest.Files
+                    .Where(x => !omitOriginalBillFile ||
+                        x.RelativePath != "documents/Bills/smoke-original-bill.txt")
+                    .Select(x => x.RelativePath == "database/energy.db"
+                        ? new CompleteBackupEntry("database/energy.db",
+                            rewrittenDb.Length, rewrittenHash)
+                        : x).ToArray()
+            };
+            using var output = zip.CreateEntry("manifest.json").Open();
+            System.Text.Json.JsonSerializer.Serialize(output, updatedManifest);
+        }
+        File.Delete(extractedDb);
+        return package;
+    }
+
+    var missingStoredHash = ForgeOriginalBillReference("hashless-missing",
+        "UPDATE utility_bill_document SET content_sha256=NULL " +
+        "WHERE original_file_name='smoke-original-bill.txt';",
+        omitOriginalBillFile: true);
+    var hashlessOmissionRejected = false;
+    try { FullBackupService.VerifyArchive(missingStoredHash); }
+    catch (InvalidDataException) { hashlessOmissionRejected = true; }
+    if (!hashlessOmissionRejected)
+        throw new InvalidOperationException(
+            "Forged ZIP/manifest omitted a hashless SQLite-referenced bill PDF.");
+    File.Delete(missingStoredHash);
+
+    // A correct PDF hash appearing elsewhere in the package does NOT prove
+    // the ORIGINAL filename recorded by SQLite was archived.
+    var wrongOriginalPath = ForgeOriginalBillReference("wrong-filename",
+        "UPDATE utility_bill_document " +
+        "SET local_pdf_path=REPLACE(local_pdf_path," +
+        "'smoke-original-bill.txt','absent-but-hash-identical.pdf') " +
+        "WHERE original_file_name='smoke-original-bill.txt';");
+    var wrongOriginalPathRejected = false;
+    try { FullBackupService.VerifyArchive(wrongOriginalPath); }
+    catch (InvalidDataException) { wrongOriginalPathRejected = true; }
+    if (!wrongOriginalPathRejected)
+        throw new InvalidOperationException(
+            "Verified ZIP accepted a same-SHA PDF under the wrong original filename.");
+    File.Delete(wrongOriginalPath);
+
+    if (FullBackupService.VerifyArchive(complete.Path).SchemaVersion != 17 ||
+        fullManifest.Files.Count != FullBackupService.VerifyArchive(complete.Path).Files.Count)
+        throw new InvalidOperationException("Original full package was damaged by forged clones.");
+
     // BACKUP FAULT MATRIX: a SQLite original-document reference declares an
     // invalid positive byte length, even though the real file, archive hash
     // and manifest digest are otherwise valid. Creation must NOT publish an
