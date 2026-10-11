@@ -1644,12 +1644,12 @@ try
     }
     try
     {
-        var collisionPlan = planner.CreatePlan(complete.Path,
+        var rawHistoryIdentityCollisionPlan = planner.CreatePlan(complete.Path,
             previewDatabase.DatabasePath);
         var identityRejected = false;
         try
         {
-            rawHistoryStager.Stage(collisionPlan, complete.Path,
+            rawHistoryStager.Stage(rawHistoryIdentityCollisionPlan, complete.Path,
                 previewDatabase.DatabasePath, "recovery-sim");
         }
         catch (InvalidOperationException) { identityRejected = true; }
