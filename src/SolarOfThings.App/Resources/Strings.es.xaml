@@ -875,6 +875,18 @@
 
     <sys:String x:Key="Dashboard.LatestDayUnavailable">Energía diaria no disponible; revisa datos y cobertura.</sys:String>
 
+    <sys:String x:Key="SqlExplorer.EnergyQueryAction">Consultar kWh integrados</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportCsv">Exportar kWh a CSV</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportXlsx">Exportar kWh a Excel</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryLoading">Integrando energía por día desde SQLite en modo de solo lectura…</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryComplete">Consulta diaria integrada completada. La base activa no cambió. NULL es falta de evidencia, no 0 kWh. Los datos pueden avanzar mientras se consulta.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyResultTitle">Energía diaria integrada (kWh) — motor de Análisis</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyResultCount">{0:N0} días locales; no hay páginas ocultas.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryCancelled">Consulta o exportación energética cancelada, sin archivos parciales publicados.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryFailed">No se pudo consultar o exportar energía integrada.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyRequeryRequired">Cambió el equipo o el período: vuelve a consultar antes de exportar.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportLoading">Guardando exactamente el resultado consultado; sin repetir cálculos ni sobrescribir archivos.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportComplete">Exportación energética completada: {0:N0} días — {1}</sys:String>
     <sys:String x:Key="SqlExplorer.IncludeIntegratedEnergy">Incluir tabla diaria de kWh integrados en copia externa</sys:String>
     <sys:String x:Key="SqlExplorer.EnergyFrom">Desde</sys:String>
     <sys:String x:Key="SqlExplorer.EnergyTo">Hasta</sys:String>

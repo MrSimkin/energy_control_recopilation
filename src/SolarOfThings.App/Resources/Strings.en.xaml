@@ -875,6 +875,18 @@
 
     <sys:String x:Key="Dashboard.LatestDayUnavailable">Daily energy unavailable; check data and coverage.</sys:String>
 
+    <sys:String x:Key="SqlExplorer.EnergyQueryAction">Query integrated kWh</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportCsv">Export kWh to CSV</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportXlsx">Export kWh to Excel</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryLoading">Integrating daily energy from read-only SQLite…</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryComplete">Daily integration complete. Active database unchanged. NULL means insufficient evidence, not zero kWh. Stored data may advance during a query.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyResultTitle">Integrated daily energy (kWh) — Analysis engine</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyResultCount">{0:N0} local days; no hidden pages.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryCancelled">Energy query or export cancelled; no partial files published.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyQueryFailed">Could not query or export integrated energy.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyRequeryRequired">Device or date range changed; run the query again before exporting.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportLoading">Saving exactly the inspected result without rerunning calculations or overwriting files.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyExportComplete">Energy export complete: {0:N0} days — {1}</sys:String>
     <sys:String x:Key="SqlExplorer.IncludeIntegratedEnergy">Add integrated daily kWh table to external copy</sys:String>
     <sys:String x:Key="SqlExplorer.EnergyFrom">From</sys:String>
     <sys:String x:Key="SqlExplorer.EnergyTo">Through</sys:String>

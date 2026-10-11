@@ -8614,6 +8614,11 @@ public partial class MainWindow : Window
         SqlOpenScriptButton.IsEnabled = !busy;
         SqlSaveScriptButton.IsEnabled = !busy;
         SqlCreateAnalyticalCopyButton.IsEnabled = !busy;
+        SqlEnergyQueryButton.IsEnabled = !busy;
+        SqlEnergyExportCsvButton.IsEnabled = !busy &&
+            _sqlLastEnergyTable is not null &&
+            _sqlLastEnergyTable.Request == CurrentSqlEnergyRequest();
+        SqlEnergyExportXlsxButton.IsEnabled = SqlEnergyExportCsvButton.IsEnabled;
         SqlPreviousPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
             _sqlPreviewOffset > 0 && SqlStatementEditor.Text == _sqlLastPreviewSql;
         SqlNextPageButton.IsEnabled = !busy && _sqlLastPreviewSql is not null &&
@@ -9083,6 +9088,7 @@ public partial class MainWindow : Window
     private async Task ExecuteSqlExplorerAsync(int requestedOffset = 0)
     {
         if (_sqlExplorerBusy) return;
+        InvalidateSqlEnergyResult();
         var sql = SqlStatementEditor.Text;
         if (!string.Equals(sql, _sqlLastPreviewSql, StringComparison.Ordinal))
             requestedOffset = 0;

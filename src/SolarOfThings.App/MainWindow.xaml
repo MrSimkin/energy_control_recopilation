@@ -2995,10 +2995,25 @@
                                       Margin="0,5,14,5" VerticalAlignment="Center"/>
                             <TextBlock Text="{DynamicResource SqlExplorer.EnergyFrom}"
                                        VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <DatePicker x:Name="SqlEnergyFromDatePicker" Width="145" Margin="0,0,12,5"/>
+                            <DatePicker x:Name="SqlEnergyFromDatePicker" Width="145" Margin="0,0,12,5"
+                                        SelectedDateChanged="SqlEnergyDateChanged"/>
                             <TextBlock Text="{DynamicResource SqlExplorer.EnergyTo}"
                                        VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <DatePicker x:Name="SqlEnergyToDatePicker" Width="145" Margin="0,0,12,5"/>
+                            <DatePicker x:Name="SqlEnergyToDatePicker" Width="145" Margin="0,0,12,5"
+                                        SelectedDateChanged="SqlEnergyDateChanged"/>
+                        </WrapPanel>
+                        <WrapPanel Margin="0,0,0,8">
+                            <Button x:Name="SqlEnergyQueryButton"
+                                    Content="{DynamicResource SqlExplorer.EnergyQueryAction}"
+                                    Click="SqlEnergyQuery_Click" Padding="12,7" Margin="0,0,8,5"/>
+                            <Button x:Name="SqlEnergyExportCsvButton"
+                                    Content="{DynamicResource SqlExplorer.EnergyExportCsv}"
+                                    Click="SqlEnergyExportCsv_Click" Padding="12,7"
+                                    IsEnabled="False" Margin="0,0,8,5"/>
+                            <Button x:Name="SqlEnergyExportXlsxButton"
+                                    Content="{DynamicResource SqlExplorer.EnergyExportXlsx}"
+                                    Click="SqlEnergyExportXlsx_Click" Padding="12,7"
+                                    IsEnabled="False" Margin="0,0,8,5"/>
                         </WrapPanel>
                         <TextBlock Text="{DynamicResource SqlExplorer.IntegratedEnergyHint}"
                                    FontSize="11" Foreground="#6C757D" TextWrapping="Wrap"

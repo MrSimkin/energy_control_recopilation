@@ -8586,6 +8586,95 @@ try
         File.Exists(Path.Combine(analyticalFolder, "should-not-exist.sqlite")))
         throw new InvalidOperationException("Unsafe SQL energy range was accepted.");
 
+    // Main SQL Explorer: physically integrated kWh directly from a READ-ONLY
+    // live SQLite connection, not SUM of sampled W and not a 2GB DB copy.
+    // No hidden preview rows: a date with no samples is retained as NULL.
+    var queryService = new SolarOfThings.Core.SqlExplorer.SqlIntegratedEnergyQueryService(
+        database.DatabasePath);
+    var dailyEnergyQuery = await queryService.QueryAsync(
+        integratedRequest with { LastLocalDay = new DateOnly(2026, 5, 25) });
+    if (dailyEnergyQuery.Rows.Count != 2 ||
+        dailyEnergyQuery.Columns.Count != 14 ||
+        dailyEnergyQuery.Rows[0][1].Text != "2026-05-24" ||
+        dailyEnergyQuery.Rows[0][5].IsNull ||
+        Math.Abs(double.Parse(dailyEnergyQuery.Rows[0][5].Text!,
+            System.Globalization.CultureInfo.InvariantCulture) -
+            expectedEnergy.PvEnergyKwh) > 1e-9 ||
+        dailyEnergyQuery.Rows[0][6].IsNull == false ||
+        dailyEnergyQuery.Rows[1][1].Text != "2026-05-25" ||
+        dailyEnergyQuery.Rows[1][5].IsNull == false ||
+        dailyEnergyQuery.Rows[1][10].IsNull == false)
+        throw new InvalidOperationException(
+            "Direct SQL energy query lost parity or fabricated energy for a missing local day.");
+    using (var sourceReadOnly = SqliteDatabase.FromReadOnlySnapshot(
+        database.DatabasePath).OpenConnection())
+    using (var attemptedWrite = sourceReadOnly.CreateCommand())
+    {
+        attemptedWrite.CommandText = """
+            INSERT INTO app_setting(key,value,updated_utc)
+            VALUES('must.never.appear','unsafe','2026-10-11T00:00:00Z');
+            """;
+        var denied = false;
+        try { attemptedWrite.ExecuteNonQuery(); }
+        catch (SqliteException) { denied = true; }
+        if (!denied)
+            throw new InvalidOperationException(
+                "Direct energy SQL reader obtained write access to active database.");
+    }
+    var energyCsv = Path.Combine(analyticalFolder, "direct-energy.csv");
+    var energyXlsx = Path.Combine(analyticalFolder, "direct-energy.xlsx");
+    var csvReceipt = await queryService.ExportAsync(
+        dailyEnergyQuery, energyCsv,
+        SolarOfThings.Core.SqlExplorer.SqlExportFormat.Csv);
+    var xlsxReceipt = await queryService.ExportAsync(
+        dailyEnergyQuery, energyXlsx,
+        SolarOfThings.Core.SqlExplorer.SqlExportFormat.Xlsx);
+    var csvContents = File.ReadAllText(energyCsv);
+    if (csvReceipt.Rows != 2 || xlsxReceipt.Rows != 2 ||
+        !csvContents.Contains("pv_energy_kwh", StringComparison.Ordinal) ||
+        !csvContents.Contains("2026-05-25", StringComparison.Ordinal) ||
+        !csvContents.Contains(@"\N", StringComparison.Ordinal))
+        throw new InvalidOperationException(
+            "Direct kWh CSV/XLSX export lost dates, physical columns or missing-value semantics.");
+    using (var workbook = System.IO.Compression.ZipFile.OpenRead(energyXlsx))
+        if (workbook.GetEntry("xl/worksheets/sheet1.xml") is null)
+            throw new InvalidOperationException("Native XLSX energy export is not a workbook.");
+    var csvOverwriteDenied = false;
+    try
+    {
+        await queryService.ExportAsync(dailyEnergyQuery, energyCsv,
+            SolarOfThings.Core.SqlExplorer.SqlExportFormat.Csv);
+    }
+    catch (IOException) { csvOverwriteDenied = true; }
+    if (!csvOverwriteDenied)
+        throw new InvalidOperationException("Direct kWh export overwrote a prior report.");
+    var invalidRangeDenied = false;
+    try
+    {
+        await queryService.QueryAsync(integratedRequest with
+        {
+            LastLocalDay = integratedRequest.FirstLocalDay.AddDays(366)
+        });
+    }
+    catch (ArgumentOutOfRangeException) { invalidRangeDenied = true; }
+    if (!invalidRangeDenied)
+        throw new InvalidOperationException("SQL kWh query accepted overlong date span.");
+    var cancelledKwhExport = new CancellationTokenSource();
+    cancelledKwhExport.Cancel();
+    var cancelledExportDenied = false;
+    try
+    {
+        await queryService.ExportAsync(dailyEnergyQuery,
+            Path.Combine(analyticalFolder, "cancelled-energy.csv"),
+            SolarOfThings.Core.SqlExplorer.SqlExportFormat.Csv,
+            cancelledKwhExport.Token);
+    }
+    catch (OperationCanceledException) { cancelledExportDenied = true; }
+    if (!cancelledExportDenied ||
+        File.Exists(Path.Combine(analyticalFolder, "cancelled-energy.csv")))
+        throw new InvalidOperationException(
+            "Cancelled direct energy export published partial data.");
+
     var analyticalPreviousHash = Convert.ToHexString(
         System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(analyticalPath)));
     var analyticalOverwriteRejected = false;
