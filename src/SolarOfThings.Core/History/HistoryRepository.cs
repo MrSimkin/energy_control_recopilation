@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 using SolarOfThings.Core.Data;
 
@@ -483,6 +484,47 @@ public sealed class HistoryRepository
             rawSamples);
     }
 
+    /// <summary>
+    /// Bounded read-only list of the most recent non-COMPLETE local history
+    /// days. The primary key (device_id,local_date) supports newest-first
+    /// traversal without counting or loading individual meter/energy samples.
+    /// EMPTY is an observed empty response, not automatically a failure.
+    /// </summary>
+    public IReadOnlyList<HistoryCoverageIssueDay> GetRecentCoverageIssueDays(
+        string deviceId, int limit = 100)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        if (limit < 1 || limit > 100)
+            throw new ArgumentOutOfRangeException(nameof(limit));
+
+        using var connection = _database.OpenConnection();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT local_date,status,frame_count,page_count,retry_count,updated_utc
+            FROM history_day_status
+            WHERE device_id=$device AND
+                  status IN ('PARTIAL','UNAVAILABLE','EMPTY','OPEN')
+            ORDER BY local_date DESC
+            LIMIT $limit;
+            """;
+        cmd.Parameters.AddWithValue("$device", deviceId);
+        cmd.Parameters.AddWithValue("$limit", limit);
+        using var reader = cmd.ExecuteReader();
+        var items = new List<HistoryCoverageIssueDay>(limit);
+        while (reader.Read())
+        {
+            // Badly formed dates are not presented as valid station-local days.
+            if (!DateOnly.TryParseExact(reader.GetString(0), "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None,
+                    out var localDay))
+                continue;
+            items.Add(new HistoryCoverageIssueDay(
+                localDay, reader.GetString(1), reader.GetInt32(2),
+                reader.GetInt32(3), reader.GetInt32(4), reader.GetString(5)));
+        }
+        return items;
+    }
+
     public int GetSampleCount(string deviceId)
     {
         using var connection = _database.OpenConnection();
@@ -496,3 +538,7 @@ public sealed class HistoryRepository
         return Convert.ToInt32(command.ExecuteScalar());
     }
 }
+
+public sealed record HistoryCoverageIssueDay(
+    DateOnly LocalDay, string Status, int FrameCount,
+    int PageCount, int RetryCount, string UpdatedUtc);

@@ -2500,6 +2500,67 @@
                                                         </Border>
 
                                 <Border Style="{StaticResource CardStyle}"
+                                        Margin="0,18,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Data.IssueDaysHeading}"
+                                                   FontSize="16" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{DynamicResource Data.IssueDaysIntro}"
+                                                   FontSize="12" Foreground="#6C757D"
+                                                   TextWrapping="Wrap" Margin="0,5,0,10"/>
+                                        <WrapPanel Margin="0,0,0,8">
+                                            <TextBlock Text="{DynamicResource Data.IssueDaysFilter}"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <ComboBox x:Name="DataIssueDayFilter" Width="185"
+                                                      SelectedValuePath="Tag"
+                                                      SelectionChanged="DataIssueDayFilter_SelectionChanged"
+                                                      SelectedIndex="0" Margin="0,0,10,6">
+                                                <ComboBoxItem Tag="all" Content="{DynamicResource Data.IssueFilter.All}"/>
+                                                <ComboBoxItem Tag="PARTIAL" Content="{DynamicResource Data.IssueStatus.PARTIAL}"/>
+                                                <ComboBoxItem Tag="UNAVAILABLE" Content="{DynamicResource Data.IssueStatus.UNAVAILABLE}"/>
+                                                <ComboBoxItem Tag="EMPTY" Content="{DynamicResource Data.IssueStatus.EMPTY}"/>
+                                                <ComboBoxItem Tag="OPEN" Content="{DynamicResource Data.IssueStatus.OPEN}"/>
+                                            </ComboBox>
+                                            <Button x:Name="DataIssueDayAnalyzeButton"
+                                                    Content="{DynamicResource Data.IssueAnalyzeDay}"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"
+                                                    Padding="12,7" Margin="0,0,0,6"
+                                                    IsEnabled="False"
+                                                    Click="DataIssueDayAnalyze_Click"/>
+                                        </WrapPanel>
+                                        <DataGrid x:Name="DataIssueDaysGrid"
+                                                  AutoGenerateColumns="False"
+                                                  IsReadOnly="True"
+                                                  CanUserAddRows="False"
+                                                  CanUserDeleteRows="False"
+                                                  HeadersVisibility="Column"
+                                                  SelectionMode="Single"
+                                                  SelectionUnit="FullRow"
+                                                  EnableRowVirtualization="True"
+                                                  EnableColumnVirtualization="True"
+                                                  Height="226"
+                                                  SelectionChanged="DataIssueDaysGrid_SelectionChanged">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="{DynamicResource Data.IssueColumn.Day}"
+                                                                    Binding="{Binding DateDisplay}" Width="115"/>
+                                                <DataGridTextColumn Header="{DynamicResource Data.IssueColumn.State}"
+                                                                    Binding="{Binding StatusDisplay}" Width="*"/>
+                                                <DataGridTextColumn Header="{DynamicResource Data.IssueColumn.Frames}"
+                                                                    Binding="{Binding Frames}" Width="70"/>
+                                                <DataGridTextColumn Header="{DynamicResource Data.IssueColumn.Pages}"
+                                                                    Binding="{Binding Pages}" Width="70"/>
+                                                <DataGridTextColumn Header="{DynamicResource Data.IssueColumn.Retries}"
+                                                                    Binding="{Binding Retries}" Width="85"/>
+                                                <DataGridTextColumn Header="{DynamicResource Data.IssueColumn.UpdatedUtc}"
+                                                                    Binding="{Binding UpdatedDisplay}" Width="160"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <TextBlock x:Name="DataIssueDaysStatusText"
+                                                   FontSize="12" Foreground="#6C757D"
+                                                   TextWrapping="Wrap" Margin="0,9,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource CardStyle}"
                                                                 Margin="0,18,0,0"
                                                                 ToolTip="{DynamicResource Tooltip.ConfigurationHealth}">
                                                             <StackPanel>

@@ -10223,7 +10223,8 @@ public partial class MainWindow : Window
         string? HealthStatus,
         string HealthConfirmed,
         string HealthDrift,
-        string HealthUnresolved);
+        string HealthUnresolved,
+        IReadOnlyList<HistoryCoverageIssueDay> IssueDays);
 
     // Data queries can be expensive on multi-GB SQLite histories. Only the
     // current visible page and matching device may receive an async result.
@@ -10238,6 +10239,7 @@ public partial class MainWindow : Window
         _dataCoverageContext = null;
         DataCoverageAnalyzeButton.IsEnabled = false;
         DataCoverageReportButton.IsEnabled = false;
+        ClearDataCoverageIssues();
         var none = _localization.GetString("Data.None");
         var profile = _profiles.Get();
 
@@ -10288,6 +10290,9 @@ public partial class MainWindow : Window
                 var health = MeasureDataCall(
                     "Data.Coverage.Health",
                     () => healthRepository.GetSummary(deviceId));
+                var issues = MeasureDataCall(
+                    "Data.Coverage.RecentNonCompleteDays",
+                    () => history.GetRecentCoverageIssueDays(deviceId));
 
                 return new DataCoverageSnapshot(
                     coverage.FirstSampleAtUtc,
@@ -10305,7 +10310,8 @@ public partial class MainWindow : Window
                     health?.OverallStatus,
                     health?.ConfirmedCount.ToString() ?? "0",
                     health?.DriftCount.ToString() ?? "0",
-                    health?.UnresolvedCount.ToString() ?? "0");
+                    health?.UnresolvedCount.ToString() ?? "0",
+                    issues);
             });
 
             if (!DataCoverageRefreshPolicy.CanApply(
@@ -10330,6 +10336,7 @@ public partial class MainWindow : Window
             DataUnavailableDaysText.Text = result.UnavailableDays;
             DataSavedReadingsText.Text = result.SavedReadings;
             DataReadyReadingsText.Text = result.ReadyReadings;
+            ShowDataCoverageIssues(deviceId, result.IssueDays);
             if (result.HealthStatus is null)
             {
                 ConfigurationHealthText.SetResourceReference(

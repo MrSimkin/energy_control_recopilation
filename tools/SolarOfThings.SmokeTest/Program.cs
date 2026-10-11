@@ -692,6 +692,42 @@ try
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
 
+    // Real Data/Coverage screen feature: bounded issue-day listing uses the
+    // device/local-date PK, preserves civil dates and does not scan samples.
+    using (var issueConn = database.OpenConnection())
+    using (var seed = issueConn.CreateCommand())
+    {
+        seed.CommandText = """
+            INSERT INTO history_day_status(device_id,local_date,timezone,
+                source,status,frame_count,page_count,updated_utc,retry_count)
+            VALUES
+                ('coverage-ui-fixture','2026-10-01','America/Santiago','fixture','COMPLETE',4,1,'2026-10-08T00:00:00Z',0),
+                ('coverage-ui-fixture','2026-10-02','America/Santiago','fixture','PARTIAL',2,1,'2026-10-08T00:00:00Z',2),
+                ('coverage-ui-fixture','2026-10-03','America/Santiago','fixture','EMPTY',0,1,'2026-10-08T00:00:00Z',0),
+                ('coverage-ui-fixture','2026-10-04','America/Santiago','fixture','UNAVAILABLE',0,0,'2026-10-08T00:00:00Z',3),
+                ('coverage-ui-fixture','2026-10-05','America/Santiago','fixture','OPEN',1,1,'2026-10-08T00:00:00Z',1),
+                ('coverage-other-device','2026-10-06','America/Santiago','fixture','PARTIAL',1,1,'2026-10-08T00:00:00Z',1);
+            """;
+        seed.ExecuteNonQuery();
+    }
+    var issueHistory = new SolarOfThings.Core.History.HistoryRepository(database);
+    var newestIssueDays = issueHistory.GetRecentCoverageIssueDays("coverage-ui-fixture");
+    if (newestIssueDays.Count != 4 ||
+        !newestIssueDays.Select(x => x.LocalDay.ToString("yyyy-MM-dd"))
+            .SequenceEqual(new[] { "2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02" }) ||
+        newestIssueDays.Any(x => x.Status == "COMPLETE") ||
+        newestIssueDays.Single(x => x.Status == "PARTIAL").RetryCount != 2 ||
+        newestIssueDays.Single(x => x.Status == "UNAVAILABLE").RetryCount != 3 ||
+        issueHistory.GetRecentCoverageIssueDays("coverage-ui-fixture", 2).Count != 2 ||
+        issueHistory.GetRecentCoverageIssueDays("coverage-other-device").Count != 1 ||
+        issueHistory.GetRecentCoverageIssueDays("coverage-no-days").Count != 0)
+        throw new InvalidOperationException("Data coverage issue-day filtering/order/device isolation failed.");
+    var oversizedIssuePageRejected = false;
+    try { issueHistory.GetRecentCoverageIssueDays("coverage-ui-fixture", 101); }
+    catch (ArgumentOutOfRangeException) { oversizedIssuePageRejected = true; }
+    if (!oversizedIssuePageRejected)
+        throw new InvalidOperationException("Data coverage issue listing allowed an unbounded page.");
+
     // Phase 11: reporting views must be directly queryable, without
     // inventing grid-import kWh from potentially discontinuous power frames.
     using (var reporting = database.OpenConnection())
