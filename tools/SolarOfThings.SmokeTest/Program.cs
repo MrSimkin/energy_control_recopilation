@@ -1462,10 +1462,14 @@ try
     })
     {
         var item = summary.Categories.Single(c => c.Category == category);
+        // The shared smoke source already contains two independent
+        // PHASE11_SMOKE normalized rows; count fixture pairs, not all rows
+        // as though this were an empty database.
         if (item.UnsupportedReason is not null ||
-            item.Missing != 1 || item.Identical != 1 || item.Conflicts != 1 ||
-            item.TargetOnly != 1 || item.SourceRecords != 3 ||
-            item.TargetRecords != 3 ||
+            item.Missing < 1 || item.Identical != 1 || item.Conflicts != 1 ||
+            item.TargetOnly != 1 || item.SourceRecords !=
+                item.Missing + item.Identical + item.Conflicts ||
+            item.TargetRecords != item.Identical + item.Conflicts + item.TargetOnly ||
             item.ChangedFields.GetValueOrDefault(field) != 1)
             throw new InvalidOperationException(
                 "Synthetic telemetry comparator failed: " + category);
@@ -1499,7 +1503,10 @@ try
             "BLOCKED_DEPENDENCIES" ||
         planned.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Status !=
             "BLOCKED_UNSUPPORTED" ||
-        planned.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Records != 3 ||
+        planned.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Records !=
+            summary.Categories.Where(x => x.Category is "HISTORY_RAW_SAMPLES" or
+                "HISTORY_DAY_COVERAGE" or "NORMALIZED_METRICS")
+                .Sum(x => x.Missing) ||
         planned.MissingSettings != previewSettings.Missing ||
         planned.ConflictingSettings != previewSettings.Conflicts ||
         planned.TargetOnlySettings != previewSettings.TargetOnly)
