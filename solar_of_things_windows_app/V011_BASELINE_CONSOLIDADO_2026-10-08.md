@@ -1,5 +1,7 @@
 # Solar Energy Monitor — Línea base consolidada para v0.11.0
 
+**Punto de continuación posterior (11-10-2026):** [V011_HANDOFF_EJECUCION_2026-10-11.md](V011_HANDOFF_EJECUCION_2026-10-11.md). La tabla de estados de esta línea base es una foto del 08-10; el handoff posterior anota la Build 840 y ordena cerrar la v0.11.0 sin repetir trabajo.
+
 **Fecha de corte:** 2026-10-08 (Chile)  
 **Estado:** decisiones funcionales confirmadas por el propietario; desarrollo parcial preexistente; nueva etapa de implementación aún pendiente de ejecutar a partir de esta consolidación.  
 **Carácter:** resumen **operativo vigente**, no historial de cambios ni certificado de pruebas.  
