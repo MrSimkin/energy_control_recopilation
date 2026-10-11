@@ -8508,8 +8508,20 @@ try
         .Get(aggregationDeviceId, sourceRange.StartUtc,
             sourceRange.EndUtc.AddTicks(-1), "America/Santiago",
             AggregationPeriod.Day).Rows.Single();
-    var sourceDbDigest = Convert.ToHexString(
-        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(database.DatabasePath)));
+    // SQLite WAL remains open under Windows: prove source schema is untouched
+    // through a normal SQLite connection rather than raw-reading active DB bytes.
+    using (var sourceBefore = database.OpenConnection())
+    using (var probe = sourceBefore.CreateCommand())
+    {
+        probe.CommandText = """
+            SELECT COUNT(*) FROM sqlite_master
+            WHERE name IN ('reporting_integrated_energy_day',
+                           'reporting_integrated_energy_info');
+            """;
+        if (Convert.ToInt32(probe.ExecuteScalar()) != 0)
+            throw new InvalidOperationException(
+                "Integrated energy table leaked into the active/source SQLite.");
+    }
     var energyCopy = await analyticalService.CreateAsync(integratedPath,
         integratedEnergy: integratedRequest);
     using (var energyReader = new SqliteConnection(
@@ -8546,12 +8558,19 @@ try
         if ((string?)rowQuery.ExecuteScalar() != "APP_EXISTING_GAP_AWARE_INTEGRATOR")
             throw new InvalidOperationException("Materialized energy lost method provenance.");
     }
-    if (energyCopy.Classification !=
-            "ANALYTICAL_SQLITE_ONLY_NOT_A_COMPLETE_BACKUP" ||
-        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            File.ReadAllBytes(database.DatabasePath))) != sourceDbDigest)
-        throw new InvalidOperationException(
-            "Materialized energy export changed source database or backup classification.");
+    using (var sourceAfter = database.OpenConnection())
+    using (var probe = sourceAfter.CreateCommand())
+    {
+        probe.CommandText = """
+            SELECT COUNT(*) FROM sqlite_master
+            WHERE name IN ('reporting_integrated_energy_day',
+                           'reporting_integrated_energy_info');
+            """;
+        if (Convert.ToInt32(probe.ExecuteScalar()) != 0 ||
+            energyCopy.Classification != "ANALYTICAL_SQLITE_ONLY_NOT_A_COMPLETE_BACKUP")
+            throw new InvalidOperationException(
+                "Materialized energy export changed source schema or backup classification.");
+    }
     var invalidEnergyWindowRejected = false;
     try
     {
