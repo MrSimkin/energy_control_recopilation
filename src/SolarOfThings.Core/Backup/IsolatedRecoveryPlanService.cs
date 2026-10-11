@@ -69,8 +69,11 @@ public sealed class IsolatedRecoveryPlanService
             new(7, "TARIFF_RELATIONS", "BLOCKED_DEPENDENCIES",
                 graph?.Totals.OutgoingTariffLinks ?? 0,
                 "Count source relations once; incoming links refer to the same edges. FK remapping still blocked."),
-            new(8, "ENERGY_TELEMETRY", "BLOCKED_UNSUPPORTED", 0,
-                "Historical samples and device identity adapters are not implemented.")
+            new(8, "ENERGY_TELEMETRY", "BLOCKED_UNSUPPORTED",
+                preview.Categories.Where(c => c.Category is "HISTORY_RAW_SAMPLES" or
+                    "HISTORY_DAY_COVERAGE" or "NORMALIZED_METRICS")
+                    .Where(c => c.UnsupportedReason is null).Sum(c => c.Missing),
+                "Physical telemetry is compared read-only; import remains blocked until device identity, raw captures, coverage and normalization dependencies are reviewed.")
         };
         var status = settingsReady ? "SYNTHETIC_SETTINGS_PLAN" : "BLOCKED_INCOMPLETE_PLAN";
         // Package bytes and WAL-visible logical app_setting rows both bind

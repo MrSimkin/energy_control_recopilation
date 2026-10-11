@@ -141,6 +141,8 @@ public sealed class IsolatedRecoveryPreviewService
                         0, 0, 0, "Category exceeds bounded preview or contains duplicate identities."));
                 }
             }
+            // Read-only telemetry evidence comparison; never restores any row.
+            results.AddRange(IsolatedRecoveryTelemetryPreviewService.Compare(from, to));
             // Unexpected missing tables, duplicate portable keys, or bounded-
             // preview limits are NOT a successful complete preview. Do not
             // let callers mistake zero counters for a validated clean category.
@@ -151,8 +153,8 @@ public sealed class IsolatedRecoveryPreviewService
                 "Schema v13+ allows distinct readings at the same timestamp; no stable portable natural key or foreign-key remapping has been approved."));
             results.Add(new RecoveryCategoryResult("BILLS_AND_CHARGES", 0, 0, 0,
                 "Linked bill / reading / charge relationships need a reviewed adapter."));
-            results.Add(new RecoveryCategoryResult("ENERGY_TELEMETRY", 0, 0, 0,
-                "Large history, normalization rules, device identities and coverage need a reviewed adapter."));
+            results.Add(new RecoveryCategoryResult("ENERGY_TELEMETRY_IMPORT", 0, 0, 0,
+                "Read-only telemetry counts do not authorize import; device identity, raw capture and normalization-version adapters remain unapproved."));
             return new RecoveryPreviewResult(manifest.SchemaVersion, targetVersion,
                 partial ? "PARTIAL_PREVIEW" : "READ_ONLY_PREVIEW", results,
                 partial

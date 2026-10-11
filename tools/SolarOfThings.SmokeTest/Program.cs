@@ -860,6 +860,35 @@ try
         insert.ExecuteNonQuery();
     }
 
+    // Fictional raw, normalized and daily source evidence for telemetry preview.
+    // Unique 'recovery-sim' identity avoids touching existing smoke datasets.
+    using (var c = database.OpenConnection())
+    using (var command = c.CreateCommand())
+    {
+        command.CommandText = """
+            INSERT INTO history_sample(device_id,attribute_key,recorded_at_utc,
+                value_json,is_missing,source,retrieved_utc) VALUES
+                ('recovery-sim','grid','2026-10-01T00:00:00Z','100',0,'fixture','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid','2026-10-01T01:00:00Z','110',0,'fixture','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid','2026-10-01T02:00:00Z',NULL,1,'fixture','2026-10-08T00:00:00Z');
+            INSERT INTO history_day_status(device_id,local_date,timezone,source,
+                status,frame_count,page_count,updated_utc) VALUES
+                ('recovery-sim','2026-10-01','America/Santiago','fixture','COMPLETE',3,1,'2026-10-08T00:00:00Z'),
+                ('recovery-sim','2026-10-02','America/Santiago','fixture','PARTIAL',1,1,'2026-10-08T00:00:00Z'),
+                ('recovery-sim','2026-10-03','America/Santiago','fixture','UNAVAILABLE',0,0,'2026-10-08T00:00:00Z');
+            INSERT INTO normalized_metric_sample(device_id,metric_key,recorded_at_utc,
+                normalized_value,normalized_unit,source_attribute_key,
+                normalization_rule_version,confidence,quality,updated_utc) VALUES
+                ('recovery-sim','grid_import_power_w','2026-10-01T00:00:00Z',
+                 100,'W','grid','fixture-v1','HIGH','OBSERVED','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid_import_power_w','2026-10-01T01:00:00Z',
+                 110,'W','grid','fixture-v1','HIGH','OBSERVED','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid_import_power_w','2026-10-01T02:00:00Z',
+                 NULL,'W','grid','fixture-v1','UNRESOLVED','MISSING','2026-10-08T00:00:00Z');
+            """;
+        command.ExecuteNonQuery();
+    }
+
     // Seed stable source identities for the isolated, read-only recovery preview.
     using (var setup = database.OpenConnection())
     using (var insert = setup.CreateCommand())
@@ -1357,6 +1386,33 @@ try
             """;
         setup.ExecuteNonQuery();
     }
+    // One identical, one conflicting and one target-only record in each type.
+    using (var c = previewDatabase.OpenConnection())
+    using (var command = c.CreateCommand())
+    {
+        command.CommandText = """
+            INSERT INTO history_sample(device_id,attribute_key,recorded_at_utc,
+                value_json,is_missing,source,retrieved_utc) VALUES
+                ('recovery-sim','grid','2026-10-01T00:00:00Z','100',0,'fixture','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid','2026-10-01T01:00:00Z','999',0,'fixture','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid','2026-10-01T03:00:00Z','150',0,'fixture','2026-10-08T00:00:00Z');
+            INSERT INTO history_day_status(device_id,local_date,timezone,source,
+                status,frame_count,page_count,updated_utc) VALUES
+                ('recovery-sim','2026-10-01','America/Santiago','fixture','COMPLETE',3,1,'2026-10-08T00:00:00Z'),
+                ('recovery-sim','2026-10-02','America/Santiago','fixture','COMPLETE',1,1,'2026-10-08T00:00:00Z'),
+                ('recovery-sim','2026-10-04','America/Santiago','fixture','PARTIAL',1,1,'2026-10-08T00:00:00Z');
+            INSERT INTO normalized_metric_sample(device_id,metric_key,recorded_at_utc,
+                normalized_value,normalized_unit,source_attribute_key,
+                normalization_rule_version,confidence,quality,updated_utc) VALUES
+                ('recovery-sim','grid_import_power_w','2026-10-01T00:00:00Z',
+                 100,'W','grid','fixture-v1','HIGH','OBSERVED','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid_import_power_w','2026-10-01T01:00:00Z',
+                 999,'W','grid','fixture-v1','HIGH','OBSERVED','2026-10-08T00:00:00Z'),
+                ('recovery-sim','grid_import_power_w','2026-10-01T03:00:00Z',
+                 150,'W','grid','fixture-v1','HIGH','OBSERVED','2026-10-08T00:00:00Z');
+            """;
+        command.ExecuteNonQuery();
+    }
     var previewer = new IsolatedRecoveryPreviewService();
     // Regression: merely placing a target under OS temp is NOT authorization.
     var arbitraryPreviewRejected = false;
@@ -1398,7 +1454,26 @@ try
         !summary.Categories.Any(c => c.Category == "BILLS_AND_CHARGES" &&
             c.UnsupportedReason is not null))
         throw new InvalidOperationException("Isolated selective recovery preview failed.");
-    if (summary.Totals.ComparedCategories != 3 ||
+    foreach (var (category, field) in new[]
+    {
+        ("HISTORY_RAW_SAMPLES", "value_json"),
+        ("HISTORY_DAY_COVERAGE", "status"),
+        ("NORMALIZED_METRICS", "normalized_value")
+    })
+    {
+        var item = summary.Categories.Single(c => c.Category == category);
+        if (item.UnsupportedReason is not null ||
+            item.Missing != 1 || item.Identical != 1 || item.Conflicts != 1 ||
+            item.TargetOnly != 1 || item.SourceRecords != 3 ||
+            item.TargetRecords != 3 ||
+            item.ChangedFields.GetValueOrDefault(field) != 1)
+            throw new InvalidOperationException(
+                "Synthetic telemetry comparator failed: " + category);
+    }
+    if (!summary.Categories.Any(c => c.Category == "ENERGY_TELEMETRY_IMPORT" &&
+            c.UnsupportedReason is not null))
+        throw new InvalidOperationException("Telemetry preview authorized active import.");
+    if (summary.Totals.ComparedCategories != 6 ||
         summary.Totals.BlockedCategories != 3 ||
         summary.Totals.Conflicts < 1 ||
         summary.Totals.OnlyInTarget < 1)
@@ -1424,6 +1499,7 @@ try
             "BLOCKED_DEPENDENCIES" ||
         planned.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Status !=
             "BLOCKED_UNSUPPORTED" ||
+        planned.Steps.Single(x => x.Category == "ENERGY_TELEMETRY").Records != 3 ||
         planned.MissingSettings != previewSettings.Missing ||
         planned.ConflictingSettings != previewSettings.Conflicts ||
         planned.TargetOnlySettings != previewSettings.TargetOnly)
@@ -1664,7 +1740,7 @@ try
             "Incomplete synthetic plan unexpectedly allowed staging.");
     if (incomplete.Status != "PARTIAL_PREVIEW" ||
         incomplete.Totals.BlockedCategories != 4 ||
-        incomplete.Totals.ComparedCategories != 2 ||
+        incomplete.Totals.ComparedCategories != 5 ||
         !incomplete.Categories.Any(c => c.Category == "SETTINGS" &&
             c.UnsupportedReason is not null) ||
         !incomplete.Disclaimer.Contains("INCOMPLETE", StringComparison.Ordinal))
