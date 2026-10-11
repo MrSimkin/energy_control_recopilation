@@ -10224,7 +10224,7 @@ public partial class MainWindow : Window
         string HealthConfirmed,
         string HealthDrift,
         string HealthUnresolved,
-        IReadOnlyList<HistoryCoverageIssueDay> IssueDays);
+        IReadOnlyList<HistoryCoverageIssueDay> RecentIssues);
 
     // Data queries can be expensive on multi-GB SQLite histories. Only the
     // current visible page and matching device may receive an async result.
@@ -10336,7 +10336,7 @@ public partial class MainWindow : Window
             DataUnavailableDaysText.Text = result.UnavailableDays;
             DataSavedReadingsText.Text = result.SavedReadings;
             DataReadyReadingsText.Text = result.ReadyReadings;
-            ShowDataCoverageIssues(deviceId, result.IssueDays);
+            ShowDataCoverageIssues(deviceId, result.RecentIssues);
             if (result.HealthStatus is null)
             {
                 ConfigurationHealthText.SetResourceReference(
