@@ -8807,6 +8807,25 @@ public partial class MainWindow : Window
     {
         if (_sqlExplorerBusy) return;
         var spanish = SqlExplorerSpanish;
+        SqlIntegratedEnergyRequest? energyRequest = null;
+        if (SqlIncludeIntegratedEnergyCheckBox.IsChecked == true)
+        {
+            var active = _profiles.Get();
+            if (active is null ||
+                !SqlEnergyFromDatePicker.SelectedDate.HasValue ||
+                !SqlEnergyToDatePicker.SelectedDate.HasValue)
+            {
+                SqlExplorerStatusText.Text =
+                    _localization.GetString("SqlExplorer.EnergySelectionRequired");
+                return;
+            }
+            energyRequest = new SqlIntegratedEnergyRequest(
+                active.DeviceId,
+                string.IsNullOrWhiteSpace(active.StationTimeZone)
+                    ? "America/Santiago" : active.StationTimeZone,
+                DateOnly.FromDateTime(SqlEnergyFromDatePicker.SelectedDate.Value),
+                DateOnly.FromDateTime(SqlEnergyToDatePicker.SelectedDate.Value));
+        }
         var dialog = new SaveFileDialog
         {
             Filter = "SQLite (*.sqlite)|*.sqlite",
@@ -8847,11 +8866,14 @@ public partial class MainWindow : Window
         {
             var service = new SqlAnalyticalCopyService(
                 _paths.DatabasePath, _paths.DataDirectory, _paths.BackupDirectory);
-            var receipt = await service.CreateAsync(dialog.FileName);
+            var receipt = await service.CreateAsync(dialog.FileName,
+                integratedEnergy: energyRequest);
             SqlExplorerStatusText.Text = (spanish
                 ? "Copia analítica verificada (NO respaldo completo): "
                 : "Verified analytical SQLite copy (NOT full backup): ")
-                + receipt.Path;
+                + receipt.Path +
+                (energyRequest is null ? "" : Environment.NewLine +
+                    _localization.GetString("SqlExplorer.IntegratedEnergyComplete"));
             SqlExplorerPerformanceText.Text =
                 $"SQLite v{receipt.SchemaVersion} · {receipt.SizeBytes:N0} bytes · "
                 + $"SHA-256 {receipt.Sha256} · {watch.Elapsed.TotalSeconds:N1} s";

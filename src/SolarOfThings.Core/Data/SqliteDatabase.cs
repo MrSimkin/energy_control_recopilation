@@ -7,17 +7,40 @@ public sealed class SqliteDatabase
 {
     public const int CurrentSchemaVersion = 17;
 
-    private readonly AppPaths _paths;
+    private readonly AppPaths? _paths;
+    private readonly string? _readOnlySnapshotPath;
 
     public SqliteDatabase(AppPaths paths)
     {
         _paths = paths;
     }
 
-    public string DatabasePath => _paths.DatabasePath;
+    private SqliteDatabase(string readOnlySnapshotPath)
+    {
+        _readOnlySnapshotPath = Path.GetFullPath(readOnlySnapshotPath);
+    }
+
+    /// <summary>
+    /// Bind the existing statistics engine to a disposable analytical SQLite
+    /// snapshot. It cannot initialize/migrate or open writable connections.
+    /// No AppPaths directories or live owner DB are touched.
+    /// </summary>
+    public static SqliteDatabase FromReadOnlySnapshot(string existingSnapshotPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(existingSnapshotPath);
+        if (!File.Exists(existingSnapshotPath))
+            throw new FileNotFoundException("Analytical snapshot does not exist.",
+                existingSnapshotPath);
+        return new SqliteDatabase(existingSnapshotPath);
+    }
+
+    public string DatabasePath => _readOnlySnapshotPath ?? _paths!.DatabasePath;
 
     public void Initialize()
     {
+        if (_readOnlySnapshotPath is not null)
+            throw new InvalidOperationException(
+                "Cannot initialize or migrate a read-only analytical snapshot.");
         using var connection = OpenConnection();
 
         Execute(connection, "PRAGMA foreign_keys = ON;");
@@ -153,8 +176,9 @@ public sealed class SqliteDatabase
     {
         var builder = new SqliteConnectionStringBuilder
         {
-            DataSource = _paths.DatabasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate,
+            DataSource = DatabasePath,
+            Mode = _readOnlySnapshotPath is null
+                ? SqliteOpenMode.ReadWriteCreate : SqliteOpenMode.ReadOnly,
             Cache = SqliteCacheMode.Shared,
             Pooling = true
         };

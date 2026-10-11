@@ -875,6 +875,12 @@
 
     <sys:String x:Key="Dashboard.LatestDayUnavailable">Daily energy unavailable; check data and coverage.</sys:String>
 
+    <sys:String x:Key="SqlExplorer.IncludeIntegratedEnergy">Add integrated daily kWh table to external copy</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyFrom">From</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyTo">Through</sys:String>
+    <sys:String x:Key="SqlExplorer.IntegratedEnergyHint">Optional for an external analytical SQLite copy only: choose up to 366 days. reporting_integrated_energy_day contains the same physically integrated kWh as Analysis, per-signal time coverage and NULL for missing evidence. Active data never changes; sampled watts are not added as energy and this is not a recoverable backup.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergySelectionRequired">Select a configured device and both dates before creating an integrated-energy copy.</sys:String>
+    <sys:String x:Key="SqlExplorer.IntegratedEnergyComplete">Includes reporting_integrated_energy_day and reporting_integrated_energy_info. Query from an external SQLite client; original database remains unchanged.</sys:String>
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopy">External SQLite copy</sys:String>
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopyHint">One-off SQLite file for external analysis; not a full backup or a restore point</sys:String>
 

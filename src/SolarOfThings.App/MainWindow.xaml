@@ -2990,6 +2990,20 @@
                         </WrapPanel>
 
                         <WrapPanel Margin="0,0,0,8">
+                            <CheckBox x:Name="SqlIncludeIntegratedEnergyCheckBox"
+                                      Content="{DynamicResource SqlExplorer.IncludeIntegratedEnergy}"
+                                      Margin="0,5,14,5" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource SqlExplorer.EnergyFrom}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <DatePicker x:Name="SqlEnergyFromDatePicker" Width="145" Margin="0,0,12,5"/>
+                            <TextBlock Text="{DynamicResource SqlExplorer.EnergyTo}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <DatePicker x:Name="SqlEnergyToDatePicker" Width="145" Margin="0,0,12,5"/>
+                        </WrapPanel>
+                        <TextBlock Text="{DynamicResource SqlExplorer.IntegratedEnergyHint}"
+                                   FontSize="11" Foreground="#6C757D" TextWrapping="Wrap"
+                                   Margin="0,0,0,8"/>
+                        <WrapPanel Margin="0,0,0,8">
                             <TextBlock Text="{DynamicResource SqlExplorer.FindLabel}" VerticalAlignment="Center"
                                        Margin="0,0,6,0"/>
                             <TextBox x:Name="SqlFindTextBox" Width="260" Margin="0,0,8,0"

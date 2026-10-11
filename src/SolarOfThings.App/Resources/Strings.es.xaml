@@ -875,6 +875,12 @@
 
     <sys:String x:Key="Dashboard.LatestDayUnavailable">Energía diaria no disponible; revisa datos y cobertura.</sys:String>
 
+    <sys:String x:Key="SqlExplorer.IncludeIntegratedEnergy">Incluir tabla diaria de kWh integrados en copia externa</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyFrom">Desde</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergyTo">Hasta</sys:String>
+    <sys:String x:Key="SqlExplorer.IntegratedEnergyHint">Opcional, solo al crear una copia SQLite externa: selecciona un período de hasta 366 días. La tabla reporting_integrated_energy_day tendrá los kWh integrados según Análisis, cobertura por señal y NULL cuando falte evidencia. No altera la base activa, no convierte W en kWh por suma y no crea un respaldo recuperable.</sys:String>
+    <sys:String x:Key="SqlExplorer.EnergySelectionRequired">Selecciona un equipo configurado y ambas fechas antes de crear una copia con energía integrada.</sys:String>
+    <sys:String x:Key="SqlExplorer.IntegratedEnergyComplete">Incluye reporting_integrated_energy_day y reporting_integrated_energy_info. Consultar en un cliente SQLite externo, sin modificar la base original.</sys:String>
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopy">Copia SQLite externa</sys:String>
     <sys:String x:Key="SqlExplorer.ExternalAnalyticalCopyHint">Copia SQLite puntual para análisis externo; no es un respaldo completo ni una restauración</sys:String>
 

@@ -8495,6 +8495,78 @@ try
             throw new InvalidOperationException(
                 "Analytical snapshot changed when the live source SQLite changed.");
     }
+    // SQL phase 11: materialized kWh come from the SAME gap-aware engine
+    // evaluated against an immutable analytical SQLite stage, never SUM(W).
+    var integratedPath = Path.Combine(analyticalFolder, "energy-integrated.sqlite");
+    var integratedRequest = new SolarOfThings.Core.SqlExplorer.SqlIntegratedEnergyRequest(
+        aggregationDeviceId, "America/Santiago",
+        new DateOnly(2026, 5, 24), new DateOnly(2026, 5, 24));
+    var sourceRange = new TimeRangeSelectionService().ForDay(
+        new DateOnly(2026, 5, 24), "America/Santiago");
+    var expectedEnergy = new EnergyAggregationTableService(
+        new PowerAggregationService(database), new SocAggregationService(database))
+        .Get(aggregationDeviceId, sourceRange.StartUtc,
+            sourceRange.EndUtc.AddTicks(-1), "America/Santiago",
+            AggregationPeriod.Day).Rows.Single();
+    var sourceDbDigest = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(database.DatabasePath)));
+    var energyCopy = await analyticalService.CreateAsync(integratedPath,
+        integratedEnergy: integratedRequest);
+    using (var energyReader = new SqliteConnection(
+        new SqliteConnectionStringBuilder
+        {
+            DataSource = integratedPath, Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString()))
+    {
+        energyReader.Open();
+        using var rowQuery = energyReader.CreateCommand();
+        rowQuery.CommandText = """
+            SELECT station_local_date, pv_energy_kwh,
+                   house_energy_kwh, pv_coverage_percent,
+                   grid_import_energy_kwh
+            FROM reporting_integrated_energy_day
+            WHERE device_id=$device;
+            """;
+        rowQuery.Parameters.AddWithValue("$device", aggregationDeviceId);
+        using var rowRead = rowQuery.ExecuteReader();
+        if (!rowRead.Read() ||
+            rowRead.GetString(0) != "2026-05-24" ||
+            rowRead.IsDBNull(1) ||
+            Math.Abs(rowRead.GetDouble(1) - expectedEnergy.PvEnergyKwh) > 1e-9 ||
+            rowRead.IsDBNull(3) ||
+            Math.Abs(rowRead.GetDouble(3) - expectedEnergy.PvCoveragePercent) > 1e-9 ||
+            !rowRead.IsDBNull(2) || !rowRead.IsDBNull(4) ||
+            rowRead.Read())
+            throw new InvalidOperationException(
+                "Materialized SQL kWh disagrees with existing interval integrator or NULL gaps.");
+        rowRead.Close();
+        rowQuery.CommandText = "SELECT integration_method FROM reporting_integrated_energy_info;";
+        rowQuery.Parameters.Clear();
+        if ((string?)rowQuery.ExecuteScalar() != "APP_EXISTING_GAP_AWARE_INTEGRATOR")
+            throw new InvalidOperationException("Materialized energy lost method provenance.");
+    }
+    if (energyCopy.Classification !=
+            "ANALYTICAL_SQLITE_ONLY_NOT_A_COMPLETE_BACKUP" ||
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            File.ReadAllBytes(database.DatabasePath))) != sourceDbDigest)
+        throw new InvalidOperationException(
+            "Materialized energy export changed source database or backup classification.");
+    var invalidEnergyWindowRejected = false;
+    try
+    {
+        await analyticalService.CreateAsync(
+            Path.Combine(analyticalFolder, "should-not-exist.sqlite"),
+            integratedEnergy: integratedRequest with
+            {
+                LastLocalDay = integratedRequest.FirstLocalDay.AddDays(366)
+            });
+    }
+    catch (ArgumentOutOfRangeException) { invalidEnergyWindowRejected = true; }
+    if (!invalidEnergyWindowRejected ||
+        File.Exists(Path.Combine(analyticalFolder, "should-not-exist.sqlite")))
+        throw new InvalidOperationException("Unsafe SQL energy range was accepted.");
+
     var analyticalPreviousHash = Convert.ToHexString(
         System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(analyticalPath)));
     var analyticalOverwriteRejected = false;
