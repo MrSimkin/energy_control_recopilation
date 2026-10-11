@@ -351,6 +351,42 @@ public sealed class HistoryRepository
             : Convert.ToInt32(value);
     }
 
+    /// <summary>
+    /// Device-scoped time bounds for navigation and historical date presets.
+    /// Two index seeks replace a full raw-history COUNT/MIN/MAX scan.
+    /// All timestamps retain their observed UTC meaning; the UI determines
+    /// station-local civil days. Empty histories never become zero dates.
+    /// </summary>
+    public HistorySampleBounds GetSampleBounds(string deviceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        // Schema v4+ has ix_history_sample_device_time with
+        // (device_id, recorded_at_utc); no migration is needed.
+        command.CommandText = """
+            SELECT
+                (SELECT recorded_at_utc FROM history_sample
+                 WHERE device_id = $deviceId
+                 ORDER BY recorded_at_utc ASC LIMIT 1),
+                (SELECT recorded_at_utc FROM history_sample
+                 WHERE device_id = $deviceId
+                 ORDER BY recorded_at_utc DESC LIMIT 1);
+            """;
+        command.Parameters.AddWithValue("$deviceId", deviceId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read()) return new HistorySampleBounds(null, null);
+
+        DateTimeOffset? Parse(int ordinal)
+        {
+            if (reader.IsDBNull(ordinal)) return null;
+            return DateTimeOffset.TryParse(reader.GetString(ordinal),
+                CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind,
+                out var timestamp) ? timestamp : null;
+        }
+        return new HistorySampleBounds(Parse(0), Parse(1));
+    }
+
     public DateTimeOffset? GetNewestTimestamp(string deviceId)
     {
         using var connection = _database.OpenConnection();
@@ -542,3 +578,7 @@ public sealed class HistoryRepository
 public sealed record HistoryCoverageIssueDay(
     DateOnly LocalDay, string Status, int FrameCount,
     int PageCount, int RetryCount, string UpdatedUtc);
+
+/// <summary>Observed UTC bounds only; never a sample count or completeness claim.</summary>
+public sealed record HistorySampleBounds(
+    DateTimeOffset? FirstSampleAtUtc, DateTimeOffset? LastSampleAtUtc);

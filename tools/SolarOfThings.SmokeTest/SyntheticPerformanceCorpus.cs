@@ -135,10 +135,61 @@ internal static class SyntheticPerformanceCorpus
             var summary = coverage.GetCoverageSummary(Device);
             if (summary.RawSampleCount != frames)
                 throw new InvalidOperationException("Synthetic history count mismatch.");
+            // Exact historical parity: station-local presets use only these
+            // UTC endpoints, not a raw COUNT/MIN/MAX across the entire corpus.
+            var bounds = coverage.GetSampleBounds(Device);
+            if (bounds.FirstSampleAtUtc != summary.FirstSampleAtUtc ||
+                bounds.LastSampleAtUtc != summary.LastSampleAtUtc)
+                throw new InvalidOperationException(
+                    "Indexed history bounds changed observation dates.");
+            var emptyBounds = coverage.GetSampleBounds("synthetic-no-history");
+            if (emptyBounds.FirstSampleAtUtc is not null ||
+                emptyBounds.LastSampleAtUtc is not null)
+                throw new InvalidOperationException(
+                    "Empty history was treated as observed coverage.");
+
+            // A later timestamp in a different device must never influence
+            // dashboard latest-day, Analysis or Report date presets.
+            var otherUtc = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            using (var isolated = database.OpenConnection())
+            using (var insert = isolated.CreateCommand())
+            {
+                insert.CommandText = """
+                    INSERT INTO history_sample
+                      (device_id, attribute_key, recorded_at_utc, value_json,
+                       is_missing, source, retrieved_utc)
+                    VALUES ('synthetic-other-device', 'external',
+                            $utc, '999', 0, 'SYNTHETIC', $utc);
+                    """;
+                insert.Parameters.AddWithValue("$utc", otherUtc.ToString("O"));
+                insert.ExecuteNonQuery();
+            }
+            var otherBounds = coverage.GetSampleBounds("synthetic-other-device");
+            if (otherBounds.FirstSampleAtUtc != otherUtc ||
+                otherBounds.LastSampleAtUtc != otherUtc ||
+                coverage.GetSampleBounds(Device) != bounds)
+                throw new InvalidOperationException(
+                    "History bounds leaked across devices.");
             var normalizedCount = repo.GetNormalizedSampleCount(Device);
             if (normalizedCount != frames * Metrics.Length + 2)
                 throw new InvalidOperationException("Synthetic normalized count mismatch.");
             Measure("history_coverage", () => coverage.GetCoverageSummary(Device));
+            Measure("history_bounds_indexed", () => coverage.GetSampleBounds(Device));
+            using (var connection = database.OpenConnection())
+            using (var plan = connection.CreateCommand())
+            {
+                plan.CommandText = """
+                    EXPLAIN QUERY PLAN
+                    SELECT recorded_at_utc FROM history_sample
+                    WHERE device_id = $device
+                    ORDER BY recorded_at_utc DESC LIMIT 1;
+                    """;
+                plan.Parameters.AddWithValue("$device", Device);
+                using var reader = plan.ExecuteReader();
+                while (reader.Read())
+                    Console.WriteLine("QUERY_PLAN history_bounds_indexed: " +
+                        reader.GetString(3));
+            }
             Measure("normalized_count", () => repo.GetNormalizedSampleCount(Device));
 
             var start = new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);

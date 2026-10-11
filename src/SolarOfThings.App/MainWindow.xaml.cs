@@ -400,8 +400,8 @@ public partial class MainWindow : Window
     {
         using var measure = _performance.Measure("Data.Dashboard.DailyFetch");
         var coverage = MeasureDataCall(
-            "Data.Dashboard.Coverage",
-            () => history.GetCoverageSummary(deviceId));
+            "Data.Dashboard.Bounds",
+            () => history.GetSampleBounds(deviceId));
         if (!coverage.LastSampleAtUtc.HasValue)
             return new DashboardDailyReadResult(null, null);
         var timeZone = string.IsNullOrWhiteSpace(stationTimeZone)
@@ -1302,8 +1302,8 @@ public partial class MainWindow : Window
 
                     var history = _services.GetRequiredService<HistoryRepository>();
                     var coverage = await Task.Run(() => MeasureDataCall(
-                        "Data.Analysis.Coverage",
-                        () => history.GetCoverageSummary(profile.DeviceId)));
+                        "Data.Analysis.Bounds",
+                        () => history.GetSampleBounds(profile.DeviceId)));
 
                     if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
                         return;
@@ -1527,8 +1527,8 @@ public partial class MainWindow : Window
             _services.GetRequiredService<HistoryRepository>();
         // Read-only historical coverage on a worker, never on Dispatcher.
         var coverage = await Task.Run(() => MeasureDataCall(
-            "Data.Analysis.PresetCoverage",
-            () => history.GetCoverageSummary(profile.DeviceId)));
+            "Data.Analysis.PresetBounds",
+            () => history.GetSampleBounds(profile.DeviceId)));
 
         if (_windowClosed ||
             AnalysisContent.Visibility != Visibility.Visible ||
@@ -6676,7 +6676,7 @@ public partial class MainWindow : Window
     private string? _reportReadDeviceId;
     // UI-only last completed coverage; never persisted, never shared across
     // device changes or history refresh. Preset controls must not read SQLite.
-    private HistoryCoverageSummary? _reportAvailableCoverage;
+    private HistorySampleBounds? _reportAvailableCoverage;
     private string? _reportAvailableCoverageDeviceId;
     private string? _pendingReportRangePreset;
     private string? _pendingBatteryReportPreset;
@@ -6903,8 +6903,8 @@ public partial class MainWindow : Window
                     var history = _services.GetRequiredService<HistoryRepository>();
                     // Repository and device key are immutable worker inputs.
                     var coverage = await Task.Run(() => MeasureDataCall(
-                        "Data.Reports.Coverage",
-                        () => history.GetCoverageSummary(profile.DeviceId)));
+                        "Data.Reports.Bounds",
+                        () => history.GetSampleBounds(profile.DeviceId)));
 
                     if (_windowClosed || ReportsContent.Visibility != Visibility.Visible)
                         return;
@@ -6957,7 +6957,7 @@ public partial class MainWindow : Window
     }
 
     private void ApplyReportsCoverage(
-        CommissioningProfile profile, HistoryCoverageSummary coverage,
+        CommissioningProfile profile, HistorySampleBounds coverage,
         bool initializeRange)
     {
         if (!coverage.FirstSampleAtUtc.HasValue ||
@@ -7163,7 +7163,7 @@ public partial class MainWindow : Window
 
     private void InitializeReportDatePartSelectors(
         CommissioningProfile profile,
-        HistoryCoverageSummary coverage)
+        HistorySampleBounds coverage)
     {
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
@@ -7315,7 +7315,7 @@ public partial class MainWindow : Window
     }
 
     private bool ApplyReportRangePreset(
-        CommissioningProfile profile, HistoryCoverageSummary coverage)
+        CommissioningProfile profile, HistorySampleBounds coverage)
     {
         if (!coverage.FirstSampleAtUtc.HasValue ||
             !coverage.LastSampleAtUtc.HasValue)
