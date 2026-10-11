@@ -179,8 +179,9 @@ public sealed class SqliteDatabase
             DataSource = DatabasePath,
             Mode = _readOnlySnapshotPath is null
                 ? SqliteOpenMode.ReadWriteCreate : SqliteOpenMode.ReadOnly,
-            Cache = SqliteCacheMode.Shared,
-            Pooling = true
+            Cache = _readOnlySnapshotPath is null
+                ? SqliteCacheMode.Shared : SqliteCacheMode.Private,
+            Pooling = _readOnlySnapshotPath is null
         };
 
         var connection = new SqliteConnection(builder.ToString());
