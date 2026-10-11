@@ -7502,6 +7502,7 @@ public partial class MainWindow : Window
         ReportPreviewStatusText.Text = string.Empty;
         ReportPreviewCoverageText.Text = string.Empty;
         ReportPreviewPeriodCoverageText.Text = string.Empty;
+        ClearReportPreviewInspection();
     }
 
     private void ReportInspectAnalysis_Click(object sender, RoutedEventArgs e)
@@ -7608,6 +7609,7 @@ public partial class MainWindow : Window
             ReportPreviewBatteryText.Text = FormatReportPreviewMetric(evidence.Summary.BatteryPower, true);
             var quality = ReportPreviewEvidencePolicy.Summarize(evidence.Summary);
             var periodQuality = ReportPeriodQualityPolicy.Summarize(evidence.Buckets);
+            var periodInspection = ReportPeriodInspectionPolicy.Inspect(evidence.Buckets);
             ReportPreviewPeriodCoverageText.Text = string.Format(
                 _localization.GetString("Reports.PreviewPeriodQuality"),
                 periodQuality.AggregatedPeriods,
@@ -7623,6 +7625,7 @@ public partial class MainWindow : Window
                     quality.EligibleStreams, quality.UnavailableStreams,
                     quality.MinimumEligibleCoveragePercent!.Value)
             };
+            RenderReportPreviewInspection(periodInspection, request);
             ReportPreviewResultPanel.Visibility = Visibility.Visible;
             ReportPreviewStatusText.Text = _localization.GetString("Reports.PreviewComplete");
         }

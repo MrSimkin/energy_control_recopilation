@@ -319,6 +319,80 @@ try
         throw new InvalidOperationException(
             "Aggregated report preview concealed missing time buckets.");
 
+    // Report preview's new actionable, in-memory gap list must point to
+    // actual grouped rows rather than invent missing calendar days.
+    var sourceGap = syntheticRow with
+    {
+        LocalLabel = "2026-10-09",
+        StartUtc = rowStart.AddDays(1),
+        EndUtcExclusive = rowEnd.AddDays(1),
+        PvCoveragePercent = 0,
+        HouseCoveragePercent = 40,
+        GridCoveragePercent = double.NaN,
+        BatteryCoveragePercent = 25
+    };
+    var absentGap = syntheticRow with
+    {
+        LocalLabel = "2026-10-10",
+        StartUtc = rowStart.AddDays(2),
+        EndUtcExclusive = rowEnd.AddDays(2),
+        PvCoveragePercent = 0,
+        HouseCoveragePercent = 0,
+        GridCoveragePercent = 0,
+        BatteryCoveragePercent = 0
+    };
+    var inspectedTable = new EnergyAggregationTable(
+        "synthetic", AggregationPeriod.Day, "America/Santiago",
+        rowStart, rowEnd.AddDays(3),
+        new[] { syntheticRow, sourceGap, absentGap });
+    var inspected = ReportPeriodInspectionPolicy.Inspect(inspectedTable);
+    if (inspected.ObservedBuckets != 3 || inspected.AffectedBuckets != 2 ||
+        inspected.LatestAffected.Count != 2 ||
+        inspected.LatestAffected[0].SourceRow.LocalLabel != "2026-10-10" ||
+        inspected.LatestAffected[0].AvailableEnergySignals != 0 ||
+        inspected.LatestAffected[1].SourceRow.LocalLabel != "2026-10-09" ||
+        inspected.LatestAffected[1].AvailableEnergySignals != 2 ||
+        inspected.LatestAffected[1].PvCoveragePercent.HasValue ||
+        inspected.LatestAffected[1].GridCoveragePercent.HasValue ||
+        inspected.LatestAffected[1].HouseCoveragePercent != 40 ||
+        inspected.LatestAffected[1].BatteryCoveragePercent != 25 ||
+        ReportPeriodInspectionPolicy.Inspect(inspectedTable, 1)
+            .LatestAffected.Single().SourceRow.LocalLabel != "2026-10-10" ||
+        ReportPeriodInspectionPolicy.Inspect(inspectedTable with
+        {
+            Rows = new[] { syntheticRow }
+        }).AffectedBuckets != 0)
+        throw new InvalidOperationException(
+            "Report preview inspectable gaps were not faithful to physical coverage.");
+
+    var sampleReportRequest = new EnergyReportRequest(
+        "Synthetic", "synthetic",
+        new DateOnly(2026, 10, 8), new DateOnly(2026, 10, 10),
+        rowStart, rowEnd.AddDays(3), "America/Santiago",
+        AggregationPeriod.Day, ReportKind.DetailedEnergy, "es");
+    var selectedGap = ReportPeriodInspectionPolicy.SelectForAnalysis(
+        inspected.LatestAffected[1], sampleReportRequest);
+    if (selectedGap.From != new DateOnly(2026, 10, 9) ||
+        selectedGap.To != new DateOnly(2026, 10, 9) ||
+        selectedGap.Aggregation != AggregationPeriod.Day)
+        throw new InvalidOperationException("Period drilldown lost station-local date.");
+    var outsideGapRejected = false;
+    try
+    {
+        ReportPeriodInspectionPolicy.SelectForAnalysis(
+            inspected.LatestAffected[0], sampleReportRequest with
+            {
+                StartUtc = rowEnd.AddDays(3),
+                EndUtc = rowEnd.AddDays(4)
+            });
+    }
+    catch (InvalidOperationException) { outsideGapRejected = true; }
+    var tooManyGapRowsRejected = false;
+    try { ReportPeriodInspectionPolicy.Inspect(inspectedTable, 101); }
+    catch (ArgumentOutOfRangeException) { tooManyGapRowsRejected = true; }
+    if (!outsideGapRejected || !tooManyGapRowsRejected)
+        throw new InvalidOperationException("Unsafe preview gap navigation or limit accepted.");
+
     // Data coverage context uses actual UTC sample bounds and the station's
     // local civil dates, not the runner's timezone or today's date.
     var firstCoverage = DateTimeOffset.Parse("2026-10-08T02:30:00Z",

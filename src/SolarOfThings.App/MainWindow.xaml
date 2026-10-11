@@ -2806,6 +2806,43 @@
                                             <TextBlock x:Name="ReportPreviewGridText" TextWrapping="Wrap"/>
                                             <TextBlock Text="{DynamicResource Reports.PreviewBattery}" FontWeight="SemiBold" Margin="0,8,0,0"/>
                                             <TextBlock x:Name="ReportPreviewBatteryText" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{DynamicResource Reports.IssueHeading}"
+                                                       FontWeight="SemiBold" Margin="0,16,0,4"/>
+                                            <TextBlock Text="{DynamicResource Reports.IssueIntro}"
+                                                       FontSize="12" Foreground="#6C757D"
+                                                       TextWrapping="Wrap" Margin="0,0,0,9"/>
+                                            <DataGrid x:Name="ReportPreviewIssueGrid"
+                                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                                      CanUserAddRows="False" CanUserDeleteRows="False"
+                                                      SelectionMode="Single" SelectionUnit="FullRow"
+                                                      EnableRowVirtualization="True"
+                                                      EnableColumnVirtualization="True"
+                                                      Height="215" HeadersVisibility="Column"
+                                                      SelectionChanged="ReportPreviewIssueGrid_SelectionChanged">
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="{DynamicResource Reports.IssueColumn.Period}"
+                                                                        Binding="{Binding LocalLabel}" Width="*"/>
+                                                    <DataGridTextColumn Header="{DynamicResource Reports.IssueColumn.State}"
+                                                                        Binding="{Binding State}" Width="135"/>
+                                                    <DataGridTextColumn Header="{DynamicResource Reports.IssueColumn.Pv}"
+                                                                        Binding="{Binding Solar}" Width="93"/>
+                                                    <DataGridTextColumn Header="{DynamicResource Reports.IssueColumn.House}"
+                                                                        Binding="{Binding House}" Width="93"/>
+                                                    <DataGridTextColumn Header="{DynamicResource Reports.IssueColumn.Grid}"
+                                                                        Binding="{Binding Grid}" Width="93"/>
+                                                    <DataGridTextColumn Header="{DynamicResource Reports.IssueColumn.Battery}"
+                                                                        Binding="{Binding Battery}" Width="93"/>
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                            <TextBlock x:Name="ReportPreviewIssueSummaryText"
+                                                       FontSize="12" Foreground="#6C757D"
+                                                       TextWrapping="Wrap" Margin="0,7,0,8"/>
+                                            <Button x:Name="ReportPreviewIssueAnalyzeButton"
+                                                    Content="{DynamicResource Reports.IssueInspectAnalysis}"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"
+                                                    HorizontalAlignment="Left" Padding="12,7"
+                                                    Click="ReportPreviewIssueAnalyze_Click"
+                                                    IsEnabled="False"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
