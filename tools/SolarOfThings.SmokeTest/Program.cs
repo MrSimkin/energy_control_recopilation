@@ -13,6 +13,7 @@ using SolarOfThings.Core.Statistics;
 using SolarOfThings.Core.Installation;
 using SolarOfThings.Core.SolarOfThings;
 using SolarOfThings.Core.Utility;
+using SolarOfThings.Core.SqlExplorer;
 
 var root = Path.Combine(
     Path.GetTempPath(),
@@ -31,6 +32,39 @@ try
         SyntheticPerformanceCorpus.Run();
         return;
     }
+
+    // Async SQL results must not paint after an edited statement, profile
+    // change, navigation, cancellation or window closure. These are pure
+    // synthetic identities: no WPF, user database or network is accessed.
+    bool CanPreview(string source, string editor, string? requestedDevice,
+        string? currentDevice, bool visible = true, bool closed = false,
+        bool cancelled = false) =>
+        SqlExplorerResultPolicy.CanShowPreview(source, editor, requestedDevice,
+            currentDevice, visible, closed, cancelled);
+    if (!CanPreview("SELECT 1", "SELECT 1", "A", "A") ||
+        CanPreview("SELECT 1", "SELECT 2", "A", "A") ||
+        CanPreview("SELECT 1", "SELECT 1", "A", "B") ||
+        CanPreview("SELECT 1", "SELECT 1", "A", "A", visible: false) ||
+        CanPreview("SELECT 1", "SELECT 1", "A", "A", closed: true) ||
+        CanPreview("SELECT 1", "SELECT 1", "A", "A", cancelled: true))
+        throw new InvalidOperationException(
+            "SQL preview accepted a stale editor/device/page completion.");
+    var energySelection = new SqlIntegratedEnergyRequest("synthetic-A",
+        "America/Santiago", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 7));
+    bool CanEnergy(SqlIntegratedEnergyRequest? current, bool visible = true,
+        bool closed = false, bool cancelled = false) =>
+        SqlExplorerResultPolicy.CanShowIntegratedEnergy(energySelection,
+            current, visible, closed, cancelled);
+    if (!CanEnergy(energySelection with { }) ||
+        CanEnergy(energySelection with { DeviceId = "synthetic-B" }) ||
+        CanEnergy(energySelection with { TimeZoneId = "UTC" }) ||
+        CanEnergy(energySelection with { LastLocalDay = new DateOnly(2026, 9, 8) }) ||
+        CanEnergy(null) ||
+        CanEnergy(energySelection, visible: false) ||
+        CanEnergy(energySelection, closed: true) ||
+        CanEnergy(energySelection, cancelled: true))
+        throw new InvalidOperationException(
+            "Integrated energy accepted stale station-local period or page.");
 
     // Bounded non-sensitive performance recorder smoke. No timing target is
     // asserted (CI hardware is not a substitute for owner's Windows PC).

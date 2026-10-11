@@ -2272,6 +2272,13 @@ public partial class MainWindow : Window
         var isData = string.Equals(pageKey, "Data", StringComparison.Ordinal);
         var isBackup = string.Equals(pageKey, "Backup", StringComparison.Ordinal);
         var isSqlExplorer = string.Equals(pageKey, "SqlExplorer", StringComparison.Ordinal);
+        // Leaving SQL must cancel long-running reads/exports and discard any
+        // result from the abandoned screen. A returning page starts clean.
+        if (!isSqlExplorer && SqlExplorerContent.Visibility == Visibility.Visible)
+        {
+            _sqlRunning?.Cancel();
+            ClearSqlExplorerDisplayedResult();
+        }
         var isHelp = string.Equals(pageKey, "Help", StringComparison.Ordinal);
         var isSettings = string.Equals(pageKey, "Settings", StringComparison.Ordinal);
         var isAbout = string.Equals(pageKey, "About", StringComparison.Ordinal);
@@ -8468,6 +8475,7 @@ public partial class MainWindow : Window
         EventArgs e)
     {
         _windowClosed = true;
+        _sqlRunning?.Cancel();
         RequestReportExportCancellation();
         _reportPreviewCancellation?.Cancel();
         _dashboardRefreshGeneration++;
@@ -8605,6 +8613,8 @@ public partial class MainWindow : Window
     private void SetSqlExplorerBusy(bool busy)
     {
         _sqlExplorerBusy = busy;
+        // Avoid editing the statement while a read or export is executing.
+        SqlStatementEditor.IsReadOnly = busy;
         SqlExplorerBusyBar.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         SqlExecuteButton.IsEnabled = !busy;
         SqlExportCsvButton.IsEnabled = !busy;
@@ -9088,10 +9098,12 @@ public partial class MainWindow : Window
     private async Task ExecuteSqlExplorerAsync(int requestedOffset = 0)
     {
         if (_sqlExplorerBusy) return;
-        InvalidateSqlEnergyResult();
         var sql = SqlStatementEditor.Text;
-        if (!string.Equals(sql, _sqlLastPreviewSql, StringComparison.Ordinal))
+        var deviceId = _profiles.Get()?.DeviceId;
+        var pageSql = _sqlLastPreviewSql;
+        if (!string.Equals(sql, pageSql, StringComparison.Ordinal))
             requestedOffset = 0;
+        ClearSqlExplorerDisplayedResult();
         SetSqlExplorerBusy(true);
         using var cancellation = new CancellationTokenSource();
         _sqlRunning = cancellation;
@@ -9104,6 +9116,12 @@ public partial class MainWindow : Window
         {
             var result = await CreateSqlExplorer().PreviewPageAsync(sql,
                 requestedOffset, cancellationToken: cancellation.Token);
+            if (!SqlExplorerResultPolicy.CanShowPreview(
+                    sql, SqlStatementEditor.Text, deviceId,
+                    _profiles.Get()?.DeviceId,
+                    SqlExplorerContent.Visibility == Visibility.Visible,
+                    _windowClosed, cancellation.IsCancellationRequested))
+                return;
             var table = new DataTable();
             foreach (var (label, index) in result.Columns.Select((label, index) => (label, index)))
             {
@@ -9189,6 +9207,7 @@ public partial class MainWindow : Window
             OverwritePrompt = false
         };
         if (dialog.ShowDialog(this) != true) return;
+        var exportedSql = SqlStatementEditor.Text;
         SetSqlExplorerBusy(true);
         using var cancellation = new CancellationTokenSource();
         _sqlRunning = cancellation;
@@ -9200,7 +9219,7 @@ public partial class MainWindow : Window
         try
         {
             var result = await CreateSqlExplorer().ExportAsync(
-                SqlStatementEditor.Text, dialog.FileName, format, cancellation.Token);
+                exportedSql, dialog.FileName, format, cancellation.Token);
             SqlExplorerStatusText.Text = (SqlExplorerSpanish
                 ? "Exportación completa, filas: " : "Full export, rows: ") +
                 result.Rows + " — " + result.Path;
@@ -9216,7 +9235,7 @@ public partial class MainWindow : Window
         {
             SqlExplorerStatusText.Text = SqlExplorerSpanish
                 ? "No se completó la exportación." : "Export did not complete.";
-            ShowSqlExplorerError(ex, SqlStatementEditor.Text);
+            ShowSqlExplorerError(ex, exportedSql);
         }
         finally
         {
@@ -9299,11 +9318,7 @@ public partial class MainWindow : Window
         if (_sqlLastPreviewSql is not null &&
             !string.Equals(SqlStatementEditor.Text, _sqlLastPreviewSql, StringComparison.Ordinal))
         {
-            _sqlLastPreviewSql = null;
-            _sqlPreviewOffset = 0;
-            _sqlPreviewHasMore = false;
-            SqlPreviousPageButton.IsEnabled = false;
-            SqlNextPageButton.IsEnabled = false;
+            ClearSqlExplorerDisplayedResult();
             SqlExplorerPageText.Text = SqlExplorerSpanish
                 ? "Consulta modificada; ejecutar para reiniciar páginas."
                 : "Query edited; execute to reset paging.";

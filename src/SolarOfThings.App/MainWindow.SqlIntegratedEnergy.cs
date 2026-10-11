@@ -9,6 +9,28 @@ namespace SolarOfThings.App;
 public partial class MainWindow
 {
     private SqlIntegratedEnergyTable? _sqlLastEnergyTable;
+    private bool _sqlShowingIntegratedEnergy;
+    private bool _sqlEnergyOperationRunning;
+
+    // The SQL preview and integrated-energy table share a WPF DataGrid.
+    // Clear the COMPLETE result identity; never leave a previous device,
+    // statement or station-local period visible after invalidation.
+    private void ClearSqlExplorerDisplayedResult()
+    {
+        _sqlLastEnergyTable = null;
+        _sqlShowingIntegratedEnergy = false;
+        _sqlLastPreviewSql = null;
+        _sqlPreviewOffset = 0;
+        _sqlPreviewHasMore = false;
+        if (SqlExplorerResultGrid is null) return;
+        SqlExplorerResultGrid.ItemsSource = null;
+        SqlExplorerResultTitle.Text = string.Empty;
+        SqlExplorerPageText.Text = string.Empty;
+        SqlPreviousPageButton.IsEnabled = false;
+        SqlNextPageButton.IsEnabled = false;
+        SqlEnergyExportCsvButton.IsEnabled = false;
+        SqlEnergyExportXlsxButton.IsEnabled = false;
+    }
 
     private SqlIntegratedEnergyRequest? CurrentSqlEnergyRequest()
     {
@@ -28,6 +50,16 @@ public partial class MainWindow
 
     private void InvalidateSqlEnergyResult()
     {
+        // Date changes during an energy read/export must stop obsolete work.
+        // The exporter's temporary file is removed on cancellation.
+        if (_sqlEnergyOperationRunning) _sqlRunning?.Cancel();
+        if (_sqlShowingIntegratedEnergy)
+        {
+            ClearSqlExplorerDisplayedResult();
+            SqlExplorerStatusText.Text =
+                _localization.GetString("SqlExplorer.EnergyRequeryRequired");
+            return;
+        }
         _sqlLastEnergyTable = null;
         if (SqlEnergyExportCsvButton is null) return;
         SqlEnergyExportCsvButton.IsEnabled = false;
@@ -48,10 +80,11 @@ public partial class MainWindow
             return;
         }
 
-        InvalidateSqlEnergyResult();
+        ClearSqlExplorerDisplayedResult();
         SetSqlExplorerBusy(true);
         using var cancel = new CancellationTokenSource();
         _sqlRunning = cancel;
+        _sqlEnergyOperationRunning = true;
         SqlExplorerStatusText.Text =
             _localization.GetString("SqlExplorer.EnergyQueryLoading");
         SqlExplorerDiagnosticText.Text = "";
@@ -60,9 +93,10 @@ public partial class MainWindow
         {
             var result = await new SqlIntegratedEnergyQueryService(
                 _paths.DatabasePath).QueryAsync(request, cancel.Token);
-            if (_windowClosed ||
-                SqlExplorerContent.Visibility != Visibility.Visible ||
-                request != CurrentSqlEnergyRequest())
+            if (!SqlExplorerResultPolicy.CanShowIntegratedEnergy(
+                    request, CurrentSqlEnergyRequest(),
+                    SqlExplorerContent.Visibility == Visibility.Visible,
+                    _windowClosed, cancel.IsCancellationRequested))
                 return;
 
             var grid = new DataTable();
@@ -84,6 +118,7 @@ public partial class MainWindow
             SqlExplorerStatusText.Text =
                 _localization.GetString("SqlExplorer.EnergyQueryComplete");
             _sqlLastEnergyTable = result;
+            _sqlShowingIntegratedEnergy = true;
         }
         catch (OperationCanceledException)
         {
@@ -98,6 +133,7 @@ public partial class MainWindow
         }
         finally
         {
+            _sqlEnergyOperationRunning = false;
             _sqlRunning = null;
             SetSqlExplorerBusy(false);
         }
@@ -132,6 +168,7 @@ public partial class MainWindow
         SetSqlExplorerBusy(true);
         using var cancel = new CancellationTokenSource();
         _sqlRunning = cancel;
+        _sqlEnergyOperationRunning = true;
         SqlExplorerStatusText.Text = _localization.GetString(
             "SqlExplorer.EnergyExportLoading");
         SqlExplorerDiagnosticText.Text = "";
@@ -157,6 +194,7 @@ public partial class MainWindow
         }
         finally
         {
+            _sqlEnergyOperationRunning = false;
             _sqlRunning = null;
             SetSqlExplorerBusy(false);
         }
