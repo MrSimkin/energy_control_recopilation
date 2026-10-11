@@ -618,6 +618,10 @@
     <sys:String x:Key="Page.Data.Title">Datos recopilados</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Datos locales, sincronización y cobertura histórica</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">La sincronización histórica local ya está activa mediante “Actualizar datos”. El análisis se construirá sobre este corpus validado.</sys:String>
+    <sys:String x:Key="DataSync.StartModeSingleDay">Revisar solo un día</sys:String>
+    <sys:String x:Key="DataSync.SingleDayHint">Revisión manual de un único día local ({0}). No revisará los demás días, no declara completo el historial y no empezará hasta pulsar Actualizar datos.</sys:String>
+    <sys:String x:Key="DataSync.SingleDayRequiresDate">Selecciona una fecha para revisar solo ese día.</sys:String>
+    <sys:String x:Key="Data.IssuePrepareRecheck">Preparar revisión de este día</sys:String>
     <sys:String x:Key="Data.IssueDaysHeading">Revisar días sin cobertura completa</sys:String>
     <sys:String x:Key="Data.IssueDaysIntro">Hasta 100 fechas recientes con estado distinto de COMPLETO. Los días VACÍOS son respuestas sin datos, no necesariamente errores. Una fecha ausente de esta lista no demuestra cobertura completa; se limita la consulta para mantener ágil la pantalla.</sys:String>
     <sys:String x:Key="Data.IssueDaysFilter">Estado</sys:String>

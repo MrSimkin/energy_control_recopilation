@@ -8047,6 +8047,14 @@ public partial class MainWindow : Window
 
         if (sender is Button button)
         {
+            if (string.Equals(CaptureStartModeSelector.SelectedValue?.ToString(),
+                "single-day", StringComparison.Ordinal) &&
+                !ManualCaptureStartDatePicker.SelectedDate.HasValue)
+            {
+                MessageBox.Show(_localization.GetString("DataSync.SingleDayRequiresDate"),
+                    _localization.GetString("UpdateDialog.Title"));
+                return;
+            }
             await RunHistorySyncAsync(profile, button);
         }
     }
@@ -8146,7 +8154,8 @@ public partial class MainWindow : Window
                 history.GetSampleCount(profile.DeviceId) == 0,
                 progress,
                 _syncCancellation.Token,
-                GetRequestedCaptureStartDate());
+                GetRequestedCaptureStartDate(),
+                GetRequestedCaptureSingleDay());
         }
         catch (Exception ex)
         {
@@ -10118,6 +10127,15 @@ public partial class MainWindow : Window
             : null;
     }
 
+    private DateOnly? GetRequestedCaptureSingleDay()
+    {
+        return string.Equals(CaptureStartModeSelector.SelectedValue?.ToString(),
+                "single-day", StringComparison.Ordinal) &&
+            ManualCaptureStartDatePicker.SelectedDate.HasValue
+            ? DateOnly.FromDateTime(ManualCaptureStartDatePicker.SelectedDate.Value)
+            : null;
+    }
+
     private void RefreshCaptureStartOptions()
     {
         if (!IsInitialized ||
@@ -10132,14 +10150,19 @@ public partial class MainWindow : Window
             CaptureStartModeSelector.SelectedValue?.ToString(),
             "manual",
             StringComparison.Ordinal);
+        var singleDay = string.Equals(
+            CaptureStartModeSelector.SelectedValue?.ToString(),
+            "single-day",
+            StringComparison.Ordinal);
 
-        ManualCaptureStartDatePicker.IsEnabled = manual;
+        ManualCaptureStartDatePicker.IsEnabled = manual || singleDay;
 
         var profile = _profiles.Get();
         if (profile is null)
         {
-            CaptureStartHintText.Text = manual
-                ? _localization.GetString("DataSync.ManualHint")
+            CaptureStartHintText.Text = singleDay
+                ? _localization.GetString("DataSync.SingleDayRequiresDate")
+                : manual ? _localization.GetString("DataSync.ManualHint")
                 : string.Empty;
             return;
         }
@@ -10154,17 +10177,20 @@ public partial class MainWindow : Window
                 installationDate.Value.ToString("dd-MM-yyyy"))
             : string.Empty;
 
-        if (manual)
+        if (manual || singleDay)
         {
             if (!ManualCaptureStartDatePicker.SelectedDate.HasValue)
-            {
                 ManualCaptureStartDatePicker.SelectedDate =
                     automaticStart.ToDateTime(TimeOnly.MinValue);
-            }
+
+            var description = singleDay
+                ? string.Format(_localization.GetString("DataSync.SingleDayHint"),
+                    ManualCaptureStartDatePicker.SelectedDate?.ToString("dd-MM-yyyy") ?? "—")
+                : _localization.GetString("DataSync.ManualHint");
 
             CaptureStartHintText.Text = string.IsNullOrWhiteSpace(installationText)
-                ? _localization.GetString("DataSync.ManualHint")
-                : $"{installationText}\n{_localization.GetString("DataSync.ManualHint")}";
+                ? description
+                : $"{installationText}\n{description}";
         }
         else
         {

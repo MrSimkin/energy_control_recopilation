@@ -634,6 +634,7 @@
                                                       SelectionChanged="CaptureStartModeSelector_SelectionChanged">
                                                 <ComboBoxItem Tag="auto" Content="{DynamicResource DataSync.StartModeAuto}"/>
                                                 <ComboBoxItem Tag="manual" Content="{DynamicResource DataSync.StartModeManual}"/>
+                                                <ComboBoxItem Tag="single-day" Content="{DynamicResource DataSync.StartModeSingleDay}"/>
                                             </ComboBox>
                                             <controls:QuickDatePicker x:Name="ManualCaptureStartDatePicker"
                                                                       Width="150"
@@ -2526,6 +2527,12 @@
                                                     Padding="12,7" Margin="0,0,0,6"
                                                     IsEnabled="False"
                                                     Click="DataIssueDayAnalyze_Click"/>
+                                            <Button x:Name="DataIssueDayRecheckButton"
+                                                    Content="{DynamicResource Data.IssuePrepareRecheck}"
+                                                    Style="{StaticResource SecondaryActionButtonStyle}"
+                                                    Padding="12,7" Margin="8,0,0,6"
+                                                    IsEnabled="False"
+                                                    Click="DataIssueDayRecheck_Click"/>
                                         </WrapPanel>
                                         <DataGrid x:Name="DataIssueDaysGrid"
                                                   AutoGenerateColumns="False"

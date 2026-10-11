@@ -618,6 +618,10 @@
     <sys:String x:Key="Page.Data.Title">Collected data</sys:String>
     <sys:String x:Key="Page.Data.Subtitle">Local data, synchronization and historical coverage</sys:String>
     <sys:String x:Key="Page.Data.Placeholder">Local historical synchronization is now active through Update Data. Analysis will be built on this validated corpus.</sys:String>
+    <sys:String x:Key="DataSync.StartModeSingleDay">Recheck one day only</sys:String>
+    <sys:String x:Key="DataSync.SingleDayHint">Manual recheck for one station-local day ({0}). Other days will not be checked, the complete historical backfill is not certified, and nothing starts until you click Update data.</sys:String>
+    <sys:String x:Key="DataSync.SingleDayRequiresDate">Choose a date to recheck only that day.</sys:String>
+    <sys:String x:Key="Data.IssuePrepareRecheck">Prepare this day's recheck</sys:String>
     <sys:String x:Key="Data.IssueDaysHeading">Review days without complete coverage</sys:String>
     <sys:String x:Key="Data.IssueDaysIntro">Up to 100 recent dates with a status other than COMPLETE. EMPTY means the source returned no data, not necessarily an error. An absent date does not prove coverage; the bounded query keeps the screen responsive.</sys:String>
     <sys:String x:Key="Data.IssueDaysFilter">Status</sys:String>

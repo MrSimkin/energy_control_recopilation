@@ -58,7 +58,8 @@ public sealed class HistoryIngestionService
         bool fullBackfill,
         IProgress<HistorySyncProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        DateOnly? requestedStartDate = null)
+        DateOnly? requestedStartDate = null,
+        DateOnly? requestedSingleDay = null)
     {
         var timeZone = string.IsNullOrWhiteSpace(profile.StationTimeZone)
             ? "America/Santiago"
@@ -73,44 +74,48 @@ public sealed class HistoryIngestionService
                 AttributionContextBackfillVersion,
                 StringComparison.Ordinal);
 
-        var startDate = DetermineStartDate(
-            profile,
-            today,
-            timeZone,
-            fullBackfill,
-            requestedStartDate);
+        if (requestedSingleDay.HasValue && requestedStartDate.HasValue)
+            throw new InvalidOperationException(
+                "A one-day recheck cannot be combined with a from-date backfill.");
 
-        if (contextBackfillPending)
-        {
-            var existingCoverage = _history.GetCoverageSummary(profile.DeviceId);
-            if (existingCoverage.FirstTrackedDate.HasValue &&
-                existingCoverage.FirstTrackedDate.Value < startDate)
-            {
-                startDate = existingCoverage.FirstTrackedDate.Value;
-            }
-        }
-
-        if (startDate > today)
-        {
-            startDate = today;
-        }
-
+        var singleDayPlan = requestedSingleDay.HasValue
+            ? HistoryDayRecheckPolicy.Resolve(
+                requestedSingleDay.Value, today, GetInstallationDate(profile))
+            : null;
         var syncDates = new SortedSet<DateOnly>();
-
-        for (var day = startDate; day <= today; day = day.AddDays(1))
-        {
-            syncDates.Add(day);
-        }
-
         IReadOnlyList<DateOnly> retryDates = [];
 
-        if (!fullBackfill)
+        if (singleDayPlan is not null)
         {
-            retryDates = _history.GetRetryDates(profile.DeviceId, today);
+            // STRICT: one day only. No implicit historical context backfill,
+            // trailing days, automatic retries or adjacent-day overlaps.
+            foreach (var day in singleDayPlan)
+                syncDates.Add(day);
+        }
+        else
+        {
+            var startDate = DetermineStartDate(
+                profile, today, timeZone, fullBackfill, requestedStartDate);
 
-            foreach (var retryDate in retryDates)
+            if (contextBackfillPending)
             {
-                syncDates.Add(retryDate);
+                var existingCoverage = _history.GetCoverageSummary(profile.DeviceId);
+                if (existingCoverage.FirstTrackedDate.HasValue &&
+                    existingCoverage.FirstTrackedDate.Value < startDate)
+                    startDate = existingCoverage.FirstTrackedDate.Value;
+            }
+
+            if (startDate > today)
+                startDate = today;
+
+            for (var day = startDate; day <= today; day = day.AddDays(1))
+                syncDates.Add(day);
+
+            if (!fullBackfill)
+            {
+                retryDates = _history.GetRetryDates(profile.DeviceId, today);
+                foreach (var retryDate in retryDates)
+                    syncDates.Add(retryDate);
             }
         }
 
@@ -130,6 +135,7 @@ public sealed class HistoryIngestionService
                 contextBackfillPending,
                 contextBackfillVersion = AttributionContextBackfillVersion,
                 requestedStartDate = requestedStartDate?.ToString("yyyy-MM-dd"),
+                requestedSingleDay = requestedSingleDay?.ToString("yyyy-MM-dd"),
                 firstSyncDate = firstSyncDate.ToString("yyyy-MM-dd"),
                 lastSyncDate = lastSyncDate.ToString("yyyy-MM-dd"),
                 retryDates = retryDates.Select(date => date.ToString("yyyy-MM-dd")).ToArray()
@@ -137,9 +143,12 @@ public sealed class HistoryIngestionService
 
         var syncRunId = _history.StartSyncRun(JsonSerializer.Serialize(new
         {
-            mode = fullBackfill ? "full-backfill" : "incremental",
+            mode = requestedSingleDay.HasValue
+                ? "manual-single-day"
+                : fullBackfill ? "full-backfill" : "incremental",
             contextBackfillPending,
             requestedStartDate = requestedStartDate?.ToString("yyyy-MM-dd"),
+            requestedSingleDay = requestedSingleDay?.ToString("yyyy-MM-dd"),
             profile.DeviceId,
             from = firstSyncDate.ToString("yyyy-MM-dd"),
             to = lastSyncDate.ToString("yyyy-MM-dd"),
@@ -247,7 +256,8 @@ public sealed class HistoryIngestionService
                 if (!result.Complete && day < today)
                 {
                     var priorRetries = _history.GetRetryCount(profile.DeviceId, day);
-                    var terminalRetryFailure = requestedStartDate.HasValue
+                    var terminalRetryFailure = requestedStartDate.HasValue ||
+                                              requestedSingleDay.HasValue
                         ? priorRetries >= MaxAutomaticRetriesPerHistoricalDay
                         : priorRetries + 1 >= MaxAutomaticRetriesPerHistoricalDay;
 
@@ -259,14 +269,15 @@ public sealed class HistoryIngestionService
                             "HistorySync",
                             "HistoricalDayUnavailable",
                             "STOP_RETRYING",
-                            requestedStartDate.HasValue
+                            requestedStartDate.HasValue || requestedSingleDay.HasValue
                                 ? $"Manual recheck of {day:yyyy-MM-dd} still found no retrievable data; Automatic will continue skipping it."
                                 : $"Automatic synchronization will stop retrying {day:yyyy-MM-dd} after {priorRetries + 1} failed acquisition attempts.",
                             JsonSerializer.Serialize(new
                             {
                                 localDate = day.ToString("yyyy-MM-dd"),
                                 attempts = priorRetries + 1,
-                                manualRecheck = requestedStartDate.HasValue,
+                                manualRecheck = requestedStartDate.HasValue ||
+                                                requestedSingleDay.HasValue,
                                 result.Error,
                                 result.Source
                             }));
@@ -332,7 +343,7 @@ public sealed class HistoryIngestionService
                 }
             }
 
-            if (fullBackfill && firstSyncDate < today)
+            if (fullBackfill && !requestedSingleDay.HasValue && firstSyncDate < today)
             {
                 var validationDay = today.AddDays(-1);
                 progress?.Report(new(
@@ -429,7 +440,7 @@ public sealed class HistoryIngestionService
                 $"History synchronization completed: {daysCompleted}/{daysAttempted} days.",
                 JsonSerializer.Serialize(resultSummary));
 
-            if (contextBackfillPending &&
+            if (contextBackfillPending && !requestedSingleDay.HasValue &&
                 daysAttempted > 0 &&
                 daysCompleted == daysAttempted)
             {

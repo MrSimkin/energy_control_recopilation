@@ -692,6 +692,31 @@ try
         throw new InvalidOperationException("Unexpected SQLite schema version.");
     }
 
+    // Precise single-local-day recheck policy: no date range, no auto retry,
+    // and explicit rejection of future and pre-installation dates.
+    var onlyOct04 = SolarOfThings.Core.History.HistoryDayRecheckPolicy.Resolve(
+        new DateOnly(2026, 10, 4), new DateOnly(2026, 10, 11),
+        new DateOnly(2026, 7, 1));
+    if (onlyOct04.Count != 1 || onlyOct04[0] != new DateOnly(2026, 10, 4))
+        throw new InvalidOperationException("Single-day recheck expanded into a range.");
+    var futureDayRejected = false;
+    var beforeInstallRejected = false;
+    try
+    {
+        SolarOfThings.Core.History.HistoryDayRecheckPolicy.Resolve(
+            new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 11), null);
+    }
+    catch (InvalidOperationException) { futureDayRejected = true; }
+    try
+    {
+        SolarOfThings.Core.History.HistoryDayRecheckPolicy.Resolve(
+            new DateOnly(2026, 6, 30), new DateOnly(2026, 10, 11),
+            new DateOnly(2026, 7, 1));
+    }
+    catch (InvalidOperationException) { beforeInstallRejected = true; }
+    if (!futureDayRejected || !beforeInstallRejected)
+        throw new InvalidOperationException("Invalid one-day recheck was not blocked.");
+
     // Real Data/Coverage screen feature: bounded issue-day listing uses the
     // device/local-date PK, preserves civil dates and does not scan samples.
     using (var issueConn = database.OpenConnection())

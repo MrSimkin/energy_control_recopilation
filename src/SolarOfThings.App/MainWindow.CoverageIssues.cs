@@ -25,6 +25,7 @@ public partial class MainWindow
             return;
         DataIssueDaysGrid.ItemsSource = null;
         DataIssueDayAnalyzeButton.IsEnabled = false;
+        DataIssueDayRecheckButton.IsEnabled = false;
         DataIssueDaysStatusText.SetResourceReference(
             TextBlock.TextProperty, "Data.IssueDaysLoading");
     }
@@ -76,6 +77,7 @@ public partial class MainWindow
             ? _coverageIssueRows
             : _coverageIssueRows.Where(item => item.Status == filter).ToArray();
         DataIssueDayAnalyzeButton.IsEnabled = false;
+        DataIssueDayRecheckButton.IsEnabled = false;
     }
 
     private void DataIssueDaysGrid_SelectionChanged(
@@ -83,13 +85,35 @@ public partial class MainWindow
     {
         if (DataIssueDayAnalyzeButton is null)
             return;
-        DataIssueDayAnalyzeButton.IsEnabled =
+        var eligible =
             !_windowClosed &&
             DataContent.Visibility == Visibility.Visible &&
             DataIssueDaysGrid.SelectedItem is CoverageIssueDisplayRow &&
             _coverageIssueDeviceId is not null &&
             string.Equals(_coverageIssueDeviceId, _profiles.Get()?.DeviceId,
                 StringComparison.Ordinal);
+        DataIssueDayAnalyzeButton.IsEnabled = eligible;
+        DataIssueDayRecheckButton.IsEnabled = eligible;
+    }
+
+    private void DataIssueDayRecheck_Click(object sender, RoutedEventArgs e)
+    {
+        // This action PREPARES a local-day selection. It performs no API call,
+        // no database write, and never begins synchronization.
+        if (_windowClosed || _syncCancellation is not null ||
+            DataContent.Visibility != Visibility.Visible ||
+            DataIssueDaysGrid.SelectedItem is not CoverageIssueDisplayRow selected ||
+            _coverageIssueDeviceId is null ||
+            !string.Equals(_coverageIssueDeviceId, _profiles.Get()?.DeviceId,
+                StringComparison.Ordinal))
+            return;
+
+        CaptureStartModeSelector.SelectedValue = "single-day";
+        ManualCaptureStartDatePicker.SelectedDate =
+            selected.LocalDay.ToDateTime(TimeOnly.MinValue);
+        RefreshCaptureStartOptions();
+        ShowPage("Dashboard");
+        // User must deliberately press the existing global Update data button.
     }
 
     private void DataIssueDayAnalyze_Click(object sender, RoutedEventArgs e)
