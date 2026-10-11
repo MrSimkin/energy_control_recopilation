@@ -897,6 +897,22 @@ try
                 ('recovery-sim','2026-10-01','America/Santiago','fixture','COMPLETE',3,1,'2026-10-08T00:00:00Z'),
                 ('recovery-sim','2026-10-02','America/Santiago','fixture','PARTIAL',1,1,'2026-10-08T00:00:00Z'),
                 ('recovery-sim','2026-10-03','America/Santiago','fixture','UNAVAILABLE',0,0,'2026-10-08T00:00:00Z');
+            -- Source-only PARTIAL day with exactly one original API page.
+            INSERT INTO history_sample(device_id,attribute_key,recorded_at_utc,
+                value_json,is_missing,source,retrieved_utc)
+            VALUES('recovery-sim','grid','2026-10-05T12:00:00Z',
+                   '88',0,'selected-key-v1','2026-10-08T00:00:00Z');
+            INSERT INTO history_day_status(device_id,local_date,timezone,source,
+                status,frame_count,page_count,updated_utc)
+            VALUES('recovery-sim','2026-10-05','America/Santiago',
+                   'selected-key-v1','PARTIAL',1,1,'2026-10-08T00:00:00Z');
+            INSERT INTO raw_api_capture(operation,device_id,local_date,source,
+                page,request_json,response_json,retrieved_utc)
+            VALUES('selected-key-history','recovery-sim','2026-10-05',
+                   'selected-key-v1',1,
+                   '{"deviceId":"recovery-sim","page":1}',
+                   '{"test":"exact synthetic page evidence"}',
+                   '2026-10-08T00:00:00Z');
             INSERT INTO normalized_metric_sample(device_id,metric_key,recorded_at_utc,
                 normalized_value,normalized_unit,source_attribute_key,
                 normalization_rule_version,confidence,quality,updated_utc) VALUES
@@ -1551,7 +1567,7 @@ try
         previewDatabase.DatabasePath, "recovery-sim");
     if (rawHistoryReceipt.Status != "STAGED_RAW_HISTORY_SYNTHETIC_ONLY" ||
         rawHistoryReceipt.RealRestoreAuthorized ||
-        rawHistoryReceipt.Added != 1 ||
+        rawHistoryReceipt.Added != 2 ||
         rawHistoryReceipt.Identical != 1 ||
         rawHistoryReceipt.Conflicts != 1 ||
         !File.Exists(rawHistoryReceipt.StagedDatabasePath))
@@ -1605,7 +1621,7 @@ try
         rawHistoryReceipt.StagedDatabasePath);
     var replayReceipt = rawHistoryStager.Stage(replayPlan, complete.Path,
         rawHistoryReceipt.StagedDatabasePath, "recovery-sim");
-    if (replayReceipt.Added != 0 || replayReceipt.Identical != 2 ||
+    if (replayReceipt.Added != 0 || replayReceipt.Identical != 3 ||
         replayReceipt.Conflicts != 1 ||
         replayReceipt.RealRestoreAuthorized)
         throw new InvalidOperationException("Raw staging replay was not idempotent.");
@@ -1671,6 +1687,112 @@ try
         planned.PlanId)
         throw new InvalidOperationException(
             "Commissioning identity test mutated original recovery plan.");
+
+    // A new disposable fixture now recovers missing raw samples AND
+    // one original API page backing an honestly PARTIAL day. It does not
+    // reconstruct COMPLETE status or downstream normalized metrics.
+    var dayStager = new IsolatedRecoveryDayEvidenceStageTestService();
+    var dayStage = dayStager.Stage(planned, complete.Path,
+        previewDatabase.DatabasePath, "recovery-sim");
+    if (dayStage.RealRestoreAuthorized ||
+        dayStage.Status != "STAGED_SYNTHETIC_PARTIAL_DAY_WITH_CAPTURE_WITNESSES" ||
+        dayStage.AddedRawSamples != 2 || dayStage.AddedCaptures != 1 ||
+        dayStage.AddedPartialDays != 1 || !File.Exists(dayStage.StagedDatabasePath))
+        throw new InvalidOperationException("Witnessed PARTIAL-day synthetic stage failed.");
+    using (var proof = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = dayStage.StagedDatabasePath,
+        Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    using (var command = proof.CreateCommand())
+    {
+        proof.Open();
+        command.CommandText = """
+            SELECT status FROM history_day_status
+            WHERE device_id='recovery-sim' AND local_date='2026-10-05';
+            """;
+        if (Convert.ToString(command.ExecuteScalar()) != "PARTIAL")
+            throw new InvalidOperationException("Staged day falsely declared COMPLETE.");
+        command.CommandText = """
+            SELECT response_json FROM raw_api_capture WHERE
+                device_id='recovery-sim' AND local_date='2026-10-05'
+                AND operation='selected-key-history' AND page=1;
+            """;
+        if (Convert.ToString(command.ExecuteScalar()) !=
+            "{\"test\":\"exact synthetic page evidence\"}")
+            throw new InvalidOperationException("Original response evidence was not copied exactly.");
+        command.CommandText = "SELECT COUNT(*) FROM normalized_metric_sample WHERE device_id='recovery-sim';";
+        if (Convert.ToInt32(command.ExecuteScalar()) != 3)
+            throw new InvalidOperationException("Synthetic day staging changed derived metrics.");
+        command.CommandText = """
+            SELECT COUNT(*) FROM history_day_status WHERE device_id='recovery-sim'
+                AND local_date='2026-10-02' AND status='COMPLETE';
+            """;
+        if (Convert.ToInt32(command.ExecuteScalar()) != 1)
+            throw new InvalidOperationException("Existing coverage was overwritten.");
+    }
+    var dayRepeatPlan = planner.CreatePlan(complete.Path, dayStage.StagedDatabasePath);
+    var dayRepeat = dayStager.Stage(dayRepeatPlan, complete.Path,
+        dayStage.StagedDatabasePath, "recovery-sim");
+    if (dayRepeat.AddedRawSamples != 0 || dayRepeat.AddedCaptures != 0 ||
+        dayRepeat.AddedPartialDays != 0 || dayRepeat.RealRestoreAuthorized)
+        throw new InvalidOperationException("Partial-day stage is not idempotent.");
+
+    var countBeforeDayInterrupt = Directory.GetFiles(root,
+        "recovery-raw-history-staged-*.db", SearchOption.TopDirectoryOnly).Length;
+    var abortDay = false;
+    try
+    {
+        dayStager.Stage(planned, complete.Path,
+            previewDatabase.DatabasePath, "recovery-sim",
+            simulateInterruptionAfterFirstCapture: true);
+    }
+    catch (InvalidOperationException ex)
+    {
+        abortDay = ex.Message == "SYNTHETIC_DAY_EVIDENCE_INTERRUPTED_BEFORE_COMMIT";
+    }
+    if (!abortDay || Directory.GetFiles(root,
+            "recovery-raw-history-staged-*.db", SearchOption.TopDirectoryOnly).Length !=
+            countBeforeDayInterrupt)
+        throw new InvalidOperationException("Partial capture interruption left staging residue.");
+
+    // Ambiguous same-page source evidence in the destination blocks the
+    // day, rather than falsely merging two separate acquisition attempts.
+    using (var db = previewDatabase.OpenConnection())
+    using (var command = db.CreateCommand())
+    {
+        command.CommandText = """
+            INSERT INTO raw_api_capture(operation,device_id,local_date,source,
+                page,request_json,response_json,retrieved_utc)
+            VALUES('selected-key-history','recovery-sim','2026-10-05',
+                   'selected-key-v1',1,'{"deviceId":"recovery-sim","page":1}',
+                   '{"test":"different attempt"}','2026-10-08T00:00:00Z');
+            """;
+        command.ExecuteNonQuery();
+    }
+    try
+    {
+        var disputedPagePlan = planner.CreatePlan(complete.Path,
+            previewDatabase.DatabasePath);
+        var disputed = dayStager.Stage(disputedPagePlan, complete.Path,
+            previewDatabase.DatabasePath, "recovery-sim");
+        if (disputed.AddedCaptures != 0 || disputed.AddedPartialDays != 0 ||
+            disputed.SkippedUnverifiedDays < 1)
+            throw new InvalidOperationException("Ambiguous page incorrectly authorized coverage.");
+    }
+    finally
+    {
+        using var db = previewDatabase.OpenConnection();
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            DELETE FROM raw_api_capture WHERE device_id='recovery-sim'
+                AND local_date='2026-10-05';
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    if (planner.CreatePlan(complete.Path, previewDatabase.DatabasePath).PlanId !=
+        planned.PlanId)
+        throw new InvalidOperationException("Page collision test changed original fixture.");
 
     var plannedStage = planner.StageSettingsOnly(
         planned, complete.Path, previewDatabase.DatabasePath);
