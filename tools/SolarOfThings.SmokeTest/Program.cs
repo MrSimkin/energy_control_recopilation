@@ -860,6 +860,27 @@ try
         insert.ExecuteNonQuery();
     }
 
+    // Strong, matching synthetic station + inverter identity on both
+    // sides. A coincident device_id alone must never authorize imports.
+    const string syntheticRecoveryCommissioning = """
+        INSERT INTO commissioning_profile(
+            profile_id,station_id,station_timezone,device_id,serial_number,
+            model,manufacturer,dtu_id,data_source,gather_attributes_status,
+            gather_attribute_count,latest_state_status,energy_flow_status,
+            history_status,aggregate_status,alarm_status,capabilities_json,
+            attribute_catalog_json,station_json,device_json,updated_utc)
+        VALUES(1,'fake-station','America/Santiago','recovery-sim','fake-serial',
+               'fake-model','fake-maker','fake-dtu','synthetic-fixture','TEST',
+               0,'TEST','TEST','TEST','TEST','TEST','{}','{}','{}','{}',
+               '2026-10-08T00:00:00Z');
+        """;
+    using (var commissioning = database.OpenConnection())
+    using (var insert = commissioning.CreateCommand())
+    {
+        insert.CommandText = syntheticRecoveryCommissioning;
+        insert.ExecuteNonQuery();
+    }
+
     // Fictional raw, normalized and daily source evidence for telemetry preview.
     // Unique 'recovery-sim' identity avoids touching existing smoke datasets.
     using (var c = database.OpenConnection())
@@ -1386,6 +1407,12 @@ try
             """;
         setup.ExecuteNonQuery();
     }
+    using (var commissioning = previewDatabase.OpenConnection())
+    using (var insert = commissioning.CreateCommand())
+    {
+        insert.CommandText = syntheticRecoveryCommissioning;
+        insert.ExecuteNonQuery();
+    }
     // One identical, one conflicting and one target-only record in each type.
     using (var c = previewDatabase.OpenConnection())
     using (var command = c.CreateCommand())
@@ -1515,6 +1542,135 @@ try
     if (planned.Steps.Any(x => x.Explanation.Contains("different-live-value",
             StringComparison.Ordinal)))
         throw new InvalidOperationException("Plan leaked original setting values.");
+
+    // Real functionality in a strictly synthetic fixture: stage the one
+    // missing physical raw sample, preserve conflicting and target-only
+    // rows, and never fabricate daily completeness or normalized data.
+    var rawHistoryStager = new IsolatedRecoveryRawHistoryStageTestService();
+    var rawHistoryReceipt = rawHistoryStager.Stage(planned, complete.Path,
+        previewDatabase.DatabasePath, "recovery-sim");
+    if (rawHistoryReceipt.Status != "STAGED_RAW_HISTORY_SYNTHETIC_ONLY" ||
+        rawHistoryReceipt.RealRestoreAuthorized ||
+        rawHistoryReceipt.Added != 1 ||
+        rawHistoryReceipt.Identical != 1 ||
+        rawHistoryReceipt.Conflicts != 1 ||
+        !File.Exists(rawHistoryReceipt.StagedDatabasePath))
+        throw new InvalidOperationException("Raw history synthetic additive stage failed.");
+
+    using (var stagedHistory = new SqliteConnection(new SqliteConnectionStringBuilder
+    {
+        DataSource = rawHistoryReceipt.StagedDatabasePath,
+        Mode = SqliteOpenMode.ReadOnly, Pooling = false
+    }.ToString()))
+    using (var originalHistory = previewDatabase.OpenConnection())
+    {
+        stagedHistory.Open();
+        using var lookup = stagedHistory.CreateCommand();
+        lookup.CommandText = """
+            SELECT value_json,is_missing FROM history_sample
+            WHERE device_id='recovery-sim' AND attribute_key='grid'
+              AND recorded_at_utc='2026-10-01T02:00:00Z';
+            """;
+        using (var row = lookup.ExecuteReader())
+        {
+            if (!row.Read() || !row.IsDBNull(0) || row.GetInt64(1) != 1)
+                throw new InvalidOperationException(
+                    "Staging did not preserve a missing-value original observation.");
+        }
+        lookup.CommandText = """
+            SELECT value_json FROM history_sample
+            WHERE device_id='recovery-sim' AND attribute_key='grid'
+              AND recorded_at_utc='2026-10-01T01:00:00Z';
+            """;
+        if (Convert.ToString(lookup.ExecuteScalar()) != "999")
+            throw new InvalidOperationException("Raw history staging overwrote a conflicting target.");
+        lookup.CommandText = "SELECT COUNT(*) FROM history_day_status WHERE device_id='recovery-sim';";
+        if (Convert.ToInt32(lookup.ExecuteScalar()) != 3)
+            throw new InvalidOperationException("Raw history stage changed daily coverage.");
+        lookup.CommandText = "SELECT COUNT(*) FROM normalized_metric_sample WHERE device_id='recovery-sim';";
+        if (Convert.ToInt32(lookup.ExecuteScalar()) != 3)
+            throw new InvalidOperationException("Raw stage modified normalized evidence.");
+        using var check = originalHistory.CreateCommand();
+        check.CommandText = """
+            SELECT COUNT(*) FROM history_sample WHERE device_id='recovery-sim'
+            AND attribute_key='grid' AND recorded_at_utc='2026-10-01T02:00:00Z';
+            """;
+        if (Convert.ToInt32(check.ExecuteScalar()) != 0)
+            throw new InvalidOperationException("Original synthetic target was modified.");
+    }
+
+    // Idempotent append: an already staged sample becomes identical, never
+    // duplicated, and existing conflicts remain untouched.
+    var replayPlan = planner.CreatePlan(complete.Path,
+        rawHistoryReceipt.StagedDatabasePath);
+    var replayReceipt = rawHistoryStager.Stage(replayPlan, complete.Path,
+        rawHistoryReceipt.StagedDatabasePath, "recovery-sim");
+    if (replayReceipt.Added != 0 || replayReceipt.Identical != 2 ||
+        replayReceipt.Conflicts != 1 ||
+        replayReceipt.RealRestoreAuthorized)
+        throw new InvalidOperationException("Raw staging replay was not idempotent.");
+
+    // Inject interruption after an uncommitted insert; the new stage and
+    // write transaction must be discarded, never partially activated.
+    var rawStagesBeforeInterrupt = Directory.GetFiles(root,
+        "recovery-raw-history-staged-*.db", SearchOption.TopDirectoryOnly).Length;
+    var interruptedRawStage = false;
+    try
+    {
+        rawHistoryStager.Stage(planned, complete.Path,
+            previewDatabase.DatabasePath, "recovery-sim",
+            simulateInterruptionAfterFirstInsert: true);
+    }
+    catch (InvalidOperationException ex)
+    {
+        interruptedRawStage =
+            ex.Message == "SYNTHETIC_RAW_HISTORY_INTERRUPTED_BEFORE_COMMIT";
+    }
+    if (!interruptedRawStage ||
+        Directory.GetFiles(root, "recovery-raw-history-staged-*.db",
+            SearchOption.TopDirectoryOnly).Length != rawStagesBeforeInterrupt)
+        throw new InvalidOperationException("Interrupted raw stage left a disposable DB.");
+
+    // Collision of portable device_id with a different serial must be
+    // rejected even if the plan was freshly generated for that target.
+    using (var collision = previewDatabase.OpenConnection())
+    using (var cmd = collision.CreateCommand())
+    {
+        cmd.CommandText = """
+            UPDATE commissioning_profile SET serial_number='different-serial'
+            WHERE profile_id=1;
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    try
+    {
+        var collisionPlan = planner.CreatePlan(complete.Path,
+            previewDatabase.DatabasePath);
+        var identityRejected = false;
+        try
+        {
+            rawHistoryStager.Stage(collisionPlan, complete.Path,
+                previewDatabase.DatabasePath, "recovery-sim");
+        }
+        catch (InvalidOperationException) { identityRejected = true; }
+        if (!identityRejected)
+            throw new InvalidOperationException(
+                "Raw staging accepted different physical commissioning identity.");
+    }
+    finally
+    {
+        using var restore = previewDatabase.OpenConnection();
+        using var cmd = restore.CreateCommand();
+        cmd.CommandText = """
+            UPDATE commissioning_profile SET serial_number='fake-serial'
+            WHERE profile_id=1;
+            """;
+        cmd.ExecuteNonQuery();
+    }
+    if (planner.CreatePlan(complete.Path, previewDatabase.DatabasePath).PlanId !=
+        planned.PlanId)
+        throw new InvalidOperationException(
+            "Commissioning identity test mutated original recovery plan.");
 
     var plannedStage = planner.StageSettingsOnly(
         planned, complete.Path, previewDatabase.DatabasePath);
