@@ -191,6 +191,7 @@ public sealed class PhaseDiagnosticsExportService
         // fixtures. Never include printed descriptions, source text or PDFs.
         // If the QA user did not select a bill, use the most recent stored one.
         object billEvidence;
+        var billEvidenceStatus = "NOT_RUN";
         if (_bills is null || _profiles is null ||
             _billAudit is null || _summary is null)
         {
@@ -279,6 +280,7 @@ public sealed class PhaseDiagnosticsExportService
                         });
                     }
                 }
+                billEvidenceStatus = "COMPUTED_NOT_OWNER_VERIFIED";
                 billEvidence = new
                 {
                     status = "COMPUTED_NOT_OWNER_VERIFIED",
@@ -313,6 +315,7 @@ public sealed class PhaseDiagnosticsExportService
         }
         catch (Exception ex)
         {
+            billEvidenceStatus = "FAIL";
             billEvidence = new
             {
                 status = "FAIL",
@@ -329,8 +332,8 @@ public sealed class PhaseDiagnosticsExportService
             schema_version = _database.GetSchemaVersion(),
             database_quick_check = integrity,
             view_checks = viewChecks,
-            phase_10_real_bill_reconstruction =
-                "NOT_RUN: use the selected bill's Audit PDF and technical annex",
+            // Same status as bill_reconciliation.json; computation is not owner QA.
+            phase_10_real_bill_reconstruction = billEvidenceStatus,
             enel_zero_click =
                 "NOT_RUN: requires interactive WebView2/official site validation",
             ui_progress =

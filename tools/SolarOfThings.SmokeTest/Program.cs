@@ -2277,6 +2277,22 @@ try
             throw new InvalidOperationException(
                 "Phase 10-12 sanitized debug bundle smoke test failed.");
         }
+        using var overviewStream = new StreamReader(
+            evidenceArchive.GetEntry("overview.json")!.Open());
+        using var billStream = new StreamReader(
+            evidenceArchive.GetEntry("bill_reconciliation.json")!.Open());
+        using var overviewDoc = System.Text.Json.JsonDocument.Parse(
+            overviewStream.ReadToEnd());
+        using var billDoc = System.Text.Json.JsonDocument.Parse(
+            billStream.ReadToEnd());
+        var overviewBillStatus = overviewDoc.RootElement
+            .GetProperty("phase_10_real_bill_reconstruction").GetString();
+        var embeddedBillStatus = billDoc.RootElement
+            .GetProperty("status").GetString();
+        if (overviewBillStatus != embeddedBillStatus ||
+            embeddedBillStatus != "NOT_RUN")
+            throw new InvalidOperationException(
+                "Synthetic no-bill diagnostic overview status disagrees with bill evidence.");
     }
 
     // Regression: a real owner Data\ folder is currently schema v13.
@@ -5651,6 +5667,22 @@ try
         .Analyze(
             printedStructureBillId,
             "America/Santiago");
+
+    // Visible PDF description: printed -3 CLP is separate from the modeled
+    // tariff residual and must not add a balancing charge.
+    var printedResidualText = BillAuditEvidencePresentation.DescribePrintedDetailResidual(
+        26854, 26857, true);
+    var englishResidualText = BillAuditEvidencePresentation.DescribePrintedDetailResidual(
+        26854, 26857, false);
+    var balancedResidualText = BillAuditEvidencePresentation.DescribePrintedDetailResidual(
+        500, 500, true);
+    if (!printedResidualText.Contains("-3 CLP", StringComparison.Ordinal) ||
+        !printedResidualText.Contains("Distinto del residual", StringComparison.Ordinal) ||
+        !englishResidualText.Contains("-3 CLP", StringComparison.Ordinal) ||
+        !englishResidualText.Contains("Distinct from", StringComparison.Ordinal) ||
+        !balancedResidualText.Contains("0 CLP", StringComparison.Ordinal))
+        throw new InvalidOperationException(
+            "Printed-detail vs modeled-tariff PDF wording regression.");
 
     if (printedStructureAudit.TaxStatus != "IVA_MATCH_19" ||
         printedStructureAudit.SummaryBalanceStatus !=
