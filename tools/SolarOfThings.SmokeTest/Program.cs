@@ -1963,6 +1963,92 @@ try
         planned.PlanId)
         throw new InvalidOperationException("Page collision test changed original fixture.");
 
+    // A target-only raw observation on the SAME civil day invalidates
+    // the source day status. Source-only matching is insufficient: its
+    // frame_count and page evidence cannot describe the mixed destination.
+    using (var db = previewDatabase.OpenConnection())
+    using (var command = db.CreateCommand())
+    {
+        command.CommandText = """
+            INSERT INTO history_sample(device_id,attribute_key,recorded_at_utc,
+                value_json,is_missing,source,retrieved_utc)
+            VALUES('recovery-sim','target-extra','2026-10-05T15:00:00Z',
+                '300',0,'selected-key-v1','2026-10-08T00:00:00Z');
+            """;
+        command.ExecuteNonQuery();
+    }
+    try
+    {
+        var mixedPlan = planner.CreatePlan(complete.Path,
+            previewDatabase.DatabasePath);
+        var mixed = dayStager.Stage(mixedPlan, complete.Path,
+            previewDatabase.DatabasePath, "recovery-sim");
+        try
+        {
+            if (mixed.AddedPartialDays != 0 || mixed.AddedCaptures != 0 ||
+                mixed.SkippedUnverifiedDays < 1 || mixed.RealRestoreAuthorized)
+                throw new InvalidOperationException(
+                    "Target-only same-day raw history wrongly acquired source coverage.");
+        }
+        finally { File.Delete(mixed.StagedDatabasePath); }
+    }
+    finally
+    {
+        using var db = previewDatabase.OpenConnection();
+        using var command = db.CreateCommand();
+        command.CommandText = """
+            DELETE FROM history_sample
+            WHERE device_id='recovery-sim' AND attribute_key='target-extra'
+              AND recorded_at_utc='2026-10-05T15:00:00Z';
+            """;
+        command.ExecuteNonQuery();
+    }
+
+    // An unrelated preexisting capture for the SAME local date is likewise
+    // a distinct collection attempt, even if all expected source pages match.
+    using (var db = previewDatabase.OpenConnection())
+    using (var command = db.CreateCommand())
+    {
+        command.CommandText = """
+            INSERT INTO raw_api_capture(operation,device_id,local_date,source,
+                page,request_json,response_json,retrieved_utc)
+            VALUES('record-list-history','recovery-sim','2026-10-05',
+                   'record-list',7,'{"deviceId":"recovery-sim","page":7}',
+                   '{"test":"other collection attempt"}','2026-10-08T00:00:00Z');
+            """;
+        command.ExecuteNonQuery();
+    }
+    try
+    {
+        var mixedCapturePlan = planner.CreatePlan(complete.Path,
+            previewDatabase.DatabasePath);
+        var mixedCapture = dayStager.Stage(mixedCapturePlan, complete.Path,
+            previewDatabase.DatabasePath, "recovery-sim");
+        try
+        {
+            if (mixedCapture.AddedPartialDays != 0 ||
+                mixedCapture.AddedCaptures != 0 ||
+                mixedCapture.SkippedUnverifiedDays < 1)
+                throw new InvalidOperationException(
+                    "Extra source-independent API capture was accepted as identical.");
+        }
+        finally { File.Delete(mixedCapture.StagedDatabasePath); }
+    }
+    finally
+    {
+        using var db = previewDatabase.OpenConnection();
+        using var command = db.CreateCommand();
+        command.CommandText = """
+            DELETE FROM raw_api_capture
+            WHERE device_id='recovery-sim' AND local_date='2026-10-05';
+            """;
+        command.ExecuteNonQuery();
+    }
+    if (planner.CreatePlan(complete.Path, previewDatabase.DatabasePath).PlanId !=
+        planned.PlanId)
+        throw new InvalidOperationException(
+            "Synthetic mixed-evidence regressions did not restore the fixture.");
+
     var plannedStage = planner.StageSettingsOnly(
         planned, complete.Path, previewDatabase.DatabasePath);
     if (plannedStage.Status != "STAGED_SYNTHETIC_ONLY" ||

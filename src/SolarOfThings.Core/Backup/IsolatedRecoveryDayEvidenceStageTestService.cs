@@ -120,7 +120,7 @@ public sealed class IsolatedRecoveryDayEvidenceStageTestService
                         { skipped++; continue; }
                     }
                     if (!RawWitnessesAgree(source, staged, tx, deviceId, localDate,
-                            zone, dataSource, frames))
+                            zone, dataSource, frames, cancellationToken))
                     { skipped++; continue; }
 
                     var captured = ReadRows(source, """
@@ -167,7 +167,16 @@ public sealed class IsolatedRecoveryDayEvidenceStageTestService
                                  found.Read())
                         { pageConflict = true; break; }
                     }
-                    if (pageConflict) { skipped++; continue; }
+                    if (pageConflict || Scalar(staged, tx, """
+                            SELECT COUNT(*) FROM raw_api_capture
+                            WHERE device_id=$device AND local_date=$day;
+                            """, deviceId, date) != captured.Count - absent.Count)
+                    {
+                        // Extra destination captures, even under another
+                        // operation/page, make the day provenance ambiguous.
+                        skipped++;
+                        continue;
+                    }
                     foreach (var c in absent)
                     {
                         using var insert = staged.CreateCommand();
@@ -262,51 +271,89 @@ public sealed class IsolatedRecoveryDayEvidenceStageTestService
         }
     }
 
+    // A PARTIAL day can only be carried across if the FULL raw witness set
+    // is identical, not just the source rows that happen to exist in target.
+    // An extra destination observation changes the day provenance and blocks
+    // importing the original source's frame count and API page status.
     private static bool RawWitnessesAgree(SqliteConnection source,
         SqliteConnection staged, SqliteTransaction tx, string deviceId,
-        DateOnly day, TimeZoneInfo zone, string sourceName, int frameCount)
+        DateOnly day, TimeZoneInfo zone, string sourceName, int frameCount,
+        CancellationToken cancellationToken)
     {
-        using var cmd = source.CreateCommand();
+        var observed = LoadDayWitnesses(source, null, deviceId, day,
+            zone, cancellationToken);
+        var destination = LoadDayWitnesses(staged, tx, deviceId, day,
+            zone, cancellationToken);
+        if (observed is null || destination is null ||
+            observed.Count == 0 || observed.Count != destination.Count)
+            return false;
+
+        var frameTimes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (key, row) in observed)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!string.Equals(row.Source, sourceName, StringComparison.Ordinal) ||
+                !destination.TryGetValue(key, out var existing) || existing != row)
+                return false;
+            frameTimes.Add(row.RecordedUtc);
+        }
+        return frameTimes.Count == frameCount;
+    }
+
+    private sealed record RawDayWitness(string RecordedUtc, string? ValueJson,
+        long IsMissing, string Source, string RetrievedUtc);
+
+    private static Dictionary<(string Attribute, string RecordedUtc), RawDayWitness>?
+        LoadDayWitnesses(SqliteConnection db, SqliteTransaction? transaction,
+            string deviceId, DateOnly day, TimeZoneInfo zone,
+            CancellationToken cancellationToken)
+    {
+        // Use the existing (device_id, recorded_at_utc) index. The civil-day
+        // UTC bounds handle Chile's 23/25-hour DST transitions. SQL bounds
+        // use a timezone-neutral timestamp prefix to admit both legacy Z and
+        // round-trip +00:00 UTC storage forms; every row is then checked
+        // against the exact local date, so boundary rows never leak in.
+        var localWindow = SolarOfThings.Core.SolarOfThings.SolarApiTime
+            .GetLocalDayWindow(day, zone.Id);
+        var utcStart = localWindow.Start.ToUniversalTime();
+        var utcEndExclusive = localWindow.End.ToUniversalTime().AddTicks(1);
+        using var cmd = db.CreateCommand();
+        cmd.Transaction = transaction;
         cmd.CommandText = """
-            SELECT attribute_key,recorded_at_utc,value_json,is_missing,source,
-                   retrieved_utc FROM history_sample WHERE device_id=$device;
+            SELECT attribute_key, recorded_at_utc, value_json, is_missing,
+                   source, retrieved_utc
+            FROM history_sample
+            WHERE device_id=$device AND recorded_at_utc >= $start
+                  AND recorded_at_utc < $end
+            ORDER BY recorded_at_utc, attribute_key;
             """;
         cmd.Parameters.AddWithValue("$device", deviceId);
+        cmd.Parameters.AddWithValue("$start", utcStart.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture));
+        cmd.Parameters.AddWithValue("$end", utcEndExclusive.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture));
         using var rows = cmd.ExecuteReader();
-        var timestamps = new HashSet<string>(StringComparer.Ordinal);
-        var seen = 0;
+        var found = new Dictionary<(string, string), RawDayWitness>();
         while (rows.Read())
         {
-            if (++seen > MaxRawRows)
+            if ((found.Count & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
+            if (found.Count >= MaxRawRows)
                 throw new InvalidDataException("Bounded raw-day inspection exceeded.");
             if (!DateTimeOffset.TryParse(rows.GetString(1),
                     CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind,
                     out var timestamp))
-                return false;
-            if (DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(timestamp, zone).Date) != day)
-                continue;
-            if (rows.GetString(4) != sourceName) return false;
-            timestamps.Add(rows.GetString(1));
-            using var lookup = staged.CreateCommand();
-            lookup.Transaction = tx;
-            lookup.CommandText = """
-                SELECT value_json,is_missing,source,retrieved_utc
-                FROM history_sample WHERE device_id=$device AND
-                attribute_key=$attribute AND recorded_at_utc=$at;
-                """;
-            lookup.Parameters.AddWithValue("$device", deviceId);
-            lookup.Parameters.AddWithValue("$attribute", rows.GetString(0));
-            lookup.Parameters.AddWithValue("$at", rows.GetString(1));
-            using var match = lookup.ExecuteReader();
-            if (!match.Read() ||
-                (rows.IsDBNull(2) ? null : rows.GetString(2)) !=
-                    (match.IsDBNull(0) ? null : match.GetString(0)) ||
-                rows.GetInt64(3) != match.GetInt64(1) ||
-                rows.GetString(4) != match.GetString(2) ||
-                rows.GetString(5) != match.GetString(3))
-                return false;
+                return null;
+            var localDate = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTime(timestamp, zone).Date);
+            if (localDate != day) continue;
+            var key = (rows.GetString(0), rows.GetString(1));
+            var value = new RawDayWitness(rows.GetString(1),
+                rows.IsDBNull(2) ? null : rows.GetString(2),
+                rows.GetInt64(3), rows.GetString(4), rows.GetString(5));
+            if (!found.TryAdd(key, value))
+                return null;
         }
-        return timestamps.Count == frameCount;
+        return found;
     }
 
     private static List<string?[]> ReadRows(SqliteConnection db, string sql,
