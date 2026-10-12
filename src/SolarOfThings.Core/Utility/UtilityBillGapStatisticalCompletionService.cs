@@ -428,7 +428,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
         // billing PDF. Quantization to micro-kWh removes floating-point noise
         // without smoothing genuine point masses (notably the zero-gap atom).
         // These are combinations of historical donors, NOT independent trials.
-        var distribution = totals
+        var distributionPoints = totals
             .GroupBy(value => Math.Round(value, 6))
             .OrderBy(group => group.Key)
             .Select(group => new UtilityBillDistributionPoint(
@@ -516,7 +516,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
             "PROVISIONAL_REPORT_METHOD_RESEARCH_ONLY",
             false) with
         {
-            Distribution = distribution
+            Distribution = distributionPoints
         };
     }
 
