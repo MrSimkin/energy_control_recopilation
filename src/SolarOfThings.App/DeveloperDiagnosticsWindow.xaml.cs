@@ -13,6 +13,7 @@ public partial class DeveloperDiagnosticsWindow : Window
     private readonly AppPaths _paths;
     private readonly FullBackupService _backup;
     private readonly PhaseDiagnosticsExportService _phaseEvidence;
+    private readonly H01EnergyBalanceExportService _h01;
     private bool _busy;
     private bool _windowClosed;
     private int _reportGeneration;
@@ -26,15 +27,19 @@ public partial class DeveloperDiagnosticsWindow : Window
         InvestigationDiagnosticsService investigation,
         AppPaths paths,
         FullBackupService backup,
-        PhaseDiagnosticsExportService phaseEvidence)
+        PhaseDiagnosticsExportService phaseEvidence,
+        H01EnergyBalanceExportService h01)
     {
         _diagnostics = diagnostics;
         _investigation = investigation;
         _paths = paths;
         _backup = backup;
         _phaseEvidence = phaseEvidence;
+        _h01 = h01;
 
         InitializeComponent();
+        H01FromPicker.SelectedDate = new DateTime(2026, 8, 28);
+        H01ThroughPicker.SelectedDate = new DateTime(2026, 9, 28);
         // Investigation overview executes multiple COUNT(*) operations on the
         // local historical corpus. The diagnostics window must open instantly:
         // only a deliberate Refresh or capture action may request that work.
@@ -116,6 +121,25 @@ public partial class DeveloperDiagnosticsWindow : Window
         });
     }
 
+    private async void H01Export_Click(object sender, RoutedEventArgs e)
+    {
+        if (H01FromPicker.SelectedDate is not DateTime from ||
+            H01ThroughPicker.SelectedDate is not DateTime through)
+        {
+            ActionStatusText.Text = "Selecciona ambas fechas antes de exportar H-01.";
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            ActionStatusText.Text = "Integrando señales locales para H-01 (solo lectura)...";
+            var path = await Task.Run(() => _h01.Export(from, through));
+            ActionStatusText.Text = $"H-01 exportado: {path}";
+            System.Media.SystemSounds.Asterisk.Play();
+            ShowSaved(path);
+        });
+    }
+
     private void Backup_Click(object sender, RoutedEventArgs e)
     {
         // Only the dedicated Protection screen creates and audits backups.
@@ -177,6 +201,9 @@ public partial class DeveloperDiagnosticsWindow : Window
         ConfigReadButton.IsEnabled = !busy;
         GridEnergyButton.IsEnabled = !busy;
         ExportBundleButton.IsEnabled = !busy;
+        H01ExportButton.IsEnabled = !busy;
+        H01FromPicker.IsEnabled = !busy;
+        H01ThroughPicker.IsEnabled = !busy;
         BackupButton.IsEnabled = !busy;
         PhaseEvidenceButton.IsEnabled = !busy;
         DiagnosticsBusyBar.Visibility =
