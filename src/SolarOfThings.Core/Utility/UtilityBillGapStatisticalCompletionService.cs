@@ -424,6 +424,17 @@ public sealed class UtilityBillGapStatisticalCompletionService
 
         totals.Sort();
 
+        // Keep the complete discrete empirical distribution available to the
+        // billing PDF. Quantization to micro-kWh removes floating-point noise
+        // without smoothing genuine point masses (notably the zero-gap atom).
+        // These are combinations of historical donors, NOT independent trials.
+        var distributionPoints = totals
+            .GroupBy(value => Math.Round(value, 6))
+            .OrderBy(group => group.Key)
+            .Select(group => new UtilityBillDistributionPoint(
+                group.Key, group.Count()))
+            .ToArray();
+
         var p05 =
             InverseEmpiricalQuantile(
                 totals,
@@ -503,7 +514,10 @@ public sealed class UtilityBillGapStatisticalCompletionService
             mean,
             totals.Max(),
             "PROVISIONAL_REPORT_METHOD_RESEARCH_ONLY",
-            false);
+            false) with
+        {
+            Distribution = distributionPoints
+        };
     }
 
     private UtilityBillGapStatisticalAnalysis Insufficient(
@@ -1412,6 +1426,12 @@ public sealed class UtilityBillGapStatisticalCompletionService
         double ContinuityThresholdMinutes);
 }
 
+/// <summary>
+/// Multiplicity of a total-import estimate in the exact Cartesian donor
+/// aggregation. Not a measured frequency or a calibrated probability.
+/// </summary>
+public sealed record UtilityBillDistributionPoint(double EnergyKwh, int Count);
+
 public sealed record UtilityBillGapStatisticalAnalysis(
     UtilityGridImportStatisticalCompletion Completion,
     DateOnly StartLocalDate,
@@ -1430,7 +1450,13 @@ public sealed record UtilityBillGapStatisticalAnalysis(
     double? MeanKwh,
     double? MaximumKwh,
     string Status,
-    bool EnelValueUsedInConstruction);
+    bool EnelValueUsedInConstruction)
+{
+    // Additive, non-breaking report evidence; existing callers may continue to
+    // use the primary constructor without supplying any distribution.
+    public IReadOnlyList<UtilityBillDistributionPoint> Distribution { get; init; } =
+        Array.Empty<UtilityBillDistributionPoint>();
+}
 
 public sealed record UtilityBillDailyQualityEvidence(
     DateOnly LocalDate,
