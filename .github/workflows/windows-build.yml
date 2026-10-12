@@ -36,6 +36,12 @@ jobs:
       - name: Restore
         run: dotnet restore SolarOfThings.sln
 
+      # Catch absent ES/EN keys, placeholder mismatches and blank WPF labels
+      # before packaging the owner-facing desktop application.
+      - name: Validate ES/EN localization
+        shell: pwsh
+        run: ./tools/Validate-Localization.ps1
+
       - name: Build
         run: >
           dotnet build SolarOfThings.sln

@@ -2745,7 +2745,7 @@
                                                                         </WrapPanel>
                                                                     </StackPanel>
                                                                     <StackPanel Margin="0,0,14,10">
-                                                                        <TextBlock Text="{DynamicResource Analysis.Aggregation}"
+                                                                        <TextBlock Text="{DynamicResource Analysis.AggregateBy}"
                                                                                    Foreground="#6C757D"
                                                                                    FontSize="12"/>
                                                                         <ComboBox x:Name="ReportAggregationSelector"
