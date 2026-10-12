@@ -43,6 +43,16 @@
                     <Button x:Name="ExportBundleButton" Content="{DynamicResource Diagnostics.ExportBundle}" Padding="12,7" Margin="0,0,8,8" Click="ExportBundle_Click"/>
                     <Button x:Name="BackupButton" Content="{DynamicResource Diagnostics.OpenDataProtection}" Padding="12,7" Margin="0,0,8,8" Click="Backup_Click"/>
                 </WrapPanel>
+                <TextBlock Text="{DynamicResource Diagnostics.H01Intro}" TextWrapping="Wrap"
+                           FontFamily="Segoe UI" Foreground="#495057" Margin="0,8,0,6"/>
+                <WrapPanel Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource Diagnostics.H01From}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <DatePicker x:Name="H01FromPicker" Width="140" SelectedDateFormat="Short" Margin="0,0,12,0"/>
+                    <TextBlock Text="{DynamicResource Diagnostics.H01Through}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <DatePicker x:Name="H01ThroughPicker" Width="140" SelectedDateFormat="Short" Margin="0,0,12,0"/>
+                    <Button x:Name="H01ExportButton" Content="{DynamicResource Diagnostics.H01Export}"
+                            Padding="12,7" Click="H01Export_Click"/>
+                </WrapPanel>
                 <ProgressBar x:Name="DiagnosticsBusyBar"
                              Height="8"
                              IsIndeterminate="True"

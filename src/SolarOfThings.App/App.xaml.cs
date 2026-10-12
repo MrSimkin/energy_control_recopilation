@@ -127,6 +127,7 @@ public partial class App : Application
         builder.Services.AddSingleton<EnelTariffCaptureService>();
         builder.Services.AddSingleton<DataImportService>();
         builder.Services.AddSingleton<HelpManualExportService>();
+        builder.Services.AddSingleton<H01EnergyBalanceExportService>();
         builder.Services.AddSingleton<LocalizationService>();
         builder.Services.AddSingleton<MainWindow>();
         builder.Services.AddTransient<CommissioningWindow>();

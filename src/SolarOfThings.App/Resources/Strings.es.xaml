@@ -908,4 +908,8 @@
     <sys:String x:Key="SqlExplorer.CatalogColumnsIntro">Selecciona un objeto y consulta sus columnas sin leer datos.</sys:String>
     <sys:String x:Key="Diagnostics.RemoteGroup">Investigación API y lecturas remotas (solo bajo demanda)</sys:String>
     <sys:String x:Key="Diagnostics.LocalGroup">Evidencia local y protección de datos</sys:String>
+    <sys:String x:Key="Diagnostics.H01Intro">Investigación H-01 de balance energético: CSV diario, episodios de carga aparente, señales originales de batería/red e informe explicativo, en un solo ZIP de solo lectura. No cambia la base ni la configuración.</sys:String>
+    <sys:String x:Key="Diagnostics.H01From">Desde</sys:String>
+    <sys:String x:Key="Diagnostics.H01Through">Hasta</sys:String>
+    <sys:String x:Key="Diagnostics.H01Export">Exportar diagnóstico H-01 (ZIP)</sys:String>
 </ResourceDictionary>
