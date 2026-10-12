@@ -6811,3 +6811,139 @@ Only:
 4. if screen is correct, export Audit PDF + technical annex ZIP and attach them. Assistant performs the export review; owner does not need to inspect CSV/TXT manually.
 
 If this gate passes, mark Phase 10 COMPLETED and begin Phase 11 SQL Usability / Documentation.
+
+## Build 684 owner QA accepted — follow-up presentation correction (2026-10-07, Chile)
+
+The working branch `work/phase10-12-consolidated-20261007`
+produced Build 684 (GitHub Actions run `37713227484`, PASS;
+source branch tip `c4ade0094dcbbe788a5f6a72547ecd32d7212a0c`).
+The owner reviewed the target-PC Audit screen, the 9-page Audit PDF,
+technical annex ZIP and sanitized phase 10–12 diagnostic ZIP.
+
+**Owner decision:** Phase 10 functional QA PASS. The displayed
+CLP 26,854 actual / CLP 24,693 observed scenario / CLP 2,161
+difference agree with the annex. Electric, Transport and fixed
+Administration CLP 727 are reconstructed, but electricity and
+fixed-charge RED/ETR applicability remain ambiguous, so the
+reconstructed lines must not all be counted as independently verified.
+Real detail residual -3 CLP must not be turned into an invented
+adjustment. This is functional acceptance of the Build 684 economic
+workflow, not a complete tariff-identity certification.
+
+Build 684 already establishes the real Windows baseline. The immediate
+follow-up is a targeted presentation-only adjustment: the PDF scenario
+column labeled "Variable" actually includes the supported fixed charge
+and therefore becomes "Subtotal modelado"; the on-screen 70.4%
+coverage displays its denominator (absolute real reconstructed lines
+over absolute real all lines, not net amount due). No monetary engine
+or database semantics may change for these labels.
+
+Phase 11 SQL remains partial: target-PC diagnostic reports SQLite
+schema 17 and PASS on all seven view checks, but no owner acceptance
+of usefulness or faithful energy-integrated SQL views yet.
+Phase 12 remains partial: owner diagnostic enumerates a verified
+automatic schema-v16 pre-migration snapshot and a verified manual
+schema-v17 backup, with integrity PASS and manifest; restoration,
+DB replacement, destructive imports and automatic retention deletion
+remain explicitly out of scope. Zero-click official Enel import remains
+unproven; the existing one-click fallback imported successfully.
+
+Global phase-10–12 release is not accepted and not ready to merge into
+`main`. See `PHASE_10_12_TRANCHE_STATUS.md` for detailed evidence
+and separated acceptance gates.
+
+## Build 685 — post-acceptance presentation correction, CI PASS
+
+Code commit: `b31d97d94f0cba6a18f2ea7e4d0a225470bfac95`.
+Windows Actions: run `37720787982`, Build **685**, completed **SUCCESS**:
+restore, Release build, SQLite smoke, win-x64 portable publish,
+portable marker and artifact upload all PASS. The live Enel/CNE probes
+were conditionally skipped (not a live-validation PASS).
+
+Artifact: `SolarEnergyMonitor-Build-685-win-x64.zip`, GitHub artifact ID
+`11525996688`, SHA-256
+`67f10d350f9c342bc6d759563ef30861ef48311111a146384a02437be7e81ae9`.
+Downloaded ZIP checksum matched GitHub; ZIP integrity PASS, 490 entries,
+`SolarEnergyMonitor.exe` and `portable.mode` present, no bundled `energy.db`.
+
+This code change only corrects the PDF financial-scenario subtotal label
+and explanation and adds a bilingual visible/tooltip denominator hint
+to the on-screen reconstruction-coverage percentage. It does not alter
+the tariff engine, numeric calculations, schema, backups or real data.
+
+**Release gate:** owner acceptance of Build 684 Phase 10 *functionality*
+remains valid. The Build 685 label/layout refinement is CI-verified but
+its Windows visual output has not yet been checked by the owner. Phases
+11 and 12 remain PARTIAL and are not declared closed. No merge to `main`.
+
+## Latest continuation checkpoint — Builds 784–792 (2026-10-09 Chile)
+
+**Authoritative detail:** [PHASE_10_12_TRANCHE_STATUS.md](PHASE_10_12_TRANCHE_STATUS.md), newest section “Builds 784–792”. [Build 792](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/37995394249) **Windows CI SUCCESS** at code `636d387abc13a31dda2caace9a096dbff91c8c38`, including SQLite smoke, synthetic 24k/96k performance, and portable Windows artifact `SolarEnergyMonitor-win-x64-dev` (ID `11646653460`). Live Enel/CNE optional CI **SKIPPED**.
+
+**Combined progress:** Reports period selectors and refresh now reuse same-device async coverage instead of synchronously querying SQLite on WPF; stale report previews are disabled pending availability, and user date edits override pending presets. Backup inventory gained an ES/EN, explicitly clicked **copy/retry selected verified LOCAL complete archive to configured SECONDARY** action with stale-row guard, SHA/ZIP revalidation, collision/no-overwrite protection, conditional symlink defense and preserved failure/success receipt in UI. Automatic backup purge or owner-data restore is NOT authorized or implemented.
+
+**Unchanged gates:** `work/phase10-12-consolidated-20261007` only, PR #1 Draft/open/unmerged, immutable `main` `59120a630b0f56684ba7672d960673f5c5c1797b`. No owner Data accessed and no QA on owner's Windows yet. Phase 11/12 and full v0.11.0 remain **PARTIAL**. One consolidated future owner QA; no release, merge or new public-data conclusions. The approximate ~65% project figure is still only a historic provisional estimate. Await real Enel/CNE updates only if owner actually provides them.
+
+## Latest continuation checkpoint — Build 800 (2026-10-09 Chile)
+
+**Authoritative evidence:** [PHASE_10_12_TRANCHE_STATUS.md](PHASE_10_12_TRANCHE_STATUS.md), section "Builds 799–800". [Build 800 / run 38005020696](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38005020696) **Windows CI SUCCESS** at code commit `49745e97ede1496f6d1d4de4c169a279e09222f8`. Release compile, SQLite smoke, both synthetic performance corpora, portable build and artifact upload PASS; live Enel/CNE SKIPPED. Intermediate Build 799 FAILED compilation due to duplicate local smoke-test names and is not accepted as PASS; fixed in 800.
+
+**Combined advance:** Read-only synthetic recovery audit now surfaces equal-UTC-period destination bill conflicts, source PDF sharing and upper/lowercase SHA-256 document overlap; the existing synthetic graph stage still rejects ambiguous period imports, with smoke checking refusal, no partial staged graph and no original-target mutation. These are *not* general idempotent real-data merges, verified identity skips, owner restore, physical disk independence or final Windows UX QA.
+
+**Control:** PR #1 remains Open/Draft/unmerged, `main` unchanged at `59120a630b0f56684ba7672d960673f5c5c1797b`, only the development branch updated. No access to the owner's `D:\\SolarEnergyMonitorTest\\Data`, original PDF/SQLite, or provisional manual copy. One final consolidated owner QA, not an immediate Build 800 installation. Phase 11/12 partial; approximate historical 65% not re-scored. Next focus: bounded, fully evidenced mixed present/absent synthetic recovery and remaining backup fault/recovery validation, not restating the two-copy audit.
+
+## Latest continuation checkpoint — Build 802 mixed synthetic recovery (2026-10-09 Chile)
+
+**Detailed authority:** [PHASE_10_12_TRANCHE_STATUS.md](PHASE_10_12_TRANCHE_STATUS.md), “Builds 801–802”. [Windows Build 802](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38005722627) **SUCCESS**, compiled code `7a02792f2bf0c996bcade750e0251e90b6e5498d`, including Release WPF build, SQLite smoke, ~24k/~96k synthetic corpora, portable win-x64 artifact `11651227115`; live Enel/CNE SKIPPED. Core change `402a5d2e364a9f185ade77aa21f90e5a1dd6c541`: optional, TEST-ONLY mixed bill graph staged import can add absent unique synthetic invoice graphs while skipping one existing source bill **only after strict field/child multiset and on-disk SHA byte equivalence**. Default duplicates still block. Regression confirms mixed 1 inserted / 1 skipped, rollback on injected interruption, preservation of original and separate modified-bill-content conflict rejection. This is not production restore, general historical-schema adapter, all-exact repeat import or full Fase 12 closure.
+
+**Repository safety:** Only PR #1 Draft branch changed. `main` remains `59120a630b0f56684ba7672d960673f5c5c1797b`; no owner physical DB, PDFs, manual backup, actual migration, destructive import, automated purging, merge or release. One future consolidated Windows QA. Phase 11/12 not accepted; prior rough ~65% unchanged. Next: improve bounded mixed graph conflict/no-op evidence and remaining full-backup fault matrix.
+
+## Latest continuation checkpoint — Build 805 all-identical synthetic bill NO-OP (2026-10-09 Chile)
+
+**Primary record:** [PHASE_10_12_TRANCHE_STATUS.md](PHASE_10_12_TRANCHE_STATUS.md), “Builds 803–805”. [Windows Build 805](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38006297261) **CI SUCCESS**, code `b6aca12f1e58395b511490cc33278fda4d8d150f`. Windows .NET 10/WPF build, full SQLite smoke, 24k/96k synthetic performance, portable win-x64 publication and artifact ID `11651456973` PASS; LIVE Enel/CNE SKIPPED. Increment: TEST ONLY all-identical bill graphs return an explicit opt-in NO-OP receipt with 0 bill writes/0 new relational graph SQLite and no staged output path, only after strict existing PDF byte checks and bill/charge/field multiset identity. Default preserves refusal. Synthetic regression proves two exactly present bills skipped, child amount tampering and missing target PDF both block false equality without modifying test targets. Verification uses temporary extraction/staging; not literal zero temporary filesystem writes.
+
+**Gates:** no real-data import/restoration, no schema migration/activation, no touch to `D:\\SolarEnergyMonitorTest\\Data` or originals/provisional copy, no merge or release. `main` unchanged at `59120a630b0f56684ba7672d960673f5c5c1797b`, PR #1 Draft/Open/unmerged. Final owner Windows QA remains a single consolidated round. Phases 11/12 partial, rough prior 65% not rescored. Next: synthetic backup failure matrix + relational dependency-conflict expansion, then Windows UX/performance.
+
+## Latest continuation checkpoint — Build 807 documented PDF-length integrity fault matrix (2026-10-09 Chile)
+
+**Authoritative evidence:** [PHASE_10_12_TRANCHE_STATUS.md](PHASE_10_12_TRANCHE_STATUS.md), “Builds 806–807”. [Windows Build 807 / run 38006865400](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38006865400) **SUCCESS**, compiled SHA `f778184b71cdcc212eebbef0ef76c96eca7d97c4`; WPF Release compile, SQLite smoke, 24k/96k synthetic performance corpora, portable win-x64 packaging/upload PASS. CI artifact ID `11651408262`, SHA-256 `5588e61dbb941936cadf54474dbd8ec0a7a77e1c66ee5a07b2004bab3e7182ed`. LIVE Enel/CNE SKIPPED. Build 806 also completed SUCCESS for earlier source commit.
+
+**Increment:** Complete-backup creation and independent ZIP verification now check positive SQLite `content_length` against referenced original bill/tariff document archive size, in addition to existing digest checks. Smoke proves bad length blocks creation without damaging prior verified ZIP or leaving pending archive, and self-consistent forged ZIP+manifest+modified SQLite cannot hide false document lengths. Legacy null/nonpositive sizes retain prior behavior. No owner-data testing, active restore, power-loss simulation, physical redundancy certification, v0.11 release, merge or Windows owner QA. `main` unchanged (`59120a630b0f56684ba7672d960673f5c5c1797b`), PR #1 OPEN/DRAFT/UNMERGED, one consolidated future QA. Phases 11/12 partial; old ~65% progress figure not recalculated. Next: unknown-hash dependency coverage and remaining non-destructive complete-backup/restore synthetic fault matrix.
+
+## Latest checkpoint — large backup protection tranche, Build 813 (2026-10-09 Chile)
+
+**Detailed authority:** [PHASE_10_12_TRANCHE_STATUS.md](PHASE_10_12_TRANCHE_STATUS.md), “Builds 808–813”. [Windows Build 813 / run 38007816190](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38007816190) **CI SUCCESS**, compiled `753f79c3e78765d3e2bb92f4b5d8aab667f07d2a`, .NET 10/WPF, complete SQLite smoke and new forged ZIP/missing-doc/valid-different-mirror regressions, 24k/96k synthetic corpora, portable win-x64 artifact ID `11652281040`, SHA-256 `9e24ae51443fee0e966ed76dabbb85e9757063dceb73cead58b16e6c61edbfdc`, live Enel/CNE SKIPPED.
+
+**Main addition:** `FullBackupService.VerifyArchive` now requires every v17 SQLite original bill/tariff path to bind to a **unique archived file path**, in addition to its stored digest/size when available. The check can detect missing/wrong original documents despite another document having the same SHA; previously SHA-less references were skipped in independent archive verification. Schema-valid blank bill SHA and nullable tariff SHA tests verify path-bound intact originals and reject internally consistent forged ZIPs omitting either. Mirror audit regression proves separate valid same-named but byte-DIFFERENT packages are NOT exact replicas and cannot be overwritten. Production tables/schema are unchanged, no real restoration.
+
+**Failure/correction transparency:** Build 808 PASS (core code); Builds 809–810 FAILED new smoke compilation (duplicate local name); Builds 811–812 FAILED new smoke fixture (bill SHA cannot be NULL in v17), corrected in commits `104a5e1` and `753f79c`. **Full final Build 813 PASS.**
+
+**Safety:** Development restricted to PR #1 OPEN/DRAFT/UNMERGED and `main` SHA `59120a630b0f56684ba7672d960673f5c5c1797b` unchanged; no owner database/PDF/backups accessed, no restore, delete, release or merge. Windows owner QA remains one final consolidated round. Phases 11/12 partial; prior approximate progress figure not rescored. Next: relational failure scenarios, Windows UX/performance and consolidated QA readiness, not another installation now.
+
+## Latest continuation — Build 818 new SQL editor functions, not repeated backup work (2026-10-09 Chile)
+
+[Windows Build 818](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38009151459) **SUCCESS** at compiled code `8e15cfe6010cce24572391b00dbb9746536ec5ae`, artifact `11653096209`, SHA-256 `acc581c8ddf77619bf8979483acd87cf82f41b702c76f3d714b2dcb5452a9f54`; WPF .NET10 Release, full SQLite smoke including new SQL assistance regression, 24k/96k corpora and win-x64 publish PASS; LIVE Enel/CNE SKIPPED. Phase 11: new `SqlEditorAssistance` and WPF UI add **Ctrl+Space visible-schema/keyword suggestions**, **Ctrl+/ or Ctrl+K reversible line comments**, **Ctrl+S .sql explicit non-overwrite save**, **Ctrl+O guarded open** (user confirmation before replacing editor, UTF-8/text bounds, no auto-execution), ES/EN labels. PREEXISTING safe SELECT/WITH execution, 200-row paging, schema tree, errors and CSV/XLSX exports are preserved, not counted as new features. Intermediate Builds 815–816 FAILED a generated source syntax glitch, fixed; Builds 817–818 SUCCESS. Owner QA remains one consolidated Windows round; draft PR #1 unmerged, main `59120a630b0f56684ba7672d960673f5c5c1797b` untouched; no owner's Data/PDF/manual backup touched, no deployment/release.
+
+**Anti-loop rule for next tranche:** do not reiterate complete-backup/verification matrix or already-implemented SQL/editor functions. Implement distinct missing approved Reports/Analysis/Dashboard UI workflows, using tests/CI, document only actual deltas and genuine unresolved blockers. Phase 11/12 still partial, numeric completion estimate not inflated.
+
+## Latest checkpoint — Build 821: verified existing Reports/Analysis; fixed distinct dashboard first-paint gap (2026-10-09 Chile)
+
+**Anti-loop verification from source:** Reports already has templates/presets, coverage preview, background PDF/XLSX export with progress/cancel/file-open, Analysis already computes energy and aggregation off UI thread with range/presets/charts/device-generation checks, and Dashboard already used background SQL, freshness and correct latest-day engine. None counted as new work. Specific gap: old Dashboard awaited daily kWh integration before painting four latest observed power/SOC cards. Changed in `DashboardStagedRefresh.RunAsync` + `MainWindow.xaml.cs`: fast stored/live power + battery SOC/freshness paints **before** optional slower daily coverage/kWh; two separate stale-request/device guards; daily failure cannot erase healthy instant cards; ES/EN "daily calculating/unavailable" messages. No changes to numerical integration formulas, Report/Analysis layouts or backups.
+
+**Verification:** [Windows Build 821 / run 38010010848](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38010010848) **SUCCESS** on code `ef5f397ef18408434820b5aa3fe6da6fe75bdfdc`; WPF .NET10 build, SQLite smoke with deterministic delayed daily regression, stale generation and fault isolation, 24k/96k performance, portable win-x64 artifact `11653057926`, SHA-256 `35fa209607999a0da0b4825cf38a626cfd1ca8df995bcf12f7f272e4fe2a6c39`. LIVE Enel/CNE SKIPPED. PR #1 Draft/Open/unmerged; main `59120a630b0f56684ba7672d960673f5c5c1797b` unchanged, real data never accessed, no merge/release. One final owner-machine consolidated QA still pending; phases 11/12 partial.
+
+**Next engineering rule:** no further Reports/Analysis/Dashboard "refactoring" based only on broad descriptions; require a specific uncovered behavior reproducible in current code. For remaining work prioritize verified missing functionality/performance baseline or next actual acceptance gate, not rebuilds of shipped CI-covered capabilities.
+
+## Latest continuation — Build 824: first externally usable analytical SQLite copy (2026-10-09 Chile)
+
+Prior code inspection verified internal SQL SELECT/WITH, CSV/XLSX, editor and Reports/Analysis existing; **new** gap now implemented was a user-initiated, native WAL-consistent `.sqlite` analytical copy for external SQL tools. New `SqlAnalyticalCopyService` and SQL Explorer bilingual button require explicit target and privacy acknowledgment, save only outside Data/Backups, use SQLite READONLY origin online backup into GUID candidate, verify integrity/FK/schema/sha and publish with no overwrite or source mutation. It is **not** a full recoverable backup, excludes original PDFs and does not restore/replace active SQLite, delete backups or make any automatic copy. Native backup runs off UI but cannot be interrupted mid-copy; UI accurately disables misleading cancel. Synthetic smoke tests committed WAL inclusion, snapshot immutable after source updates, corrupted/forbidden target rejection, missing source, pre-cancel and no leaked staged artifacts.
+
+[Windows Build 824 / run 38010839385](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38010839385) **SUCCESS** for code `bfe60532c13817792253e60aeccd7b6ffad0e0a6`, .NET10 WPF, smoke, 24k/96k corpora, portable win-x64, artifact ID `11653039592`, SHA256 `cf93ecf01d257fb5ee9b1eaef3a0ca4b3c12f2675ba11456096a6ddde0a8121b`; LIVE Enel/CNE SKIPPED. [822](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38010719710) and [823](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38010778233) also PASS for intermediate code. PR #1 OPEN/DRAFT/UNMERGED; main unchanged `59120a630b0f56684ba7672d960673f5c5c1797b`; owner SQLite/PDFs/backups untouched. Owner Windows QA still one consolidated final round. Phase 11/12 partial; not v0.11 release. Next tranche must target demonstrably missing different functionality, not already-complete full backup integrity, SQL exports/editor/snapshot, dashboard first-paint, Reports/Analysis preview.
+
+## Latest checkpoint — Builds 825–826, three non-redundant feature slices (2026-10-09 Chile)
+
+**Three genuinely pending parts advanced together, with one integrated CI:** (1) reorganized Settings into approved Connection / Exports / SQL Shortcuts / Data Protection tabs; moved existing configured keybinding selectors, consolidated full-package backup creation/status/inventory under Backup screen, and redirected Diagnostics backup action. Backup→configure second destination deep-links to the Settings Protection tab. (2) new `SqlSchemaCatalogService` & GUI for view/table columns, types, PK/NOT NULL/hidden metadata, on-demand and read-only, with seven view unit/provenance explanations; explicit sample **W ≠ integrated kWh**, no fake energy view. Synthetic smoke validates correct columns and no invalid/internal object injection. (3) Diagnostics no longer starts by blocking Dispatcher on historical SQLite COUNT(*); explicit Refresh asynchronously builds sanitized overview; remote actions grouped separately and probe result preserved.
+
+[Final CI Windows Build 826 / run 38012612742](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38012612742) **SUCCESS** for compiled code `9e476736016f0385b58a90e11c33635bc0a7225f` (Build 825 also SUCCESS before one settings deep-link improvement). .NET10/WPF Release, full SQLite smoke, ~24k/~96k synthetic performance and portable win-x64 upload PASS; artifact ID `11654656227` bytes `92848680` SHA256 `475d9faf498ee34bc85176cdae22cbbe6a0eee45dcf2b482a943aa26a464cfb6`. No real owner's DB, PDFs, backup/migration, physical media, release or QA used. PR #1 OPEN/DRAFT/UNMERGED, main `59120a630b0f56684ba7672d960673f5c5c1797b` unchanged.
+
+**Anti-loop:** already done full-backup safeguards, SQL editor/paging/exports/external snapshot, Reports/Analysis workflows and dashboard staged first-paint are NOT new work here. New Settings tabs, SQL catalog column details and lazy Diagnostics are **CODE DONE / CI PASS**, visual usability + latency acceptance still **owner QA pending once, consolidated**. No claim v0.11 released or phases complete. Review other material pending areas only after checking source, or prepare the owner QA milestone when truly coherent.

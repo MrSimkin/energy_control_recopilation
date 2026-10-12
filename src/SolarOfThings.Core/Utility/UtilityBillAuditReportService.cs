@@ -679,8 +679,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("ALCANCE DEL MONTO", "AMOUNT SCOPE"),
             L(
-                "Son subtotales comparables de componentes conciliados con evidencia oficial. Incluyen el cargo fijo cuando éste puede reconstruirse independientemente. Subsidios, servicios asociados, FET no determinable u otros ajustes permanecen preservados como monto real y no se presentan como reconstruidos.",
-                "These are comparable subtotals for components reconciled with official evidence. They include the fixed charge when it can be independently reconstructed. Subsidies, associated services, indeterminate FET, and other adjustments remain preserved as actual amounts and are not presented as reconstructed."),
+                "Son subtotales comparables de componentes conciliados con evidencia oficial. El cargo fijo se incluye si su monto coincide con alternativas oficiales, pero esa coincidencia por sí sola no demuestra qué RED/ETR es aplicable. Subsidios, servicios asociados, FET no determinable u otros ajustes permanecen como montos reales no reconstruidos.",
+                "These are comparable subtotals reconciled with official evidence. A fixed charge is included when its amount matches official alternatives; that match alone does not prove which RED/ETR applies. Subsidies, associated services, indeterminate FET and other adjustments remain preserved as actual amounts, not reconstructed."),
             Colors.WhiteSmoke);
     }
 
@@ -1590,6 +1590,22 @@ public sealed class UtilityBillAuditReportService
                     : "—");
             r.Cells[4].AddParagraph(MoneySigned(line.AmountClp));
         }
+
+        // This printed-total discrepancy is NOT the modeled tariff residual.
+        // Preserve it without adding any inferred balancing charge.
+        var printedTotal = bill.TotalDueClp ?? bill.AmountClp;
+        if (printedTotal.HasValue)
+        {
+            var residualNote = section.AddParagraph(
+                BillAuditEvidencePresentation.DescribePrintedDetailResidual(
+                    printedTotal.Value,
+                    lines.Sum(item => item.AmountClp),
+                    spanish));
+            residualNote.Format.Font.Size = 8;
+            residualNote.Format.Font.Color = Colors.DarkRed;
+            residualNote.Format.SpaceBefore = Unit.FromPoint(5);
+            residualNote.Format.SpaceAfter = Unit.FromPoint(5);
+        }
     }
 
     private static void AddReadingRow(
@@ -1693,8 +1709,8 @@ public sealed class UtilityBillAuditReportService
 
         var intro = section.AddParagraph(
             L(
-                "Para comparar escenarios sin discutir cargos ajenos al consumo, se recalculan sólo los componentes respaldados en $/kWh. El resto del total real se conserva sin cambios.",
-                "To compare scenarios without disputing charges unrelated to consumption, only supported $/kWh components are recalculated. The remainder of the actual bill total is preserved unchanged."));
+                "Para comparar escenarios se calcula el subtotal de componentes variables sustentados en $/kWh más el cargo fijo reconstruido, si existe. Los demás importes de la boleta se conservan sin cambios.",
+                "For comparable scenarios, the subtotal includes supported variable $/kWh components plus any reconstructed fixed charge. All other bill amounts are preserved unchanged."));
         intro.Format.Font.Size = 8.5;
         intro.Format.Font.Color = Colors.DimGray;
         intro.Format.SpaceAfter = Unit.FromPoint(5);
@@ -1737,7 +1753,7 @@ public sealed class UtilityBillAuditReportService
         h.Format.Font.Bold = true;
         h.Cells[0].AddParagraph(L("Escenario", "Scenario"));
         h.Cells[1].AddParagraph("kWh");
-        h.Cells[2].AddParagraph(L("Variable", "Variable"));
+        h.Cells[2].AddParagraph(L("Subtotal modelado", "Modeled subtotal"));
         h.Cells[3].AddParagraph(L("Total comparable", "Comparable total"));
         h.Cells[4].AddParagraph(L("Dif. vs Enel", "Diff. vs utility"));
 

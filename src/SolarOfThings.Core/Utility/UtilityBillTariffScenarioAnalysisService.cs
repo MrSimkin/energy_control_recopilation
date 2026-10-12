@@ -256,7 +256,14 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             administrationMatch is null)
         {
             unresolved.Add(
-                "Administration service was preserved as actual-only because a unique fixed-monthly consumer charge could not be established from the captured official candidates.");
+                "Administration service was preserved as actual-only because a matching fixed-monthly amount cannot be evidenced across each official tariff period.");
+        }
+        else if (administrationMatch is not null &&
+                 administrationMatch.EvidenceStatus.Contains(
+                     "APPLICABILITY_AMBIGUOUS", StringComparison.Ordinal))
+        {
+            unresolved.Add(
+                "The published gross fixed-monthly tariff matches the bill in every effective period, but multiple alternative tariff rates remain; bill-value matching does not independently establish RED/ETR applicability.");
         }
 
         if (periods.Count > 1)
@@ -513,8 +520,7 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             return null;
 
         var best = attempts
-            .OrderBy(item =>
-                item.AbsoluteDifferenceClp)
+            .OrderBy(item => item.AbsoluteDifferenceClp)
             .First();
 
         if (best.AbsoluteDifferenceClp >
@@ -600,45 +606,50 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache)
     {
         var first = periods[0];
+        // FIXED_MONTHLY rows have no RED/ETR identity: their parser-local
+        // CandidateIndex does not identify the electricity candidate.
         var fixedSeeds = candidateCache[
                 first.Publication.PublicationId]
             .Where(item =>
                 item.TariffPlan.Equals(
                     "BT1",
                     StringComparison.OrdinalIgnoreCase) &&
-                item.ComponentKey ==
-                    "FIXED_MONTHLY" &&
-                item.CandidateIndex ==
-                    electricity.CandidateIndex)
+                item.ComponentKey == "FIXED_MONTHLY" &&
+                item.NetworkType is null &&
+                item.EtrBand is null)
             .ToArray();
 
         var attempts =
             new List<FixedChargeAttempt>();
 
-        foreach (var seed in fixedSeeds)
-        {
-            foreach (var rate in
-                     ConsumerRateValues(seed))
-            {
-                var attempt =
-                    BuildFixedChargeAttempt(
-                        seed,
-                        rate.Column,
-                        periods,
-                        candidateCache,
-                        line.AmountClp);
+        // Evaluate each available official column at most once, rather
+        // than re-scanning thousands of tariff candidates for every fixed
+        // row on every page of a large real publication.
+        // For a household bill the official IVA-included $/month
+        // column is the relevant displayed charge. Net tariff values
+        // must not be mixed into a printed gross monthly line.
+        var columns = fixedSeeds.Any(item =>
+                item.PublishedIvaColumnClp is > 0)
+            ? new[] { "IVA_COLUMN" }
+            : new[] { "NETO" };
 
-                if (attempt is not null)
-                    attempts.Add(attempt);
-            }
+        foreach (var column in columns)
+        {
+            var attempt = BuildFixedChargeAttempt(
+                column,
+                periods,
+                candidateCache,
+                line.AmountClp);
+            if (attempt is not null)
+                attempts.Add(attempt);
         }
 
         if (attempts.Count == 0)
             return null;
 
         var best = attempts
-            .OrderBy(item =>
-                item.AbsoluteDifferenceClp)
+            .OrderBy(item => item.AbsoluteDifferenceClp)
+            .ThenBy(item => item.ApplicabilityAmbiguous)
             .First();
 
         if (best.AbsoluteDifferenceClp >
@@ -664,9 +675,13 @@ public sealed class UtilityBillTariffScenarioAnalysisService
             electricity.EtrBand,
             electricity.CandidateIndex,
             best.Column,
-            periods.Count > 1
-                ? "FIXED_AMOUNT_RECONCILED_MULTI_PERIOD_ROUNDING_EQUIVALENT"
-                : "FIXED_AMOUNT_RECONCILED",
+            best.ApplicabilityAmbiguous
+                ? periods.Count > 1
+                    ? "FIXED_AMOUNT_RECONCILED_MULTI_PERIOD_APPLICABILITY_AMBIGUOUS"
+                    : "FIXED_AMOUNT_RECONCILED_APPLICABILITY_AMBIGUOUS"
+                : periods.Count > 1
+                    ? "FIXED_AMOUNT_RECONCILED_MULTI_PERIOD_ROUNDING_EQUIVALENT"
+                    : "FIXED_AMOUNT_RECONCILED",
             best.RepresentativeCandidate.PrintedDescription)
         {
             PublicationIds = periods
@@ -742,78 +757,102 @@ public sealed class UtilityBillTariffScenarioAnalysisService
 
     private FixedChargeAttempt?
         BuildFixedChargeAttempt(
-            TariffRateCandidate seed,
             string column,
             IReadOnlyList<PublicationPeriod> periods,
             IReadOnlyDictionary<long, IReadOnlyList<TariffRateCandidate>> candidateCache,
             double actualAmountClp)
     {
-        var rates =
-            new List<double>(periods.Count);
+        var rates = new List<double>(periods.Count);
         TariffRateCandidate? representative = null;
         TariffPublication? representativePublication = null;
+        var applicabilityAmbiguous = false;
+        var printedWholePeso = Math.Round(
+            actualAmountClp, 0, MidpointRounding.AwayFromZero);
 
+        // Matching the printed value limits *which* rate can explain the
+        // bill, but does not identify its RED/ETR applicability. Preserve
+        // that distinction explicitly rather than pretending all options
+        // published for unrelated grids should be numerically identical.
         foreach (var period in periods)
         {
-            var candidate =
-                FindSameCandidate(
-                    period.Publication.PublicationId,
-                    "FIXED_MONTHLY",
-                    seed,
-                    candidateCache);
-
-            if (candidate is null ||
-                !TryRate(
-                    candidate,
-                    column,
-                    out var rate,
-                    allowZeroIva: true))
-            {
-                return null;
-            }
-
-            rates.Add(rate);
-            representative = candidate;
-            representativePublication =
-                period.Publication;
-        }
-
-        var rounded =
-            rates
+            var published = candidateCache[period.Publication.PublicationId]
+                .Where(item =>
+                    item.TariffPlan.Equals(
+                        "BT1", StringComparison.OrdinalIgnoreCase) &&
+                    item.ComponentKey == "FIXED_MONTHLY" &&
+                    item.NetworkType is null &&
+                    item.EtrBand is null)
                 .Select(item =>
-                    Math.Round(
-                        item,
-                        0,
-                        MidpointRounding.AwayFromZero))
-                .Distinct()
+                {
+                    var valid = TryRate(
+                        item, column, out var rate, allowZeroIva: true);
+                    return new
+                    {
+                        Candidate = item,
+                        Rate = rate,
+                        Valid = valid && rate > 0 && double.IsFinite(rate)
+                    };
+                })
+                .Where(item => item.Valid)
                 .ToArray();
 
-        // When a bill spans tariff-effective periods, do not invent a
-        // prorating rule for the monthly fixed charge. It is independently
-        // reconstructible only when every official period rate resolves to
-        // the same whole-peso amount printed on the bill.
-        if (rounded.Length != 1)
-            return null;
+            if (published.Length == 0)
+                return null;
 
-        var reconstructed =
-            rounded[0];
-        var rateBasis =
-            BuildFixedRateBasis(
-                periods,
-                rates);
+            var alternatives = published
+                .Select(item => Math.Round(
+                    item.Rate, 0, MidpointRounding.AwayFromZero))
+                .Distinct().ToArray();
+            var matching = published
+                .Where(item => Math.Round(
+                    item.Rate, 0, MidpointRounding.AwayFromZero)
+                    == printedWholePeso)
+                .OrderBy(item => item.Candidate.PageNumber)
+                .ThenBy(item => item.Candidate.CandidateIndex)
+                .ThenBy(item => item.Candidate.RateCandidateId)
+                .ToArray();
+
+            // Never invent an applicable fixed amount if the official
+            // publication cannot reproduce the printed whole peso.
+            if (matching.Length == 0)
+                return null;
+
+            applicabilityAmbiguous |= alternatives.Length > 1;
+            var selected = matching[0];
+            rates.Add(selected.Rate);
+            representative = selected.Candidate;
+            representativePublication = period.Publication;
+        }
+
+        // A monthly fixed charge is counted once, not prorated across
+        // the August retroactive and September effective publications.
+        if (rates
+            .Select(rate => Math.Round(
+                rate, 0, MidpointRounding.AwayFromZero))
+            .Distinct().Count() != 1)
+        {
+            return null;
+        }
+
+        var reconstructed = printedWholePeso;
+        var rateBasis = BuildFixedRateBasis(periods, rates);
+        var calculation = periods.Count > 1
+            ? $"Cargo fijo mensual una vez. {rateBasis}. Cada publicación redondea a $ {reconstructed:0}."
+            : $"Cargo fijo mensual una vez: {rates[0]:0.###} CLP → $ {reconstructed:0}.";
+        if (applicabilityAmbiguous)
+        {
+            calculation += " Coincidencia con monto impreso entre tarifas oficiales alternativas; no se ha demostrado independientemente la red/ETR aplicable.";
+        }
 
         return new FixedChargeAttempt(
             column,
             reconstructed,
-            Math.Abs(
-                actualAmountClp -
-                reconstructed),
+            Math.Abs(actualAmountClp - reconstructed),
             representative!,
             representativePublication!,
             rateBasis,
-            periods.Count > 1
-                ? $"Cargo fijo mensual una vez. {rateBasis}. Todas las vigencias redondean a $ {reconstructed:0}."
-                : $"Cargo fijo mensual una vez: {rates[0]:0.###} CLP → $ {reconstructed:0}.");
+            calculation,
+            applicabilityAmbiguous);
     }
 
     private WeightedCompositeAttempt?
@@ -1553,7 +1592,8 @@ public sealed class UtilityBillTariffScenarioAnalysisService
         TariffRateCandidate RepresentativeCandidate,
         TariffPublication RepresentativePublication,
         string RateBasis,
-        string CalculationBasis);
+        string CalculationBasis,
+        bool ApplicabilityAmbiguous);
 
     private sealed record WeightedCompositeAttempt(
         double RateClpPerKwh,

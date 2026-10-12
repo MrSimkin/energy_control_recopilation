@@ -165,9 +165,14 @@ public sealed class UtilityBillReconciliationSummaryService
             actualTotal.HasValue &&
             tariff.ActualSupportedLinesClp.HasValue)
         {
+            // Use the same reconstructed-billed baseline as the Audit PDF
+            // and annex. The small real-vs-modeled line rounding residual
+            // stays in the preserved amount; it is not fabricated as an
+            // additional printed adjustment line.
             preservedNonVariable =
                 actualTotal.Value -
-                tariff.ActualSupportedLinesClp.Value;
+                (tariff.ReconstructedBilledSupportedClp ??
+                 tariff.ActualSupportedLinesClp.Value);
 
             if (tariff.ReconstructedBilledSupportedClp.HasValue)
             {

@@ -16,37 +16,34 @@ public sealed class NormalizationRepository
     {
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
+        // Use the existing (device_id, metric_key, recorded_at_utc)
+        // index/PK to select the last eligible sample per metric. Unlike a
+        // windowed ROW_NUMBER over the whole device corpus, this query avoids
+        // ranking every historical row. Both exclude unresolved/NULL values.
+        // Validated against the previous query on isolated synthetic fixtures.
         command.CommandText = """
-            WITH ranked AS (
-                SELECT
-                    metric_key,
-                    recorded_at_utc,
-                    normalized_value,
-                    normalized_unit,
-                    source_attribute_key,
-                    normalization_rule_version,
-                    confidence,
-                    quality,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY metric_key
-                        ORDER BY recorded_at_utc DESC
-                    ) AS row_number
+            WITH newest AS (
+                SELECT metric_key, MAX(recorded_at_utc) AS latest_utc
                 FROM normalized_metric_sample
                 WHERE device_id = $deviceId
                   AND normalized_value IS NOT NULL
                   AND confidence <> 'UNRESOLVED'
+                GROUP BY metric_key
             )
             SELECT
-                metric_key,
-                recorded_at_utc,
-                normalized_value,
-                normalized_unit,
-                source_attribute_key,
-                normalization_rule_version,
-                confidence,
-                quality
-            FROM ranked
-            WHERE row_number = 1;
+                sample.metric_key,
+                sample.recorded_at_utc,
+                sample.normalized_value,
+                sample.normalized_unit,
+                sample.source_attribute_key,
+                sample.normalization_rule_version,
+                sample.confidence,
+                sample.quality
+            FROM newest
+            JOIN normalized_metric_sample AS sample
+              ON sample.device_id = $deviceId
+             AND sample.metric_key = newest.metric_key
+             AND sample.recorded_at_utc = newest.latest_utc;
             """;
         command.Parameters.AddWithValue("$deviceId", deviceId);
 

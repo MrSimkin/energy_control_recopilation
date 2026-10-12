@@ -15,8 +15,10 @@ public sealed class HouseholdBehaviorStatisticsService
     public HouseholdBehaviorStatistics Get(
         string deviceId,
         DateTimeOffset? fromUtc = null,
-        DateTimeOffset? toUtc = null)
+        DateTimeOffset? toUtc = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
 
@@ -43,9 +45,10 @@ public sealed class HouseholdBehaviorStatisticsService
 
         using var reader = command.ExecuteReader();
         var samples = new List<BehaviorPoint>();
-
         while (reader.Read())
         {
+            if ((samples.Count & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             if (!DateTimeOffset.TryParse(reader.GetString(0), out var timestamp))
             {
                 continue;
@@ -56,6 +59,7 @@ public sealed class HouseholdBehaviorStatisticsService
                 reader.GetString(1)));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var stateSampleCounts = samples
             .GroupBy(sample => sample.StateKey, StringComparer.Ordinal)
             .ToDictionary(
@@ -84,6 +88,8 @@ public sealed class HouseholdBehaviorStatisticsService
         var gaps = new List<double>(samples.Count - 1);
         for (var i = 0; i < samples.Count - 1; i++)
         {
+            if ((i & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             var minutes =
                 (samples[i + 1].TimestampUtc - samples[i].TimestampUtc).TotalMinutes;
 
@@ -93,6 +99,7 @@ public sealed class HouseholdBehaviorStatisticsService
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var medianGap = Median(gaps);
 
         // Derive continuity tolerance from the actual observed cadence.
@@ -108,6 +115,8 @@ public sealed class HouseholdBehaviorStatisticsService
 
         for (var i = 0; i < samples.Count - 1; i++)
         {
+            if ((i & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             var current = samples[i];
             var next = samples[i + 1];
             var gapMinutes = (next.TimestampUtc - current.TimestampUtc).TotalMinutes;
@@ -138,6 +147,7 @@ public sealed class HouseholdBehaviorStatisticsService
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var denominator = coveredMinutes + uncoveredGapMinutes;
         var coveragePercent = denominator > 0
             ? coveredMinutes / denominator * 100.0

@@ -1,3 +1,5 @@
+using System.IO;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
@@ -7,6 +9,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SolarOfThings.App.Localization;
+using SolarOfThings.Core.Backup;
 using SolarOfThings.Core.Commissioning;
 using SolarOfThings.Core.Data;
 using SolarOfThings.Core.Diagnostics;
@@ -31,6 +34,8 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        var startupWatch = Stopwatch.StartNew();
+        var performance = new UiPerformanceRecorder();
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var startupWindow = CreateStartupWindow(out var startupStatus);
@@ -46,10 +51,12 @@ public partial class App : Application
         }
 
         var appPaths = new AppPaths();
+        var importWatch = Stopwatch.StartNew();
         var importResult = await Task.Run(() =>
             DataImportService.ApplyPendingImport(
                 appPaths,
                 message => RenderStartupStatus(startupStatus, message)));
+        performance.Record("Startup.ImportCheck", importWatch.Elapsed);
 
         RenderStartupStatus(startupStatus, "Inicializando base de datos...");
         await Dispatcher.Yield(DispatcherPriority.Background);
@@ -57,12 +64,17 @@ public partial class App : Application
         var builder = Host.CreateApplicationBuilder();
 
         builder.Services.AddSingleton(appPaths);
+        builder.Services.AddSingleton(performance);
         builder.Services.AddSingleton<SqliteDatabase>();
+        builder.Services.AddSingleton<DatabaseBackupService>();
+        builder.Services.AddSingleton<FullBackupService>();
+        builder.Services.AddSingleton<CompleteBackupInventoryService>();
         builder.Services.AddSingleton<AppSettingsRepository>();
         builder.Services.AddSingleton<BatteryConfigurationService>();
         builder.Services.AddSingleton<DiagnosticsFileWriter>();
         builder.Services.AddSingleton<ApiDiagnosticsStore>();
         builder.Services.AddSingleton<InvestigationDiagnosticsService>();
+        builder.Services.AddSingleton<PhaseDiagnosticsExportService>();
         builder.Services.AddSingleton<ISecretStore, DpapiFileSecretStore>();
         builder.Services.AddSingleton<IotOpenCredentialStore>();
         builder.Services.AddSingleton<SolarOfThingsApiClient>();
@@ -124,7 +136,56 @@ public partial class App : Application
         _host = builder.Build();
 
         var database = _host.Services.GetRequiredService<SqliteDatabase>();
+        var backupService = _host.Services
+            .GetRequiredService<DatabaseBackupService>();
+        var fullBackupService = _host.Services.GetRequiredService<FullBackupService>();
+        // Never migrate existing user data without a completed, fully
+        // verified backup. The user may postpone the update and keep the
+        // previous installation; no schema write happens in that case.
+        if (File.Exists(database.DatabasePath))
+        {
+            int priorSchemaVersion = 0;
+            try { priorSchemaVersion = database.GetSchemaVersion(); }
+            catch { /* Inability to read the schema must fail closed below. */ }
+            if (priorSchemaVersion < SqliteDatabase.CurrentSchemaVersion)
+            {
+                var confirmed = MessageBox.Show(
+                    "Esta versión necesita actualizar la estructura de la base de datos. " +
+                    "Primero crearemos un respaldo COMPLETO verificado (base, boletas y tarifas).\n\n" +
+                    "¿Continuar? No = posponer la actualización y conservar los datos.",
+                    "Respaldo completo antes de migración",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (confirmed != MessageBoxResult.Yes)
+                {
+                    Shutdown(0);
+                    return;
+                }
+                RenderStartupStatus(startupStatus,
+                    "Creando respaldo completo verificado antes de migrar...");
+                try
+                {
+                    await Task.Run(() => fullBackupService.Create(
+                        ProductInfo.ProductVersion, ProductInfo.BuildNumber,
+                        ProductInfo.SourceRevision));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        "La migración NO comenzó: no fue posible completar y verificar " +
+                        "un respaldo íntegro. Se conservan los datos existentes.\n\n" +
+                        ex.Message,
+                        "Protección de datos", MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    Shutdown(-1);
+                    return;
+                }
+            }
+        }
+
+        RenderStartupStatus(startupStatus, "Inicializando base de datos...");
+        var databaseWatch = Stopwatch.StartNew();
         await Task.Run(database.Initialize);
+        performance.Record("Startup.SQLiteInitialize", databaseWatch.Elapsed);
 
         if (importResult.Applied)
         {
@@ -161,17 +222,26 @@ public partial class App : Application
                 architecture = RuntimeInformation.ProcessArchitecture.ToString()
             }));
 
+        var constructorWatch = Stopwatch.StartNew();
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+        performance.Record("Startup.MainWindowConstruction", constructorWatch.Elapsed);
         MainWindow = mainWindow;
 
         startupWindow.Hide();
         mainWindow.WindowState = WindowState.Normal;
         mainWindow.Show();
+        performance.Record("Startup.WindowShown", startupWatch.Elapsed);
         mainWindow.Activate();
         mainWindow.Focus();
         startupWindow.Close();
 
         ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+        // Full backups are user-initiated. Show the skippable weekly reminder
+        // only after the main window becomes usable. Do not create daily DB copies.
+        _ = mainWindow.Dispatcher.BeginInvoke(
+            new Action(async () => await mainWindow.ShowWeeklyBackupReminderIfDueAsync()),
+            DispatcherPriority.Background);
     }
 
     private static Window CreateStartupWindow(out TextBlock statusText)

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using SolarOfThings.Core.Diagnostics;
+using SolarOfThings.Core.Backup;
 using SolarOfThings.Core.Infrastructure;
 
 namespace SolarOfThings.App;
@@ -10,22 +11,41 @@ public partial class DeveloperDiagnosticsWindow : Window
     private readonly ApiDiagnosticsStore _diagnostics;
     private readonly InvestigationDiagnosticsService _investigation;
     private readonly AppPaths _paths;
+    private readonly FullBackupService _backup;
+    private readonly PhaseDiagnosticsExportService _phaseEvidence;
     private bool _busy;
+    private bool _windowClosed;
+    private int _reportGeneration;
+    private long? _selectedBillId;
+
+    public void SetSelectedBillId(long? billId) =>
+        _selectedBillId = billId;
 
     public DeveloperDiagnosticsWindow(
         ApiDiagnosticsStore diagnostics,
         InvestigationDiagnosticsService investigation,
-        AppPaths paths)
+        AppPaths paths,
+        FullBackupService backup,
+        PhaseDiagnosticsExportService phaseEvidence)
     {
         _diagnostics = diagnostics;
         _investigation = investigation;
         _paths = paths;
+        _backup = backup;
+        _phaseEvidence = phaseEvidence;
 
         InitializeComponent();
-        RefreshReport();
+        // Investigation overview executes multiple COUNT(*) operations on the
+        // local historical corpus. The diagnostics window must open instantly:
+        // only a deliberate Refresh or capture action may request that work.
+        ReportTextBox.Text = "Selecciona Actualizar para cargar el resumen / " +
+            "Select Refresh to load the overview.";
+        ActionStatusText.Text = "";
+        Closed += (_, _) => { _windowClosed = true; _reportGeneration++; };
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) => RefreshReport();
+    private async void Refresh_Click(object sender, RoutedEventArgs e) =>
+        await RefreshReportAsync();
 
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
@@ -84,6 +104,31 @@ public partial class DeveloperDiagnosticsWindow : Window
             });
     }
 
+    private async void PhaseEvidence_Click(object sender, RoutedEventArgs e)
+    {
+        await RunAsync(async () =>
+        {
+            ActionStatusText.Text = "Paso 1/2: revisando esquema y metadatos...";
+            var path = await Task.Run(
+                () => _phaseEvidence.Export(_selectedBillId));
+            ActionStatusText.Text = $"Paso 2/2: paquete guardado en {path}";
+            System.Media.SystemSounds.Asterisk.Play();
+        });
+    }
+
+    private void Backup_Click(object sender, RoutedEventArgs e)
+    {
+        // Only the dedicated Protection screen creates and audits backups.
+        if (Owner is MainWindow main)
+        {
+            Close();
+            main.OpenProtectionFromDiagnostics();
+        }
+        else
+            ActionStatusText.Text =
+                "Open the main window and select Data Protection.";
+    }
+
     private async void ExportBundle_Click(object sender, RoutedEventArgs e)
     {
         await RunAsync(
@@ -110,7 +155,7 @@ public partial class DeveloperDiagnosticsWindow : Window
         {
             ActionStatusText.Text = "Ejecutando diagnóstico read-only...";
             await action();
-            RefreshReport();
+            await RefreshReportAsync(alreadyBusy: true);
         }
         catch (Exception ex)
         {
@@ -132,6 +177,8 @@ public partial class DeveloperDiagnosticsWindow : Window
         ConfigReadButton.IsEnabled = !busy;
         GridEnergyButton.IsEnabled = !busy;
         ExportBundleButton.IsEnabled = !busy;
+        BackupButton.IsEnabled = !busy;
+        PhaseEvidenceButton.IsEnabled = !busy;
         DiagnosticsBusyBar.Visibility =
             busy ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -147,27 +194,41 @@ public partial class DeveloperDiagnosticsWindow : Window
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
-    private void RefreshReport()
+    private async Task RefreshReportAsync(bool alreadyBusy = false)
     {
+        if (_windowClosed || (_busy && !alreadyBusy)) return;
+        var generation = ++_reportGeneration;
+        if (!alreadyBusy) SetBusy(true);
+        ReportTextBox.Text = "";
+        if (!alreadyBusy)
+            ActionStatusText.Text =
+                "Leyendo resumen local en segundo plano / Reading local overview in background...";
         try
         {
-            ReportTextBox.Text =
+            var report = await Task.Run(() =>
                 _investigation.BuildOverview() +
                 Environment.NewLine + Environment.NewLine +
                 "RECENT SANITIZED API EVENTS" +
                 Environment.NewLine +
                 "===========================" +
                 Environment.NewLine +
-                _diagnostics.BuildSanitizedReport(80);
+                _diagnostics.BuildSanitizedReport(80));
+            if (_windowClosed || generation != _reportGeneration) return;
+            ReportTextBox.Text = report;
+            if (!alreadyBusy)
+                ActionStatusText.Text = "Resumen disponible / Overview ready.";
         }
         catch (Exception ex)
         {
+            if (_windowClosed || generation != _reportGeneration) return;
             ReportTextBox.Text =
                 "No se pudo construir el resumen de investigación." +
-                Environment.NewLine +
-                ex.Message +
-                Environment.NewLine + Environment.NewLine +
-                _diagnostics.BuildSanitizedReport(80);
+                Environment.NewLine + ex.Message;
+            ActionStatusText.Text = "Error al leer el resumen / Overview read failed.";
+        }
+        finally
+        {
+            if (!alreadyBusy && !_windowClosed) SetBusy(false);
         }
     }
 

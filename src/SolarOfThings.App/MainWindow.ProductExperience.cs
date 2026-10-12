@@ -144,6 +144,8 @@ public partial class MainWindow
                 : $"Ayuda-SolarEnergyMonitor-{sectionId}-{DateTime.Now:yyyyMMdd}.pdf"
         };
 
+        PrepareExportDialog(dialog);
+
         if (dialog.ShowDialog(this) != true)
             return;
 

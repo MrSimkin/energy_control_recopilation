@@ -26,6 +26,8 @@
         <Border Grid.Row="1" Background="White" BorderBrush="#D8DEE6" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,10">
             <StackPanel>
                 <TextBlock Text="{DynamicResource Diagnostics.InvestigationHeading}" FontFamily="Segoe UI" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <TextBlock Text="{DynamicResource Diagnostics.RemoteGroup}"
+                           FontWeight="SemiBold" Foreground="#495057" Margin="0,0,0,5"/>
                 <WrapPanel>
                     <Button x:Name="RunAllButton" Content="{DynamicResource Diagnostics.RunAll}" Padding="12,7" Margin="0,0,8,8" Click="RunAll_Click"/>
                     <Button x:Name="CaptureStateButton" Content="{DynamicResource Diagnostics.CaptureState}" Padding="12,7" Margin="0,0,8,8" Click="CaptureState_Click"/>
@@ -33,7 +35,13 @@
                     <Button x:Name="ConfigCacheButton" Content="{DynamicResource Diagnostics.ConfigCache}" Padding="12,7" Margin="0,0,8,8" Click="ConfigCache_Click"/>
                     <Button x:Name="ConfigReadButton" Content="{DynamicResource Diagnostics.ConfigRead}" Padding="12,7" Margin="0,0,8,8" Click="ConfigRead_Click"/>
                     <Button x:Name="GridEnergyButton" Content="{DynamicResource Diagnostics.GridImportEnergy}" Padding="12,7" Margin="0,0,8,8" Click="GridEnergy_Click"/>
+                </WrapPanel>
+                <TextBlock Text="{DynamicResource Diagnostics.LocalGroup}"
+                           FontWeight="SemiBold" Foreground="#495057" Margin="0,4,0,5"/>
+                <WrapPanel>
+                    <Button x:Name="PhaseEvidenceButton" Content="{DynamicResource Diagnostics.PhaseEvidence}" Padding="12,7" Margin="0,0,8,8" Click="PhaseEvidence_Click"/>
                     <Button x:Name="ExportBundleButton" Content="{DynamicResource Diagnostics.ExportBundle}" Padding="12,7" Margin="0,0,8,8" Click="ExportBundle_Click"/>
+                    <Button x:Name="BackupButton" Content="{DynamicResource Diagnostics.OpenDataProtection}" Padding="12,7" Margin="0,0,8,8" Click="Backup_Click"/>
                 </WrapPanel>
                 <ProgressBar x:Name="DiagnosticsBusyBar"
                              Height="8"

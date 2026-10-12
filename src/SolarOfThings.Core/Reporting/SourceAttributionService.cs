@@ -29,8 +29,10 @@ public sealed class SourceAttributionService
         DateTimeOffset rangeStartUtc,
         DateTimeOffset rangeEndUtc,
         string timeZoneId,
-        AggregationPeriod aggregation)
+        AggregationPeriod aggregation,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (rangeEndUtc < rangeStartUtc)
         {
             (rangeStartUtc, rangeEndUtc) = (rangeEndUtc, rangeStartUtc);
@@ -42,20 +44,27 @@ public sealed class SourceAttributionService
             ? rangeEndUtc
             : rangeEndUtc.AddTicks(1);
 
-        var frames = LoadFrames(deviceId, rangeStartUtc, rangeEndExclusive);
+        var frames = LoadFrames(deviceId, rangeStartUtc, rangeEndExclusive, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         var modes = LoadModeContexts(deviceId);
         var configuration = LoadHistoricalConfiguration(deviceId);
+        cancellationToken.ThrowIfCancellationRequested();
         ApplyAsOfContext(frames, modes, configuration);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var medianGapMinutes = CalculateMedianGapMinutes(frames);
         var continuityThresholdMinutes = medianGapMinutes > 0
             ? Math.Clamp(medianGapMinutes * 3.0, 10.0, 20.0)
             : 15.0;
 
+        var attributionIndex = 0;
         foreach (var frame in frames)
         {
+            if ((++attributionIndex & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             frame.Attribution = Attribute(frame);
         }
+        cancellationToken.ThrowIfCancellationRequested();
 
         var capacityKwh = _batteryConfiguration.Get().UsableCapacityKwh;
         var buckets = AggregationBucketPlanner
@@ -75,6 +84,8 @@ public sealed class SourceAttributionService
 
         for (var index = 0; index < frames.Count - 1; index++)
         {
+            if ((index & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             var first = frames[index];
             var second = frames[index + 1];
             var gapMinutes = (second.TimestampUtc - first.TimestampUtc).TotalMinutes;
@@ -160,6 +171,7 @@ public sealed class SourceAttributionService
 
         foreach (var frame in frames)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var bucket = buckets.FirstOrDefault(item =>
                 frame.TimestampUtc >= item.StartUtc &&
                 frame.TimestampUtc < item.EndUtcExclusive);
@@ -199,8 +211,10 @@ public sealed class SourceAttributionService
     private List<Frame> LoadFrames(
         string deviceId,
         DateTimeOffset fromUtc,
-        DateTimeOffset toUtcExclusive)
+        DateTimeOffset toUtcExclusive,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -226,9 +240,12 @@ public sealed class SourceAttributionService
 
         using var reader = command.ExecuteReader();
         var map = new SortedDictionary<DateTimeOffset, Frame>();
+        var scanned = 0;
 
         while (reader.Read())
         {
+            if ((++scanned & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             if (!DateTimeOffset.TryParse(
                     reader.GetString(0),
                     CultureInfo.InvariantCulture,

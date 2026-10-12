@@ -22,6 +22,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Web.WebView2" />
     <PackageReference Include="ScottPlot.WPF" />
+    <PackageReference Include="AvalonEdit" />
   </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json">

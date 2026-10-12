@@ -25,8 +25,10 @@ public sealed class PowerAggregationService
         DateTimeOffset rangeStartUtc,
         DateTimeOffset rangeEndUtc,
         string timeZoneId,
-        AggregationPeriod period)
+        AggregationPeriod period,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!SupportedMetricKeys.Contains(metricKey, StringComparer.Ordinal))
         {
             throw new ArgumentOutOfRangeException(
@@ -79,9 +81,11 @@ public sealed class PowerAggregationService
             deviceId,
             metricKey,
             rangeStartUtc,
-            rangeEndExclusive);
+            rangeEndExclusive,
+            cancellationToken);
 
-        var medianGap = CalculateMedianGapMinutes(samples);
+        cancellationToken.ThrowIfCancellationRequested();
+        var medianGap = CalculateMedianGapMinutes(samples, cancellationToken);
         var continuityThreshold = medianGap > 0
             ? Math.Clamp(medianGap * 3.0, 10.0, 20.0)
             : 15.0;
@@ -90,7 +94,8 @@ public sealed class PowerAggregationService
             samples,
             buckets,
             rangeStartUtc,
-            rangeEndExclusive);
+            rangeEndExclusive,
+            cancellationToken);
 
         if (samples.Count >= 2)
         {
@@ -98,6 +103,7 @@ public sealed class PowerAggregationService
 
             for (var i = 0; i < samples.Count - 1; i++)
             {
+                if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
                 var first = samples[i];
                 var second = samples[i + 1];
                 var gap = second.TimestampUtc - first.TimestampUtc;
@@ -183,10 +189,13 @@ public sealed class PowerAggregationService
         string deviceId,
         string metricKey,
         DateTimeOffset rangeStartUtc,
-        DateTimeOffset rangeEndExclusive)
+        DateTimeOffset rangeEndExclusive,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var connection = _database.OpenConnection();
         var samples = new SortedDictionary<DateTimeOffset, double>();
+        var readCount = 0;
 
         void AddFromQuery(
             string comparisonSql,
@@ -210,9 +219,11 @@ public sealed class PowerAggregationService
             command.Parameters.AddWithValue("$metricKey", metricKey);
             command.Parameters.AddWithValue("$boundary", boundary.ToString("O"));
 
+            cancellationToken.ThrowIfCancellationRequested();
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
+                if ((++readCount & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
                 if (!DateTimeOffset.TryParse(
                         reader.GetString(0),
                         out var timestamp))
@@ -245,9 +256,11 @@ public sealed class PowerAggregationService
             command.Parameters.AddWithValue("$fromUtc", rangeStartUtc.ToString("O"));
             command.Parameters.AddWithValue("$toUtc", rangeEndExclusive.ToString("O"));
 
+            cancellationToken.ThrowIfCancellationRequested();
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
+                if ((++readCount & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
                 if (!DateTimeOffset.TryParse(
                         reader.GetString(0),
                         out var timestamp))
@@ -262,6 +275,7 @@ public sealed class PowerAggregationService
 
         AddFromQuery(">=", "ASC", 1, rangeEndExclusive);
 
+        cancellationToken.ThrowIfCancellationRequested();
         return samples
             .Select(pair => new PowerSample(pair.Key, pair.Value))
             .ToArray();
@@ -271,12 +285,15 @@ public sealed class PowerAggregationService
         IReadOnlyList<PowerSample> samples,
         IReadOnlyList<BucketAccumulator> buckets,
         DateTimeOffset rangeStartUtc,
-        DateTimeOffset rangeEndExclusive)
+        DateTimeOffset rangeEndExclusive,
+        CancellationToken cancellationToken)
     {
         var bucketIndex = 0;
+        var counted = 0;
 
         foreach (var sample in samples)
         {
+            if ((++counted & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             if (sample.TimestampUtc < rangeStartUtc ||
                 sample.TimestampUtc >= rangeEndExclusive)
             {
@@ -305,8 +322,10 @@ public sealed class PowerAggregationService
     }
 
     private static double CalculateMedianGapMinutes(
-        IReadOnlyList<PowerSample> samples)
+        IReadOnlyList<PowerSample> samples,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (samples.Count < 2)
         {
             return 0;
@@ -316,6 +335,7 @@ public sealed class PowerAggregationService
 
         for (var i = 0; i < samples.Count - 1; i++)
         {
+            if ((i & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
             var gap =
                 (samples[i + 1].TimestampUtc -
                  samples[i].TimestampUtc).TotalMinutes;
@@ -331,7 +351,9 @@ public sealed class PowerAggregationService
             return 0;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         gaps.Sort();
+        cancellationToken.ThrowIfCancellationRequested();
         var middle = gaps.Count / 2;
 
         return gaps.Count % 2 == 0

@@ -25,16 +25,32 @@ public sealed class FamilyReportAnalysisService
         _aggregation = aggregation;
     }
 
-    public FamilyReportAnalysis Analyze(EnergyReportRequest request)
+    public FamilyReportAnalysis Analyze(EnergyReportRequest request,
+        EnergyAggregationTable? verifiedDailyTable = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        // Reuse only the exact validated day aggregation already calculated
+        // by EnergyReportExportService. Never combine different devices,
+        // time zones or windows to avoid an apparently faster wrong report.
+        if (verifiedDailyTable is not null &&
+            (verifiedDailyTable.DeviceId != request.DeviceId ||
+             verifiedDailyTable.Period != AggregationPeriod.Day ||
+             verifiedDailyTable.TimeZoneId != request.TimeZoneId ||
+             verifiedDailyTable.RangeStartUtc != request.StartUtc.ToUniversalTime() ||
+             verifiedDailyTable.RangeEndUtc != request.EndUtc.ToUniversalTime()))
+            throw new ArgumentException("Supplied day table does not match the report request.",
+                nameof(verifiedDailyTable));
         var threshold = _thresholds.Get(request.DeviceId);
-        var frames = LoadFrames(request);
+        var frames = LoadFrames(request, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         var zone = ResolveTimeZone(request.TimeZoneId);
         var medianGap = MedianGapMinutes(frames);
         var continuityThreshold = medianGap > 0
             ? Math.Clamp(medianGap * 3.0, 10.0, 20.0)
             : 15.0;
 
+        cancellationToken.ThrowIfCancellationRequested();
         var detectedEvents = DetectReserveGridEvents(
             frames,
             zone,
@@ -55,6 +71,7 @@ public sealed class FamilyReportAnalysisService
             })
             .ToArray();
 
+        cancellationToken.ThrowIfCancellationRequested();
         var nights = BuildNightObservations(
             request,
             frames,
@@ -72,6 +89,7 @@ public sealed class FamilyReportAnalysisService
             request.LocalEndDate.DayNumber -
             request.LocalStartDate.DayNumber + 1);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var housePattern = BuildTypicalWindow(
             frames,
             zone,
@@ -81,6 +99,7 @@ public sealed class FamilyReportAnalysisService
             medianGapMinutes: medianGap,
             selectedDayCount: spanDays);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var solarPattern = BuildTypicalWindow(
             frames,
             zone,
@@ -90,6 +109,7 @@ public sealed class FamilyReportAnalysisService
             medianGapMinutes: medianGap,
             selectedDayCount: spanDays);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var gridPattern = BuildTypicalWindow(
             frames,
             zone,
@@ -99,12 +119,14 @@ public sealed class FamilyReportAnalysisService
             medianGapMinutes: medianGap,
             selectedDayCount: spanDays);
 
-        var daily = _aggregation.Get(
+        cancellationToken.ThrowIfCancellationRequested();
+        var daily = verifiedDailyTable ?? _aggregation.Get(
             request.DeviceId,
             request.StartUtc,
             request.EndUtc,
             request.TimeZoneId,
-            AggregationPeriod.Day);
+            AggregationPeriod.Day,
+            cancellationToken);
 
         var highlights = BuildHighlights(daily);
 
@@ -121,8 +143,10 @@ public sealed class FamilyReportAnalysisService
                 request.StartUtc,
                 request.EndUtc,
                 request.TimeZoneId,
-                evolutionPeriod);
+                evolutionPeriod,
+                cancellationToken);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var evolution = evolutionTable.Rows
             .Select(row => new FamilyEvolutionRow(
                 row.LocalLabel,
@@ -157,7 +181,8 @@ public sealed class FamilyReportAnalysisService
             evolution);
     }
 
-    private List<MetricFrame> LoadFrames(EnergyReportRequest request)
+    private List<MetricFrame> LoadFrames(EnergyReportRequest request,
+        CancellationToken cancellationToken)
     {
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
@@ -188,9 +213,12 @@ public sealed class FamilyReportAnalysisService
 
         using var reader = command.ExecuteReader();
         var byTimestamp = new SortedDictionary<DateTimeOffset, MetricFrame>();
+        var scanned = 0;
 
         while (reader.Read())
         {
+            if ((++scanned & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             if (!DateTimeOffset.TryParse(reader.GetString(0), out var timestamp))
             {
                 continue;
