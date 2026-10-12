@@ -1,5 +1,6 @@
 using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;
+using MigraDoc.DocumentObjectModel.Shapes.Charts;
 using MigraDoc.Rendering;
 using PdfSharp.Fonts;
 using SolarOfThings.Core.SolarOfThings;
@@ -240,6 +241,22 @@ public sealed class UtilityBillAuditReportService
             billGapAnalysis,
             spanish);
 
+        // PAGE 4.1 — visible, bill-specific empirical distribution.
+        // This is NOT a normal/Gaussian curve. For bills without enough
+        // comparable donor windows, explain the absence instead of inventing
+        // a distribution.
+        section.AddPageBreak();
+        AddHeading(
+            section,
+            L("4.1 Distribución empírica de importación estimada",
+              "4.1 Empirical distribution of estimated grid import"),
+            16);
+        AddEmpiricalDistributionPage(
+            section,
+            statistical,
+            billGapAnalysis,
+            spanish);
+
         // PAGE 5 — hard numerical quality evidence.
         section.AddPageBreak();
         AddHeading(
@@ -404,8 +421,8 @@ public sealed class UtilityBillAuditReportService
                     statistical.MedianKwh.Value,
                     enel,
                     L(
-                        "Mediana y estimación central: aproximadamente la mitad de los resultados queda por debajo y la mitad por encima.",
-                        "Median and central estimate: approximately half the results fall below and half above."))
+                        "Mediana discreta: la frecuencia acumulada alcanza 50% en este valor. Puede coincidir con P5 si muchos escenarios comparten el mínimo.",
+                        "Median of the discrete scenarios: the cumulative frequency reaches 50% at this value. It can coincide with P5 when many scenarios have the same minimum."))
                 : L("Sin evidencia suficiente", "Insufficient evidence"),
             Colors.Honeydew,
             13);
@@ -1809,6 +1826,173 @@ public sealed class UtilityBillAuditReportService
                 "Los componentes tarifarios reconstruibles son coherentes con las fuentes oficiales y con la boleta. La evidencia actual no sustenta un error tarifario material; la controversia técnica se concentra en la cantidad de energía facturada.",
                 "The reconstructible tariff components are consistent with official sources and the bill. Current evidence does not support a material tariff error; the technical dispute is concentrated on the billed energy quantity."),
             Colors.Honeydew);
+    }
+
+    private static void AddEmpiricalDistributionPage(
+        Section section,
+        UtilityGridImportStatisticalCompletion statistical,
+        UtilityBillGapStatisticalAnalysis analysis,
+        bool spanish)
+    {
+        string L(string es, string en) => spanish ? es : en;
+
+        var points = analysis.Distribution;
+        var scenarioCount = points.Sum(point => point.Count);
+        if (scenarioCount == 0 || !statistical.HasPredictiveInterval)
+        {
+            AddCallout(
+                section,
+                L("DISTRIBUCIÓN NO DISPONIBLE", "DISTRIBUTION UNAVAILABLE"),
+                L(
+                    "No existen suficientes ventanas históricas comparables para construir una distribución empírica completa. No se dibuja una curva normal sustituta.",
+                    "There are not enough comparable historical windows to build a complete empirical distribution. No substitute normal curve is drawn."),
+                Colors.LemonChiffon);
+            return;
+        }
+
+        var first = points[0];
+        var last = points[^1];
+        var firstShare = first.Count * 100.0 / scenarioCount;
+        var sameLowerAndMedian =
+            statistical.LowerKwh.HasValue &&
+            statistical.MedianKwh.HasValue &&
+            Math.Abs(statistical.LowerKwh.Value - statistical.MedianKwh.Value) < 0.0000005;
+        var firstContainsMedian = first.Count * 2L >= scenarioCount;
+
+        AddCallout(
+            section,
+            L("NO ES UNA CAMPANA DE GAUSS", "NOT A GAUSSIAN BELL CURVE"),
+            L(
+                "Este gráfico representa combinaciones discretas de ventanas históricas, NO una distribución normal ni mediciones independientes. Cada escenario suma la importación observada y una posible importación durante los intervalos sin cobertura.",
+                "This chart represents discrete combinations of historical windows, NOT a normal distribution or independent measurements. Every scenario combines observed import and a possible import during uncovered intervals."),
+            Colors.AliceBlue);
+
+        // Preserve the point mass at the absolute minimum exactly. Only the
+        // remaining values are grouped into equal-width energy ranges. This
+        // avoids smoothing away the atom that causes P5 = P50 in this bill.
+        const int tailBinCount = 12;
+        var hasTail = last.EnergyKwh > first.EnergyKwh + 0.0000005;
+        var binCount = hasTail ? tailBinCount + 1 : 1;
+        var bins = new double[binCount];
+        var labels = new string[binCount];
+        bins[0] = firstShare;
+        labels[0] = first.EnergyKwh.ToString("0.000");
+        if (hasTail)
+        {
+            for (var i = 1; i < binCount; i++)
+            {
+                var upper = first.EnergyKwh +
+                    (last.EnergyKwh - first.EnergyKwh) *
+                    i / tailBinCount;
+                labels[i] = (i % 2 == 0 || i == tailBinCount)
+                    ? upper.ToString("0.0") : "";
+            }
+
+            foreach (var point in points.Skip(1))
+            {
+                var fraction =
+                    (point.EnergyKwh - first.EnergyKwh) /
+                    (last.EnergyKwh - first.EnergyKwh);
+                var index = Math.Clamp(
+                    (int)Math.Ceiling(fraction * tailBinCount),
+                    1,
+                    tailBinCount);
+                bins[index] += 100.0 * point.Count / scenarioCount;
+            }
+        }
+
+        var chart = section.AddChart(ChartType.Column2D);
+        chart.Width = Unit.FromCentimeter(16.0);
+        chart.Height = Unit.FromCentimeter(8.0);
+        chart.PlotArea.TopPadding = Unit.FromCentimeter(0.35);
+        chart.PlotArea.BottomPadding = Unit.FromCentimeter(0.6);
+        chart.PlotArea.LeftPadding = Unit.FromCentimeter(0.5);
+        chart.PlotArea.RightPadding = Unit.FromCentimeter(0.3);
+        chart.YAxis.HasMajorGridlines = true;
+        chart.YAxis.Title.Caption = L("Escenarios (%)", "Scenarios (%)");
+        chart.XAxis.Title.Caption = L(
+            "Energía total estimada (kWh) · mínimo exacto y tramos de cola",
+            "Total estimated energy (kWh) · exact minimum and tail ranges");
+        var series = chart.SeriesCollection.AddSeries();
+        for (var i = 0; i < bins.Length; i++)
+        {
+            var point = series.Add(bins[i]);
+            point.FillFormat.Color = i == 0
+                ? Colors.SteelBlue
+                : Colors.LightSteelBlue;
+        }
+        var xSeries = chart.XValues.AddXSeries();
+        xSeries.Add(labels);
+
+        var firstSentence = string.Format(
+            L(
+                "El valor mínimo de {0:N3} kWh concentra {1:N2}% de las {2:N0} combinaciones ({3:N0} escenarios).",
+                "The minimum of {0:N3} kWh contains {1:N2}% of {2:N0} combinations ({3:N0} scenarios)."),
+            first.EnergyKwh,
+            firstShare,
+            scenarioCount,
+            first.Count);
+
+        var explanation = sameLowerAndMedian && firstContainsMedian
+            ? string.Format(
+                L(
+                    "Por eso P5 y P50 coinciden en {0:N3} kWh: la probabilidad acumulada salta de 0% a {1:N2}% en el primer valor. Los percentiles desde P5 hasta aproximadamente P{1:N1} caen allí; no significa que tengan la forma de una campana ni que P50 esté en su centro geométrico.",
+                    "This is why P5 and P50 both equal {0:N3} kWh: cumulative frequency jumps from 0% to {1:N2}% at the first value. Percentiles from P5 up to about P{1:N1} lie there; this is not a bell curve, nor does P50 have to be at its geometric center."),
+                first.EnergyKwh, firstShare)
+            : L(
+                "Los percentiles se leen sobre la frecuencia acumulada de estos escenarios. P5 y P50 sólo coinciden cuando suficientes escenarios comparten un mismo resultado; no es una propiedad general del modelo.",
+                "Percentiles follow cumulative scenario frequency. P5 and P50 coincide only when enough scenarios share a value; this is not a general property of the model.");
+
+        AddCallout(
+            section,
+            L("POR QUÉ COINCIDEN LOS PERCENTILES", "WHY PERCENTILES CAN COINCIDE"),
+            firstSentence + " " + explanation,
+            Colors.Honeydew);
+
+        // Quantiles are derived from the very same weighted discrete
+        // distribution, not a Gaussian fit or any handwritten report constant.
+        var quantiles = section.AddParagraph();
+        quantiles.Format.SpaceBefore = Unit.FromPoint(7);
+        quantiles.Format.SpaceAfter = Unit.FromPoint(7);
+        quantiles.Format.Font.Size = 9;
+        quantiles.AddFormattedText(
+            L("Referencia: ", "Reference: "), TextFormat.Bold);
+        quantiles.AddText(
+            string.Join("  ·  ", new[]
+            {
+                $"P5 {WeightedQuantile(points, 0.05):N3}",
+                $"P50 {WeightedQuantile(points, 0.50):N3}",
+                $"P75 {WeightedQuantile(points, 0.75):N3}",
+                $"P80 {WeightedQuantile(points, 0.80):N3}",
+                $"P85 {WeightedQuantile(points, 0.85):N3}",
+                $"P90 {WeightedQuantile(points, 0.90):N3}",
+                $"P95 {WeightedQuantile(points, 0.95):N3}"
+            }) + " kWh");
+
+        AddCallout(
+            section,
+            L("ALCANCE E INCERTIDUMBRE", "SCOPE AND UNCERTAINTY"),
+            L(
+                "El primer gráfico separa el mínimo exacto; las demás columnas agrupan intervalos de kWh. Las combinaciones reutilizan días donantes y NO son ensayos independientes: su porcentaje es frecuencia del modelo, no probabilidad certificada ni cobertura predictiva validada. La boleta Enel no calibró la distribución. Su calidad depende de que las condiciones operativas de los días donantes sean comparables.",
+                "The first bar is the exact minimum; remaining bars group kWh ranges. Combinations reuse historical donor days and are NOT independent trials: their percentages are model frequencies, not certified probabilities or validated predictive coverage. The Enel bill was not used to calibrate the distribution. Reliability depends on donor days having comparable operating conditions."),
+            Colors.WhiteSmoke);
+    }
+
+    private static double WeightedQuantile(
+        IReadOnlyList<UtilityBillDistributionPoint> points,
+        double probability)
+    {
+        var count = points.Sum(point => (long)point.Count);
+        if (count == 0) return double.NaN;
+        var index = Math.Clamp((long)Math.Ceiling(probability * count) - 1,
+            0, count - 1);
+        long cumulative = 0;
+        foreach (var point in points)
+        {
+            cumulative += point.Count;
+            if (index < cumulative) return point.EnergyKwh;
+        }
+        return points[^1].EnergyKwh;
     }
 
     private static void AddEnergyEvidencePage(
