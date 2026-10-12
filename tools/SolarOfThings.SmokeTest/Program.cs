@@ -1979,9 +1979,9 @@ try
     }
     try
     {
-        var mixedPlan = planner.CreatePlan(complete.Path,
+        var mixedDayWitnessPlan = planner.CreatePlan(complete.Path,
             previewDatabase.DatabasePath);
-        var mixed = dayStager.Stage(mixedPlan, complete.Path,
+        var mixed = dayStager.Stage(mixedDayWitnessPlan, complete.Path,
             previewDatabase.DatabasePath, "recovery-sim");
         try
         {
