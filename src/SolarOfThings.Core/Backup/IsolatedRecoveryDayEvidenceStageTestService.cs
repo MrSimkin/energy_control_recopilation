@@ -313,7 +313,7 @@ public sealed class IsolatedRecoveryDayEvidenceStageTestService
         // use a timezone-neutral timestamp prefix to admit both legacy Z and
         // round-trip +00:00 UTC storage forms; every row is then checked
         // against the exact local date, so boundary rows never leak in.
-        var localWindow = SolarOfThings.Core.SolarOfThings.SolarApiTime
+        var localWindow = global::SolarOfThings.Core.SolarOfThings.SolarApiTime
             .GetLocalDayWindow(day, zone.Id);
         var utcStart = localWindow.Start.ToUniversalTime();
         var utcEndExclusive = localWindow.End.ToUniversalTime().AddTicks(1);
