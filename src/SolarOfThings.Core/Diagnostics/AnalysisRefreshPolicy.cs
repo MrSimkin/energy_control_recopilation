@@ -23,6 +23,21 @@ public static class AnalysisRefreshPolicy
     /// immutable aggregation only when its source generation and device
     /// still match the active, visible Analysis page.
     /// </summary>
+    /// <summary>
+    /// The WPF Analysis reader is single-flight. A newer selection queued
+    /// while the old reader is unwinding must be serviced exactly once on
+    /// return, but never for a hidden/closed page or an un-applied calendar
+    /// edit. Pure decision to keep the UI handoff regression-testable.
+    /// </summary>
+    public static bool ShouldContinueQueuedRead(
+        bool hasQueuedRequest,
+        bool analysisVisible,
+        bool windowClosed,
+        bool presetLoading,
+        bool customRangePendingApply) =>
+        hasQueuedRequest && analysisVisible && !windowClosed &&
+        !presetLoading && !customRangePendingApply;
+
     public static bool CanReuseChart(
         int displayedGeneration,
         int requestedGeneration,

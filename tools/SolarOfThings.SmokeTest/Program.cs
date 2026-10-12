@@ -706,6 +706,25 @@ try
         AnalysisRefreshPolicy.CanApply(5, 5, true, false, "device-a", null))
         throw new InvalidOperationException("Analysis result-generation guard regressed.");
 
+    // Regression: after a fast Analysis away/back or Apply during an old
+    // cancelled read, the single-flight reader MUST service the queued new
+    // request. A hidden/closed page, unresolved preset or unapplied manual
+    // dates must NOT spawn another expensive SQLite worker.
+    if (!AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+            true, true, false, false, false) ||
+        AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+            false, true, false, false, false) ||
+        AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+            true, false, false, false, false) ||
+        AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+            true, true, true, false, false) ||
+        AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+            true, true, false, true, false) ||
+        AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+            true, true, false, false, true))
+        throw new InvalidOperationException(
+            "Analysis lost a queued Apply/navigation refresh or restarted an obsolete range.");
+
     // Re-rendering a different energy series must not query SQLite again if
     // the already displayed chart rows still belong to the current request.
     if (!AnalysisRefreshPolicy.CanReuseChart(11, 11, true, false, "A", "A") ||

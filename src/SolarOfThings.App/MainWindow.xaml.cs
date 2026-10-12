@@ -64,6 +64,9 @@ public partial class MainWindow : Window
     private string? _batteryRenderedDeviceId;
     private int _analysisRefreshGeneration;
     private bool _analysisDataLoading;
+    // A refresh arriving while an abandoned reader is unwinding must still
+    // run after that reader exits, including a quick away/back navigation.
+    private bool _analysisReadQueued;
     // Owns only the active Analysis background read; invalidation cancels
     // expensive historical work without disposing an in-use token source.
     private CancellationTokenSource? _analysisReadCancellation;
@@ -1242,11 +1245,22 @@ public partial class MainWindow : Window
         _analysisReadCancellation?.Cancel();
         _analysisRenderedAggregation = null; // data/chart cache invalidated.
         _analysisRenderedThresholds = null;
-        if (_analysisDataLoading || _analysisPresetLoading ||
-            _analysisCustomRangePendingApply ||
+        if (_analysisDataLoading)
+        {
+            // The current reader may be about to exit after cancellation.
+            // Without a queued handoff the new range can be lost permanently.
+            if (AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+                    true, AnalysisContent.Visibility == Visibility.Visible,
+                    _windowClosed, _analysisPresetLoading,
+                    _analysisCustomRangePendingApply))
+                _analysisReadQueued = true;
+            return;
+        }
+        if (_analysisPresetLoading || _analysisCustomRangePendingApply ||
             AnalysisContent.Visibility != Visibility.Visible)
             return;
 
+        _analysisReadQueued = false;
         _ = LoadAnalysisViewAsync();
     }
 
@@ -1301,6 +1315,9 @@ public partial class MainWindow : Window
                 if (_analysisPresetLoading || _analysisCustomRangePendingApply)
                     return;
                 var requestedGeneration = _analysisRefreshGeneration;
+                // This iteration owns the latest queued request. If another
+                // refresh arrives while it awaits SQLite, it queues anew.
+                _analysisReadQueued = false;
                 var initializeRange = _analysisRangeInitializationPending;
                 _analysisRangeInitializationPending = false;
                 using var readCancellation = new CancellationTokenSource();
@@ -1497,6 +1514,17 @@ public partial class MainWindow : Window
         finally
         {
             _analysisDataLoading = false;
+            if (AnalysisRefreshPolicy.ShouldContinueQueuedRead(
+                    _analysisReadQueued,
+                    !_windowClosed && AnalysisContent.Visibility == Visibility.Visible,
+                    _windowClosed, _analysisPresetLoading,
+                    _analysisCustomRangePendingApply))
+            {
+                // No unbounded polling or parallel readers: exactly one
+                // continuation for the most recent pending selection.
+                _analysisReadQueued = false;
+                _ = LoadAnalysisViewAsync();
+            }
         }
     }
 
