@@ -1851,46 +1851,15 @@ public sealed class EnergyReportExportService
         }
     }
 
-    private static string PreferredPdfTextFont() =>
-        WindowsFontExists("aptos", "narrow")
-            ? "Aptos Narrow"
-            : "Arial";
+    // PDFsharp's Windows font resolver can find a font file without being able
+    // to resolve its family/bold face (notably Aptos Mono on some Windows
+    // installations). Use the widely available Arial family for every PDF
+    // paragraph and numeric cell, including bold, so PDF export does not
+    // depend on Office/Aptos typography or file-name heuristics.
+    // The Excel workbook intentionally retains its own typography.
+    private static string PreferredPdfTextFont() => "Arial";
 
-    private static string PreferredPdfNumericFont() =>
-        WindowsFontExists("aptos", "mono")
-            ? "Aptos Mono"
-            : WindowsFontExists("cour")
-                ? "Courier New"
-                : "Arial";
-
-    private static bool WindowsFontExists(params string[] fragments)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return false;
-        }
-
-        try
-        {
-            var windows = Environment.GetFolderPath(
-                Environment.SpecialFolder.Windows);
-            var fonts = Path.Combine(windows, "Fonts");
-
-            return Directory
-                .EnumerateFiles(fonts)
-                .Select(Path.GetFileNameWithoutExtension)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Any(name =>
-                    fragments.All(fragment =>
-                        name!.Contains(
-                            fragment,
-                            StringComparison.OrdinalIgnoreCase)));
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    private static string PreferredPdfNumericFont() => "Arial";
 
     private static void ApplyWorkbookTypography(XLWorkbook workbook)
     {
