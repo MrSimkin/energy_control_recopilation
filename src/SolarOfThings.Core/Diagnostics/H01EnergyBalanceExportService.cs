@@ -154,6 +154,8 @@ public sealed class H01EnergyBalanceExportService
             sum.LHours += d.LHours; sum.LResidual += d.LResidual;
         }
 
+        var primitiveCsv = ExportPrimitiveSignals(db, device, start, end, out var primitiveCount);
+
         var daily = new StringBuilder();
         daily.AppendLine("fecha_local;horas_integradas;solar_kWh;casa_kWh;red_kWh;bateria_descarga_kWh;bateria_carga_kWh;residuo_kWh;horas_modo_B;residuo_modo_B_kWh;horas_modo_L;residuo_modo_L_kWh");
         foreach (var d in days.Values)
@@ -179,6 +181,7 @@ public sealed class H01EnergyBalanceExportService
         md.AppendLine("**Estado:** ABIERTO · exportación manual de solo lectura · sin alterar la base de datos.");
         md.AppendLine("**Datos:** normalized_metric_sample + contextos mode/batteryStatus de history_sample. Equipo dominante por muestras de red. No incluye ID, tokens, PDF, boletas ni respuestas API.");
         md.AppendLine("**Formato CSV:** UTF-8, punto y coma, punto decimal, kWh.");
+        md.AppendLine($"**Señales primitivas exportadas:** {primitiveCount} filas de campos expresamente permitidos; CSV sin identificadores del equipo.");
         md.AppendLine();
         md.AppendLine("## Balance aparente de señales");
         md.AppendLine("| Señal | kWh |");
@@ -203,7 +206,8 @@ public sealed class H01EnergyBalanceExportService
         md.AppendLine("## Límites de interpretación");
         md.AppendLine("- El residuo NO mide pérdidas físicas ni consumo propio. Mezcla señales AC y potencia de batería derivada DC.");
         md.AppendLine("- Los kWh importados proceden de la señal del inversor; no son prueba independiente del medidor Enel.");
-        md.AppendLine("- El signo, voltaje y corrientes originales de batería requieren una investigación aparte.");
+        md.AppendLine("- La potencia de batería es derivada; el archivo H01_senales_originales.csv permite contrastar voltaje y corrientes sin extraer la base completa.");
+        md.AppendLine("- Se exportan solo los nombres de atributos de la lista permitida y sus valores escalares históricos; no incluir la base ni respuestas API.");
         md.AppendLine("- Se excluyen huecos superiores al umbral y se asigna cada segmento al día local de inicio. La suma diaria puede diferir de buckets Excel que interpolan sus bordes.");
         md.AppendLine("- Contextos B/L y batteryStatus se consideran solo cuando su antigüedad no supera 20 minutos.");
         md.AppendLine("- H-01 sigue abierto. No ajustar atribución de flujos, configuraciones ni el modelo estadístico R3.");
@@ -218,9 +222,56 @@ public sealed class H01EnergyBalanceExportService
             Add(zip, "H01_balance_energetico_por_dia.csv", daily.ToString());
             Add(zip, "H01_episodios_carga_sin_solar.csv", csv.ToString());
             Add(zip, "H01_diagnostico_balance_energetico.md", md.ToString());
+            Add(zip, "H01_senales_originales.csv", primitiveCsv);
         }
         return destination;
     }
+
+    private static string ExportPrimitiveSignals(SqliteConnection db, string device,
+        DateTimeOffset start, DateTimeOffset end, out int count)
+    {
+        // Exact allowlist: scalar physical telemetry and operating states only.
+        // Never export raw_api_capture, device identifiers, config credentials,
+        // boletas, customer metadata or unrestricted history fields.
+        var csv = new StringBuilder();
+        csv.AppendLine("recorded_at_utc;attribute_key;value_json");
+        count = 0;
+        using var c = db.CreateCommand();
+        c.CommandText = """
+            SELECT recorded_at_utc, attribute_key, value_json
+            FROM history_sample
+            WHERE device_id = $device AND is_missing = 0
+              AND recorded_at_utc >= $from AND recorded_at_utc < $to
+              AND attribute_key IN (
+                'batteryVoltage', 'bmsChargingCurrent', 'batteryDischargeCurrent',
+                'bmsCurrentSOC', 'mainsPower', 'outputActivePower',
+                'generationPower', 'batteryStatus', 'mode',
+                'chargingPriorityOrder', 'acChargingSwitch',
+                'chargingMainSwitch', 'mainsCurrentFlowDirection',
+                'gridConnectionSign', 'powerSupplyFromPVToLoadInACState'
+              )
+            ORDER BY recorded_at_utc, attribute_key;
+            """;
+        c.Parameters.AddWithValue("$device", device);
+        c.Parameters.AddWithValue("$from", start.ToString("O", I));
+        c.Parameters.AddWithValue("$to", end.ToString("O", I));
+        using var reader = c.ExecuteReader();
+        while (reader.Read())
+        {
+            // Scalar-only. JSON arrays/objects and malformed values are excluded.
+            var value = reader.IsDBNull(2) ? null : Scalar(reader.GetString(2));
+            if (value is null) continue;
+            csv.Append(Csv(reader.GetString(0))).Append(';')
+                .Append(Csv(reader.GetString(1))).Append(';')
+                .Append(Csv(value)).AppendLine();
+            count++;
+        }
+        return csv.ToString();
+    }
+
+    private static string Csv(string value) =>
+        "\"" + value.Replace("\"", "\"\"")
+            .Replace("\r", " ").Replace("\n", " ") + "\"";
 
     private static string SelectDevice(SqliteConnection db, DateTimeOffset start, DateTimeOffset end)
     {
