@@ -259,8 +259,8 @@ public sealed class H01EnergyBalanceExportService
         while (reader.Read())
         {
             // Scalar-only. JSON arrays/objects and malformed values are excluded.
-            var value = reader.IsDBNull(2) ? null : Scalar(reader.GetString(2));
-            if (value is null) continue;
+            var value = reader.IsDBNull(2) ? null : reader.GetString(2);
+            if (value is null || Scalar(value) is null) continue;
             csv.Append(Csv(reader.GetString(0))).Append(';')
                 .Append(Csv(reader.GetString(1))).Append(';')
                 .Append(Csv(value)).AppendLine();
