@@ -64,6 +64,9 @@ public partial class MainWindow : Window
     private string? _batteryRenderedDeviceId;
     private int _analysisRefreshGeneration;
     private bool _analysisDataLoading;
+    // Owns only the active Analysis background read; invalidation cancels
+    // expensive historical work without disposing an in-use token source.
+    private CancellationTokenSource? _analysisReadCancellation;
     private bool _analysisRangeInitializationPending;
     private int _analysisPresetGeneration;
     private bool _analysisPresetLoading;
@@ -1081,9 +1084,9 @@ public partial class MainWindow : Window
         var preset = AnalysisRangePresetSelector.SelectedValue?.ToString() ?? "custom";
         _analysisCustomRangePendingApply = preset == "custom";
         var generation = ++_analysisPresetGeneration;
-        // Immediately prevent any in-flight old Analysis range from painting
-        // while the new date preset is resolving from historical coverage.
+        // Stop obsolete historical scans while the date preset resolves.
         _analysisRefreshGeneration++;
+        _analysisReadCancellation?.Cancel();
         if (string.Equals(preset, "custom", StringComparison.Ordinal))
         {
             _analysisPresetLoading = false;
@@ -1138,6 +1141,7 @@ public partial class MainWindow : Window
         _analysisPresetLoading = false;
         _analysisCustomRangePendingApply = true;
         _analysisRefreshGeneration++;
+        _analysisReadCancellation?.Cancel();
         _suppressAnalysisRangeSelection = true;
         try { AnalysisRangePresetSelector.SelectedValue = "custom"; }
         finally { _suppressAnalysisRangeSelection = false; }
@@ -1235,6 +1239,7 @@ public partial class MainWindow : Window
                 : "Updating analysis; previous results are not yet confirmed.";
 
         _analysisRefreshGeneration++;
+        _analysisReadCancellation?.Cancel();
         _analysisRenderedAggregation = null; // data/chart cache invalidated.
         _analysisRenderedThresholds = null;
         if (_analysisDataLoading || _analysisPresetLoading ||
@@ -1260,18 +1265,26 @@ public partial class MainWindow : Window
         EnergyRangeStatisticsService energyService,
         EnergyAggregationTableService aggregationService,
         HouseholdBehaviorStatisticsService behaviorService,
-        BatteryThresholdContextService thresholdService)
+        BatteryThresholdContextService thresholdService,
+        CancellationToken cancellationToken)
     {
         using var measure = _performance.Measure("Data.Analysis.BackgroundFetch");
+        cancellationToken.ThrowIfCancellationRequested();
         var energySummary = MeasureDataCall("Data.Analysis.EnergySummary",
-            () => energyService.Get(deviceId, rangeStart, rangeEnd));
+            () => energyService.Get(deviceId, rangeStart, rangeEnd,
+                cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
         var aggregation = MeasureDataCall("Data.Analysis.Aggregation",
-            () => aggregationService.Get(
-                deviceId, rangeStart, rangeEnd, timeZone, period));
+            () => aggregationService.Get(deviceId, rangeStart, rangeEnd,
+                timeZone, period, cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
         var behavior = MeasureDataCall("Data.Analysis.HouseholdStats",
-            () => behaviorService.Get(deviceId, rangeStart, rangeEnd));
+            () => behaviorService.Get(deviceId, rangeStart, rangeEnd,
+                cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
         var thresholds = MeasureDataCall("Data.Analysis.ChartThresholds",
             () => thresholdService.Get(deviceId));
+        cancellationToken.ThrowIfCancellationRequested();
         return new AnalysisReadResult(
             energySummary, aggregation, behavior, thresholds);
     }
@@ -1290,6 +1303,8 @@ public partial class MainWindow : Window
                 var requestedGeneration = _analysisRefreshGeneration;
                 var initializeRange = _analysisRangeInitializationPending;
                 _analysisRangeInitializationPending = false;
+                using var readCancellation = new CancellationTokenSource();
+                _analysisReadCancellation = readCancellation;
 
                 try
                 {
@@ -1301,9 +1316,14 @@ public partial class MainWindow : Window
                     }
 
                     var history = _services.GetRequiredService<HistoryRepository>();
-                    var coverage = await Task.Run(() => MeasureDataCall(
-                        "Data.Analysis.Bounds",
-                        () => history.GetSampleBounds(profile.DeviceId)));
+                    var coverage = await Task.Run(() =>
+                    {
+                        readCancellation.Token.ThrowIfCancellationRequested();
+                        var bounds = MeasureDataCall("Data.Analysis.Bounds",
+                            () => history.GetSampleBounds(profile.DeviceId));
+                        readCancellation.Token.ThrowIfCancellationRequested();
+                        return bounds;
+                    }, readCancellation.Token);
 
                     if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
                         return;
@@ -1412,7 +1432,8 @@ public partial class MainWindow : Window
                     var result = await Task.Run(() => ReadAnalysisData(
                         profile.DeviceId, fromWindow.Start, toWindow.End,
                         timeZone, period, energyService,
-                        aggregationService, behaviorService, thresholdsService));
+                        aggregationService, behaviorService, thresholdsService,
+                        readCancellation.Token), readCancellation.Token);
 
                     if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible)
                         return;
@@ -1439,6 +1460,17 @@ public partial class MainWindow : Window
                     _analysisRenderedGeneration = requestedGeneration;
                     return;
                 }
+                catch (OperationCanceledException) when (readCancellation.IsCancellationRequested)
+                {
+                    // Navigation, manual calendar edit or preset change
+                    // must stop work, not show an error or paint old data.
+                    if (_windowClosed || AnalysisContent.Visibility != Visibility.Visible ||
+                        _analysisPresetLoading || _analysisCustomRangePendingApply)
+                        return;
+                    if (requestedGeneration != _analysisRefreshGeneration)
+                        continue;
+                    return;
+                }
                 catch (Exception ex)
                 {
                     if (requestedGeneration != _analysisRefreshGeneration)
@@ -1454,6 +1486,11 @@ public partial class MainWindow : Window
                     Debug.WriteLine(
                         $"Analysis read failed ({ex.GetType().Name}); stale values hidden.");
                     return;
+                }
+                finally
+                {
+                    if (ReferenceEquals(_analysisReadCancellation, readCancellation))
+                        _analysisReadCancellation = null;
                 }
             }
         }
@@ -2286,6 +2323,7 @@ public partial class MainWindow : Window
         _dashboardVisible = isDashboard;
         if (!isAnalysis)
         {
+            _analysisReadCancellation?.Cancel();
             _analysisRefreshGeneration++; // Invalidate pending Analysis work.
             _analysisPresetGeneration++;
             _analysisPresetLoading = false;
@@ -8475,6 +8513,7 @@ public partial class MainWindow : Window
         EventArgs e)
     {
         _windowClosed = true;
+        _analysisReadCancellation?.Cancel();
         _sqlRunning?.Cancel();
         RequestReportExportCancellation();
         _reportPreviewCancellation?.Cancel();

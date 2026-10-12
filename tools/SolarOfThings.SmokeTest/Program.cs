@@ -789,6 +789,74 @@ try
 
     database.Initialize();
 
+    // Analysis background reads are cancelable on navigation/date changes.
+    // Verify an isolated synthetic household series retains original state
+    // durations while a cancelled request never executes a SQLite read.
+    var analysisCancellationPaths = new AppPaths(Path.Combine(root,
+        "analysis-cancellation-fixture"));
+    var analysisCancellationDatabase = new SqliteDatabase(analysisCancellationPaths);
+    analysisCancellationDatabase.Initialize();
+    using (var connection = analysisCancellationDatabase.OpenConnection())
+    using (var insert = connection.CreateCommand())
+    {
+        insert.CommandText = """
+            INSERT INTO household_behavior_sample
+                (device_id, recorded_at_utc, context_version, state_key,
+                 confidence, evidence_json, updated_utc)
+            VALUES ($device, $instant, $version, $state,
+                    'SYNTHETIC', '{}', $instant);
+            """;
+        insert.Parameters.AddWithValue("$device", "analysis-cancel-synthetic");
+        insert.Parameters.AddWithValue("$version",
+            InstallationContextPolicyService.ContextVersion);
+        var time = insert.Parameters.Add("$instant", SqliteType.Text);
+        var state = insert.Parameters.Add("$state", SqliteType.Text);
+        var starts = new[] { 0, 5, 10, 70 };
+        var states = new[] { "SOLAR_PRIMARY", "BATTERY_SUPPLY",
+            "GRID_SUPPLY", "GRID_SUPPLY" };
+        for (var i = 0; i < starts.Length; i++)
+        {
+            time.Value = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero)
+                .AddMinutes(starts[i]).ToString("O");
+            state.Value = states[i];
+            insert.ExecuteNonQuery();
+        }
+    }
+    var analysisBehavior = new HouseholdBehaviorStatisticsService(
+        analysisCancellationDatabase);
+    var baselineBehavior = analysisBehavior.Get("analysis-cancel-synthetic");
+    using var uninterruptedBehaviorRead = new CancellationTokenSource();
+    var normalBehavior = analysisBehavior.Get("analysis-cancel-synthetic",
+        cancellationToken: uninterruptedBehaviorRead.Token);
+    if (normalBehavior != baselineBehavior &&
+        (normalBehavior.SampleCount != baselineBehavior.SampleCount ||
+         normalBehavior.TransitionCount != baselineBehavior.TransitionCount ||
+         normalBehavior.CoveredMinutes != baselineBehavior.CoveredMinutes ||
+         normalBehavior.UncoveredGapMinutes != baselineBehavior.UncoveredGapMinutes))
+        throw new InvalidOperationException(
+            "Analysis cancellable household statistics changed physical semantics.");
+    if (normalBehavior.SampleCount != 4 ||
+        normalBehavior.CoveredMinutes != 10 ||
+        normalBehavior.UncoveredGapMinutes != 60 ||
+        normalBehavior.TransitionCount != 2)
+        throw new InvalidOperationException(
+            "Analysis synthetic state duration/gap calculations regressed.");
+    using var abortedBehaviorRead = new CancellationTokenSource();
+    abortedBehaviorRead.Cancel();
+    var canceledHouseholdQuery = false;
+    try
+    {
+        analysisBehavior.Get("analysis-cancel-synthetic",
+            cancellationToken: abortedBehaviorRead.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        canceledHouseholdQuery = true;
+    }
+    if (!canceledHouseholdQuery)
+        throw new InvalidOperationException(
+            "Abandoned Analysis read continued processing household history.");
+
     if (!File.Exists(database.DatabasePath))
     {
         throw new InvalidOperationException("SQLite database file was not created.");
