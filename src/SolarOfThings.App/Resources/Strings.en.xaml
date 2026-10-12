@@ -908,4 +908,8 @@
     <sys:String x:Key="SqlExplorer.CatalogColumnsIntro">Select an object to inspect its column metadata without reading data.</sys:String>
     <sys:String x:Key="Diagnostics.RemoteGroup">API investigation and remote reads (on demand)</sys:String>
     <sys:String x:Key="Diagnostics.LocalGroup">Local evidence and data protection</sys:String>
+    <sys:String x:Key="Diagnostics.H01Intro">H-01 energy-balance investigation: read-only daily CSV, suspected charging episodes and explanatory report, packaged into one ZIP. No database or settings changes.</sys:String>
+    <sys:String x:Key="Diagnostics.H01From">From</sys:String>
+    <sys:String x:Key="Diagnostics.H01Through">Through</sys:String>
+    <sys:String x:Key="Diagnostics.H01Export">Export H-01 diagnostic ZIP</sys:String>
 </ResourceDictionary>
