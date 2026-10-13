@@ -1,3 +1,4 @@
+using SolarOfThings.Core.Reporting;
 using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;
 using MigraDoc.DocumentObjectModel.Shapes.Charts;
@@ -2774,7 +2775,7 @@ public sealed class UtilityBillAuditReportService
         var r = table.AddRow();
         r.Cells[0].AddParagraph(label);
         r.Cells[0].Format.Font.Bold = true;
-        r.Cells[1].AddParagraph(value);
+        PdfNumericFonts.AddNumericText(r.Cells[1].AddParagraph(), value);
     }
 
     private static void AddCard(Cell cell, string label, string value, string context)
@@ -2813,7 +2814,8 @@ public sealed class UtilityBillAuditReportService
         labelParagraph.Format.SpaceBefore = Unit.FromPoint(4);
         labelParagraph.Format.SpaceAfter = Unit.FromPoint(3);
 
-        var valueParagraph = cell.AddParagraph(value);
+        var valueParagraph = cell.AddParagraph();
+        PdfNumericFonts.AddNumericText(valueParagraph, value);
         valueParagraph.Format.Font.Bold = true;
         valueParagraph.Format.Font.Size = valueFontSize;
         valueParagraph.Format.SpaceAfter = Unit.FromPoint(3);
@@ -2864,7 +2866,6 @@ public sealed class UtilityBillAuditReportService
             throw new PlatformNotSupportedException(
                 "PDF export is supported by the Windows desktop application.");
 
-        if (Interlocked.Exchange(ref _pdfFontsInitialized, 1) == 0)
-            GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+        PdfNumericFonts.Initialize();
     }
 }
