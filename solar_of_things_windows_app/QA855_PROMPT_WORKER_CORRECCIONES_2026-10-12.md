@@ -52,21 +52,24 @@ El propietario ya ejecutó aproximadamente 129 pasos manuales sobre Build 855; *
 
 **P1 condicionados, no bloquear Build por ellos:** OBS-H01-04 (segmentos diarios atravesando medianoche, DST), OBS-REPORT-05 (selector «Cargar plantilla» en pantalla Crear/exportar con feedback), OBS-UX-01 (15 días y mes móvil sin duplicar presets existentes), OBS-SQL-01 (atajo F5 + personalizado). Tratar simultáneamente si son pequeñas correcciones seguras; de lo contrario documentar deferment.
 
-### D. Fuente monoespaciada — IBM PLEX MONO YA CARGADA (EJECUTAR)
+### D. Tipografía — PDF IBM PLEX MONO; EXCEL APTOS MONO O NATIVA (EJECUTAR)
 
-El propietario adjuntó originalmente `Microsoft Aptos Fonts.zip`, pero precisó que sólo pretende usar una fuente monoespaciada en la aplicación y autorizó una alternativa libre si Aptos no se puede empaquetar.
+**Decisión final y diferenciada del propietario:**
 
-**DECISIÓN RESUELTA:** **IBM Plex Mono Regular y Bold**, bajo SIL Open Font License 1.1, **YA SE SUBIERON al repositorio** en:
+**PDF:** usar **IBM Plex Mono Regular y Bold**, bajo SIL Open Font License 1.1, **YA CARGADAS al repositorio** en:
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Regular.ttf`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Bold.ttf`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/OFL.txt`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/README.md`
 
-**Acción obligatoria Worker:** integrar los dos TTF en el pipeline de distribución y exportación. Asegurar copia de licencia OFL en Build, implementar resolver PDF que legalmente incruste IBM Plex Mono y aplicar `IBM Plex Mono` a números, cantidades, %, CLP, fechas y columnas de PDF/XLSX sin convertir celdas numéricas de Excel en texto. Revisar también tablas y reportes Enel/familiar/detallado/batería y cualquier salida relevante. Validar fuente presente en PDF y formato XLSX.
+**Trabajo obligatorio del Worker:** incluir ambas fuentes IBM y la licencia en artefacto Windows, configurar el resolver PDF e incrustar IBM Plex Mono en campos numéricos, CLP, kWh, %, fechas y tablas de los PDF Enel, familiar, detallado y batería y salidas pertinentes. Comprobar fuente efectivamente incrustada, legibilidad, tablas y compatibilidad de renderer mediante PDF renderizado.
 
-**NO** subir, empaquetar ni incrustar los TTF del ZIP Aptos Microsoft (EULA sin derechos de distribución, `fsType=8`); ya no se requiere otro archivo ni confirmación del propietario. Las restricciones de Microsoft no bloquean la fuente libre seleccionada.
+**Excel/XLSX:** preferir **Aptos Mono** si está disponible en el Excel/Office del destinatario; de lo contrario, **usar sin objeción la fuente estándar/predeterminada de Excel** (p. ej. Aptos o fuente de tema del workbook). **NO usar IBM Plex Mono como obligación para Excel** ni incorporar archivos TTF a XLSX. No exigir que el usuario instale IBM Plex Mono para abrir un Excel. Mantener formatos y tipos numéricos, fechas y fórmulas, sin convertir números a cadenas. Tests deben confirmar que Excel abre correctamente, los valores son numéricos y el estilo no requiere IBM.
 
-**Estado exacto:** binarios IBM y licencia en GitHub, **integración al código pendiente** de esta ejecución.
+**Nunca** subir ni distribuir el ZIP original de Microsoft Aptos (licencia del paquete no autoriza empaquetado por defecto); referir una familia presente en Office en el estilo de Excel es distinto de redistribuir sus TTF. Ya no debes pedir más archivos de fuentes al propietario.
+
+**Estado real:** TTF de IBM Plex Mono y licencia verificados en GitHub; implementación en código, estilos PDF y configuración XLSX son tareas del Worker que se ejecutarán en esta tranche.
+
 
 ### E. Secuencia de implementación / evidencia
 
