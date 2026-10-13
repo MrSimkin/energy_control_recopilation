@@ -3806,6 +3806,23 @@ try
         _ = exportedWorkbook.Worksheet("Evolution");
         _ = exportedWorkbook.Worksheet("Quality");
 
+        // Numeric families are the only new font assignment. Dates remain
+        // native dates, numeric values remain usable numbers, and headings
+        // retain the existing proportional formatting.
+        var monoNumericCells = exportedWorkbook.Worksheets
+            .SelectMany(sheet => sheet.CellsUsed())
+            .Where(cell => cell.DataType is
+                XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan)
+            .ToArray();
+        if (monoNumericCells.Length < 10 ||
+            monoNumericCells.Any(cell =>
+                !string.Equals(cell.Style.Font.FontName, "Consolas",
+                    StringComparison.OrdinalIgnoreCase)) ||
+            string.Equals(summarySheet.Cell("A1").Style.Font.FontName,
+                "Consolas", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "Excel numeric-only Consolas formatting regressed.");
+
         if (summarySheet.Pictures.Count != 3 ||
             utilityUseSheet.LastRowUsed()?.RowNumber() is < 9 ||
             detailSheet.LastColumnUsed()?.ColumnNumber() is < 26 ||
@@ -3840,6 +3857,23 @@ try
             throw new InvalidOperationException(
                 "Product PDF cannot pass verified report publishing.");
         File.Delete(publishedPdf);
+
+        // Generate separate report kinds against the SAME synthetic telemetry.
+        // Assert embedded chart images, not just a successful PDF save.
+        foreach (var kind in new[] { ReportKind.DetailedEnergy, ReportKind.Battery })
+        {
+            var prepared = reportData with
+            {
+                Request = reportData.Request with { Kind = kind }
+            };
+            var chartPdf = Path.Combine(root, "smoke-" + kind + ".pdf");
+            reportExporter.ExportPdf(chartPdf, prepared);
+            using var pdfChartInspection = UglyToad.PdfPig.PdfDocument.Open(chartPdf);
+            var imageCount = pdfChartInspection.GetPages().Sum(page => page.GetImages().Count());
+            if (imageCount < 1)
+                throw new InvalidOperationException(
+                    "Synthetic " + kind + " PDF has no rendered chart images.");
+        }
     }
 
     var utilityRepository = new UtilityMeterRepository(database);
@@ -4121,6 +4155,37 @@ try
         {
             throw new InvalidOperationException(
                 "Bill-first Enel audit PDF smoke test failed.");
+        }
+        // QA855 directed checks: user-facing PDF keeps cards and section 5.1,
+        // but never prints diagnostic point 5, H04/H05 or internal caveats.
+        using (var qaEnelPdf = UglyToad.PdfPig.PdfDocument.Open(billAuditPdfPath))
+        {
+            var pages = qaEnelPdf.GetPages().ToArray();
+            if (pages.Length < 5)
+                throw new InvalidOperationException(
+                    "Enel audit lost required report chapters.");
+            var firstPage = pages[0].Text;
+            var fullText = string.Join(" ", pages.Select(page => page.Text));
+            if (!firstPage.Contains("P50", StringComparison.OrdinalIgnoreCase) ||
+                !firstPage.Contains("P95", StringComparison.OrdinalIgnoreCase) ||
+                !firstPage.Contains("INVERSOR", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Enel executive summary lost consumption/percentile cards.");
+            foreach (var forbidden in new[]
+            {
+                "H04", "H05", "LECTURA GLOBAL", "OVERALL READING",
+                "LIMITACIÓN PRINCIPAL", "MAIN LIMITATION",
+                "Fecha oficial; hora exacta no informada",
+                "Official date; exact time not supplied",
+                "Contador energético alternativo",
+                "Estado de validación",
+                "5. Calidad, cobertura y trazabilidad cuantitativa"
+            })
+            {
+                if (fullText.Contains(forbidden, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        "Enel PDF contains removed public-facing text: " + forbidden);
+            }
         }
 
         var billAuditAnnexPath =

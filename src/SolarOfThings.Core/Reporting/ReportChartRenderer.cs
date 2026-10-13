@@ -22,6 +22,56 @@ internal sealed class ReportChartRenderer
         return paths;
     }
 
+    public (string? Energy, string? Soc) RenderTechnicalCharts(EnergyReportData report, string folder)
+    {
+        Directory.CreateDirectory(folder);
+        string? energy = null, soc = null;
+        if (report.Request.Kind == ReportKind.DetailedEnergy)
+        {
+            var eligible = report.Table.Rows.Where(r => r.PvCoveragePercent > 0 &&
+                r.HouseCoveragePercent > 0 && r.GridCoveragePercent > 0).ToArray();
+            if (eligible.Length >= 2)
+            {
+                var rows = SampleTechnical(eligible, 12);
+                var xs = Enumerable.Range(0, rows.Length).Select(i => (double)i).ToArray();
+                var plot = new Plot();
+                plot.Add.Scatter(xs, rows.Select(r => r.PvEnergyKwh).ToArray()).LegendText = "Solar";
+                plot.Add.Scatter(xs, rows.Select(r => r.HouseEnergyKwh).ToArray()).LegendText =
+                    IsSpanish(report) ? "Casa" : "Home";
+                plot.Add.Scatter(xs, rows.Select(r => r.GridImportEnergyKwh).ToArray()).LegendText =
+                    IsSpanish(report) ? "Red" : "Grid";
+                ApplyCommonAxes(plot, rows.Select(r => r.LocalLabel).ToArray(),
+                    IsSpanish(report) ? "Energía por período" : "Energy by period");
+                plot.YLabel("kWh"); plot.ShowLegend(Alignment.UpperRight);
+                energy = Path.Combine(folder, "technical-energy.png");
+                plot.SavePng(energy, 1200, 500);
+            }
+        }
+        if (report.Request.Kind is ReportKind.DetailedEnergy or ReportKind.Battery)
+        {
+            var eligible = report.Table.Rows.Where(r => r.SocCoveragePercent > 0 &&
+                r.SocAveragePercent.HasValue).ToArray();
+            if (eligible.Length >= 2)
+            {
+                var rows = SampleTechnical(eligible, 14);
+                var xs = Enumerable.Range(0, rows.Length).Select(i => (double)i).ToArray();
+                var plot = new Plot();
+                plot.Add.Scatter(xs, rows.Select(r => r.SocAveragePercent!.Value).ToArray()).LegendText = "SOC";
+                ApplyCommonAxes(plot, rows.Select(r => r.LocalLabel).ToArray(),
+                    IsSpanish(report) ? "Carga promedio de batería" : "Average battery charge");
+                plot.YLabel("%"); plot.ShowLegend(Alignment.UpperRight);
+                soc = Path.Combine(folder, "technical-battery-soc.png");
+                plot.SavePng(soc, 1200, 500);
+            }
+        }
+        return (energy, soc);
+    }
+
+    private static T[] SampleTechnical<T>(T[] rows, int maximum) =>
+        rows.Length <= maximum ? rows :
+        Enumerable.Range(0, maximum).Select(i =>
+            rows[(int)((long)i * (rows.Length - 1) / (maximum - 1))]).ToArray();
+
     private static void RenderConsumptionSources(EnergyReportData report, string path)
     {
         var rows = report.Attribution.Buckets.ToArray();

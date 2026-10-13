@@ -161,16 +161,16 @@ public sealed class EnergyReportExportService
 
         string? chartDirectory = null;
         IReadOnlyList<string>? familyCharts = null;
-
-        if (report.Request.Kind == ReportKind.SimpleEnergy)
-        {
-            chartDirectory = CreateChartTempDirectory();
-            familyCharts = new ReportChartRenderer()
-                .RenderFamilyCharts(report, chartDirectory);
-        }
+        string? energyImage = null;
+        string? socImage = null;
 
         try
         {
+        chartDirectory = CreateChartTempDirectory();
+        if (report.Request.Kind == ReportKind.SimpleEnergy)
+            familyCharts = new ReportChartRenderer().RenderFamilyCharts(report, chartDirectory);
+        else
+            (energyImage, socImage) = new ReportChartRenderer().RenderTechnicalCharts(report, chartDirectory);
         cancellationToken.ThrowIfCancellationRequested();
         var document = new Document();
         document.Info.Title = DisplayReportTitle(report);
@@ -182,7 +182,8 @@ public sealed class EnergyReportExportService
 
         var section = document.AddSection();
         section.PageSetup.TopMargin = Unit.FromCentimeter(1.3);
-        section.PageSetup.BottomMargin = Unit.FromCentimeter(1.3);
+        section.PageSetup.BottomMargin = Unit.FromCentimeter(2.1);
+        section.PageSetup.FooterDistance = Unit.FromCentimeter(0.65);
         section.PageSetup.LeftMargin = Unit.FromCentimeter(1.3);
         section.PageSetup.RightMargin = Unit.FromCentimeter(1.3);
 
@@ -220,12 +221,12 @@ public sealed class EnergyReportExportService
 
             if (report.Request.Kind == ReportKind.DetailedEnergy)
             {
-                AddEnergyChart(section, report);
+                AddEnergyChart(section, report, energyImage);
             }
 
             if (report.Request.Kind is ReportKind.Battery or ReportKind.DetailedEnergy)
             {
-                AddBatterySocChart(section, report);
+                AddBatterySocChart(section, report, socImage);
             }
 
             if (report.Request.Kind == ReportKind.DetailedEnergy)
@@ -944,7 +945,8 @@ public sealed class EnergyReportExportService
 
     private static void AddEnergyChart(
         Section section,
-        EnergyReportData report)
+        EnergyReportData report,
+        string? imagePath)
     {
         var candidates = report.Table.Rows
             .Where(row =>
@@ -965,28 +967,10 @@ public sealed class EnergyReportExportService
         title.Format.Font.Bold = true;
         title.Format.SpaceBefore = Unit.FromPoint(10);
 
-        var chart = section.AddChart(ChartType.Column2D);
-        chart.Width = Unit.FromCentimeter(16);
-        chart.Height = Unit.FromCentimeter(7);
-
-        var solar = chart.SeriesCollection.AddSeries();
-        solar.Name = L(report, "Solar", "Solar");
-        solar.Add(rows.Select(row => row.PvEnergyKwh).ToArray());
-
-        var home = chart.SeriesCollection.AddSeries();
-        home.Name = L(report, "Casa", "Home");
-        home.Add(rows.Select(row => row.HouseEnergyKwh).ToArray());
-
-        var grid = chart.SeriesCollection.AddSeries();
-        grid.Name = L(report, "Red", "Grid");
-        grid.Add(rows.Select(row => row.GridImportEnergyKwh).ToArray());
-
-        var xSeries = chart.XValues.AddXSeries();
-        xSeries.Add(rows.Select(row => row.LocalLabel).ToArray());
-
-        chart.YAxis.Title.Caption = "kWh";
-        chart.YAxis.HasMajorGridlines = true;
-        chart.FooterArea.AddLegend();
+        if (imagePath is null) return;
+        var image = section.AddImage(imagePath);
+        image.LockAspectRatio = true;
+        image.Width = Unit.FromCentimeter(16);
 
         var note = section.AddParagraph(
             L(
@@ -999,7 +983,8 @@ public sealed class EnergyReportExportService
 
     private static void AddBatterySocChart(
         Section section,
-        EnergyReportData report)
+        EnergyReportData report,
+        string? imagePath)
     {
         var candidates = report.Table.Rows
             .Where(row =>
@@ -1019,20 +1004,10 @@ public sealed class EnergyReportExportService
         title.Format.Font.Bold = true;
         title.Format.SpaceBefore = Unit.FromPoint(10);
 
-        var chart = section.AddChart(ChartType.Column2D);
-        chart.Width = Unit.FromCentimeter(16);
-        chart.Height = Unit.FromCentimeter(6);
-
-        var soc = chart.SeriesCollection.AddSeries();
-        soc.Name = "SOC";
-        soc.Add(rows.Select(row => row.SocAveragePercent!.Value).ToArray());
-
-        var xSeries = chart.XValues.AddXSeries();
-        xSeries.Add(rows.Select(row => row.LocalLabel).ToArray());
-
-        chart.YAxis.Title.Caption = "%";
-        chart.YAxis.HasMajorGridlines = true;
-        chart.FooterArea.AddLegend();
+        if (imagePath is null) return;
+        var image = section.AddImage(imagePath);
+        image.LockAspectRatio = true;
+        image.Width = Unit.FromCentimeter(16);
 
         var note = section.AddParagraph(
             L(
@@ -1081,6 +1056,8 @@ public sealed class EnergyReportExportService
         table.AddColumn(Unit.FromCentimeter(2.0));
 
         var header = table.AddRow();
+        header.HeadingFormat = true;
+        header.KeepWith = 1;
         header.Format.Font.Bold = true;
         header.Cells[0].AddParagraph(L(report, "Período", "Period"));
         header.Cells[1].AddParagraph("Solar kWh");
@@ -1093,11 +1070,11 @@ public sealed class EnergyReportExportService
         {
             if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
-            pdfRow.Cells[0].AddParagraph(row.LocalLabel);
-            pdfRow.Cells[1].AddParagraph(NullableNumber(row.PvEnergyDisplayKwh));
-            pdfRow.Cells[2].AddParagraph(NullableNumber(row.HouseEnergyDisplayKwh));
-            pdfRow.Cells[3].AddParagraph(NullableNumber(row.GridImportEnergyDisplayKwh));
-            pdfRow.Cells[4].AddParagraph($"{row.MinimumAvailableCoveragePercent:N1}%");
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[0].AddParagraph(), row.LocalLabel);
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[1].AddParagraph(), NullableNumber(row.PvEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[2].AddParagraph(), NullableNumber(row.HouseEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[3].AddParagraph(), NullableNumber(row.GridImportEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[4].AddParagraph(), $"{row.MinimumAvailableCoveragePercent:N1}%");
         }
 
         AddTruncationNote(section, report);
@@ -1124,6 +1101,8 @@ public sealed class EnergyReportExportService
         table.AddColumn(Unit.FromCentimeter(2.3));
 
         var header = table.AddRow();
+        header.HeadingFormat = true;
+        header.KeepWith = 1;
         header.Format.Font.Bold = true;
         header.Cells[0].AddParagraph(L(report, "Período", "Period"));
         header.Cells[1].AddParagraph("SOC avg %");
@@ -1136,11 +1115,11 @@ public sealed class EnergyReportExportService
         {
             if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
-            pdfRow.Cells[0].AddParagraph(row.LocalLabel);
-            pdfRow.Cells[1].AddParagraph(NullableNumber(row.SocAveragePercent));
-            pdfRow.Cells[2].AddParagraph(NullableNumber(row.SocEndingPercent));
-            pdfRow.Cells[3].AddParagraph(NullableNumber(row.BatteryDischargedEnergyDisplayKwh));
-            pdfRow.Cells[4].AddParagraph($"{row.SocCoveragePercent:N1}%");
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[0].AddParagraph(), row.LocalLabel);
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[1].AddParagraph(), NullableNumber(row.SocAveragePercent));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[2].AddParagraph(), NullableNumber(row.SocEndingPercent));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[3].AddParagraph(), NullableNumber(row.BatteryDischargedEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[4].AddParagraph(), $"{row.SocCoveragePercent:N1}%");
         }
 
         AddTruncationNote(section, report);
@@ -1186,8 +1165,11 @@ public sealed class EnergyReportExportService
         Section section,
         EnergyReportData report)
     {
+        if (report.Request.Kind == ReportKind.Battery)
+            section.AddPageBreak();
         var heading = section.AddParagraph(
             L(report, "Glosario esencial", "Essential glossary"));
+        heading.Format.KeepWithNext = true;
         heading.Format.Font.Size = 13;
         heading.Format.Font.Bold = true;
         heading.Format.SpaceBefore = Unit.FromPoint(10);
@@ -1859,7 +1841,7 @@ public sealed class EnergyReportExportService
     // The Excel workbook intentionally retains its own typography.
     private static string PreferredPdfTextFont() => "Arial";
 
-    private static string PreferredPdfNumericFont() => "Arial";
+    private static string PreferredPdfNumericFont() => PdfNumericFonts.Family;
 
     private static void ApplyWorkbookTypography(XLWorkbook workbook)
     {
@@ -1880,10 +1862,9 @@ public sealed class EnergyReportExportService
                         StringComparison.OrdinalIgnoreCase);
 
                 cell.Style.Font.FontName =
-                    preserveMono ||
                     cell.DataType is XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan
-                        ? "Aptos Mono"
-                        : "Aptos Narrow";
+                        ? "Consolas"
+                        : preserveMono ? "Aptos Mono" : "Aptos Narrow";
             }
 
             used.Style.Alignment.Vertical =
@@ -2974,8 +2955,7 @@ public sealed class EnergyReportExportService
     {
         var row = table.AddRow();
         row.Cells[0].AddParagraph(label);
-        row.Cells[1].Format.Font.Name = PreferredPdfNumericFont();
-        row.Cells[1].AddParagraph(value);
+        PdfNumericFonts.AddNumericText(row.Cells[1].AddParagraph(), value);
     }
 
     private static IReadOnlyList<GridUseDaySummary> BuildGridUseDays(
@@ -3068,9 +3048,6 @@ public sealed class EnergyReportExportService
                 "PDF export is currently supported by the Windows desktop application.");
         }
 
-        if (Interlocked.Exchange(ref _pdfFontsInitialized, 1) == 0)
-        {
-            GlobalFontSettings.UseWindowsFontsUnderWindows = true;
-        }
+        PdfNumericFonts.Initialize();
     }
 }

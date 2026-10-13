@@ -786,13 +786,10 @@ public partial class MainWindow : Window
         _batteryRefreshGeneration++;
         if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
             return;
-        var currentDevice = _profiles.Get()?.DeviceId;
-        if (_batteryRenderedDeviceId is not null &&
-            !string.Equals(_batteryRenderedDeviceId, currentDevice,
-                StringComparison.Ordinal))
+        // No SQLite access is permitted on the navigation dispatcher.
+        // Hide stale SOC until the current profile is resolved off-thread.
+        if (_batteryRenderedDeviceId is not null)
         {
-            // Device switched: don't show the previous installation's SOC,
-            // voltage or power while the new background read completes.
             ResetBatteryView(keepCapacity: true);
             BatteryThresholdSourceText.Text = "—";
             _batteryRenderedDeviceId = null;
@@ -840,7 +837,11 @@ public partial class MainWindow : Window
                 var generation = _batteryRefreshGeneration;
                 try
                 {
-                    var profile = _profiles.Get();
+                    var profile = await Task.Run(_profiles.Get);
+                    if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
+                        return;
+                    if (generation != _batteryRefreshGeneration)
+                        continue;
                     if (profile is null)
                     {
                         ResetBatteryView();
@@ -861,7 +862,9 @@ public partial class MainWindow : Window
                     if (generation != _batteryRefreshGeneration)
                         continue;
 
-                    var deviceNow = _profiles.Get()?.DeviceId;
+                    var deviceNow = await Task.Run(() => _profiles.Get()?.DeviceId);
+                    if (_windowClosed || BatteryContent.Visibility != Visibility.Visible)
+                        return;
                     if (!string.Equals(deviceNow, profile.DeviceId, StringComparison.Ordinal))
                         _batteryRefreshGeneration++;
                     if (!BatteryRefreshPolicy.CanApply(

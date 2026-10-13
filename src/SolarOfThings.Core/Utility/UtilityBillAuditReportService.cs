@@ -1,3 +1,4 @@
+using SolarOfThings.Core.Reporting;
 using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;
 using MigraDoc.DocumentObjectModel.Shapes.Charts;
@@ -163,12 +164,25 @@ public sealed class UtilityBillAuditReportService
             to,
             statistical,
             spanish);
-        AddExecutiveInterpretation(
-            section,
-            bill,
-            statistical,
-            billGapAnalysis,
-            spanish);
+        var distributionImage = RenderEmpiricalSummaryChart(
+            billGapAnalysis, statistical, bill.BilledConsumptionKwh, spanish);
+        if (distributionImage is not null)
+        {
+            var chartTitle = section.AddParagraph(L(
+                "Distribución empírica de escenarios (frecuencia por energía)",
+                "Empirical scenario distribution (frequency by energy)"));
+            chartTitle.Format.Font.Bold = true;
+            chartTitle.Format.SpaceBefore = Unit.FromPoint(6);
+            chartTitle.Format.KeepWithNext = true;
+            var image = section.AddImage(distributionImage);
+            image.LockAspectRatio = true;
+            image.Width = Unit.FromCentimeter(15.8);
+        }
+        var interpretation = section.AddParagraph(L(
+            "Qué representa el resultado: se compara la lectura facturada con la energía observada y los escenarios calculados para los intervalos sin telemetría.",
+            "What the result represents: billed energy is compared with observed import and computed scenarios for telemetry gaps."));
+        interpretation.Format.Font.Size = 8;
+        interpretation.Format.SpaceBefore = Unit.FromPoint(4);
 
         // PAGE 2 — financial comparison.
         section.AddPageBreak();
@@ -176,10 +190,17 @@ public sealed class UtilityBillAuditReportService
             section,
             L("2. Efecto económico de la diferencia de consumo", "2. Financial effect of the consumption difference"),
             16);
+        var billDue = bill.TotalDueClp ?? bill.AmountClp;
+        AddHeading(section, L("Según Enel", "According to utility"), 11);
+        var printed = section.AddParagraph(
+            L("Total impreso: ", "Printed total: ") + Money(billDue));
+        printed.Format.SpaceAfter = Unit.FromPoint(4);
+        AddHeading(section, L("Tarifa reconstruida por el sistema", "Reconstructed tariff"), 11);
         AddFinancialScenarioComparison(
             section,
             tariffScenario,
             spanish);
+        AddHeading(section, L("Diferencias calculadas", "Calculated differences"), 11);
         AddComparableTotalDueTable(
             section,
             bill,
@@ -255,19 +276,11 @@ public sealed class UtilityBillAuditReportService
             section,
             statistical,
             billGapAnalysis,
-            spanish);
+            spanish,
+            distributionImage);
 
-        // PAGE 5 — hard numerical quality evidence.
-        section.AddPageBreak();
-        AddHeading(
-            section,
-            L("5. Calidad, cobertura y trazabilidad cuantitativa", "5. Numerical quality, coverage and traceability"),
-            16);
-        AddQualityEvidencePage(
-            section,
-            statistical,
-            billGapAnalysis,
-            spanish);
+        // Public section 5.1 is kept; the diagnostic page 5 is removed.
+        AddDailyCoveragePage(section, billGapAnalysis, spanish);
 
         // PAGE 6 — findings.
         section.AddPageBreak();
@@ -304,7 +317,7 @@ public sealed class UtilityBillAuditReportService
         section.AddPageBreak();
         AddHeading(
             section,
-            L("8. Metodología técnica y limitaciones", "8. Technical methodology and limitations"),
+            L("8. Metodología técnica y supuestos", "8. Technical methodology and assumptions"),
             16);
         AddTechnicalMethodologyPage(
             section,
@@ -326,9 +339,17 @@ public sealed class UtilityBillAuditReportService
         footer.AddText("/");
         footer.AddNumPagesField();
 
-        var renderer = new PdfDocumentRenderer { Document = document };
-        renderer.RenderDocument();
-        renderer.PdfDocument.Save(path);
+        try
+        {
+            var renderer = new PdfDocumentRenderer { Document = document };
+            renderer.RenderDocument();
+            renderer.PdfDocument.Save(path);
+        }
+        finally
+        {
+            if (distributionImage is not null && File.Exists(distributionImage))
+                File.Delete(distributionImage);
+        }
     }
 
     private static void AddExecutiveEnergyComparison(
@@ -340,150 +361,75 @@ public sealed class UtilityBillAuditReportService
         bool spanish)
     {
         string L(string es, string en) => spanish ? es : en;
-        var meterDifference =
-            to.ReadingKwh >= from.ReadingKwh
-                ? to.ReadingKwh - from.ReadingKwh
-                : (double?)null;
-        var enel =
-            bill.BilledConsumptionKwh ??
-            meterDifference;
+        var meterDifference = to.ReadingKwh >= from.ReadingKwh
+            ? to.ReadingKwh - from.ReadingKwh : (double?)null;
+        var enel = bill.BilledConsumptionKwh ?? meterDifference;
 
         var primary = section.AddTable();
         primary.Borders.Width = 0;
         primary.AddColumn(Unit.FromCentimeter(8.15));
         primary.AddColumn(Unit.FromCentimeter(8.15));
-        var primaryRow = primary.AddRow();
-
-        AddAuditMetricCard(
-            primaryRow.Cells[0],
-            L("ENEL / MEDIDOR", "UTILITY / METER"),
+        var first = primary.AddRow();
+        AddAuditMetricCard(first.Cells[0],
+            L("SEGÚN ENEL · FACTURADO", "UTILITY · BILLED"),
             enel.HasValue ? $"{enel.Value:N3} kWh" : "—",
-            L(
-                "Valor medido/facturado por Enel · referencia externa.",
-                "Measured/billed by utility · external reference."),
-            Colors.LemonChiffon,
-            16);
+            L("Consumo de la boleta.", "Consumption on the bill."),
+            Colors.LemonChiffon, 16);
 
-        AddAuditMetricCard(
-            primaryRow.Cells[1],
+        var delta = enel.HasValue ? enel.Value - statistical.ObservedKwh : (double?)null;
+        var pct = enel > 0 && delta.HasValue
+            ? delta.Value / enel.Value * 100.0 : 0.0;
+        AddAuditMetricCard(first.Cells[1],
             L("INVERSOR · OBSERVADO", "INVERTER · OBSERVED"),
             $"{statistical.ObservedKwh:N3} kWh",
-            DifferenceContext(
-                statistical.ObservedKwh,
-                enel,
-                L(
-                    "Integración directa; sin rellenar huecos.",
-                    "Direct integration; gaps unfilled.")),
-            Colors.AliceBlue,
-            16);
+            delta.HasValue
+                ? $"Enel − inversor: {delta.Value:+0.000;-0.000;0.000} kWh ({pct:+0.00;-0.00;0.00}%)"
+                : L("Importación integrada desde registros.", "Import from recorded data."),
+            Colors.AliceBlue, 16);
 
-        var rangeHeading = section.AddParagraph(
-            L(
-                "Rango estadístico del inversor",
-                "Inverter statistical range"));
-        rangeHeading.Format.Font.Size = 10.5;
-        rangeHeading.Format.Font.Bold = true;
-        rangeHeading.Format.SpaceBefore = Unit.FromPoint(6);
-        rangeHeading.Format.SpaceAfter = Unit.FromPoint(3);
+        var coverage = section.AddParagraph();
+        coverage.Format.SpaceBefore = Unit.FromPoint(5);
+        coverage.Format.SpaceAfter = Unit.FromPoint(4);
+        coverage.Format.Font.Size = 8.5;
+        coverage.AddFormattedText(
+            L("Cobertura de telemetría: ", "Telemetry coverage: "), TextFormat.Bold);
+        PdfNumericFonts.AddNumericText(coverage,
+            $"{statistical.CoveragePercent:N2}% " +
+            L("con registros · ", "recorded · ") +
+            $"{Math.Max(0, 100.0 - statistical.CoveragePercent):N2}% " +
+            L("sin registros", "not recorded"));
 
-        var predictive = section.AddTable();
-        predictive.Borders.Width = 0;
-        predictive.AddColumn(Unit.FromCentimeter(5.43));
-        predictive.AddColumn(Unit.FromCentimeter(5.43));
-        predictive.AddColumn(Unit.FromCentimeter(5.43));
-        var predictiveRow = predictive.AddRow();
+        var method = section.AddParagraph(L(
+            "Los intervalos sin telemetría se estiman con ventanas históricas comparables. P5 es el extremo inferior, P50 la mediana y P95 el extremo superior de los resultados calculados.",
+            "Intervals without telemetry are estimated using comparable historical windows. P5 is the lower percentile, P50 the median and P95 the upper percentile of calculated outcomes."));
+        method.Format.Font.Size = 8;
+        method.Format.SpaceAfter = Unit.FromPoint(4);
 
-        AddAuditMetricCard(
-            predictiveRow.Cells[0],
-            L("P5 · MARGEN INFERIOR", "P5 · LOWER MARGIN"),
-            statistical.LowerKwh.HasValue
-                ? $"{statistical.LowerKwh.Value:N3} kWh"
-                : "—",
-            statistical.LowerKwh.HasValue
-                ? DifferenceContext(
-                    statistical.LowerKwh.Value,
-                    enel,
-                    L(
-                        "Valor hacia el extremo inferior: aproximadamente 5% de los resultados del método queda por debajo.",
-                        "Lower-side value: approximately 5% of method results fall below it."))
-                : L("Sin evidencia suficiente", "Insufficient evidence"),
-            Colors.AliceBlue,
-            13);
-
-        AddAuditMetricCard(
-            predictiveRow.Cells[1],
-            L("P50 · ESTIMACIÓN CENTRAL", "P50 · CENTRAL ESTIMATE"),
-            statistical.MedianKwh.HasValue
-                ? $"{statistical.MedianKwh.Value:N3} kWh"
-                : "—",
-            statistical.MedianKwh.HasValue
-                ? DifferenceContext(
-                    statistical.MedianKwh.Value,
-                    enel,
-                    L(
-                        "Mediana discreta: la frecuencia acumulada alcanza 50% en este valor. Puede coincidir con P5 si muchos escenarios comparten el mínimo.",
-                        "Median of the discrete scenarios: the cumulative frequency reaches 50% at this value. It can coincide with P5 when many scenarios have the same minimum."))
-                : L("Sin evidencia suficiente", "Insufficient evidence"),
-            Colors.Honeydew,
-            13);
-
-        AddAuditMetricCard(
-            predictiveRow.Cells[2],
-            L("P95 · MARGEN SUPERIOR", "P95 · UPPER MARGIN"),
-            statistical.UpperKwh.HasValue
-                ? $"{statistical.UpperKwh.Value:N3} kWh"
-                : "—",
-            statistical.UpperKwh.HasValue
-                ? DifferenceContext(
-                    statistical.UpperKwh.Value,
-                    enel,
-                    L(
-                        "Valor hacia el extremo superior: aproximadamente 95% de los resultados del método queda por debajo.",
-                        "Upper-side value: approximately 95% of method results fall below it."))
-                : L("Sin evidencia suficiente", "Insufficient evidence"),
-            Colors.AliceBlue,
-            13);
-
-        AddCallout(
-            section,
-            L("¿QUÉ SIGNIFICAN P5, P50 Y P95?", "WHAT DO P5, P50 AND P95 MEAN?"),
-            L(
-                "Como existen períodos sin telemetría, no sería correcto inventar un único valor exacto. P5 es un valor hacia el extremo inferior; P50 es la mediana y estimación central; P95 es un valor hacia el extremo superior. El intervalo P5–P95 contiene el 90% central de los resultados producidos por el método estadístico aplicado. En este período P5 y P50 coinciden porque la mediana empírica del aporte de cada gap interno es 0 kWh.",
-                "Because some periods lack telemetry, it would not be correct to invent one exact value. P5 is a lower-side value; P50 is the median and central estimate; P95 is an upper-side value. The P5–P95 interval contains the central 90% of the results produced by the statistical method. In this period P5 and P50 coincide because the empirical median contribution of each internal gap is 0 kWh."),
-            Colors.WhiteSmoke);
-
-        if (enel.HasValue &&
-            statistical.LowerKwh.HasValue &&
-            statistical.MedianKwh.HasValue &&
-            statistical.UpperKwh.HasValue)
+        var percentiles = section.AddTable();
+        percentiles.Borders.Width = 0;
+        percentiles.AddColumn(Unit.FromCentimeter(5.43));
+        percentiles.AddColumn(Unit.FromCentimeter(5.43));
+        percentiles.AddColumn(Unit.FromCentimeter(5.43));
+        var values = percentiles.AddRow();
+        var estimates = new (string Name, double? Energy, Color Fill)[]
         {
-            var differences = section.AddTable();
-            differences.Borders.Width = 0.25;
-            differences.AddColumn(Unit.FromCentimeter(4.8));
-            differences.AddColumn(Unit.FromCentimeter(5.6));
-            differences.AddColumn(Unit.FromCentimeter(5.9));
-
-            var header = differences.AddRow();
-            header.Format.Font.Bold = true;
-            header.Cells[0].AddParagraph(L("Comparación", "Comparison"));
-            header.Cells[1].AddParagraph(L("Diferencia", "Difference"));
-            header.Cells[2].AddParagraph(L("Diferencia %", "Difference %"));
-
-            AddExecutiveDifferenceRow(
-                differences,
-                "Enel − P5",
-                enel.Value,
-                statistical.LowerKwh.Value);
-            AddExecutiveDifferenceRow(
-                differences,
-                "Enel − P50",
-                enel.Value,
-                statistical.MedianKwh.Value);
-            AddExecutiveDifferenceRow(
-                differences,
-                "Enel − P95",
-                enel.Value,
-                statistical.UpperKwh.Value);
+            (L("P5 · INFERIOR", "P5 · LOWER"), statistical.LowerKwh, Colors.AliceBlue),
+            (L("P50 · CENTRAL", "P50 · CENTRAL"), statistical.MedianKwh, Colors.Honeydew),
+            (L("P95 · SUPERIOR", "P95 · UPPER"), statistical.UpperKwh, Colors.AliceBlue)
+        };
+        for (var i = 0; i < estimates.Length; i++)
+        {
+            var item = estimates[i];
+            var diff = enel.HasValue && item.Energy.HasValue
+                ? enel.Value - item.Energy.Value : (double?)null;
+            var ratio = enel > 0 && diff.HasValue
+                ? diff.Value / enel.Value * 100.0 : 0.0;
+            var context = diff.HasValue
+                ? $"Enel − {item.Name[..(i == 1 ? 3 : 2)]}: {diff.Value:+0.000;-0.000;0.000} kWh ({ratio:+0.00;-0.00;0.00}%)"
+                : L("Sin cálculo disponible", "Calculation unavailable");
+            AddAuditMetricCard(values.Cells[i], item.Name,
+                item.Energy.HasValue ? $"{item.Energy.Value:N3} kWh" : "—",
+                context, item.Fill, 13);
         }
     }
 
@@ -503,9 +449,9 @@ public sealed class UtilityBillAuditReportService
         var row = table.AddRow();
         row.Cells[0].AddParagraph(label);
         row.Cells[0].Format.Font.Bold = true;
-        row.Cells[1].AddParagraph(
+        PdfNumericFonts.AddNumericText(row.Cells[1].AddParagraph(),
             $"{difference:+0.000;-0.000;0.000} kWh");
-        row.Cells[2].AddParagraph(
+        PdfNumericFonts.AddNumericText(row.Cells[2].AddParagraph(),
             $"{percent:+0.00;-0.00;0.00}%");
     }
 
@@ -600,105 +546,22 @@ public sealed class UtilityBillAuditReportService
         bool spanish)
     {
         string L(string es, string en) => spanish ? es : en;
-
-        if (!analysis.HasTariffModel ||
-            !analysis.SupportedVariableRateClpPerKwh.HasValue)
-        {
-            AddCallout(
-                section,
-                L("TARIFA NO RESUELTA", "TARIFF NOT RESOLVED"),
-                L(
-                    "Todavía no existe evidencia suficiente para construir un escenario monetario oficial sin inventar una tasa.",
-                    "There is not yet enough evidence to build an official monetary scenario without inventing a rate."),
-                Colors.LemonChiffon);
-            return;
-        }
-
-        var intro = section.AddParagraph(
-            string.Format(
-                L(
-                    "Componentes respaldados: tasa variable {0:N3} CLP/kWh; cargo fijo reconstruido {1}. La misma base oficial se aplica a todos los escenarios para que la comparación sea equivalente.",
-                    "Supported components: variable rate {0:N3} CLP/kWh; reconstructed fixed charge {1}. The same official basis is applied to every scenario for an equivalent comparison."),
-                analysis.SupportedVariableRateClpPerKwh.Value,
-                Money(
-                    analysis.SupportedFixedAmountClp ??
-                    0)));
-        intro.Format.Font.Size = 8.5;
-        intro.Format.Font.Color = Colors.DimGray;
-        intro.Format.SpaceAfter = Unit.FromPoint(5);
-
-        var enel = analysis.Scenarios.FirstOrDefault(item =>
-            item.Key == "ENEL_BILLED");
-        var observed = analysis.Scenarios.FirstOrDefault(item =>
-            item.Key == "SOLAR_OBSERVED");
-
-        var primary = section.AddTable();
-        primary.Borders.Width = 0;
-        primary.AddColumn(Unit.FromCentimeter(8.15));
-        primary.AddColumn(Unit.FromCentimeter(8.15));
-        var primaryRow = primary.AddRow();
-
-        AddAuditMoneyCard(
-            primaryRow.Cells[0],
-            L("ENEL · SUBTOTAL MODELADO", "UTILITY · MODELED SUBTOTAL"),
-            enel,
-            enel,
-            L(
-                "Misma base tarifaria que concilia las líneas modeladas.",
-                "Same tariff basis that reconciles the modeled lines."),
-            Colors.LemonChiffon);
-
-        AddAuditMoneyCard(
-            primaryRow.Cells[1],
-            L("INVERSOR OBSERVADO", "INVERTER OBSERVED"),
-            observed,
-            enel,
-            L(
-                "Costo contrafactual sobre la energía observada.",
-                "Counterfactual cost on observed energy."),
-            Colors.AliceBlue);
-
-        var predictive = section.AddTable();
-        predictive.Borders.Width = 0;
-        predictive.AddColumn(Unit.FromCentimeter(5.43));
-        predictive.AddColumn(Unit.FromCentimeter(5.43));
-        predictive.AddColumn(Unit.FromCentimeter(5.43));
-        var row = predictive.AddRow();
-
-        AddAuditMoneyCard(
-            row.Cells[0],
-            L("P5 · COSTO INFERIOR", "P5 · LOWER COST"),
-            analysis.Scenarios.FirstOrDefault(item =>
-                item.Key == "SOLAR_LOWER"),
-            enel,
-            L("Margen inferior del rango central 90%.", "Lower edge of the central 90% range."),
-            Colors.AliceBlue);
-
-        AddAuditMoneyCard(
-            row.Cells[1],
-            L("P50 · COSTO CENTRAL", "P50 · CENTRAL COST"),
-            analysis.Scenarios.FirstOrDefault(item =>
-                item.Key == "SOLAR_CENTRAL"),
-            enel,
-            L("Mediana y estimación central.", "Median and central estimate."),
-            Colors.Honeydew);
-
-        AddAuditMoneyCard(
-            row.Cells[2],
-            L("P95 · COSTO SUPERIOR", "P95 · UPPER COST"),
-            analysis.Scenarios.FirstOrDefault(item =>
-                item.Key == "SOLAR_UPPER"),
-            enel,
-            L("Margen superior del rango central 90%.", "Upper edge of the central 90% range."),
-            Colors.AliceBlue);
-
-        AddCallout(
-            section,
-            L("ALCANCE DEL MONTO", "AMOUNT SCOPE"),
-            L(
-                "Son subtotales comparables de componentes conciliados con evidencia oficial. El cargo fijo se incluye si su monto coincide con alternativas oficiales, pero esa coincidencia por sí sola no demuestra qué RED/ETR es aplicable. Subsidios, servicios asociados, FET no determinable u otros ajustes permanecen como montos reales no reconstruidos.",
-                "These are comparable subtotals reconciled with official evidence. A fixed charge is included when its amount matches official alternatives; that match alone does not prove which RED/ETR applies. Subsidies, associated services, indeterminate FET and other adjustments remain preserved as actual amounts, not reconstructed."),
-            Colors.WhiteSmoke);
+        var cards = section.AddTable();
+        cards.Borders.Width = 0;
+        cards.AddColumn(Unit.FromCentimeter(8.15));
+        cards.AddColumn(Unit.FromCentimeter(8.15));
+        var row = cards.AddRow();
+        AddAuditMetricCard(row.Cells[0],
+            L("TASA VARIABLE RECONSTRUIDA", "RECONSTRUCTED VARIABLE RATE"),
+            analysis.SupportedVariableRateClpPerKwh.HasValue
+                ? $"{analysis.SupportedVariableRateClpPerKwh.Value:N3} CLP/kWh" : "—",
+            L("Tarifa oficial aplicada a los escenarios.", "Official rate used for scenarios."),
+            Colors.AliceBlue, 15);
+        AddAuditMetricCard(row.Cells[1],
+            L("CARGO FIJO RECONSTRUIDO", "RECONSTRUCTED FIXED CHARGE"),
+            Money(analysis.SupportedFixedAmountClp),
+            L("Mismo cargo fijo para las comparaciones.", "Same fixed charge for comparisons."),
+            Colors.Honeydew, 15);
     }
 
     private static void AddAuditMoneyCard(
@@ -1632,19 +1495,10 @@ public sealed class UtilityBillAuditReportService
         DateTimeOffset local,
         bool spanish)
     {
-        var r = table.AddRow();
-        r.Cells[0].AddParagraph(label);
-        r.Cells[1].AddParagraph(
-            reading.TimePrecision == UtilityTimePrecision.DateOnly
-                ? $"{local:dd-MM-yyyy} · {(spanish ? "límite Enel" : "Enel boundary")}"
-                : $"{local:dd-MM-yyyy HH:mm:ss}");
-        r.Cells[2].AddParagraph($"{reading.ReadingKwh:N3}");
-        r.Cells[3].AddParagraph(
-            reading.TimePrecision == UtilityTimePrecision.DateOnly
-                ? (spanish
-                    ? "Fecha oficial; hora exacta no informada"
-                    : "Official date; exact time not supplied")
-                : (spanish ? "Lectura con hora exacta" : "Exact-time reading"));
+        var row = table.AddRow();
+        row.Cells[0].AddParagraph(label);
+        PdfNumericFonts.AddNumericText(row.Cells[1].AddParagraph(), $"{local:dd-MM-yyyy}");
+        PdfNumericFonts.AddNumericText(row.Cells[2].AddParagraph(), $"{reading.ReadingKwh:N3}");
     }
 
     private static string ReadingBoundary(
@@ -1788,14 +1642,13 @@ public sealed class UtilityBillAuditReportService
                 ScenarioLabel(
                     scenario.Key,
                     spanish));
-            row.Cells[1].AddParagraph(
+            PdfNumericFonts.AddNumericText(row.Cells[1].AddParagraph(),
                 $"{scenario.EnergyKwh:N3}");
-            row.Cells[2].AddParagraph(
-                Money(
-                    scenario.SupportedTariffSubtotalClp));
-            row.Cells[3].AddParagraph(
+            PdfNumericFonts.AddNumericText(row.Cells[2].AddParagraph(),
+                Money(scenario.SupportedTariffSubtotalClp));
+            PdfNumericFonts.AddNumericText(row.Cells[3].AddParagraph(),
                 Money(total));
-            row.Cells[4].AddParagraph(
+            PdfNumericFonts.AddNumericText(row.Cells[4].AddParagraph(),
                 MoneySigned(difference));
         }
     }
@@ -1823,16 +1676,80 @@ public sealed class UtilityBillAuditReportService
             section,
             L("CONCLUSIÓN ECONÓMICA", "ECONOMIC CONCLUSION"),
             L(
-                "Los componentes tarifarios reconstruibles son coherentes con las fuentes oficiales y con la boleta. La evidencia actual no sustenta un error tarifario material; la controversia técnica se concentra en la cantidad de energía facturada.",
-                "The reconstructible tariff components are consistent with official sources and the bill. Current evidence does not support a material tariff error; the technical dispute is concentrated on the billed energy quantity."),
+                "Los componentes tarifarios reconstruidos concilian con las fuentes oficiales. Las diferencias de consumo y su efecto económico se presentan en las tablas de escenarios.",
+                "Reconstructed tariff components reconcile with official sources. Energy differences and their economic effect appear in the scenario tables."),
             Colors.Honeydew);
+    }
+
+    private static string? RenderEmpiricalSummaryChart(
+        UtilityBillGapStatisticalAnalysis analysis,
+        UtilityGridImportStatisticalCompletion statistical,
+        double? billedKwh,
+        bool spanish)
+    {
+        var points = analysis.Distribution;
+        var count = points.Sum(p => p.Count);
+        if (count <= 0 || !statistical.HasPredictiveInterval)
+            return null;
+
+        const int slices = 12;
+        var low = points[0].EnergyKwh;
+        var high = points[^1].EnergyKwh;
+        var spread = high - low;
+        var bins = new double[spread > 0.0000005 ? slices + 1 : 1];
+        bins[0] = 100.0 * points[0].Count / count;
+        if (bins.Length > 1)
+            foreach (var p in points.Skip(1))
+            {
+                var part = Math.Clamp(
+                    (int)Math.Ceiling((p.EnergyKwh - low) / spread * slices),
+                    1, slices);
+                bins[part] += 100.0 * p.Count / count;
+            }
+
+        var plot = new ScottPlot.Plot();
+        var top = Math.Max(1.0, bins.Max()) * 1.15;
+        for (var i = 0; i < bins.Length; i++)
+        {
+            // One genuine point mass at the minimum; other bars are the
+            // frequencies of equally spaced tail intervals (not Gaussian).
+            var position = i == 0 ? low : low + spread * (i - 0.5) / slices;
+            plot.Add.Bar(new ScottPlot.Bar
+            {
+                Position = position, Value = bins[i],
+                FillColor = i == 0 ? ScottPlot.Colors.C0 : ScottPlot.Colors.C1
+            });
+        }
+        var lines = new (string Label, double? X)[]
+        {
+            ("P5", statistical.LowerKwh),
+            ("P50", statistical.MedianKwh),
+            ("P95", statistical.UpperKwh),
+            ("Enel", billedKwh)
+        };
+        foreach (var (label, value) in lines)
+        {
+            if (!value.HasValue) continue;
+            var reference = plot.Add.Scatter(
+                new[] { value.Value, value.Value }, new[] { 0.0, top });
+            reference.LegendText = label;
+        }
+        plot.XLabel("kWh");
+        plot.YLabel(spanish ? "Frecuencia (%)" : "Frequency (%)");
+        plot.ShowLegend(ScottPlot.Alignment.UpperRight);
+        plot.Axes.Margins(left: .03, right: .08, bottom: .04, top: .24);
+        var output = Path.Combine(Path.GetTempPath(),
+            "solar-enel-empirical-" + Guid.NewGuid().ToString("N") + ".png");
+        plot.SavePng(output, 1200, 330);
+        return output;
     }
 
     private static void AddEmpiricalDistributionPage(
         Section section,
         UtilityGridImportStatisticalCompletion statistical,
         UtilityBillGapStatisticalAnalysis analysis,
-        bool spanish)
+        bool spanish,
+        string? imagePath)
     {
         string L(string es, string en) => spanish ? es : en;
 
@@ -1861,68 +1778,20 @@ public sealed class UtilityBillAuditReportService
 
         AddCallout(
             section,
-            L("NO ES UNA CAMPANA DE GAUSS", "NOT A GAUSSIAN BELL CURVE"),
+            L("CÓMO SE CONSTRUYE LA DISTRIBUCIÓN", "HOW THE DISTRIBUTION IS BUILT"),
             L(
-                "Este gráfico representa combinaciones discretas de ventanas históricas, NO una distribución normal ni mediciones independientes. Cada escenario suma la importación observada y una posible importación durante los intervalos sin cobertura.",
-                "This chart represents discrete combinations of historical windows, NOT a normal distribution or independent measurements. Every scenario combines observed import and a possible import during uncovered intervals."),
+                "Las columnas muestran la frecuencia de combinaciones discretas de ventanas históricas. Cada escenario suma la importación observada y un aporte calculado para los intervalos sin registros.",
+                "Bars show frequencies of discrete combinations of historical windows. Each scenario combines observed import with computed energy for intervals without records."),
             Colors.AliceBlue);
 
-        // Preserve the point mass at the absolute minimum exactly. Only the
-        // remaining values are grouped into equal-width energy ranges. This
-        // avoids smoothing away the atom that causes P5 = P50 in this bill.
-        const int tailBinCount = 12;
-        var hasTail = last.EnergyKwh > first.EnergyKwh + 0.0000005;
-        var binCount = hasTail ? tailBinCount + 1 : 1;
-        var bins = new double[binCount];
-        var labels = new string[binCount];
-        bins[0] = firstShare;
-        labels[0] = first.EnergyKwh.ToString("0.000");
-        if (hasTail)
+        // Reuse the real plotted distribution from the executive first page.
+        // This technical section additionally provides upper-tail percentiles.
+        if (imagePath is not null)
         {
-            for (var i = 1; i < binCount; i++)
-            {
-                var upper = first.EnergyKwh +
-                    (last.EnergyKwh - first.EnergyKwh) *
-                    i / tailBinCount;
-                labels[i] = (i % 2 == 0 || i == tailBinCount)
-                    ? upper.ToString("0.0") : "";
-            }
-
-            foreach (var point in points.Skip(1))
-            {
-                var fraction =
-                    (point.EnergyKwh - first.EnergyKwh) /
-                    (last.EnergyKwh - first.EnergyKwh);
-                var index = Math.Clamp(
-                    (int)Math.Ceiling(fraction * tailBinCount),
-                    1,
-                    tailBinCount);
-                bins[index] += 100.0 * point.Count / scenarioCount;
-            }
+            var image = section.AddImage(imagePath);
+            image.LockAspectRatio = true;
+            image.Width = Unit.FromCentimeter(16.0);
         }
-
-        var chart = section.AddChart(ChartType.Column2D);
-        chart.Width = Unit.FromCentimeter(16.0);
-        chart.Height = Unit.FromCentimeter(8.0);
-        chart.PlotArea.TopPadding = Unit.FromCentimeter(0.35);
-        chart.PlotArea.BottomPadding = Unit.FromCentimeter(0.6);
-        chart.PlotArea.LeftPadding = Unit.FromCentimeter(0.5);
-        chart.PlotArea.RightPadding = Unit.FromCentimeter(0.3);
-        chart.YAxis.HasMajorGridlines = true;
-        chart.YAxis.Title.Caption = L("Escenarios (%)", "Scenarios (%)");
-        chart.XAxis.Title.Caption = L(
-            "Energía total estimada (kWh) · mínimo exacto y tramos de cola",
-            "Total estimated energy (kWh) · exact minimum and tail ranges");
-        var series = chart.SeriesCollection.AddSeries();
-        for (var i = 0; i < bins.Length; i++)
-        {
-            var point = series.Add(bins[i]);
-            point.FillFormat.Color = i == 0
-                ? Colors.SteelBlue
-                : Colors.LightSteelBlue;
-        }
-        var xSeries = chart.XValues.AddXSeries();
-        xSeries.Add(labels);
 
         var firstSentence = string.Format(
             L(
@@ -1936,8 +1805,8 @@ public sealed class UtilityBillAuditReportService
         var explanation = sameLowerAndMedian && firstContainsMedian
             ? string.Format(
                 L(
-                    "Por eso P5 y P50 coinciden en {0:N3} kWh: la probabilidad acumulada salta de 0% a {1:N2}% en el primer valor. Los percentiles desde P5 hasta aproximadamente P{1:N1} caen allí; no significa que tengan la forma de una campana ni que P50 esté en su centro geométrico.",
-                    "This is why P5 and P50 both equal {0:N3} kWh: cumulative frequency jumps from 0% to {1:N2}% at the first value. Percentiles from P5 up to about P{1:N1} lie there; this is not a bell curve, nor does P50 have to be at its geometric center."),
+                    "Por eso P5 y P50 coinciden en {0:N3} kWh: la probabilidad acumulada salta de 0% a {1:N2}% en el primer valor. Los percentiles desde P5 hasta aproximadamente P{1:N1} caen allí; corresponden a ese mismo resultado.",
+                    "This is why P5 and P50 both equal {0:N3} kWh: cumulative frequency jumps from 0% to {1:N2}% at the first value. Percentiles from P5 up to about P{1:N1} lie there; they correspond to that same result."),
                 first.EnergyKwh, firstShare)
             : L(
                 "Los percentiles se leen sobre la frecuencia acumulada de estos escenarios. P5 y P50 sólo coinciden cuando suficientes escenarios comparten un mismo resultado; no es una propiedad general del modelo.",
@@ -1971,10 +1840,10 @@ public sealed class UtilityBillAuditReportService
 
         AddCallout(
             section,
-            L("ALCANCE E INCERTIDUMBRE", "SCOPE AND UNCERTAINTY"),
+            L("LECTURA DE FRECUENCIAS", "READING THE FREQUENCIES"),
             L(
-                "El primer gráfico separa el mínimo exacto; las demás columnas agrupan intervalos de kWh. Las combinaciones reutilizan días donantes y NO son ensayos independientes: su porcentaje es frecuencia del modelo, no probabilidad certificada ni cobertura predictiva validada. La boleta Enel no calibró la distribución. Su calidad depende de que las condiciones operativas de los días donantes sean comparables.",
-                "The first bar is the exact minimum; remaining bars group kWh ranges. Combinations reuse historical donor days and are NOT independent trials: their percentages are model frequencies, not certified probabilities or validated predictive coverage. The Enel bill was not used to calibrate the distribution. Reliability depends on donor days having comparable operating conditions."),
+                "La primera barra mantiene el mínimo exacto; las siguientes agrupan intervalos energéticos de la cola. Los porcentajes corresponden a frecuencias de escenarios con días históricos comparables. La boleta Enel es sólo referencia de contraste.",
+                "The first bar is the exact minimum; subsequent bars group energy intervals in the tail. Percentages are frequencies of scenarios using comparable historical days. The utility bill is solely a comparison reference."),
             Colors.WhiteSmoke);
     }
 
@@ -2137,170 +2006,17 @@ public sealed class UtilityBillAuditReportService
             $"{totalKwh:N3} kWh");
     }
 
-    private static void AddQualityEvidencePage(
+    private static void AddDailyCoveragePage(
         Section section,
-        UtilityGridImportStatisticalCompletion statistical,
         UtilityBillGapStatisticalAnalysis analysis,
         bool spanish)
     {
         string L(string es, string en) => spanish ? es : en;
 
-        var cards = section.AddTable();
-        cards.Borders.Width = 0;
-        cards.AddColumn(Unit.FromCentimeter(5.43));
-        cards.AddColumn(Unit.FromCentimeter(5.43));
-        cards.AddColumn(Unit.FromCentimeter(5.43));
-
-        var r1 = cards.AddRow();
-        AddAuditMetricCard(
-            r1.Cells[0],
-            L("FRAMES VÁLIDOS", "VALID FRAMES"),
-            analysis.IntervalSampleCount.ToString("N0"),
-            L("Muestras finitas y resolubles del período.", "Finite resolvable samples in the period."),
-            Colors.AliceBlue,
-            13);
-        AddAuditMetricCard(
-            r1.Cells[1],
-            L("CADENCIA MEDIANA", "MEDIAN CADENCE"),
-            $"{analysis.MedianCadenceMinutes:N3} min",
-            L("Separación típica real entre frames.", "Typical real separation between frames."),
-            Colors.AliceBlue,
-            13);
-        AddAuditMetricCard(
-            r1.Cells[2],
-            L("UMBRAL CONTINUIDAD", "CONTINUITY THRESHOLD"),
-            $"{analysis.ContinuityThresholdMinutes:N3} min",
-            L("Sobre este valor el intervalo se trata como gap.", "Above this value the interval is treated as a gap."),
-            Colors.WhiteSmoke,
-            13);
-
-        var r2 = cards.AddRow();
-        AddAuditMetricCard(
-            r2.Cells[0],
-            L("TIEMPO CUBIERTO", "COVERED TIME"),
-            $"{analysis.CoveredHours:N3} h",
-            L("Integración directamente observada.", "Directly observed integration."),
-            Colors.Honeydew,
-            13);
-        AddAuditMetricCard(
-            r2.Cells[1],
-            L("TIEMPO FALTANTE", "MISSING TIME"),
-            $"{analysis.UncoveredHours:N3} h",
-            L("No se convierte en cero.", "Not converted to zero."),
-            Colors.LemonChiffon,
-            13);
-        AddAuditMetricCard(
-            r2.Cells[2],
-            L("GAPS IDENTIFICADOS", "IDENTIFIED GAPS"),
-            analysis.Gaps.Count.ToString("N0"),
-            L("Incluye gaps internos y bordes cortos.", "Includes internal gaps and short boundaries."),
-            Colors.WhiteSmoke,
-            13);
-
-        AddHeading(
-            section,
-            L("Detalle de discontinuidades", "Discontinuity detail"),
-            11.5);
-
-        var gaps = section.AddTable();
-        gaps.Borders.Width = 0.25;
-        gaps.AddColumn(Unit.FromCentimeter(1.0));
-        gaps.AddColumn(Unit.FromCentimeter(2.7));
-        gaps.AddColumn(Unit.FromCentimeter(4.0));
-        gaps.AddColumn(Unit.FromCentimeter(2.1));
-        gaps.AddColumn(Unit.FromCentimeter(2.8));
-        gaps.AddColumn(Unit.FromCentimeter(3.7));
-        var gh = gaps.AddRow();
-        gh.Format.Font.Bold = true;
-        gh.Cells[0].AddParagraph("#");
-        gh.Cells[1].AddParagraph(L("Tipo", "Type"));
-        gh.Cells[2].AddParagraph(L("Inicio local", "Local start"));
-        gh.Cells[3].AddParagraph(L("Duración", "Duration"));
-        gh.Cells[4].AddParagraph(L("Bordes", "Boundaries"));
-        gh.Cells[5].AddParagraph(L("Calibración / backtest", "Calibration / backtest"));
-
-        foreach (var gap in analysis.Gaps)
-        {
-            var row = gaps.AddRow();
-            row.Cells[0].AddParagraph(gap.GapIndex.ToString());
-            row.Cells[1].AddParagraph(
-                GapKindLabel(
-                    gap.Kind,
-                    spanish));
-            row.Cells[2].AddParagraph(
-                $"{gap.StartLocal:dd-MM-yyyy HH:mm:ss}");
-            row.Cells[3].AddParagraph(
-                $"{gap.DurationMinutes:N2} min");
-            row.Cells[4].AddParagraph(
-                $"{FormatWatts(gap.TargetStartWatts)} → {FormatWatts(gap.TargetEndWatts)}");
-            row.Cells[5].AddParagraph(
-                gap.CalibrationDays > 0
-                    ? string.Format(
-                        L(
-                            "{0} días · {1} casos · cobertura {2}",
-                            "{0} days · {1} cases · coverage {2}"),
-                        gap.CalibrationDays,
-                        gap.BacktestCases,
-                        gap.BacktestCoverage.HasValue
-                            ? $"{gap.BacktestCoverage.Value * 100.0:N1}%"
-                            : "—")
-                    : L("Borde determinístico", "Deterministic boundary"));
-        }
-
-        AddHeading(
-            section,
-            L("Cuantiles por gap interno", "Internal-gap quantiles"),
-            11.5);
-
-        var quantiles = section.AddTable();
-        quantiles.Borders.Width = 0.25;
-        quantiles.AddColumn(Unit.FromCentimeter(2.5));
-        quantiles.AddColumn(Unit.FromCentimeter(2.5));
-        quantiles.AddColumn(Unit.FromCentimeter(2.5));
-        quantiles.AddColumn(Unit.FromCentimeter(2.5));
-        quantiles.AddColumn(Unit.FromCentimeter(6.2));
-        var qh = quantiles.AddRow();
-        qh.Format.Font.Bold = true;
-        qh.Cells[0].AddParagraph(L("Gap", "Gap"));
-        qh.Cells[1].AddParagraph("P5");
-        qh.Cells[2].AddParagraph("P50");
-        qh.Cells[3].AddParagraph("P95");
-        qh.Cells[4].AddParagraph(L("Validación histórica", "Historical validation"));
-
-        foreach (var gap in analysis.Gaps.Where(item =>
-                     item.Q50Kwh.HasValue))
-        {
-            var row = quantiles.AddRow();
-            row.Cells[0].AddParagraph($"#{gap.GapIndex} · {gap.DayType}");
-            row.Cells[1].AddParagraph($"{gap.Q05Kwh!.Value:N3} kWh");
-            row.Cells[2].AddParagraph($"{gap.Q50Kwh!.Value:N3} kWh");
-            row.Cells[3].AddParagraph($"{gap.Q95Kwh!.Value:N3} kWh");
-            row.Cells[4].AddParagraph(
-                string.Format(
-                    L(
-                        "{0} casos · cobertura P5–P95 {1} · sesgo P50 {2}",
-                        "{0} cases · P5–P95 coverage {1} · P50 bias {2}"),
-                    gap.BacktestCases,
-                    gap.BacktestCoverage.HasValue
-                        ? $"{gap.BacktestCoverage.Value * 100.0:N1}%"
-                        : "—",
-                    gap.BacktestP50BiasKwh.HasValue
-                        ? $"{gap.BacktestP50BiasKwh.Value:+0.000;-0.000;0.000} kWh"
-                        : "—"));
-        }
-
-        AddCallout(
-            section,
-            L("CONTROLES METODOLÓGICOS", "METHODOLOGICAL CONTROLS"),
-            L(
-                "Timestamps reales · ausencia ≠ cero · sin grilla artificial de 5 minutos · sin observaciones fabricadas · Enel excluido de la calibración · método versionado · datos fuente disponibles para anexo.",
-                "Real timestamps · missing ≠ zero · no artificial 5-minute grid · no fabricated observations · utility value excluded from calibration · versioned method · source data available for annex."),
-            Colors.Honeydew);
-
         section.AddPageBreak();
         AddHeading(
             section,
-            L("5.1 Cobertura diaria del período", "5.1 Daily period coverage"),
+            L("5. Cobertura diaria del período", "5. Daily period coverage"),
             14);
 
         var daily = section.AddTable();
@@ -2413,8 +2129,8 @@ public sealed class UtilityBillAuditReportService
                 "H02",
                 string.Format(
                     L(
-                        "Comparación de extremo alto: Enel − P95 = {0:N3} kWh ({1:N2}%). La separación es pequeña y el máximo empírico conjunto alcanza {2}; por ello P95 no se usa como prueba de exclusión estadística.",
-                        "High-side comparison: utility − P95 = {0:N3} kWh ({1:N2}%). The separation is small and full empirical support reaches {2}; therefore P95 is not used as proof of statistical exclusion."),
+                        "Comparación de extremo alto: Enel − P95 = {0:N3} kWh ({1:N2}%). El valor máximo de los escenarios calculados alcanza {2}.",
+                        "High-side comparison: utility − P95 = {0:N3} kWh ({1:N2}%). The maximum calculated scenario value reaches {2}."),
                     diff,
                     pct,
                     analysis.MaximumKwh.HasValue
@@ -2462,35 +2178,7 @@ public sealed class UtilityBillAuditReportService
                 L("DIFERENCIA ECONÓMICA", "ECONOMIC DIFFERENCE"));
         }
 
-        AddFindingRow(
-            table,
-            "H04",
-            tariff.HasTariffModel
-                ? L(
-                    "Las tasas y componentes reconstruibles concilian con fuentes oficiales; no se identifica un error tarifario material.",
-                    "Reconstructible rates and components reconcile with official sources; no material tariff error is identified.")
-                : L(
-                    "La evidencia tarifaria no está completa.",
-                    "Tariff evidence is incomplete."),
-            tariff.HasTariffModel
-                ? L("COINCIDE", "CONSISTENT")
-                : L("NO VERIFICABLE", "NOT VERIFIABLE"));
 
-        AddFindingRow(
-            table,
-            "H05",
-            L(
-                "El HPVINV02 no expone un contador independiente utilizable de energía comprada: buyElectricityQuantity es placeholder y dayPurchaseElectricityConsumption no está poblado.",
-                "The HPVINV02 does not expose a usable independent purchased-energy counter: buyElectricityQuantity is a placeholder and dayPurchaseElectricityConsumption is not populated."),
-            L("NO DISPONIBLE", "UNAVAILABLE"));
-
-        AddCallout(
-            section,
-            L("LECTURA GLOBAL", "OVERALL READING"),
-            L(
-                "La evidencia no sustenta afirmar un error tarifario. Sí muestra una diferencia material respecto de la estimación central independiente de energía, mientras el extremo P95 queda muy próximo a Enel. El informe conserva ambas conclusiones sin exagerar ninguna.",
-                "The evidence does not support claiming a tariff error. It does show a material difference from the independent central energy estimate, while the P95 high side lies very close to the utility value. The report preserves both conclusions without overstating either."),
-            Colors.WhiteSmoke);
     }
 
     private static void AddFindingRow(
@@ -2543,13 +2231,13 @@ public sealed class UtilityBillAuditReportService
             "S2",
             L("Telemetría del inversor", "Inverter telemetry"),
             L(
-                "mainsPower → grid_import_power_w; integración temporal directa de importación desde red.",
-                "mainsPower → grid_import_power_w; direct time integration of grid import."));
+                "Datos registrados por el inversor y recopilados mediante la aplicación oficial del inversor; mainsPower → grid_import_power_w e integración temporal de importación desde la red.",
+                "Data recorded by the inverter and collected through the inverter’s official application; mainsPower → grid_import_power_w and time integration of grid import."));
         AddSourceRow(
             sources,
             "S3",
             L("Método estadístico", "Statistical method"),
-            $"{statistical.MethodVersion} · {statistical.Status}");
+            L("Ventanas históricas comparables y percentiles empíricos.", "Comparable historical windows and empirical percentiles."));
         AddSourceRow(
             sources,
             "S4",
@@ -2574,13 +2262,6 @@ public sealed class UtilityBillAuditReportService
         AddSourceRow(
             sources,
             "S6",
-            L("Prueba de contador HPVINV02", "HPVINV02 counter probe"),
-            L(
-                "buyElectricityQuantity: placeholder; dayPurchaseElectricityConsumption: no poblado. No utilizable.",
-                "buyElectricityQuantity: placeholder; dayPurchaseElectricityConsumption: not populated. Not usable."));
-        AddSourceRow(
-            sources,
-            "S7",
             L("Motor económico", "Economic engine"),
             L(
                 "Mismas tarifas oficiales aplicadas a Enel, observado, P5, P50 y P95; cargos no variables preservados.",
@@ -2593,16 +2274,14 @@ public sealed class UtilityBillAuditReportService
 
         var readings = section.AddTable();
         readings.Borders.Width = 0.25;
-        readings.AddColumn(Unit.FromCentimeter(2.4));
-        readings.AddColumn(Unit.FromCentimeter(4.2));
-        readings.AddColumn(Unit.FromCentimeter(3.0));
-        readings.AddColumn(Unit.FromCentimeter(7.1));
+        readings.AddColumn(Unit.FromCentimeter(4.0));
+        readings.AddColumn(Unit.FromCentimeter(5.7));
+        readings.AddColumn(Unit.FromCentimeter(6.6));
         var rh = readings.AddRow();
         rh.Format.Font.Bold = true;
         rh.Cells[0].AddParagraph(L("Extremo", "Boundary"));
         rh.Cells[1].AddParagraph(L("Fecha", "Date"));
         rh.Cells[2].AddParagraph("kWh");
-        rh.Cells[3].AddParagraph(L("Evidencia", "Evidence"));
         AddReadingRow(
             readings,
             L("Inicial", "Start"),
@@ -2712,22 +2391,6 @@ public sealed class UtilityBillAuditReportService
 
         AddMethodBlock(
             section,
-            L("Estado de validación", "Validation status"),
-            string.Format(
-                L(
-                    "Método {0}: PROVISIONAL / RESEARCH ONLY. R3 permanece como investigación separada y no se presenta como validado para esta boleta.",
-                    "Method {0}: PROVISIONAL / RESEARCH ONLY. R3 remains a separate research stream and is not presented as validated for this bill."),
-                statistical.MethodVersion));
-
-        AddMethodBlock(
-            section,
-            L("Contador energético alternativo", "Alternative energy counter"),
-            L(
-                "En este HPVINV02, buyElectricityQuantity es placeholder (isRealValue=false) y dayPurchaseElectricityConsumption no está poblado. Por ello no existe un segundo contador utilizable para corroborar la integración de mainsPower.",
-                "On this HPVINV02, buyElectricityQuantity is a placeholder (isRealValue=false) and dayPurchaseElectricityConsumption is not populated. Therefore no second usable counter exists to corroborate mainsPower integration."));
-
-        AddMethodBlock(
-            section,
             L("Tarifas", "Tariffs"),
             tariff.PublicationPeriods.Count > 1
                 ? L(
@@ -2737,13 +2400,7 @@ public sealed class UtilityBillAuditReportService
                     "Se aplica la publicación tarifaria oficial correspondiente al período.",
                     "The official tariff publication applicable to the period is used."));
 
-        AddCallout(
-            section,
-            L("LIMITACIÓN PRINCIPAL", "MAIN LIMITATION"),
-            L(
-                "Los registros del inversor constituyen evidencia técnica independiente, pero no se presentan como sustituto metrológicamente certificado del medidor de facturación. El objetivo del informe es hacer transparente, reproducible y auditable la discrepancia observada.",
-                "Inverter records are independent technical evidence, but are not presented as a metrologically certified substitute for the billing meter. The report's purpose is to make the observed discrepancy transparent, reproducible and auditable."),
-            Colors.WhiteSmoke);
+
     }
 
     private static void AddMethodBlock(
@@ -2774,7 +2431,7 @@ public sealed class UtilityBillAuditReportService
         var r = table.AddRow();
         r.Cells[0].AddParagraph(label);
         r.Cells[0].Format.Font.Bold = true;
-        r.Cells[1].AddParagraph(value);
+        PdfNumericFonts.AddNumericText(r.Cells[1].AddParagraph(), value);
     }
 
     private static void AddCard(Cell cell, string label, string value, string context)
@@ -2813,7 +2470,8 @@ public sealed class UtilityBillAuditReportService
         labelParagraph.Format.SpaceBefore = Unit.FromPoint(4);
         labelParagraph.Format.SpaceAfter = Unit.FromPoint(3);
 
-        var valueParagraph = cell.AddParagraph(value);
+        var valueParagraph = cell.AddParagraph();
+        PdfNumericFonts.AddNumericText(valueParagraph, value);
         valueParagraph.Format.Font.Bold = true;
         valueParagraph.Format.Font.Size = valueFontSize;
         valueParagraph.Format.SpaceAfter = Unit.FromPoint(3);
@@ -2864,7 +2522,6 @@ public sealed class UtilityBillAuditReportService
             throw new PlatformNotSupportedException(
                 "PDF export is supported by the Windows desktop application.");
 
-        if (Interlocked.Exchange(ref _pdfFontsInitialized, 1) == 0)
-            GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+        PdfNumericFonts.Initialize();
     }
 }

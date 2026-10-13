@@ -10,4 +10,10 @@
     <PackageReference Include="PdfPig" />
     <PackageReference Include="ScottPlot" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/*"
+             Link="assets/fonts/IBM-Plex-Mono/%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
