@@ -50,13 +50,15 @@ Preservar el **detalle completo** útil para auditar: conciliación tarifaria, c
 
 **NO reabrir en esta tranche** el debate 31 vs 32 días ni reconstruir hipótesis horarias. El propietario determinó cómo interpretar las fechas de Enel; está documentado en especificación canónica del 2026-10-06, sección 3: `[X 00:00:00 local, (Y+1) 00:00:00 local)`; días inicial y final completos incluidos. Los datos completos están en archivo anexo; su evaluación posterior corresponde a un contraste técnico, no al encabezado del PDF. Mantener pruebas DST America/Santiago y no modificar ese contrato por una observación antigua ya cerrada.
 
-## 3. Tipografía numérica en PDF y Excel
+## 3. Tipografía numérica en PDF y Excel — FUENTE LIBRE YA INCORPORADA
 
-- Objetivo visual propietario: **Aptos Mono Regular / Bold** para valores numéricos y columnas numéricas en **PDF y XLSX**; texto de títulos, párrafos y explicaciones con familia proporcional legible. Alinear decimales, puntos de miles, signos y CLP/kWh.
-- Fuente entregada por owner en ZIP `Microsoft Aptos Fonts.zip`: contiene `Aptos-Mono.ttf`, `Aptos-Mono-Bold.ttf` y versiones italic. Ver `QA855_FUENTES_APTOS_LICENCIA_2026-10-12.md`.
-- **Restricción real:** EULA incluída de Microsoft excluye derecho de distribuir/sublicenciar, y los .ttf presentados declaran embedding restringido `OS/2.fsType = 8`. No subir tipografías propietarias, no meterlas en build/artifact público, ni forzar embedding PDF. El ZIP puede suministrarse manualmente al Worker para análisis local si procede, pero no incorporarlo al repo ni como base64/ZIP.
-- Resolver profesionalmente la tipografía con decisiones diferenciadas: aplicación local puede seleccionar familia Aptos Mono cuando esté instalada con autorización del dueño; PDF redistribuible requiere familia monoespaciada legalmente incrustable o licencia adicional; XLSX usa nombre de familia, no incrusta tipografías. Si es imposible lograr exactamente la misma fuente con derechos suficientes, ofrecer alternativa monoespaciada de licencia abierta con evidencia de licencia y aprobación del propietario antes de sustituir Aptos. **No fingir que Aptos Mono quedó empaquetada.**
-- Cualquier fuente alternativa nueva en repo debe incluir licencia legible y pruebas de font embedding, sin distribuir archivos del ZIP Microsoft.
+- El propietario adjuntó Microsoft Aptos y precisó que quiere **usar una fuente mono en la App**, no redistribuir los archivos Microsoft. Dada la EULA del paquete, **no empaquetar Aptos Mono**.
+- El propietario autorizó sustituir por una fuente legalmente distribuible; **se seleccionó y SUBIÓ al repo IBM Plex Mono Regular/Bold**, bajo SIL Open Font License 1.1.
+- Fuente predeterminada y común de la Build correctiva: **IBM Plex Mono** para valores numéricos, importes CLP, fechas, kWh, porcentajes y tablas cuantitativas de **todos los PDF y Excel pertinentes**. Textos y títulos siguen con fuente proporcional legible.
+- Ruta: `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/` con los binarios `IBMPlexMono-Regular.ttf` y `IBMPlexMono-Bold.ttf`, la licencia `OFL.txt` y el `README.md` de integración.
+- Los TTF deben copiarse al artefacto Windows con su licencia; PDF debe incrustarlos correctamente mediante resolver de fuentes; Excel debe conservar celdas numéricas/fecha reales con estilo `IBM Plex Mono`. Si la familia no está instalada en equipo lector de XLSX, se necesita disponibilidad o fallback claro. No forzar embedding de Microsoft Aptos.
+- **Fuentes y licencia: EN REPOSITORIO. Integración en el exportador/Build: pendiente de Worker.** No solicitar más archivos al propietario para este paso.
+- QA: inspeccionar nombres reales de las fuentes PDF, legibilidad, grosor regular/bold, signos/decimales y formato nativo numérico en XLSX; mantención de uso de licencia.
 
 ## 4. DEF-REPORT-01: gráficos PDF
 
