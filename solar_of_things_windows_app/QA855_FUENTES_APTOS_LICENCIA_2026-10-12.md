@@ -48,21 +48,18 @@ La distribución/incrustación de **Aptos Mono** en Build pública queda **BLOCK
 Al handoff, informar al propietario en una frase precisa: «Aptos Mono queda como preferencia local; para incluir una misma fuente en los PDF redistribuibles y el paquete de la aplicación necesitamos aprobar una fuente libre monoespaciada o aportar derechos explícitos suficientes sobre Aptos». No declarar fuentes subidas.
 
 
-## 5. Resolución final del propietario — por formato
+## 5. Decisión definitiva del propietario — corrección posterior (PREVALECE)
 
-**2026-10-12, decisión posterior y prevalente:** el propietario no quiere imponer IBM Plex Mono a las hojas Excel. Las dos aplicaciones de fuente quedan separadas:
+La indicación final es **cambiar la fuente de las cifras, y sólo de las cifras**. El resto de tipografía/formato en PDF y Excel **ya estaba correcto y debe preservarse**.
 
-- **PDF:** IBM Plex Mono Regular/Bold, licencia SIL OFL 1.1, **YA incorporada al repositorio** y lista para integración por Worker en la App y el generador PDF. Debe incrustarse en el PDF final; incluir licencia OFL en el paquete Windows.
-- **Excel (XLSX):** **Aptos Mono** cuando esté disponible como fuente de Excel/Office, o **cualquiera de las fuentes estándar que Excel trae por defecto**; se prefiere no requerir ninguna fuente personalizada ni redistribuir fonts con los Excel. No debe forzarse IBM Plex Mono para archivos Excel. Mantener tipos y formatos numéricos nativos.
+- **PDF:** usar **IBM Plex Mono Regular/Bold** para cifras; archivos y licencia OFL ya incorporados al repositorio; Worker debe integrarlos al generador e incrustarlos en documentos PDF, sin cambiar otras fuentes.
+- **Excel/XLSX:** **Consolas**, monoespaciada disponible con Windows y productos Office, para **celdas/segmentos numéricos solamente**. **Aptos Mono** es otra opción válida si se acredita que existe en la instalación Office relevante. Una fuente predeterminada genérica como Aptos normal **NO** cumple: es proporcional. No tocar fuentes de títulos, textos, leyendas, glosarios, etiquetas ni el resto del estilo anterior. No empaquetar TTF para XLSX ni alterar tipos, fórmulas o formatos numéricos.
+- **Microsoft Aptos Fonts.zip:** no publicar ni incorporar los TTF Microsoft en GitHub/Build; el nombre de una fuente Office en la plantilla XLSX no redistribuye el binario.
 
-**Ubicación real de la fuente PDF IBM Plex Mono en el repo:**
+Fuente PDF incluida en:
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Regular.ttf`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Bold.ttf`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/OFL.txt`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/README.md`
 
-**Origen oficial:** IBM/plex, revisión fija `763c36ef9117782905ae010056dfbe8fd2653a25`.
-
-**No se permite distribuir** el ZIP/TTF Microsoft Aptos que entregó el propietario en un repositorio público ni incluirlo en el instalador bajo la EULA aportada. Usar nombre de fuente estándar de Office en formato XLSX no requiere adjuntar el binario.
-
-**Estado:** binarios de IBM y licencia en GitHub (verificados); adaptación de exportadores PDF/XLSX, empaquetado y CI **PENDIENTES DE WORKER**. No se requiere que el propietario adjunte otra fuente.
+**Estado:** fuentes IBM y licencia publicadas/confirmadas; cambios efectivos en código y Build **pendientes del Worker**. Esta sección sustituye las preferencias históricas de apartados 3 y 4 sobre aplicar la misma familia a todos los formatos. **Nunca fallback a fuente proporcional para números en Excel como parte de este requisito.**
