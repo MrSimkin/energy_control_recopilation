@@ -46,3 +46,22 @@ Este registro es gestión de cumplimiento y no afirma que todas las formas de us
 La distribución/incrustación de **Aptos Mono** en Build pública queda **BLOCKED por licencia actual**. No detiene reparar gráficos, pie de página, rendimiento, tablas, contratos Enel y prueba numérica.
 
 Al handoff, informar al propietario en una frase precisa: «Aptos Mono queda como preferencia local; para incluir una misma fuente en los PDF redistribuibles y el paquete de la aplicación necesitamos aprobar una fuente libre monoespaciada o aportar derechos explícitos suficientes sobre Aptos». No declarar fuentes subidas.
+
+
+## 5. Resolución del propietario — alternativa libre YA CARGADA en GitHub
+
+El propietario aclaró que su intención era **usar** una fuente monoespaciada en la aplicación y sus exportaciones, no distribuir el ZIP Microsoft. Autorizó buscar otra fuente libre si el empaquetado de Aptos Mono resultaba restringido.
+
+**Elegida e incorporada:** **IBM Plex Mono Regular y Bold**, licencia **SIL Open Font License 1.1**, distribuible e incrustable en documentos dentro de sus condiciones. Es la **familia predeterminada para todas las salidas PDF y XLSX de la Build correctiva**.
+
+Ubicación real:
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Regular.ttf`
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Bold.ttf`
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/OFL.txt`
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/README.md`
+
+Origen oficial IBM/plex, revisión fija `763c36ef9117782905ae010056dfbe8fd2653a25`.
+
+**Nueva decisión:** Ya no es necesario que el propietario adjunte otra fuente ni apruebe adicionalmente una sustitución. La restricción parcial aplica **solamente al empaquetado/incrustación de Aptos Mono**; **la integración de IBM Plex Mono ya puede ejecutarse sin bloqueo por licencia**. No fingir que los estilos binarios ya se integraron en el código o CI: los archivos y licencia están subidos, la implementación aún corresponde al Worker.
+
+Aptos Mono puede seguir instalado en dispositivos propios conforme a la licencia aplicable, pero **no es la fuente predeterminada de exportación en este paquete**. Las hojas Excel usarán el nombre IBM Plex Mono y necesitarán disponibilidad de la familia en el equipo lector para fidelidad visual; los PDF deben incrustar IBM Plex Mono.
