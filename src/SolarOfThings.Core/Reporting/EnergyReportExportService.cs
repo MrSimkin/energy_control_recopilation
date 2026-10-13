@@ -1070,11 +1070,11 @@ public sealed class EnergyReportExportService
         {
             if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
-            pdfRow.Cells[0].AddParagraph(row.LocalLabel);
-            pdfRow.Cells[1].AddParagraph(NullableNumber(row.PvEnergyDisplayKwh));
-            pdfRow.Cells[2].AddParagraph(NullableNumber(row.HouseEnergyDisplayKwh));
-            pdfRow.Cells[3].AddParagraph(NullableNumber(row.GridImportEnergyDisplayKwh));
-            pdfRow.Cells[4].AddParagraph($"{row.MinimumAvailableCoveragePercent:N1}%");
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[0].AddParagraph(), row.LocalLabel);
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[1].AddParagraph(), NullableNumber(row.PvEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[2].AddParagraph(), NullableNumber(row.HouseEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[3].AddParagraph(), NullableNumber(row.GridImportEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[4].AddParagraph(), $"{row.MinimumAvailableCoveragePercent:N1}%");
         }
 
         AddTruncationNote(section, report);
@@ -1115,11 +1115,11 @@ public sealed class EnergyReportExportService
         {
             if ((++writtenPdfRows & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
             var pdfRow = table.AddRow();
-            pdfRow.Cells[0].AddParagraph(row.LocalLabel);
-            pdfRow.Cells[1].AddParagraph(NullableNumber(row.SocAveragePercent));
-            pdfRow.Cells[2].AddParagraph(NullableNumber(row.SocEndingPercent));
-            pdfRow.Cells[3].AddParagraph(NullableNumber(row.BatteryDischargedEnergyDisplayKwh));
-            pdfRow.Cells[4].AddParagraph($"{row.SocCoveragePercent:N1}%");
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[0].AddParagraph(), row.LocalLabel);
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[1].AddParagraph(), NullableNumber(row.SocAveragePercent));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[2].AddParagraph(), NullableNumber(row.SocEndingPercent));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[3].AddParagraph(), NullableNumber(row.BatteryDischargedEnergyDisplayKwh));
+            PdfNumericFonts.AddNumericText(pdfRow.Cells[4].AddParagraph(), $"{row.SocCoveragePercent:N1}%");
         }
 
         AddTruncationNote(section, report);

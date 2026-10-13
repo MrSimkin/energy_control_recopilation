@@ -276,7 +276,8 @@ public sealed class UtilityBillAuditReportService
             section,
             statistical,
             billGapAnalysis,
-            spanish);
+            spanish,
+            distributionImage);
 
         // PAGE 5 — hard numerical quality evidence.
         section.AddPageBreak();
@@ -325,7 +326,7 @@ public sealed class UtilityBillAuditReportService
         section.AddPageBreak();
         AddHeading(
             section,
-            L("8. Metodología técnica y limitaciones", "8. Technical methodology and limitations"),
+            L("8. Metodología técnica y supuestos", "8. Technical methodology and assumptions"),
             16);
         AddTechnicalMethodologyPage(
             section,
@@ -456,9 +457,9 @@ public sealed class UtilityBillAuditReportService
         var row = table.AddRow();
         row.Cells[0].AddParagraph(label);
         row.Cells[0].Format.Font.Bold = true;
-        row.Cells[1].AddParagraph(
+        PdfNumericFonts.AddNumericText(row.Cells[1].AddParagraph(),
             $"{difference:+0.000;-0.000;0.000} kWh");
-        row.Cells[2].AddParagraph(
+        PdfNumericFonts.AddNumericText(row.Cells[2].AddParagraph(),
             $"{percent:+0.00;-0.00;0.00}%");
     }
 
@@ -1659,14 +1660,13 @@ public sealed class UtilityBillAuditReportService
                 ScenarioLabel(
                     scenario.Key,
                     spanish));
-            row.Cells[1].AddParagraph(
+            PdfNumericFonts.AddNumericText(row.Cells[1].AddParagraph(),
                 $"{scenario.EnergyKwh:N3}");
-            row.Cells[2].AddParagraph(
-                Money(
-                    scenario.SupportedTariffSubtotalClp));
-            row.Cells[3].AddParagraph(
+            PdfNumericFonts.AddNumericText(row.Cells[2].AddParagraph(),
+                Money(scenario.SupportedTariffSubtotalClp));
+            PdfNumericFonts.AddNumericText(row.Cells[3].AddParagraph(),
                 Money(total));
-            row.Cells[4].AddParagraph(
+            PdfNumericFonts.AddNumericText(row.Cells[4].AddParagraph(),
                 MoneySigned(difference));
         }
     }
@@ -1694,8 +1694,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("CONCLUSIÓN ECONÓMICA", "ECONOMIC CONCLUSION"),
             L(
-                "Los componentes tarifarios reconstruibles son coherentes con las fuentes oficiales y con la boleta. La evidencia actual no sustenta un error tarifario material; la controversia técnica se concentra en la cantidad de energía facturada.",
-                "The reconstructible tariff components are consistent with official sources and the bill. Current evidence does not support a material tariff error; the technical dispute is concentrated on the billed energy quantity."),
+                "Los componentes tarifarios reconstruidos concilian con las fuentes oficiales. Las diferencias de consumo y su efecto económico se presentan en las tablas de escenarios.",
+                "Reconstructed tariff components reconcile with official sources. Energy differences and their economic effect appear in the scenario tables."),
             Colors.Honeydew);
     }
 
@@ -1766,7 +1766,8 @@ public sealed class UtilityBillAuditReportService
         Section section,
         UtilityGridImportStatisticalCompletion statistical,
         UtilityBillGapStatisticalAnalysis analysis,
-        bool spanish)
+        bool spanish,
+        string? imagePath)
     {
         string L(string es, string en) => spanish ? es : en;
 
@@ -1795,68 +1796,20 @@ public sealed class UtilityBillAuditReportService
 
         AddCallout(
             section,
-            L("NO ES UNA CAMPANA DE GAUSS", "NOT A GAUSSIAN BELL CURVE"),
+            L("CÓMO SE CONSTRUYE LA DISTRIBUCIÓN", "HOW THE DISTRIBUTION IS BUILT"),
             L(
-                "Este gráfico representa combinaciones discretas de ventanas históricas, NO una distribución normal ni mediciones independientes. Cada escenario suma la importación observada y una posible importación durante los intervalos sin cobertura.",
-                "This chart represents discrete combinations of historical windows, NOT a normal distribution or independent measurements. Every scenario combines observed import and a possible import during uncovered intervals."),
+                "Las columnas muestran la frecuencia de combinaciones discretas de ventanas históricas. Cada escenario suma la importación observada y un aporte calculado para los intervalos sin registros.",
+                "Bars show frequencies of discrete combinations of historical windows. Each scenario combines observed import with computed energy for intervals without records."),
             Colors.AliceBlue);
 
-        // Preserve the point mass at the absolute minimum exactly. Only the
-        // remaining values are grouped into equal-width energy ranges. This
-        // avoids smoothing away the atom that causes P5 = P50 in this bill.
-        const int tailBinCount = 12;
-        var hasTail = last.EnergyKwh > first.EnergyKwh + 0.0000005;
-        var binCount = hasTail ? tailBinCount + 1 : 1;
-        var bins = new double[binCount];
-        var labels = new string[binCount];
-        bins[0] = firstShare;
-        labels[0] = first.EnergyKwh.ToString("0.000");
-        if (hasTail)
+        // Reuse the real plotted distribution from the executive first page.
+        // This technical section additionally provides upper-tail percentiles.
+        if (imagePath is not null)
         {
-            for (var i = 1; i < binCount; i++)
-            {
-                var upper = first.EnergyKwh +
-                    (last.EnergyKwh - first.EnergyKwh) *
-                    i / tailBinCount;
-                labels[i] = (i % 2 == 0 || i == tailBinCount)
-                    ? upper.ToString("0.0") : "";
-            }
-
-            foreach (var point in points.Skip(1))
-            {
-                var fraction =
-                    (point.EnergyKwh - first.EnergyKwh) /
-                    (last.EnergyKwh - first.EnergyKwh);
-                var index = Math.Clamp(
-                    (int)Math.Ceiling(fraction * tailBinCount),
-                    1,
-                    tailBinCount);
-                bins[index] += 100.0 * point.Count / scenarioCount;
-            }
+            var image = section.AddImage(imagePath);
+            image.LockAspectRatio = true;
+            image.Width = Unit.FromCentimeter(16.0);
         }
-
-        var chart = section.AddChart(ChartType.Column2D);
-        chart.Width = Unit.FromCentimeter(16.0);
-        chart.Height = Unit.FromCentimeter(8.0);
-        chart.PlotArea.TopPadding = Unit.FromCentimeter(0.35);
-        chart.PlotArea.BottomPadding = Unit.FromCentimeter(0.6);
-        chart.PlotArea.LeftPadding = Unit.FromCentimeter(0.5);
-        chart.PlotArea.RightPadding = Unit.FromCentimeter(0.3);
-        chart.YAxis.HasMajorGridlines = true;
-        chart.YAxis.Title.Caption = L("Escenarios (%)", "Scenarios (%)");
-        chart.XAxis.Title.Caption = L(
-            "Energía total estimada (kWh) · mínimo exacto y tramos de cola",
-            "Total estimated energy (kWh) · exact minimum and tail ranges");
-        var series = chart.SeriesCollection.AddSeries();
-        for (var i = 0; i < bins.Length; i++)
-        {
-            var point = series.Add(bins[i]);
-            point.FillFormat.Color = i == 0
-                ? Colors.SteelBlue
-                : Colors.LightSteelBlue;
-        }
-        var xSeries = chart.XValues.AddXSeries();
-        xSeries.Add(labels);
 
         var firstSentence = string.Format(
             L(
@@ -1905,10 +1858,10 @@ public sealed class UtilityBillAuditReportService
 
         AddCallout(
             section,
-            L("ALCANCE E INCERTIDUMBRE", "SCOPE AND UNCERTAINTY"),
+            L("LECTURA DE FRECUENCIAS", "READING THE FREQUENCIES"),
             L(
-                "El primer gráfico separa el mínimo exacto; las demás columnas agrupan intervalos de kWh. Las combinaciones reutilizan días donantes y NO son ensayos independientes: su porcentaje es frecuencia del modelo, no probabilidad certificada ni cobertura predictiva validada. La boleta Enel no calibró la distribución. Su calidad depende de que las condiciones operativas de los días donantes sean comparables.",
-                "The first bar is the exact minimum; remaining bars group kWh ranges. Combinations reuse historical donor days and are NOT independent trials: their percentages are model frequencies, not certified probabilities or validated predictive coverage. The Enel bill was not used to calibrate the distribution. Reliability depends on donor days having comparable operating conditions."),
+                "La primera barra mantiene el mínimo exacto; las siguientes agrupan intervalos energéticos de la cola. Los porcentajes corresponden a frecuencias de escenarios con días históricos comparables. La boleta Enel es sólo referencia de contraste.",
+                "The first bar is the exact minimum; subsequent bars group energy intervals in the tail. Percentages are frequencies of scenarios using comparable historical days. The utility bill is solely a comparison reference."),
             Colors.WhiteSmoke);
     }
 
