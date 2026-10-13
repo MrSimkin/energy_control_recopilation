@@ -48,20 +48,21 @@ La distribución/incrustación de **Aptos Mono** en Build pública queda **BLOCK
 Al handoff, informar al propietario en una frase precisa: «Aptos Mono queda como preferencia local; para incluir una misma fuente en los PDF redistribuibles y el paquete de la aplicación necesitamos aprobar una fuente libre monoespaciada o aportar derechos explícitos suficientes sobre Aptos». No declarar fuentes subidas.
 
 
-## 5. Resolución del propietario — alternativa libre YA CARGADA en GitHub
+## 5. Resolución final del propietario — por formato
 
-El propietario aclaró que su intención era **usar** una fuente monoespaciada en la aplicación y sus exportaciones, no distribuir el ZIP Microsoft. Autorizó buscar otra fuente libre si el empaquetado de Aptos Mono resultaba restringido.
+**2026-10-12, decisión posterior y prevalente:** el propietario no quiere imponer IBM Plex Mono a las hojas Excel. Las dos aplicaciones de fuente quedan separadas:
 
-**Elegida e incorporada:** **IBM Plex Mono Regular y Bold**, licencia **SIL Open Font License 1.1**, distribuible e incrustable en documentos dentro de sus condiciones. Es la **familia predeterminada para todas las salidas PDF y XLSX de la Build correctiva**.
+- **PDF:** IBM Plex Mono Regular/Bold, licencia SIL OFL 1.1, **YA incorporada al repositorio** y lista para integración por Worker en la App y el generador PDF. Debe incrustarse en el PDF final; incluir licencia OFL en el paquete Windows.
+- **Excel (XLSX):** **Aptos Mono** cuando esté disponible como fuente de Excel/Office, o **cualquiera de las fuentes estándar que Excel trae por defecto**; se prefiere no requerir ninguna fuente personalizada ni redistribuir fonts con los Excel. No debe forzarse IBM Plex Mono para archivos Excel. Mantener tipos y formatos numéricos nativos.
 
-Ubicación real:
+**Ubicación real de la fuente PDF IBM Plex Mono en el repo:**
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Regular.ttf`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Bold.ttf`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/OFL.txt`
 - `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/README.md`
 
-Origen oficial IBM/plex, revisión fija `763c36ef9117782905ae010056dfbe8fd2653a25`.
+**Origen oficial:** IBM/plex, revisión fija `763c36ef9117782905ae010056dfbe8fd2653a25`.
 
-**Nueva decisión:** Ya no es necesario que el propietario adjunte otra fuente ni apruebe adicionalmente una sustitución. La restricción parcial aplica **solamente al empaquetado/incrustación de Aptos Mono**; **la integración de IBM Plex Mono ya puede ejecutarse sin bloqueo por licencia**. No fingir que los estilos binarios ya se integraron en el código o CI: los archivos y licencia están subidos, la implementación aún corresponde al Worker.
+**No se permite distribuir** el ZIP/TTF Microsoft Aptos que entregó el propietario en un repositorio público ni incluirlo en el instalador bajo la EULA aportada. Usar nombre de fuente estándar de Office en formato XLSX no requiere adjuntar el binario.
 
-Aptos Mono puede seguir instalado en dispositivos propios conforme a la licencia aplicable, pero **no es la fuente predeterminada de exportación en este paquete**. Las hojas Excel usarán el nombre IBM Plex Mono y necesitarán disponibilidad de la familia en el equipo lector para fidelidad visual; los PDF deben incrustar IBM Plex Mono.
+**Estado:** binarios de IBM y licencia en GitHub (verificados); adaptación de exportadores PDF/XLSX, empaquetado y CI **PENDIENTES DE WORKER**. No se requiere que el propietario adjunte otra fuente.
