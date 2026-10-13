@@ -4156,6 +4156,37 @@ try
             throw new InvalidOperationException(
                 "Bill-first Enel audit PDF smoke test failed.");
         }
+        // QA855 directed checks: user-facing PDF keeps cards and section 5.1,
+        // but never prints diagnostic point 5, H04/H05 or internal caveats.
+        using (var qaEnelPdf = UglyToad.PdfPig.PdfDocument.Open(billAuditPdfPath))
+        {
+            var pages = qaEnelPdf.GetPages().ToArray();
+            if (pages.Length < 5)
+                throw new InvalidOperationException(
+                    "Enel audit lost required report chapters.");
+            var firstPage = pages[0].Text;
+            var fullText = string.Join(" ", pages.Select(page => page.Text));
+            if (!firstPage.Contains("P50", StringComparison.OrdinalIgnoreCase) ||
+                !firstPage.Contains("P95", StringComparison.OrdinalIgnoreCase) ||
+                !firstPage.Contains("INVERSOR", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Enel executive summary lost consumption/percentile cards.");
+            foreach (var forbidden in new[]
+            {
+                "H04", "H05", "LECTURA GLOBAL", "OVERALL READING",
+                "LIMITACIÓN PRINCIPAL", "MAIN LIMITATION",
+                "Fecha oficial; hora exacta no informada",
+                "Official date; exact time not supplied",
+                "Contador energético alternativo",
+                "Estado de validación",
+                "5. Calidad, cobertura y trazabilidad cuantitativa"
+            })
+            {
+                if (fullText.Contains(forbidden, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        "Enel PDF contains removed public-facing text: " + forbidden);
+            }
+        }
 
         var billAuditAnnexPath =
             Path.Combine(root, "smoke-enel-bill-annex.zip");
