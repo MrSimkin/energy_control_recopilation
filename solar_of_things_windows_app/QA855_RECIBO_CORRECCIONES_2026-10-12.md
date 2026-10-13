@@ -39,6 +39,10 @@
 - Build 856: SUCCESS (implementación inicial).
 - Build 857: SUCCESS (primera reorganización Enel + perfil Batería asíncrono).
 - Build 858: FAILED, error de compilación en test nuevo por nombre local duplicado (`inspected`); corregido en `ebd4c659`.
-- Builds 859/860: evaluación del código final y tests específicos (consultar estado CI y registrar resultado real en siguiente actualización del recibo).
+- Build 859: FAILED en compilación del smoke por el mismo conflicto de variable en el commit anterior a la reparación.
+- **Build 860: SUCCESS** en [Windows Build / Run 38330508409](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38330508409), compilado desde `ebd4c6591ce7cb7817322d92eed133b41a9d7a32`. Localización ES/EN, .NET 10 WPF Release, smoke SQLite (incluida detección de PNG en PDFs y Consolas XLSX), corpus sintéticos 24k y 96k, publicación portable Win-x64 y upload de artefacto: **PASS**. Enel/CNE *live* intencionalmente SKIPPED.
+- Artefacto GitHub **11781724744**, `SolarEnergyMonitor-win-x64-dev`, ZIP de 93.061.799 bytes, SHA-256 `1ed3f2d9a1f8b8aa95b3c7c972c9c48b5581f052076bdf7c1a475b3b35a87bdb`. Validado por ZIP CRC `testzip() == None`, 568 entradas, con `SolarEnergyMonitor.exe`, `portable.mode`, IBM Plex Mono Regular/Bold y `OFL.txt`. Sólo esta **Build 860** se entrega para regresión del propietario.
 
-**Estado de aceptación:** PENDIENTE de CI final + QA visual dirigida. Ningún merge/release autorizado.
+**Estado de aceptación:** **CODE DONE / CI PASS / QA DIRIGIDA PENDIENTE**. Tests automatizados no certifican pixel-perfect, ubicación final en páginas, ni p95 de navegación WPF del propietario. El informe mantiene las secciones técnicas completas posteriores a las dos primeras páginas y el anexo sigue siendo independiente.
+
+**Seguridad y cierre de rama:** `main` permanece `59120a630b0f56684ba7672d960673f5c5c1797b`. PR #5 abierta DRAFT sin merge; sin release ni acciones contra base productiva. Sólo se usaron corpus sintéticos. Ningún pendiente se ha declarado PASS por inferencia.
