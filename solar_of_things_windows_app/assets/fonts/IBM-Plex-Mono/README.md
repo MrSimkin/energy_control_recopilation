@@ -19,15 +19,14 @@
 
 La licencia OFL 1.1 permite **uso, incrustación, empaquetado y redistribución junto con software** sujeto a conservar aviso de copyright/licencia y demás condiciones OFL. Las fuentes no pueden venderse por sí solas. No modificar ni renombrar los binarios si no es necesario.
 
-## Contrato de implementación
+## Contrato de implementación — decisión final owner
 
-1. Usar **IBM Plex Mono** como familia monoespaciada predeterminada para números, moneda, porcentajes, kWh y fechas de **PDF y Excel**; texto narrativo y títulos generales pueden usar fuente proporcional.
-2. Incorporar estos binarios junto a la aplicación para que no dependa de que el usuario instale manualmente IBM Plex Mono.
-3. En PDF, resolver los archivos desde ruta administrada y **incrustar legalmente** en el documento; no forzar fuente de Aptos Mono con permisos de incrustación restringidos. Probar la salida PDF con inspección visual y presencia de fuente.
-4. XLSX no suele incluir el binario TTF en el archivo: guardar estilo de fuente `IBM Plex Mono`. Asegurar visualización en máquina de destino mediante instalación autorizada de la fuente o fallback; **no convertir números a texto**.
-5. Garantizar empaquetado del archivo de licencia `OFL.txt` en el artefacto si van los TTF; verificar que el árbol del repositorio conserve el archivo de licencia.
-6. Agregar pruebas de caracteres españoles, pesos Bold/Regular, importes CLP, columnas alineadas y fórmulas Excel.
-7. El ZIP `Microsoft Aptos Fonts.zip` del propietario **NO** está ni debe estar en el repositorio público, y no es dependencia de CI.
+1. **Sólo PDF:** incorporar **IBM Plex Mono Regular y Bold** para números, moneda CLP, porcentajes, kWh, fechas y tablas numéricas; texto narrativo/títulos pueden seguir usando fuente proporcional.
+2. Incorporar los dos binarios en el paquete de la aplicación Windows con licencia **OFL.txt**. Configurar el resolver de fuentes de PDF para leer estos TTF desde la ruta administrada e incrustar legalmente la fuente. Probar PDF renderizado, fuente presente e incrustada.
+3. **Excel (XLSX):** elegir **Aptos Mono si está disponible en Office**, o usar la **fuente estándar/predeterminada de Excel**. **No forzar IBM Plex Mono en Excel** ni crear dependencia de instalación de IBM en el equipo lector de XLSX. Conservar celdas numéricas, formatos y fórmulas.
+4. Garantizar que `OFL.txt` acompañe los TTF distribuidos. Los TTF Aptos de Microsoft **NO** son parte de GitHub ni de la Build; no incrustarlos en PDF ni empaquetarlos.
+5. Tests de PDF y Excel con tildes, signos, pesos Regular/Bold en PDF, CLP, kWh, alineación decimal, y comprobación de formatos nativos de XLSX.
+
 
 ## Estado técnico
 
