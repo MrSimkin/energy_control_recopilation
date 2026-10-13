@@ -52,13 +52,21 @@ El propietario ya ejecutó aproximadamente 129 pasos manuales sobre Build 855; *
 
 **P1 condicionados, no bloquear Build por ellos:** OBS-H01-04 (segmentos diarios atravesando medianoche, DST), OBS-REPORT-05 (selector «Cargar plantilla» en pantalla Crear/exportar con feedback), OBS-UX-01 (15 días y mes móvil sin duplicar presets existentes), OBS-SQL-01 (atajo F5 + personalizado). Tratar simultáneamente si son pequeñas correcciones seguras; de lo contrario documentar deferment.
 
-### D. Fuente monoespaciada — requisito con bloqueo de licencia parcial
+### D. Fuente monoespaciada — IBM PLEX MONO YA CARGADA (EJECUTAR)
 
-El usuario proporcionó `Microsoft Aptos Fonts.zip` y quiere **Aptos Mono Regular/Bold** para cifras en PDF y Excel. Existe ya inventario/hash/EULA en `QA855_FUENTES_APTOS_LICENCIA_2026-10-12.md`. **No están ni deben estar los TTF en GitHub**: el repo es público, la licencia Microsoft adjunta prohíbe distribución/sublicencia, y dichos TTF llevan `fsType=8` (embedding restringido). El ZIP debe permanecer fuera del repo; el propietario puede adjuntarlo a tu chat para inspección local, nunca para subirlo a artefactos públicos.
+El propietario adjuntó originalmente `Microsoft Aptos Fonts.zip`, pero precisó que sólo pretende usar una fuente monoespaciada en la aplicación y autorizó una alternativa libre si Aptos no se puede empaquetar.
 
-- Implementa estilos numéricos monoespaciados con Aptos Mono cuando legalmente instalada localmente; no degradar valores numéricos XLSX a strings.
-- Para PDF portable/redistribuible, exige una fuente monoespaciada con derechos suficientes de incrustación/distribución, o licencia explícita adicional. Si no puede satisfacerse Aptos legalmente, **reportar bloqueo específico** y ofrecer alternativa abierta (ej. licencia SIL OFL) para aprobación; **no reemplazar silenciosamente la elección de fuente**.
-- Puedes seguir cerrando P0 PDF, rendimiento y reporte sin resolver primero ese permiso.
+**DECISIÓN RESUELTA:** **IBM Plex Mono Regular y Bold**, bajo SIL Open Font License 1.1, **YA SE SUBIERON al repositorio** en:
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Regular.ttf`
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/IBMPlexMono-Bold.ttf`
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/OFL.txt`
+- `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/README.md`
+
+**Acción obligatoria Worker:** integrar los dos TTF en el pipeline de distribución y exportación. Asegurar copia de licencia OFL en Build, implementar resolver PDF que legalmente incruste IBM Plex Mono y aplicar `IBM Plex Mono` a números, cantidades, %, CLP, fechas y columnas de PDF/XLSX sin convertir celdas numéricas de Excel en texto. Revisar también tablas y reportes Enel/familiar/detallado/batería y cualquier salida relevante. Validar fuente presente en PDF y formato XLSX.
+
+**NO** subir, empaquetar ni incrustar los TTF del ZIP Aptos Microsoft (EULA sin derechos de distribución, `fsType=8`); ya no se requiere otro archivo ni confirmación del propietario. Las restricciones de Microsoft no bloquean la fuente libre seleccionada.
+
+**Estado exacto:** binarios IBM y licencia en GitHub, **integración al código pendiente** de esta ejecución.
 
 ### E. Secuencia de implementación / evidencia
 
