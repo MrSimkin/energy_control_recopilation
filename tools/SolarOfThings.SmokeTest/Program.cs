@@ -3868,8 +3868,8 @@ try
             };
             var chartPdf = Path.Combine(root, "smoke-" + kind + ".pdf");
             reportExporter.ExportPdf(chartPdf, prepared);
-            using var inspected = UglyToad.PdfPig.PdfDocument.Open(chartPdf);
-            var imageCount = inspected.GetPages().Sum(page => page.GetImages().Count());
+            using var pdfChartInspection = UglyToad.PdfPig.PdfDocument.Open(chartPdf);
+            var imageCount = pdfChartInspection.GetPages().Sum(page => page.GetImages().Count());
             if (imageCount < 1)
                 throw new InvalidOperationException(
                     "Synthetic " + kind + " PDF has no rendered chart images.");
