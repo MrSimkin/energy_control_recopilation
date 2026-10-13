@@ -3806,6 +3806,23 @@ try
         _ = exportedWorkbook.Worksheet("Evolution");
         _ = exportedWorkbook.Worksheet("Quality");
 
+        // Numeric families are the only new font assignment. Dates remain
+        // native dates, numeric values remain usable numbers, and headings
+        // retain the existing proportional formatting.
+        var monoNumericCells = exportedWorkbook.Worksheets
+            .SelectMany(sheet => sheet.CellsUsed())
+            .Where(cell => cell.DataType is
+                XLDataType.Number or XLDataType.DateTime or XLDataType.TimeSpan)
+            .ToArray();
+        if (monoNumericCells.Length < 10 ||
+            monoNumericCells.Any(cell =>
+                !string.Equals(cell.Style.Font.FontName, "Consolas",
+                    StringComparison.OrdinalIgnoreCase)) ||
+            string.Equals(summarySheet.Cell("A1").Style.Font.FontName,
+                "Consolas", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "Excel numeric-only Consolas formatting regressed.");
+
         if (summarySheet.Pictures.Count != 3 ||
             utilityUseSheet.LastRowUsed()?.RowNumber() is < 9 ||
             detailSheet.LastColumnUsed()?.ColumnNumber() is < 26 ||
@@ -3840,6 +3857,23 @@ try
             throw new InvalidOperationException(
                 "Product PDF cannot pass verified report publishing.");
         File.Delete(publishedPdf);
+
+        // Generate separate report kinds against the SAME synthetic telemetry.
+        // Assert embedded chart images, not just a successful PDF save.
+        foreach (var kind in new[] { ReportKind.DetailedEnergy, ReportKind.Battery })
+        {
+            var prepared = reportData with
+            {
+                Request = reportData.Request with { Kind = kind }
+            };
+            var chartPdf = Path.Combine(root, "smoke-" + kind + ".pdf");
+            reportExporter.ExportPdf(chartPdf, prepared);
+            using var inspected = UglyToad.PdfPig.PdfDocument.Open(chartPdf);
+            var imageCount = inspected.GetPages().Sum(page => page.GetImages().Count());
+            if (imageCount < 1)
+                throw new InvalidOperationException(
+                    "Synthetic " + kind + " PDF has no rendered chart images.");
+        }
     }
 
     var utilityRepository = new UtilityMeterRepository(database);
