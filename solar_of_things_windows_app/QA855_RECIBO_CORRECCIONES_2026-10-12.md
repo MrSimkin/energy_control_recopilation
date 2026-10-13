@@ -1,5 +1,22 @@
 # Recibo QA855 — correcciones dirigidas posteriores a Build 855
 
+## Actualización consolidada — Build 866 (vigente; sustituye handoff Build 860)
+
+**CI:** Windows Build **866** / run [38333170633](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38333170633), **SUCCESS** en código `11437e2a115504485edfdc03664d78115efc53bf`. Release .NET 10 WPF, validación ES/EN, smoke SQLite/PDF/XLSX, pruebas 24k/96k sintéticas, publicación portable y upload PASS; validación Enel/CNE *live* SKIPPED por diseño. Este CI **no equivale a QA visual/funcional del owner**.
+
+**Artefacto vigente:** GitHub Actions `SolarEnergyMonitor-win-x64-dev`, ID **11783103782**, archivo descargado al chat como `SolarEnergyMonitor-Build-866-win-x64.zip`, **93.058.939 bytes**, digest SHA-256 **`b3df3015dce65d466c488d643c035b866e03524d770012c38f8159c37780e8b8`** (informado por GitHub). Es la versión de handoff; Builds 860–865 son historial, no la última candidata.
+
+**QA visual adicional del propietario sobre PDF Enel Build 860:** Se examinó el PDF real de 10 páginas exportado con esa build. El owner observó ausencia de cards en páginas 1/2 y exigió retirar de la presentación externa texto y secciones irrelevantes/defensivas. Corrección incorporada en Builds **863–866**:
+- Cards restauradas para **«Según Enel» / «Inversor observado» / P5/P50/P95**, y tarjetas de tasa/cargo fijo en página 2; cálculo conservado.
+- Desaparecen **punto 5 antiguo** (detalle diagnóstico de calidad/gaps), **H04/H05**, **«LECTURA GLOBAL»**, descripciones de «hora exacta no informada», «Estado de validación», «Contador energético alternativo», «LIMITACIÓN PRINCIPAL» y la comparación retórica con una campana.
+- **Cobertura diaria permanece** íntegra y, por instrucción posterior, se titula **«5. Cobertura diaria del período»**, no 5.1; títulos ES/EN corregidos en commit `11437e2a`.
+- Fuente S2 aclara **datos del inversor recopilados mediante su aplicación oficial**. Se conservan H01–H03, magnitudes, cálculo tarifario, percentiles, gráfico, fuentes pertinentes, metodología y anexo técnico separado. La convención temporal aprobada sigue intacta.
+- Regression smoke sintética inspecciona PDF Enel para P50/P95/INVERSOR y ausencia de términos retirados. **No se ha obtenido todavía PDF Build 866 de la base histórica del owner para inspección visual**, por lo que el ajuste queda **CI PASS / OWNER VISUAL QA PENDIENTE**.
+
+**Fuente actual de verdad para decisiones y deuda:** [QA855_ESTADO_CONSOLIDADO_Y_PENDIENTES_BUILD866_2026-10-12.md](QA855_ESTADO_CONSOLIDADO_Y_PENDIENTES_BUILD866_2026-10-12.md). El historial de Build 860 que sigue en este recibo es antecedente, no estado vigente. **No merge, no release, ninguna intervención a base productiva.**
+
+---
+
 **Fecha local:** 2026-10-12 (Chile). **Repositorio:** `MrSimkin/energy_control_recopilation`. **Rama:** `work/qa855-corrections-package-20261012`. **Alcance:** desarrollo aislado, sin merge, release ni acceso a base productiva.
 
 ## Autoridad y seguridad
@@ -41,8 +58,8 @@
 - Build 858: FAILED, error de compilación en test nuevo por nombre local duplicado (`inspected`); corregido en `ebd4c659`.
 - Build 859: FAILED en compilación del smoke por el mismo conflicto de variable en el commit anterior a la reparación.
 - **Build 860: SUCCESS** en [Windows Build / Run 38330508409](https://github.com/MrSimkin/energy_control_recopilation/actions/runs/38330508409), compilado desde `ebd4c6591ce7cb7817322d92eed133b41a9d7a32`. Localización ES/EN, .NET 10 WPF Release, smoke SQLite (incluida detección de PNG en PDFs y Consolas XLSX), corpus sintéticos 24k y 96k, publicación portable Win-x64 y upload de artefacto: **PASS**. Enel/CNE *live* intencionalmente SKIPPED.
-- Artefacto GitHub **11781724744**, `SolarEnergyMonitor-win-x64-dev`, ZIP de 93.061.799 bytes, SHA-256 `1ed3f2d9a1f8b8aa95b3c7c972c9c48b5581f052076bdf7c1a475b3b35a87bdb`. Validado por ZIP CRC `testzip() == None`, 568 entradas, con `SolarEnergyMonitor.exe`, `portable.mode`, IBM Plex Mono Regular/Bold y `OFL.txt`. Sólo esta **Build 860** se entrega para regresión del propietario.
+- Artefacto GitHub **11781724744**, `SolarEnergyMonitor-win-x64-dev`, ZIP de 93.061.799 bytes, SHA-256 `1ed3f2d9a1f8b8aa95b3c7c972c9c48b5581f052076bdf7c1a475b3b35a87bdb`. Validado por ZIP CRC `testzip() == None`, 568 entradas, con `SolarEnergyMonitor.exe`, `portable.mode`, IBM Plex Mono Regular/Bold y `OFL.txt`. Build 860 fue la candidata original; ha sido reemplazada para QA dirigida por la **Build 866**.
 
-**Estado de aceptación:** **CODE DONE / CI PASS / QA DIRIGIDA PENDIENTE**. Tests automatizados no certifican pixel-perfect, ubicación final en páginas, ni p95 de navegación WPF del propietario. El informe mantiene las secciones técnicas completas posteriores a las dos primeras páginas y el anexo sigue siendo independiente.
+**Estado histórico al cerrar Build 860:** **CODE DONE / CI PASS / QA DIRIGIDA PENDIENTE** (ver actualización Build 866 al inicio). Tests automatizados no certifican pixel-perfect, ubicación final en páginas, ni p95 de navegación WPF del propietario. El informe mantiene las secciones técnicas completas posteriores a las dos primeras páginas y el anexo sigue siendo independiente.
 
 **Seguridad y cierre de rama:** `main` permanece `59120a630b0f56684ba7672d960673f5c5c1797b`. PR #5 abierta DRAFT sin merge; sin release ni acciones contra base productiva. Sólo se usaron corpus sintéticos. Ningún pendiente se ha declarado PASS por inferencia.
