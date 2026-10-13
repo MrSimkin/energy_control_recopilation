@@ -21,11 +21,10 @@ La licencia OFL 1.1 permite **uso, incrustación, empaquetado y redistribución 
 
 ## Contrato de implementación — decisión final owner
 
-1. **Sólo PDF:** incorporar **IBM Plex Mono Regular y Bold** para números, moneda CLP, porcentajes, kWh, fechas y tablas numéricas; texto narrativo/títulos pueden seguir usando fuente proporcional.
-2. Incorporar los dos binarios en el paquete de la aplicación Windows con licencia **OFL.txt**. Configurar el resolver de fuentes de PDF para leer estos TTF desde la ruta administrada e incrustar legalmente la fuente. Probar PDF renderizado, fuente presente e incrustada.
-3. **Excel (XLSX):** elegir **Aptos Mono si está disponible en Office**, o usar la **fuente estándar/predeterminada de Excel**. **No forzar IBM Plex Mono en Excel** ni crear dependencia de instalación de IBM en el equipo lector de XLSX. Conservar celdas numéricas, formatos y fórmulas.
-4. Garantizar que `OFL.txt` acompañe los TTF distribuidos. Los TTF Aptos de Microsoft **NO** son parte de GitHub ni de la Build; no incrustarlos en PDF ni empaquetarlos.
-5. Tests de PDF y Excel con tildes, signos, pesos Regular/Bold en PDF, CLP, kWh, alineación decimal, y comprobación de formatos nativos de XLSX.
+1. **PDF:** IBM Plex Mono Regular/Bold **sólo para los números** (CLP, kWh, porcentajes, cantidades, fechas, cifras en tablas). Integrar TTF al paquete Windows con `OFL.txt`, configurar resolver PDF e incrustar. **No cambiar el resto de fuentes y estilos del PDF.**
+2. **Excel/XLSX:** los números usarán **Consolas**, familia monoespaciada incorporada a Windows/Office y disponible para Excel, sin distribuir binarios. **Aptos Mono** es alternativa cuando se confirme su presencia. **No usar Aptos normal/Calibri/u otra fuente proporcional para los valores numéricos.** No utilizar IBM Plex Mono en Excel, ni modificar la fuente del resto de celdas/textos/títulos que ya estaban correctos.
+3. Preservar tipos numéricos, fechas, formatos, fórmulas, tablas, encabezados, colores y el diseño anterior. Aplicar **solamente** fuente a celdas/segmentos numéricos pertinentes.
+4. Verificar PDFs renderizados, IBM incrustada, Excel con mono **sólo cifras** y estilos del resto intactos. Los TTF Aptos Microsoft no se suben al repositorio ni se empaquetan.
 
 
 ## Estado técnico
