@@ -50,15 +50,16 @@ Preservar el **detalle completo** útil para auditar: conciliación tarifaria, c
 
 **NO reabrir en esta tranche** el debate 31 vs 32 días ni reconstruir hipótesis horarias. El propietario determinó cómo interpretar las fechas de Enel; está documentado en especificación canónica del 2026-10-06, sección 3: `[X 00:00:00 local, (Y+1) 00:00:00 local)`; días inicial y final completos incluidos. Los datos completos están en archivo anexo; su evaluación posterior corresponde a un contraste técnico, no al encabezado del PDF. Mantener pruebas DST America/Santiago y no modificar ese contrato por una observación antigua ya cerrada.
 
-## 3. Tipografía numérica en PDF y Excel — FUENTE LIBRE YA INCORPORADA
+## 3. Tipografía de PDF y Excel — DECISIÓN FINAL DEL PROPIETARIO
 
-- El propietario adjuntó Microsoft Aptos y precisó que quiere **usar una fuente mono en la App**, no redistribuir los archivos Microsoft. Dada la EULA del paquete, **no empaquetar Aptos Mono**.
-- El propietario autorizó sustituir por una fuente legalmente distribuible; **se seleccionó y SUBIÓ al repo IBM Plex Mono Regular/Bold**, bajo SIL Open Font License 1.1.
-- Fuente predeterminada y común de la Build correctiva: **IBM Plex Mono** para valores numéricos, importes CLP, fechas, kWh, porcentajes y tablas cuantitativas de **todos los PDF y Excel pertinentes**. Textos y títulos siguen con fuente proporcional legible.
-- Ruta: `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/` con los binarios `IBMPlexMono-Regular.ttf` y `IBMPlexMono-Bold.ttf`, la licencia `OFL.txt` y el `README.md` de integración.
-- Los TTF deben copiarse al artefacto Windows con su licencia; PDF debe incrustarlos correctamente mediante resolver de fuentes; Excel debe conservar celdas numéricas/fecha reales con estilo `IBM Plex Mono`. Si la familia no está instalada en equipo lector de XLSX, se necesita disponibilidad o fallback claro. No forzar embedding de Microsoft Aptos.
-- **Fuentes y licencia: EN REPOSITORIO. Integración en el exportador/Build: pendiente de Worker.** No solicitar más archivos al propietario para este paso.
-- QA: inspeccionar nombres reales de las fuentes PDF, legibilidad, grosor regular/bold, signos/decimales y formato nativo numérico en XLSX; mantención de uso de licencia.
+**Dos comportamientos distintos, no una misma familia para ambos formatos:**
+
+- **PDF:** usar **IBM Plex Mono Regular / Bold** para valores numéricos, CLP, kWh, porcentajes, fechas y tablas numéricas. Los textos/títulos generales pueden conservar tipografía proporcional. Los dos TTF ya están subidos al repositorio con licencia SIL OFL 1.1: `solar_of_things_windows_app/assets/fonts/IBM-Plex-Mono/`. El Worker debe **integrarlos en la App/Build** con `OFL.txt`, configurarlos en el generador PDF e **incrustarlos en los PDF**. No volver a pedir fuentes al propietario.
+- **Excel (XLSX):** preferir **Aptos Mono si ya forma parte de la instalación de Excel/Office del equipo**, o sencillamente **una tipografía estándar/predeterminada de Excel** (por ejemplo, el tema Aptos). **NO exigir IBM Plex Mono en XLSX**, no empaquetar fuentes para Excel ni forzar que el destinatario instale tipografías adicionales. Las celdas deben conservar sus tipos numéricos, de moneda, porcentaje y fecha, formatos de número y alineación. Si no se puede determinar con fiabilidad la disponibilidad de Aptos Mono, usar la fuente estándar del libro/Excel sin depender de ella; no introducir un bloqueo ni instalar fonts.
+- **Microsoft Aptos Fonts.zip:** fuente aportada para referencia; **NO subir al repositorio, no incluir en la Build ni incrustar TTF Microsoft en PDF**. Utilizar un nombre de familia de Office en estilos XLSX no equivale a distribuir el archivo.
+- **Verificación:** inspección de un PDF exportado con IBM Plex Mono incrustada y métricas/formato legibles; inspección de XLSX con fuente estándar de Excel o Aptos Mono, sin referencia obligatoria a IBM, conservando valores numéricos y fórmulas.
+- **Estado:** TTF IBM y licencia efectivamente en el repositorio; integración en código/exportadores y Build correctiva aún pendiente del Worker.
+
 
 ## 4. DEF-REPORT-01: gráficos PDF
 
