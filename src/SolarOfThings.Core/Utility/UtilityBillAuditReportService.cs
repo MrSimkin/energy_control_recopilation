@@ -1495,19 +1495,10 @@ public sealed class UtilityBillAuditReportService
         DateTimeOffset local,
         bool spanish)
     {
-        var r = table.AddRow();
-        r.Cells[0].AddParagraph(label);
-        r.Cells[1].AddParagraph(
-            reading.TimePrecision == UtilityTimePrecision.DateOnly
-                ? $"{local:dd-MM-yyyy} · {(spanish ? "límite Enel" : "Enel boundary")}"
-                : $"{local:dd-MM-yyyy HH:mm:ss}");
-        r.Cells[2].AddParagraph($"{reading.ReadingKwh:N3}");
-        r.Cells[3].AddParagraph(
-            reading.TimePrecision == UtilityTimePrecision.DateOnly
-                ? (spanish
-                    ? "Fecha oficial; hora exacta no informada"
-                    : "Official date; exact time not supplied")
-                : (spanish ? "Lectura con hora exacta" : "Exact-time reading"));
+        var row = table.AddRow();
+        row.Cells[0].AddParagraph(label);
+        PdfNumericFonts.AddNumericText(row.Cells[1].AddParagraph(), $"{local:dd-MM-yyyy}");
+        PdfNumericFonts.AddNumericText(row.Cells[2].AddParagraph(), $"{reading.ReadingKwh:N3}");
     }
 
     private static string ReadingBoundary(
@@ -2138,8 +2129,8 @@ public sealed class UtilityBillAuditReportService
                 "H02",
                 string.Format(
                     L(
-                        "Comparación de extremo alto: Enel − P95 = {0:N3} kWh ({1:N2}%). La separación es pequeña y el máximo empírico conjunto alcanza {2}; por ello P95 no se usa como prueba de exclusión estadística.",
-                        "High-side comparison: utility − P95 = {0:N3} kWh ({1:N2}%). The separation is small and full empirical support reaches {2}; therefore P95 is not used as proof of statistical exclusion."),
+                        "Comparación de extremo alto: Enel − P95 = {0:N3} kWh ({1:N2}%). El valor máximo de los escenarios calculados alcanza {2}.",
+                        "High-side comparison: utility − P95 = {0:N3} kWh ({1:N2}%). The maximum calculated scenario value reaches {2}."),
                     diff,
                     pct,
                     analysis.MaximumKwh.HasValue
@@ -2187,35 +2178,7 @@ public sealed class UtilityBillAuditReportService
                 L("DIFERENCIA ECONÓMICA", "ECONOMIC DIFFERENCE"));
         }
 
-        AddFindingRow(
-            table,
-            "H04",
-            tariff.HasTariffModel
-                ? L(
-                    "Las tasas y componentes reconstruibles concilian con fuentes oficiales; no se identifica un error tarifario material.",
-                    "Reconstructible rates and components reconcile with official sources; no material tariff error is identified.")
-                : L(
-                    "La evidencia tarifaria no está completa.",
-                    "Tariff evidence is incomplete."),
-            tariff.HasTariffModel
-                ? L("COINCIDE", "CONSISTENT")
-                : L("NO VERIFICABLE", "NOT VERIFIABLE"));
 
-        AddFindingRow(
-            table,
-            "H05",
-            L(
-                "El HPVINV02 no expone un contador independiente utilizable de energía comprada: buyElectricityQuantity es placeholder y dayPurchaseElectricityConsumption no está poblado.",
-                "The HPVINV02 does not expose a usable independent purchased-energy counter: buyElectricityQuantity is a placeholder and dayPurchaseElectricityConsumption is not populated."),
-            L("NO DISPONIBLE", "UNAVAILABLE"));
-
-        AddCallout(
-            section,
-            L("LECTURA GLOBAL", "OVERALL READING"),
-            L(
-                "La evidencia no sustenta afirmar un error tarifario. Sí muestra una diferencia material respecto de la estimación central independiente de energía, mientras el extremo P95 queda muy próximo a Enel. El informe conserva ambas conclusiones sin exagerar ninguna.",
-                "The evidence does not support claiming a tariff error. It does show a material difference from the independent central energy estimate, while the P95 high side lies very close to the utility value. The report preserves both conclusions without overstating either."),
-            Colors.WhiteSmoke);
     }
 
     private static void AddFindingRow(
@@ -2268,13 +2231,13 @@ public sealed class UtilityBillAuditReportService
             "S2",
             L("Telemetría del inversor", "Inverter telemetry"),
             L(
-                "mainsPower → grid_import_power_w; integración temporal directa de importación desde red.",
-                "mainsPower → grid_import_power_w; direct time integration of grid import."));
+                "Datos registrados por el inversor y recopilados mediante la aplicación oficial del inversor; mainsPower → grid_import_power_w e integración temporal de importación desde la red.",
+                "Data recorded by the inverter and collected through the inverter’s official application; mainsPower → grid_import_power_w and time integration of grid import."));
         AddSourceRow(
             sources,
             "S3",
             L("Método estadístico", "Statistical method"),
-            $"{statistical.MethodVersion} · {statistical.Status}");
+            L("Ventanas históricas comparables y percentiles empíricos.", "Comparable historical windows and empirical percentiles."));
         AddSourceRow(
             sources,
             "S4",
@@ -2299,13 +2262,6 @@ public sealed class UtilityBillAuditReportService
         AddSourceRow(
             sources,
             "S6",
-            L("Prueba de contador HPVINV02", "HPVINV02 counter probe"),
-            L(
-                "buyElectricityQuantity: placeholder; dayPurchaseElectricityConsumption: no poblado. No utilizable.",
-                "buyElectricityQuantity: placeholder; dayPurchaseElectricityConsumption: not populated. Not usable."));
-        AddSourceRow(
-            sources,
-            "S7",
             L("Motor económico", "Economic engine"),
             L(
                 "Mismas tarifas oficiales aplicadas a Enel, observado, P5, P50 y P95; cargos no variables preservados.",
@@ -2318,16 +2274,14 @@ public sealed class UtilityBillAuditReportService
 
         var readings = section.AddTable();
         readings.Borders.Width = 0.25;
-        readings.AddColumn(Unit.FromCentimeter(2.4));
-        readings.AddColumn(Unit.FromCentimeter(4.2));
-        readings.AddColumn(Unit.FromCentimeter(3.0));
-        readings.AddColumn(Unit.FromCentimeter(7.1));
+        readings.AddColumn(Unit.FromCentimeter(4.0));
+        readings.AddColumn(Unit.FromCentimeter(5.7));
+        readings.AddColumn(Unit.FromCentimeter(6.6));
         var rh = readings.AddRow();
         rh.Format.Font.Bold = true;
         rh.Cells[0].AddParagraph(L("Extremo", "Boundary"));
         rh.Cells[1].AddParagraph(L("Fecha", "Date"));
         rh.Cells[2].AddParagraph("kWh");
-        rh.Cells[3].AddParagraph(L("Evidencia", "Evidence"));
         AddReadingRow(
             readings,
             L("Inicial", "Start"),
@@ -2437,22 +2391,6 @@ public sealed class UtilityBillAuditReportService
 
         AddMethodBlock(
             section,
-            L("Estado de validación", "Validation status"),
-            string.Format(
-                L(
-                    "Método {0}: PROVISIONAL / RESEARCH ONLY. R3 permanece como investigación separada y no se presenta como validado para esta boleta.",
-                    "Method {0}: PROVISIONAL / RESEARCH ONLY. R3 remains a separate research stream and is not presented as validated for this bill."),
-                statistical.MethodVersion));
-
-        AddMethodBlock(
-            section,
-            L("Contador energético alternativo", "Alternative energy counter"),
-            L(
-                "En este HPVINV02, buyElectricityQuantity es placeholder (isRealValue=false) y dayPurchaseElectricityConsumption no está poblado. Por ello no existe un segundo contador utilizable para corroborar la integración de mainsPower.",
-                "On this HPVINV02, buyElectricityQuantity is a placeholder (isRealValue=false) and dayPurchaseElectricityConsumption is not populated. Therefore no second usable counter exists to corroborate mainsPower integration."));
-
-        AddMethodBlock(
-            section,
             L("Tarifas", "Tariffs"),
             tariff.PublicationPeriods.Count > 1
                 ? L(
@@ -2462,13 +2400,7 @@ public sealed class UtilityBillAuditReportService
                     "Se aplica la publicación tarifaria oficial correspondiente al período.",
                     "The official tariff publication applicable to the period is used."));
 
-        AddCallout(
-            section,
-            L("LIMITACIÓN PRINCIPAL", "MAIN LIMITATION"),
-            L(
-                "Los registros del inversor constituyen evidencia técnica independiente, pero no se presentan como sustituto metrológicamente certificado del medidor de facturación. El objetivo del informe es hacer transparente, reproducible y auditable la discrepancia observada.",
-                "Inverter records are independent technical evidence, but are not presented as a metrologically certified substitute for the billing meter. The report's purpose is to make the observed discrepancy transparent, reproducible and auditable."),
-            Colors.WhiteSmoke);
+
     }
 
     private static void AddMethodBlock(
