@@ -2016,7 +2016,7 @@ public sealed class UtilityBillAuditReportService
         section.AddPageBreak();
         AddHeading(
             section,
-            L("5.1 Cobertura diaria del período", "5.1 Daily period coverage"),
+            L("5. Cobertura diaria del período", "5. Daily period coverage"),
             14);
 
         var daily = section.AddTable();
