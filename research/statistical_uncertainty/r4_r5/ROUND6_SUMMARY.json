@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-28",
+  "scope": "development_only",
+  "cutoff_exclusive": "2026-09-28",
+  "future_R3_outcomes_used": false,
+  "r4": {
+    "duration_min": 240,
+    "comparable_days": 139,
+    "hidden_event_days": 5,
+    "events_dates": [
+      "2026-06-23",
+      "2026-06-29",
+      "2026-07-06",
+      "2026-07-12",
+      "2026-08-31"
+    ],
+    "lookback_brier": {
+      "30": 0.042227466543111436,
+      "60": 0.04162684904781789,
+      "all": 0.040883782979782894,
+      "first20_fixed": 0.04058289982659729,
+      "always_zero": 0.04201680672268908
+    }
+  },
+  "r5": {
+    "n": 1302,
+    "dates": 22,
+    "positive_cases": 96,
+    "positive_dates": 7,
+    "hybrid_selected": 64,
+    "bridge_MAE_kWh": 0.02281425298941799,
+    "r5_prior_MAE_kWh": 0.02482232656437878,
+    "r5_hybrid_MAE_kWh": 0.02260610201741622,
+    "delta_hybrid_minus_bridge_95pct_cluster_CI_kWh": [
+      -0.0018527010191600472,
+      0.001274238963883979
+    ]
+  },
+  "conclusion": "NO VALIDACION FUTURA; NO APROBACION"
+}
