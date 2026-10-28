@@ -58,3 +58,7 @@ La variante que aplica R5 a todos los casos de extremo positivo obtuvo MAE 0,022
 - **En ambos:** fechas independientes, régimen temporal, activos y eventos raros importan más que los cientos de ventanas superpuestas. Las muchas comparaciones retrospectivas no autorizan elegir un ganador y declararlo validado.
 
 No se publica serie de usuario, ID de dispositivo, credenciales, ZIP de datos, boleta Enel, ni resultados de futuras fechas R3. No se toca software productivo.
+
+## Adenda séptima ronda (robustez)
+
+La aparente mejora de MAE del híbrido R5 se revierte al retirar una única ventana de 240 min del 2026-09-11 (delta MAE +0,000560 kWh) o al quitar todas las ventanas de 240 min (delta +0,000242 kWh). Por lo tanto, no se sostiene una ventaja general. Los cinco días R4 con importación oculta de 240 min corresponden a episodios de entre 1,73 y 8,66 kWh, aun cuando su frecuencia diaria sea 5/139. Véase [RONDA7_AUDITORIA_ROBUSTEZ.md](RONDA7_AUDITORIA_ROBUSTEZ.md) para trazabilidad y controles. R3 no fue consultado ni alterado.

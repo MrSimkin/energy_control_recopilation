@@ -32,3 +32,10 @@ Las rondas originales se entregaron como ZIP privados con código, informes, tab
 | Ronda 5 `SolarEnergyMonitor_R4_R5_Ronda5_20261028.zip` | `5ed26b91b62c67a2bf689248b59cedc8d38266f0f4176403c8bb042ad50229dc` |
 
 La **reproducción integral de rondas 1–5 requiere sus ZIP originales privados**, con dependencias y datos auxiliares. El archivo `reproduce_round6_repo.py` es reproducible localmente una vez que se suministran los dos CSV derivados privados de la quinta ronda. Un PASS de código NO equivale a calidad predictiva prospectiva.
+
+## Séptima ronda: robustez y caso influyente
+
+- [RONDA7_AUDITORIA_ROBUSTEZ.md](RONDA7_AUDITORIA_ROBUSTEZ.md): R4 frecuencia y severidad de casos ocultos; R5 sensibilidad por duración y al eliminar un caso.
+- [reproduce_round7_repo.py](reproduce_round7_repo.py): reproducción compacta de hallazgos desde el ZIP **privado** de quinta ronda, comprobando hash y manifiesto.
+- [ROUND7_SUMMARY.json](ROUND7_SUMMARY.json): resultados agregados.
+- **Corrección de interpretación:** la ventaja leve del híbrido R5 descrita en la sexta ronda NO es robusta; cambia de signo retirando un único caso de 240 minutos. No promover el híbrido a candidato de producción.
