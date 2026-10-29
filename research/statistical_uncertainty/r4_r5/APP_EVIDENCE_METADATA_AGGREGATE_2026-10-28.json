@@ -1,0 +1,31 @@
+{
+  "source": "SolarOfThings-ResearchPackage-20261028-131104.zip",
+  "source_sha256": "ea21dda1f2c6527864431a8b6b6f091e0b495a869efdc9f1ebeeb7eade0538f4",
+  "analysis": "STRUCTURAL_METADATA_ONLY_NO_OUTCOMES",
+  "timezone": "America/Santiago",
+  "model_count_or_score_executed": false,
+  "energy_value_column_loaded": false,
+  "metrics": [
+    "grid_import_power_w",
+    "house_load_power_w",
+    "pv_power_w",
+    "battery_power_w",
+    "battery_soc_pct"
+  ],
+  "count_each_metric": 52509,
+  "distinct_timestamps_each_metric": 52509,
+  "grid_confidence_confirmed": 52509,
+  "days_with_any_grid_data": 192,
+  "history_complete_days": 191,
+  "days_with_grid_count_below280": 23,
+  "days_status_complete_below280": 22,
+  "DST_2026_09_06": {
+    "recorded_samples": 274,
+    "nominal_5minute_slots": 276,
+    "meets_frozen_280_threshold": false
+  },
+  "quality_audit_local_tests_passed": 4,
+  "app_update_recommended_now": false,
+  "exporter_update_recommended_now": false,
+  "followup": "Quality aggregation can be derived offline; optional exporter/day coverage UX enhancements only with separate approval."
+}

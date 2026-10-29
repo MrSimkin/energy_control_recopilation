@@ -77,3 +77,11 @@ La herramienta de conteo sintético NO está autorizada para evaluar fechas futu
 - Código completo y 19 controles de regresión adicionales en ZIP privado para el propietario, SHA-256 `9895d6b8fb66c4fe9edc13ab6183a487fde345d9c3e6654d7cccef42f7a9210e`.
 
 **La diferencia de interval-score R4 excluye cero solo dentro del corpus usado para elegir variantes. NO equivale a validación independiente.** R5 sigue sin ventaja robusta. Más rondas de ajuste sobre esta historia no agregan evidencia nueva. Lote detenido hasta nueva evidencia y congelamiento explícito de futuros protocolos.
+
+## Mapa operativo y auditoría de las dos aplicaciones (28/10/2026)
+
+- [MAPA_DE_EVIDENCIA_R3_R4_R5_2026-10-28.md](MAPA_DE_EVIDENCIA_R3_R4_R5_2026-10-28.md): qué busca y qué espera cada modelo, fechas y requisitos reales frente a orientaciones no aprobadas.
+- [AUDITORIA_APPS_Y_CAPTURA_EVIDENCIA_2026-10-28.md](AUDITORIA_APPS_Y_CAPTURA_EVIDENCIA_2026-10-28.md): revisión de Windows y Research Exporter R1, mejoras opcionales sin cambios productivos.
+- [APP_EVIDENCE_METADATA_AGGREGATE_2026-10-28.json](APP_EVIDENCE_METADATA_AGGREGATE_2026-10-28.json): recuentos estructurales de un ZIP ResearchPackage, sin valores de potencia ni resultados de modelos.
+
+Auditoría local externa, código y pruebas (cuatro PASS) entregables al propietario; no se publican series privadas ni ZIP de origen. Resultado operativo: **NINGUNA de las dos apps necesita actualizarse ahora para seguir acumulando evidencia**. R3 congelado; R4/R5 sin protocolo futuro aprobado.
