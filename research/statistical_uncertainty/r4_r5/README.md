@@ -69,3 +69,11 @@ La **reproducción integral de rondas 1–5 requiere sus ZIP originales privados
 - Paquete ZIP privado de ronda 10 contiene scripts completos (incluyendo contador solo sintético), **26 pruebas PASS**, gráficas e informe. ZIP SHA-256: `5b35a3e9bbe5eb47d9912a039ed36b2a3895c56208638431ed80c904651288a9`. **No contiene datos originales.**
 
 La herramienta de conteo sintético NO está autorizada para evaluar fechas futuras y no se debe considerar prueba integral de ausencia de filtraciones de resultados. Requiere auditar también su selector de ventanas. `main`, R3 y la app permanecen intactos.
+
+## Lote agrupado de rondas 11–13: STOP por barrera de evidencia
+
+- [LOTE_R11_R13_CIERRE_2026-10-28.md](LOTE_R11_R13_CIERRE_2026-10-28.md): tres rondas ejecutadas en un encargo, control temporal, robustez por días, DST de Chile y justificación del STOP.
+- [BATCH_R11_R13_SUMMARY_PUBLIC.json](BATCH_R11_R13_SUMMARY_PUBLIC.json): métricas agregadas; sin consumo privado por caso.
+- Código completo y 19 controles de regresión adicionales en ZIP privado para el propietario, SHA-256 `9895d6b8fb66c4fe9edc13ab6183a487fde345d9c3e6654d7cccef42f7a9210e`.
+
+**La diferencia de interval-score R4 excluye cero solo dentro del corpus usado para elegir variantes. NO equivale a validación independiente.** R5 sigue sin ventaja robusta. Más rondas de ajuste sobre esta historia no agregan evidencia nueva. Lote detenido hasta nueva evidencia y congelamiento explícito de futuros protocolos.

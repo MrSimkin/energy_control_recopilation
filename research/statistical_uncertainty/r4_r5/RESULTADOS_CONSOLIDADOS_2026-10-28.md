@@ -83,3 +83,7 @@ R5: 1.302 casos (22 fechas), 96 con energía positiva (7 fechas); híbrido realm
 ## Adenda décima ronda
 
 En R4 los 5 días históricos con importación oculta de cuatro horas se distribuyen junio 2, julio 2 y agosto 1, de 139 días comparables entre abril y septiembre. No constituye prueba de estacionalidad ni base para semáforos de riesgo. En R5, la pequeña ventaja global del híbrido se revierte si se retira una de siete fechas con energía positiva. Se entrega un protocolo futuro **NO congelado** que obliga a auditar selección de ventanas, contar sin resultados y puntuar solo después de una regla de parada predefinida. Ver [RONDA10_AUDITORIA_SENCILLA.md](RONDA10_AUDITORIA_SENCILLA.md).
+
+## Adenda lote R11–R13: cierre metodológico
+
+Se efectuaron tres auditorías consecutivas en un solo encargo, reproduciendo integridad y comparaciones R4/R5 solo con historia de desarrollo anterior a 2026-09-28. R4 centrado por día mejoró la puntuación retrospectiva P5/P95 frente a v0 de 2,430 a 1,541 entre 263 positivos de 12 fechas (IC bootstrap descriptivo de diferencia por fecha [-1,165;-0,824]), **no es prueba futura** por selección retrospectiva. R5 mantiene 96 positivos en 7 fechas y ventaja global que se revierte con una fecha influyente. El selector sintético pasó casos de Chile DST de 23/25 h, con 276/300 muestras respectivamente. **Resultado: STOP_DATA_SUFFICIENCY_AND_INDEPENDENCE_BARRIER**; no entrenamiento adicional sobre la misma historia, no score, no cambio de R3 ni producción. Ver [LOTE_R11_R13_CIERRE_2026-10-28.md](LOTE_R11_R13_CIERRE_2026-10-28.md).
