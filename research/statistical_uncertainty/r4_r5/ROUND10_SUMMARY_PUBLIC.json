@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-28",
+  "scope": "already_consumed_development_only",
+  "R3_future_outcomes_used": false,
+  "QA_tests_passed": 26,
+  "source_round5_zip_sha256": "5ed26b91b62c67a2bf689248b59cedc8d38266f0f4176403c8bb042ad50229dc",
+  "private_round10_zip_sha256": "5b35a3e9bbe5eb47d9912a039ed36b2a3895c56208638431ed80c904651288a9",
+  "r4": {
+    "comparable_dates_240m": 139,
+    "hidden_event_dates": 5,
+    "monthly_days": [
+      8,
+      26,
+      27,
+      29,
+      25,
+      24
+    ],
+    "monthly_hidden_event_days": [
+      0,
+      0,
+      2,
+      2,
+      1,
+      0
+    ]
+  },
+  "r5": {
+    "cases": 1302,
+    "distinct_days": 22,
+    "positive_cases": 96,
+    "positive_days": 7,
+    "bridge_MAE_kWh": 0.02281425298941799,
+    "hybrid_MAE_kWh": 0.02260610201741622,
+    "positive_day_exclusions_that_reverse_advantage": 1
+  },
+  "frozen_protocol": false,
+  "production_accepted": false
+}

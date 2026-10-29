@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-28",
+  "scope": "already_consumed_development_only",
+  "stage": "BATCH_11_13",
+  "R3_future_outcomes_used": false,
+  "production_accepted": false,
+  "decision": "STOP_DATA_SUFFICIENCY_AND_INDEPENDENCE_BARRIER",
+  "source_round5_zip_sha256": "5ed26b91b62c67a2bf689248b59cedc8d38266f0f4176403c8bb042ad50229dc",
+  "private_repro_bundle_sha256": "9895d6b8fb66c4fe9edc13ab6183a487fde345d9c3e6654d7cccef42f7a9210e",
+  "R4": {
+    "historical_positive_cases": 263,
+    "historical_positive_dates": 12,
+    "interval_score_v0": 2.429608688640157,
+    "interval_score_day_centered": 1.5413928701901143,
+    "day_bootstrap_95pct_difference": [
+      -1.1645726644270236,
+      -0.8242879965102157
+    ],
+    "hidden_event_dates_240": 5,
+    "comparable_dates_240": 139,
+    "inference": "Development-only; multiple comparisons and historical model selection invalidate prospective claims"
+  },
+  "R5": {
+    "cases": 1302,
+    "dates": 22,
+    "positive_cases": 96,
+    "positive_dates": 7,
+    "hybrid_applied_cases": 64,
+    "hybrid_applied_dates": 6,
+    "bridge_mae_kwh": 0.02281425298941799,
+    "hybrid_mae_kwh": 0.02260610201741622,
+    "day_bootstrap_95pct_diff": [
+      -0.0018228829108456446,
+      0.001276644356252548
+    ],
+    "reverses_when_one_positive_date_removed": true
+  },
+  "selector_synthetic": {
+    "QA_regression_rules": 19,
+    "scenario_checks": 10,
+    "timezone": "America/Santiago",
+    "DST_2026_04_04_samples": 300,
+    "DST_2026_09_06_samples": 276,
+    "not_approved_for_future_real_data": true
+  },
+  "no_future_scoring": true
+}

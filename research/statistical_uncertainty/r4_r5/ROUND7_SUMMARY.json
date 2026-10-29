@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-28",
+  "scope": "development_only",
+  "no_r3_future_labels": true,
+  "qa_checks_passed": 15,
+  "source_round5_zip_sha256": "5ed26b91b62c67a2bf689248b59cedc8d38266f0f4176403c8bb042ad50229dc",
+  "r4": {
+    "comparable_days_240min": 139,
+    "affected_days_240min": 5,
+    "zero_endpoint_windows_240min": 489,
+    "affected_windows_240min": 5,
+    "severities_kwh": [
+      6.401759,
+      7.220146,
+      8.660946,
+      7.425001,
+      1.729359
+    ]
+  },
+  "r5": {
+    "cases": 1302,
+    "dates": 22,
+    "positive_cases": 96,
+    "positive_dates": 7,
+    "hybrid_selected": 64,
+    "bridge_mae_kwh": 0.02281425298941799,
+    "hybrid_mae_kwh": 0.02260610201741622,
+    "MAE_delta_without_largest_case_kwh": 0.0005603798307326393,
+    "MAE_delta_without_240min_kwh": 0.000241968792795521,
+    "cluster_bootstrap_95pct": [
+      -0.0018105911351620617,
+      0.0012544207496493094
+    ]
+  },
+  "decision": "No promote; R5 hybrid advantage driven by one 240m case."
+}

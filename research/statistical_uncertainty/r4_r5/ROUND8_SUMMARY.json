@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-28",
+  "study": "ROUND8_DEVELOPMENT_ONLY",
+  "r3_future_outcomes_used": false,
+  "r4": {
+    "short_days": 140,
+    "short_events": 0,
+    "long_days": 139,
+    "long_events": 5,
+    "jeffreys_90pct_long": [
+      0.016589253026449226,
+      0.06942270008949958
+    ],
+    "scenario_posterior_predictive_extra_comparable_days_for_five_new_events": {
+      "50pct": 126,
+      "80pct": 213,
+      "90pct": 282
+    },
+    "scenario_not_an_official_gate": true
+  },
+  "r5": {
+    "cases": 1302,
+    "dates": 22,
+    "positive_cases": 96,
+    "positive_dates": 7,
+    "hybrid_applied": 64,
+    "hybrid_applied_dates": 6,
+    "bridge_mae_kwh": 0.02281425298941799,
+    "hybrid_mae_kwh": 0.02260610201741622,
+    "positive_bridge_mae_kwh": 0.30941830616898147,
+    "positive_hybrid_mae_kwh": 0.3065952586112075,
+    "advantage_robust": false
+  },
+  "qa_local_full_checks_passed": 20,
+  "never_score_R3": true
+}
