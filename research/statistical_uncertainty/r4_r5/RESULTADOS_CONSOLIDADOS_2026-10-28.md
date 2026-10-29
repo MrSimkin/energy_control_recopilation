@@ -62,3 +62,11 @@ No se publica serie de usuario, ID de dispositivo, credenciales, ZIP de datos, b
 ## Adenda séptima ronda (robustez)
 
 La aparente mejora de MAE del híbrido R5 se revierte al retirar una única ventana de 240 min del 2026-09-11 (delta MAE +0,000560 kWh) o al quitar todas las ventanas de 240 min (delta +0,000242 kWh). Por lo tanto, no se sostiene una ventaja general. Los cinco días R4 con importación oculta de 240 min corresponden a episodios de entre 1,73 y 8,66 kWh, aun cuando su frecuencia diaria sea 5/139. Véase [RONDA7_AUDITORIA_ROBUSTEZ.md](RONDA7_AUDITORIA_ROBUSTEZ.md) para trazabilidad y controles. R3 no fue consultado ni alterado.
+
+## Adenda octava ronda: cuantificación de suficiencia
+
+R4 mantiene 5/139 fechas con evento oculto de 240 min y 0/140 para duraciones 30/120 min. Escenario estacionario Beta-binomial (NO validado): para cinco nuevas fechas afectadas serían necesarios 126/213/282 días futuros comparables con probabilidades 50/80/90%. No confundir días comparables con calendario, ni convertir estos números en stopping rule.
+
+R5: la cohorte de 1.302 ventanas contiene 96 positivos repartidos en siete fechas; en estas, MAE puente 0,309418 y MAE híbrido 0,306595 kWh, diferencia no robusta por fecha. El híbrido solo se aplica en 64 casos de seis fechas. No se promueve.
+
+Se añade un *scaffold* de conteo estructural que nunca lee desenlaces ni emite READY y que no sustituye al futuro harness protocolizado. Véase [RONDA8_SUFICIENCIA_Y_QA.md](RONDA8_SUFICIENCIA_Y_QA.md).

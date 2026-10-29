@@ -39,3 +39,12 @@ La **reproducción integral de rondas 1–5 requiere sus ZIP originales privados
 - [reproduce_round7_repo.py](reproduce_round7_repo.py): reproducción compacta de hallazgos desde el ZIP **privado** de quinta ronda, comprobando hash y manifiesto.
 - [ROUND7_SUMMARY.json](ROUND7_SUMMARY.json): resultados agregados.
 - **Corrección de interpretación:** la ventaja leve del híbrido R5 descrita en la sexta ronda NO es robusta; cambia de signo retirando un único caso de 240 minutos. No promover el híbrido a candidato de producción.
+
+## Octava ronda: suficiencia y guardarraíles
+
+- [RONDA8_SUFICIENCIA_Y_QA.md](RONDA8_SUFICIENCIA_Y_QA.md): planificación de evidencia de cola rara y comparaciones R5 desagregadas.
+- [round8_sufficiency_replay.py](round8_sufficiency_replay.py): script reproducible compacto sobre ZIP privado ronda 5; fuente validada por SHA.
+- [prospective_count_scaffold.py](prospective_count_scaffold.py): interfaz estructural outcome-blind **NO congelada**, probada solo con datos sintéticos; nunca declara READY.
+- [ROUND8_SUMMARY.json](ROUND8_SUMMARY.json): cifras agregadas sin mediciones privadas.
+
+**Advertencia:** 213 días comparables adicionales representan un ejemplo hipotético de planificación al 80% para cinco nuevos días R4 con episodio oculto; **NO una fecha ni requisito oficial**. La ventaja R5 sigue no robusta.
