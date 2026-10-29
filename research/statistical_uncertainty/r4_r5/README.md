@@ -59,3 +59,13 @@ La **reproducción integral de rondas 1–5 requiere sus ZIP originales privados
 - [ROUND9_AGGREGATE.json](ROUND9_AGGREGATE.json) y [README_REPRODUCCION.md](README_REPRODUCCION.md): resultados agregados e instrucciones.
 
 **Hallazgo importante:** una señal verde hipotética R4 con tolerancia 5% habría sido falsa en un día con 6,40 kWh ocultos; avisar siempre sobre los 119 días genera 114 avisos sin evento. Propuesta solo investigativa: estado `RISK_NOT_CHARACTERIZED` sin semáforo individual. R5 sigue sin superioridad robusta y requiere más días con importación real.
+
+## Décima ronda: calendario de evidencia y diseño de evaluación
+
+- [RONDA10_AUDITORIA_SENCILLA.md](RONDA10_AUDITORIA_SENCILLA.md): cinco días con eventos raros R4 distribuidos junio–agosto; un día influyente R5.
+- [PLAN_VALIDACION_FUTURA_BORRADOR_R10.md](PLAN_VALIDACION_FUTURA_BORRADOR_R10.md): tres cerraduras: congelar, contar a ciegas desde fuente auditada, puntuar una sola vez.
+- [ROUND10_SUMMARY_PUBLIC.json](ROUND10_SUMMARY_PUBLIC.json): cifras agregadas sin telemetría.
+- [round10_compact_replay.py](round10_compact_replay.py): reproduce las cifras agregadas sobre ZIP *privado* de desarrollo con verificación SHA y manifiesto; requiere numpy/pandas.
+- Paquete ZIP privado de ronda 10 contiene scripts completos (incluyendo contador solo sintético), **26 pruebas PASS**, gráficas e informe. ZIP SHA-256: `5b35a3e9bbe5eb47d9912a039ed36b2a3895c56208638431ed80c904651288a9`. **No contiene datos originales.**
+
+La herramienta de conteo sintético NO está autorizada para evaluar fechas futuras y no se debe considerar prueba integral de ausencia de filtraciones de resultados. Requiere auditar también su selector de ventanas. `main`, R3 y la app permanecen intactos.

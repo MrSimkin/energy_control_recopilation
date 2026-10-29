@@ -79,3 +79,7 @@ R4 estudió una señal verde hipotética basada en límite unilateral Beta(1/2,1
 R5: 1.302 casos (22 fechas), 96 con energía positiva (7 fechas); híbrido realmente aplicable a 64 (6 fechas). En 30 y 120 minutos el híbrido aumenta MAE frente al puente; solo el estrato de 240 minutos mejora y es altamente sensible a un caso conocido. Continuar únicamente de manera experimental.
 
 `round9_blind_count_draft.py` solo acepta columnas estructurales, rechaza outcomes, impide fechas anteriores al corte e invariablemente declara `DRAFT_NO_READY_OR_SCORE`. Solo QA sintética, **no es congelamiento, no valida el origen del CSV y no ha sido ejecutado sobre la cohorte futura R3**. [Informe completo de ronda 9](INFORME_R4_R5_RONDA9_2026-10-28.md).
+
+## Adenda décima ronda
+
+En R4 los 5 días históricos con importación oculta de cuatro horas se distribuyen junio 2, julio 2 y agosto 1, de 139 días comparables entre abril y septiembre. No constituye prueba de estacionalidad ni base para semáforos de riesgo. En R5, la pequeña ventaja global del híbrido se revierte si se retira una de siete fechas con energía positiva. Se entrega un protocolo futuro **NO congelado** que obliga a auditar selección de ventanas, contar sin resultados y puntuar solo después de una regla de parada predefinida. Ver [RONDA10_AUDITORIA_SENCILLA.md](RONDA10_AUDITORIA_SENCILLA.md).
