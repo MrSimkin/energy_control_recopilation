@@ -70,3 +70,12 @@ R4 mantiene 5/139 fechas con evento oculto de 240 min y 0/140 para duraciones 30
 R5: la cohorte de 1.302 ventanas contiene 96 positivos repartidos en siete fechas; en estas, MAE puente 0,309418 y MAE híbrido 0,306595 kWh, diferencia no robusta por fecha. El híbrido solo se aplica en 64 casos de seis fechas. No se promueve.
 
 Se añade un *scaffold* de conteo estructural que nunca lee desenlaces ni emite READY y que no sustituye al futuro harness protocolizado. Véase [RONDA8_SUFICIENCIA_Y_QA.md](RONDA8_SUFICIENCIA_Y_QA.md).
+
+
+## Adenda novena ronda: evitar confianza falsa y separar estratos
+
+R4 estudió una señal verde hipotética basada en límite unilateral Beta(1/2,1/2) con 95% de credibilidad y solo fechas previas: sobre 119 días de desarrollo, tolerancia 5% daría 16 señales verdes, **una falsa** en un episodio de 6,40 kWh; 10% daría 107, de ellas cinco falsas. Alertar todos los días, en cambio, produce 114 avisos sin evento. **No desplegar un clasificador de riesgo individual; conservar incertidumbre explícita**.
+
+R5: 1.302 casos (22 fechas), 96 con energía positiva (7 fechas); híbrido realmente aplicable a 64 (6 fechas). En 30 y 120 minutos el híbrido aumenta MAE frente al puente; solo el estrato de 240 minutos mejora y es altamente sensible a un caso conocido. Continuar únicamente de manera experimental.
+
+`round9_blind_count_draft.py` solo acepta columnas estructurales, rechaza outcomes, impide fechas anteriores al corte e invariablemente declara `DRAFT_NO_READY_OR_SCORE`. Solo QA sintética, **no es congelamiento, no valida el origen del CSV y no ha sido ejecutado sobre la cohorte futura R3**. [Informe completo de ronda 9](INFORME_R4_R5_RONDA9_2026-10-28.md).

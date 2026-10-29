@@ -48,3 +48,14 @@ La **reproducción integral de rondas 1–5 requiere sus ZIP originales privados
 - [ROUND8_SUMMARY.json](ROUND8_SUMMARY.json): cifras agregadas sin mediciones privadas.
 
 **Advertencia:** 213 días comparables adicionales representan un ejemplo hipotético de planificación al 80% para cinco nuevos días R4 con episodio oculto; **NO una fecha ni requisito oficial**. La ventaja R5 sigue no robusta.
+
+
+## Novena ronda: abstención y suficiencia estructural (desarrollo, 2026-10-28)
+
+- [INFORME_R4_R5_RONDA9_2026-10-28.md](INFORME_R4_R5_RONDA9_2026-10-28.md): pruebas de falsas señales de riesgo bajo de R4 y evaluación R5 por duración.
+- [round9_research.py](round9_research.py): reproducción sobre ZIP **privado** de ronda 5; **SHA-256 y manifiesto verificados**, corte estricto 2026-09-28.
+- [round9_blind_count_draft.py](round9_blind_count_draft.py): nuevo monitor estructural **NO congelado**, probado solo sobre fechas y datos sintéticos; **jamás emite READY**.
+- [test_round9.py](test_round9.py): 29 tests PASS; requiere `R4R5_ROUND5_ZIP` para los tests privados.
+- [ROUND9_AGGREGATE.json](ROUND9_AGGREGATE.json) y [README_REPRODUCCION.md](README_REPRODUCCION.md): resultados agregados e instrucciones.
+
+**Hallazgo importante:** una señal verde hipotética R4 con tolerancia 5% habría sido falsa en un día con 6,40 kWh ocultos; avisar siempre sobre los 119 días genera 114 avisos sin evento. Propuesta solo investigativa: estado `RISK_NOT_CHARACTERIZED` sin semáforo individual. R5 sigue sin superioridad robusta y requiere más días con importación real.

@@ -1,0 +1,239 @@
+{
+  "phase": "ROUND9_DEVELOPMENT_ONLY",
+  "source_zip_sha256": "5ed26b91b62c67a2bf689248b59cedc8d38266f0f4176403c8bb042ad50229dc",
+  "cutoff_exclusive": "2026-09-28",
+  "future_R3_outcomes_used": false,
+  "R4": {
+    "events_by_duration": [
+      {
+        "duration_min": 30,
+        "comparable_days": 140,
+        "event_days": 0,
+        "zero_endpoint_windows": 5398,
+        "event_windows": 0,
+        "posterior_95pct_one_sided_upper_at_end": 0.013601640983708212,
+        "event_severity_kwh_min": null,
+        "event_severity_kwh_max": null
+      },
+      {
+        "duration_min": 120,
+        "comparable_days": 140,
+        "event_days": 0,
+        "zero_endpoint_windows": 1179,
+        "event_windows": 0,
+        "posterior_95pct_one_sided_upper_at_end": 0.013601640983708212,
+        "event_severity_kwh_min": null,
+        "event_severity_kwh_max": null
+      },
+      {
+        "duration_min": 240,
+        "comparable_days": 139,
+        "event_days": 5,
+        "zero_endpoint_windows": 489,
+        "event_windows": 5,
+        "posterior_95pct_one_sided_upper_at_end": 0.06942270008949958,
+        "event_severity_kwh_min": 1.7293592277777778,
+        "event_severity_kwh_max": 8.660946019305555
+      }
+    ],
+    "chronological_policy_scenarios": [
+      {
+        "prior_min_days": 20,
+        "risk_tolerance_pct": 1,
+        "evaluated_days": 119,
+        "LOW_RISK_SIGNAL_days": 0,
+        "FALSE_REASSURANCE_event_days": 0,
+        "non_event_low_signal_days": 0,
+        "ABSTAIN_days": 119,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 20,
+        "risk_tolerance_pct": 3,
+        "evaluated_days": 119,
+        "LOW_RISK_SIGNAL_days": 0,
+        "FALSE_REASSURANCE_event_days": 0,
+        "non_event_low_signal_days": 0,
+        "ABSTAIN_days": 119,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 20,
+        "risk_tolerance_pct": 5,
+        "evaluated_days": 119,
+        "LOW_RISK_SIGNAL_days": 16,
+        "FALSE_REASSURANCE_event_days": 1,
+        "non_event_low_signal_days": 15,
+        "ABSTAIN_days": 103,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 20,
+        "risk_tolerance_pct": 10,
+        "evaluated_days": 119,
+        "LOW_RISK_SIGNAL_days": 107,
+        "FALSE_REASSURANCE_event_days": 5,
+        "non_event_low_signal_days": 102,
+        "ABSTAIN_days": 12,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 50,
+        "risk_tolerance_pct": 1,
+        "evaluated_days": 89,
+        "LOW_RISK_SIGNAL_days": 0,
+        "FALSE_REASSURANCE_event_days": 0,
+        "non_event_low_signal_days": 0,
+        "ABSTAIN_days": 89,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 50,
+        "risk_tolerance_pct": 3,
+        "evaluated_days": 89,
+        "LOW_RISK_SIGNAL_days": 0,
+        "FALSE_REASSURANCE_event_days": 0,
+        "non_event_low_signal_days": 0,
+        "ABSTAIN_days": 89,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 50,
+        "risk_tolerance_pct": 5,
+        "evaluated_days": 89,
+        "LOW_RISK_SIGNAL_days": 4,
+        "FALSE_REASSURANCE_event_days": 1,
+        "non_event_low_signal_days": 3,
+        "ABSTAIN_days": 85,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 50,
+        "risk_tolerance_pct": 10,
+        "evaluated_days": 89,
+        "LOW_RISK_SIGNAL_days": 77,
+        "FALSE_REASSURANCE_event_days": 5,
+        "non_event_low_signal_days": 72,
+        "ABSTAIN_days": 12,
+        "events_on_evaluated_days": 5
+      },
+      {
+        "prior_min_days": 100,
+        "risk_tolerance_pct": 1,
+        "evaluated_days": 39,
+        "LOW_RISK_SIGNAL_days": 0,
+        "FALSE_REASSURANCE_event_days": 0,
+        "non_event_low_signal_days": 0,
+        "ABSTAIN_days": 39,
+        "events_on_evaluated_days": 1
+      },
+      {
+        "prior_min_days": 100,
+        "risk_tolerance_pct": 3,
+        "evaluated_days": 39,
+        "LOW_RISK_SIGNAL_days": 0,
+        "FALSE_REASSURANCE_event_days": 0,
+        "non_event_low_signal_days": 0,
+        "ABSTAIN_days": 39,
+        "events_on_evaluated_days": 1
+      },
+      {
+        "prior_min_days": 100,
+        "risk_tolerance_pct": 5,
+        "evaluated_days": 39,
+        "LOW_RISK_SIGNAL_days": 0,
+        "FALSE_REASSURANCE_event_days": 0,
+        "non_event_low_signal_days": 0,
+        "ABSTAIN_days": 39,
+        "events_on_evaluated_days": 1
+      },
+      {
+        "prior_min_days": 100,
+        "risk_tolerance_pct": 10,
+        "evaluated_days": 39,
+        "LOW_RISK_SIGNAL_days": 39,
+        "FALSE_REASSURANCE_event_days": 1,
+        "non_event_low_signal_days": 38,
+        "ABSTAIN_days": 0,
+        "events_on_evaluated_days": 1
+      }
+    ],
+    "always_warn_comparator_start_20": {
+      "warnings": 119,
+      "false_warnings": 114,
+      "events": 5
+    },
+    "policy_statement": "Illustrative decision-stress-test only; NO validated low-risk or warning classifier."
+  },
+  "R5": {
+    "cases": 1302,
+    "dates": 22,
+    "positive_cases": 96,
+    "positive_dates": 7,
+    "hybrid_applied_cases": 64,
+    "hybrid_applied_dates": 6,
+    "bridge_mae_kwh": 0.02281425298941799,
+    "hybrid_mae_kwh": 0.02260610201741622,
+    "case_weighted_delta_hybrid_minus_bridge": -0.00020815097200176723,
+    "dates_improve_LOO_cases": 21,
+    "dates_worsen_LOO_cases": 1,
+    "case_weighted_loo_delta_range": [
+      -0.000736497200025903,
+      0.00042548284862893853
+    ],
+    "equal_day_bootstrap_delta_95pct": [
+      -0.0018105911351620617,
+      0.0012544207496493094
+    ],
+    "duration_strata": [
+      {
+        "duration_min": 30,
+        "n_cases": 993,
+        "n_dates": 22,
+        "positive_cases": 65,
+        "positive_dates": 7,
+        "hybrid_applied_cases": 48,
+        "hybrid_applied_dates": 6,
+        "bridge_mae_kwh": 0.005881077736656596,
+        "hybrid_mae_kwh": 0.005920948777897782
+      },
+      {
+        "duration_min": 120,
+        "n_cases": 217,
+        "n_dates": 22,
+        "positive_cases": 19,
+        "positive_dates": 7,
+        "hybrid_applied_cases": 11,
+        "hybrid_applied_dates": 6,
+        "bridge_mae_kwh": 0.05300612037890424,
+        "hybrid_mae_kwh": 0.05417289593342076
+      },
+      {
+        "duration_min": 240,
+        "n_cases": 92,
+        "n_dates": 22,
+        "positive_cases": 12,
+        "positive_dates": 7,
+        "hybrid_applied_cases": 5,
+        "hybrid_applied_dates": 4,
+        "bridge_mae_kwh": 0.13436868562499998,
+        "hybrid_mae_kwh": 0.12824048122468606
+      }
+    ],
+    "illustrative_positive_date_gates": [
+      {
+        "min_positive_dates": 10,
+        "meets": false
+      },
+      {
+        "min_positive_dates": 15,
+        "meets": false
+      },
+      {
+        "min_positive_dates": 20,
+        "meets": false
+      }
+    ],
+    "warning": "Development outcomes used for retrospective diagnosis only. Positive-energy eligibility cannot be computed by prospective blind count."
+  }
+}
