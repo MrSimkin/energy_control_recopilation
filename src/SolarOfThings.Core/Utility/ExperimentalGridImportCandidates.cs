@@ -307,13 +307,13 @@ public static class ExperimentalGridImportCandidates
         var startState=x0>0?1:0;var endState=x1>0?1:0;
         // Estimate the age of the observed start episode without using
         // any samples after the gap's start.
-        var i=Array.FindLastIndex(observed,s=>s.Utc==gap.StartUtc);
-        if(i<0)return Missing(gap,"R5","MISSING_OBSERVED_START",support);
-        var j=i;
-        while(j>0&&Regular(observed[j-1],observed[j])&&
-              (observed[j-1].W>0?1:0)==startState)j--;
-        var known=j>0&&Regular(observed[j-1],observed[j]);
-        var lower=Math.Min(i-j+1,Cap)-1;
+        var startIndex=Array.FindLastIndex(observed,s=>s.Utc==gap.StartUtc);
+        if(startIndex<0)return Missing(gap,"R5","MISSING_OBSERVED_START",support);
+        var episodeStart=startIndex;
+        while(episodeStart>0&&Regular(observed[episodeStart-1],observed[episodeStart])&&
+              (observed[episodeStart-1].W>0?1:0)==startState)episodeStart--;
+        var known=episodeStart>0&&Regular(observed[episodeStart-1],observed[episodeStart]);
+        var lower=Math.Min(startIndex-episodeStart+1,Cap)-1;
         var f=new double[k+1,2,Cap];
         for(var age=0;age<Cap;age++)f[0,endState,age]=1;
         for(var rem=1;rem<=k;rem++)
