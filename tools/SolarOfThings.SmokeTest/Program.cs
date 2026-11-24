@@ -33,6 +33,8 @@ try
         return;
     }
 
+    ExperimentalGridCandidateSmoke.Run();
+
     // Async SQL results must not paint after an edited statement, profile
     // change, navigation, cancellation or window closure. These are pure
     // synthetic identities: no WPF, user database or network is accessed.

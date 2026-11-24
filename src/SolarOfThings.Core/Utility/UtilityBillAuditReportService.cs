@@ -85,10 +85,14 @@ public sealed class UtilityBillAuditReportService
             StringComparison.OrdinalIgnoreCase);
         string L(string es, string en) => spanish ? es : en;
 
+        var experimental = ExperimentalGridImportCandidates.IsEnabled;
         var document = new Document();
         document.Info.Title = L(
             "Informe técnico de revisión de consumo eléctrico facturado",
             "Technical review of billed electricity consumption");
+
+        if(experimental)
+            document.Info.Title = L("USO INTERNO EXPERIMENTAL — ", "INTERNAL EXPERIMENTAL USE — ") + document.Info.Title;
 
         var normal = document.Styles["Normal"];
         normal.Font.Name = "Arial";
@@ -326,10 +330,32 @@ public sealed class UtilityBillAuditReportService
             tariffScenario,
             spanish);
 
+        if(experimental)
+        {
+            section.AddPageBreak();
+            AddHeading(section,L("Anexo interno R3 / R4 / R5 — validación pendiente",
+                "Internal R3 / R4 / R5 appendix — validation pending"),16);
+            section.AddParagraph(L(
+                "Comparación experimental de energía faltante. No reemplaza los resultados anteriores ni constituye evidencia validada ante Enel/SEC.",
+                "Experimental missing-energy comparison. Does not replace prior results or constitute validated evidence for the utility/regulator."));
+            try
+            {
+                var candidates = _billGapCompletion.AnalyzeExperimentalCandidates(
+                    deviceId,billStartLocalDate,billEndLocalDate,timeZoneId);
+                AddExperimentalCandidateEvidence(section,candidates,timeZoneId,spanish);
+            }
+            catch(Exception)
+            {
+                section.AddParagraph(L("No se pudo calcular el anexo experimental. No se emiten estimaciones sustitutivas.",
+                    "Experimental appendix could not be calculated. No substitute estimates are issued."));
+            }
+        }
+
         var footer = section.Footers.Primary.AddParagraph();
         footer.Format.Alignment = ParagraphAlignment.Center;
         footer.AddText(
-            L("Informe técnico", "Technical report"));
+            experimental ? L("INTERNO EXPERIMENTAL · validación pendiente", "INTERNAL EXPERIMENTAL · validation pending")
+                : L("Informe técnico", "Technical report"));
         if (!string.IsNullOrWhiteSpace(producerIdentity))
         {
             footer.AddText($" · {producerIdentity}");
@@ -350,6 +376,82 @@ public sealed class UtilityBillAuditReportService
             if (distributionImage is not null && File.Exists(distributionImage))
                 File.Delete(distributionImage);
         }
+    }
+
+    private static void AddExperimentalCandidateEvidence(Section section,
+        ExperimentalGridReport report,string timeZoneId,bool spanish)
+    {
+        string L(string es,string en)=>spanish?es:en;
+        string F(double? value)=>value.HasValue?value.Value.ToString("N3"):"—";
+        section.AddParagraph(L(
+            "P5, P50 y P95 son cuantiles de la energía faltante en kWh: extremo inferior, mediana y extremo superior. P5–P95 es el intervalo central nominal del 90% de la distribución del modelo; no una tolerancia del medidor. Enel no interviene en su cálculo.",
+            "P5, P50 and P95 are missing-energy quantiles in kWh: lower, median and upper. P5–P95 is the nominal central 90% of the model distribution, not meter tolerance. Utility evidence is not used."));
+        section.AddParagraph(L(
+            "Port nativo experimental; paridad con las referencias Python y validación prospectiva pendientes. R3 y R4: hasta 240 minutos. R4: misma franja local de 6 h. R5: más de 240 hasta 480 minutos, misma franja de 12 h. No se extrapola.",
+            "Experimental native port; parity with Python references and prospective validation pending. R3/R4: up to 240 minutes. R4: same local 6 h band. R5: over 240 up to 480 minutes, same 12 h band. No extrapolation."));
+        foreach(var name in new[]{ExperimentalGridImportCandidates.R3Version,
+            ExperimentalGridImportCandidates.R4Version,ExperimentalGridImportCandidates.R5Version})
+        {
+            var p=section.AddParagraph(name);p.Format.Font.Size=8;
+        }
+        if(report.Gaps.Count==0)
+            section.AddParagraph(L("No se detectaron vacíos en el período.","No gaps detected in the period."));
+        var table=section.AddTable();
+        foreach(var cm in new[]{0.8,1.0,5.2,1.3,2.5,2.5,2.5})
+            table.AddColumn(Unit.FromCentimeter(cm));
+        table.Borders.Width=.3;
+        var header=table.AddRow();header.HeadingFormat=true;header.Format.Font.Bold=true;
+        header.Shading.Color=Colors.AliceBlue;
+        var headings=new[]{"#","R",L("Estado","Status"),L("Días","Days"),"P5","P50","P95"};
+        for(var i=0;i<headings.Length;i++)header.Cells[i].AddParagraph(headings[i]);
+        foreach(var g in report.Gaps)
+        {
+            var start=SolarApiTime.ConvertToLocalTime(g.StartUtc,timeZoneId);
+            var end=SolarApiTime.ConvertToLocalTime(g.EndUtc,timeZoneId);
+            var info=table.AddRow();info.Cells[0].MergeRight=6;
+            info.Format.Font.Bold=true;info.Shading.Color=Colors.LightGray;
+            info.Cells[0].AddParagraph(
+                $"#{g.Index}: {start:dd-MM HH:mm zzz} → {end:dd-MM HH:mm zzz} · {(g.EndUtc-g.StartUtc).TotalMinutes:N2} min · {F(g.StartWatts)} / {F(g.EndWatts)} W");
+            foreach(var e in report.Estimates.Where(x=>x.GapIndex==g.Index))
+            {
+                var row=table.AddRow();row.Format.Font.Size=8;
+                var status=e.Status switch
+                {
+                    "EXPERIMENTAL_PENDING_VALIDATION"=>L("Experimental, pendiente","Experimental, pending"),
+                    "EXPERIMENTAL_BOTH_ZERO_WARNING"=>L("Extremos cero: riesgo","Zero endpoints: risk"),
+                    _ when e.Status.StartsWith("NOT_APPLICABLE")=>L("Fuera de alcance","Out of scope"),
+                    _ when e.Status.StartsWith("INSUFFICIENT")=>L("Evidencia insuficiente","Insufficient evidence"),
+                    _=>e.Status.Replace('_',' ')
+                };
+                var cells=new[]{g.Index.ToString(),e.Candidate,status,e.SupportDates.ToString(),F(e.P5),F(e.P50),F(e.P95)};
+                for(var c=0;c<cells.Length;c++)row.Cells[c].AddParagraph(cells[c]);
+            }
+        }
+        section.AddParagraph(L(
+            "Los días indican soporte histórico, no observaciones independientes garantizadas. Una celda sin estimación no equivale a cero. R5 con ambos extremos cero se muestra sólo para inspección y queda excluido de la agregación por su limitación estructural conocida.",
+            "Days indicate historical support, not guaranteed independent observations. Missing estimates are not zero. R5 with both endpoints zero is shown for inspection only and excluded from aggregation because of its known structural limitation."));
+        AddHeading(section,L("Agregación experimental y sensibilidad","Experimental aggregation and sensitivity"),12);
+        section.AddParagraph(L(
+            "100.000 sumas simuladas por candidato: independencia entre vacíos frente a dependencia de rango común. Son dos hipótesis ilustrativas, no límites garantizados. Sólo se agregan vacíos estimables y elegibles; si faltan vacíos, las cifras son un subtotal parcial de energía faltante, no el total de la boleta.",
+            "100,000 simulated sums per candidate: independent gaps versus common-rank dependence. These are illustrative assumptions, not guaranteed bounds. Only estimable eligible gaps are included; if gaps remain, figures are a partial missing-energy subtotal, not a bill total."));
+        var agg=section.AddTable();agg.Borders.Width=.3;
+        foreach(var cm in new[]{1.0,1.7,3.0,3.0,3.0,4.0})
+            agg.AddColumn(Unit.FromCentimeter(cm));
+        var head=agg.AddRow();head.HeadingFormat=true;head.Format.Font.Bold=true;
+        head.Shading.Color=Colors.AliceBlue;
+        var headers=new[]{"R",L("Vacíos","Gaps"),L("P5 indep.","P5 indep."),L("P50 indep.","P50 indep."),
+            L("P95 indep.","P95 indep."),L("P5/50/95 rango común","Common rank P5/50/95")};
+        for(var i=0;i<headers.Length;i++)head.Cells[i].AddParagraph(headers[i]);
+        foreach(var a in report.Aggregates)
+        {
+            var row=agg.AddRow();row.Format.Font.Size=8;
+            var cells=new[]{a.Candidate,$"{a.Estimated}/{a.Total}",F(a.IndependentP5),F(a.IndependentP50),
+                F(a.IndependentP95),$"{F(a.CommonRankP5)} / {F(a.CommonRankP50)} / {F(a.CommonRankP95)}"};
+            for(var i=0;i<cells.Length;i++)row.Cells[i].AddParagraph(cells[i]);
+        }
+        section.AddParagraph(L(
+            "No se declara un intervalo calibrado del período ni se selecciona un ganador por cercanía a Enel. La validación de agregación y la comparación prospectiva siguen pendientes.",
+            "No calibrated period interval is claimed and no winner is selected by proximity to the utility value. Aggregation and prospective validation remain pending."));
     }
 
     private static void AddExecutiveEnergyComparison(

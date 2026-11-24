@@ -43,6 +43,27 @@ public sealed class UtilityBillGapStatisticalCompletionService
         _database = database;
     }
 
+    // Only called by explicitly opted-in internal PDF export. Reuses the
+    // established bill calendar and detected gaps; no write or Enel input.
+    public ExperimentalGridReport AnalyzeExperimentalCandidates(
+        string deviceId, DateOnly startLocalDate, DateOnly endLocalDateInclusive,
+        string timeZoneId)
+    {
+        if (endLocalDateInclusive < startLocalDate)
+            (startLocalDate, endLocalDateInclusive) = (endLocalDateInclusive, startLocalDate);
+        var all = LoadAllSamples(deviceId);
+        var start = LocalInstant(startLocalDate, TimeOnly.MinValue, timeZoneId);
+        var end = LocalInstant(endLocalDateInclusive.AddDays(1), TimeOnly.MinValue, timeZoneId);
+        var threshold = Math.Min(20.0, Math.Max(10.0, MedianPositiveGapMinutes(all)*3.0));
+        var interval = BuildIntervalTruth(all, start, end, threshold, timeZoneId);
+        IReadOnlyList<ExperimentalGridGap> gaps = interval.Gaps.Select((g,i)=>
+            new ExperimentalGridGap(i+1,g.StartUtc,g.EndUtc,g.Kind,g.StartWatts,g.EndWatts)).ToArray();
+        if(interval.Samples.Count==0)
+            gaps = new[]{new ExperimentalGridGap(1,start,end,"NO_OBSERVATION",null,null)};
+        return ExperimentalGridImportCandidates.Analyze(
+            all.Select(x=>new ExperimentalGridSample(x.TimestampUtc,x.Watts)),gaps,timeZoneId);
+    }
+
     public UtilityGridImportStatisticalCompletion AnalyzeObservedOnly(
         string deviceId,
         DateOnly startLocalDate,
