@@ -20,7 +20,9 @@ public sealed record ExperimentalGridReport(IReadOnlyList<ExperimentalGridGap> G
 public static class ExperimentalGridImportCandidates
 {
     public const string OptInVariable = "SOLAR_ENERGY_MONITOR_EXPERIMENTAL_R345";
-    public static bool IsEnabled => Environment.GetEnvironmentVariable(OptInVariable) == "1";
+    // Internal integration branch only: ordinary PDF export includes the experimental appendix.
+    // Explicit 0 restores the established report; do not merge this default into production.
+    public static bool IsEnabled => Environment.GetEnvironmentVariable(OptInVariable) != "0";
     public const string R3Version = "grid-import-boundary-residual-dayweighted-240m.candidate-v4";
     public const string R4Version = "grid-import-boundary-hurdle-dayweighted.candidate-v5.r4-v3";
     public const string R5Version = "grid-import-hidden-semi-markov-duration.candidate-v6";
