@@ -2136,6 +2136,14 @@
                                                       SelectedValuePath="BillId"
                                                       SelectionChanged="UtilityAuditBillSelector_SelectionChanged"/>
                                         </StackPanel>
+                                        <StackPanel Margin="0,0,12,10" VerticalAlignment="Bottom">
+                                            <TextBlock Text="{DynamicResource GridUtility.AuditModelSelection}" FontSize="12" Foreground="#6C757D" Margin="0,0,0,3"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox x:Name="UtilityAuditR3" Content="R3" IsChecked="True" Margin="0,0,10,0"/>
+                                                <CheckBox x:Name="UtilityAuditR4" Content="R4" IsChecked="True" Margin="0,0,10,0"/>
+                                                <CheckBox x:Name="UtilityAuditR5" Content="R5" IsChecked="True"/>
+                                            </StackPanel>
+                                        </StackPanel>
                                         <Button x:Name="UtilityExportBillAuditButton"
                                                 Content="{DynamicResource GridUtility.ExportBillAudit}"
                                                 Padding="14,7"

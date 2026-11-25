@@ -38,7 +38,8 @@ public sealed class UtilityBillAuditReportService
         long billId,
         string timeZoneId,
         string languageCode,
-        string? producerIdentity = null)
+        string? producerIdentity = null,
+        IReadOnlyCollection<string>? selectedModels = null)
     {
         EnsurePdfFonts();
 
@@ -46,16 +47,13 @@ public sealed class UtilityBillAuditReportService
             .SingleOrDefault(item => item.BillId == billId)
             ?? throw new InvalidOperationException("Bill was not found.");
 
-        if (!bill.FromReadingId.HasValue || !bill.ToReadingId.HasValue)
-        {
-            throw new InvalidOperationException(
-                "The bill must be linked to its official start/end readings before audit export.");
-        }
-
-        var from = _repository.GetReading(bill.FromReadingId.Value)
-            ?? throw new InvalidOperationException("Bill start reading was not found.");
-        var to = _repository.GetReading(bill.ToReadingId.Value)
-            ?? throw new InvalidOperationException("Bill end reading was not found.");
+        var spanish = languageCode.StartsWith("es", StringComparison.OrdinalIgnoreCase);
+        string L(string es, string en) => spanish ? es : en;
+        var (from, to, printedReadings) = UtilityBillAuditReadings.Resolve(
+            bill,
+            bill.FromReadingId.HasValue ? _repository.GetReading(bill.FromReadingId.Value) : null,
+            bill.ToReadingId.HasValue ? _repository.GetReading(bill.ToReadingId.Value) : null,
+            spanish);
 
         var billStartLocalDate =
             SolarApiTime.GetLocalDate(
@@ -80,12 +78,11 @@ public sealed class UtilityBillAuditReportService
                 timeZoneId,
                 statistical);
 
-        var spanish = languageCode.StartsWith(
-            "es",
-            StringComparison.OrdinalIgnoreCase);
-        string L(string es, string en) => spanish ? es : en;
-
-        var experimental = ExperimentalGridImportCandidates.IsEnabled;
+        var models = (selectedModels ?? (Environment.GetEnvironmentVariable(
+            ExperimentalGridImportCandidates.OptInVariable) == "1"
+            ? new[] { "R3", "R4", "R5" } : Array.Empty<string>()))
+            .Where(m => m is "R3" or "R4" or "R5").Distinct().OrderBy(m => m).ToArray();
+        var experimental = models.Length > 0;
         var document = new Document();
         document.Info.Title = L(
             "Informe técnico de revisión de consumo eléctrico facturado",
@@ -156,6 +153,13 @@ public sealed class UtilityBillAuditReportService
             identity,
             L("Total a pagar", "Total due"),
             Money(bill.TotalDueClp ?? bill.AmountClp));
+
+        if (printedReadings)
+            section.AddParagraph(L("Lecturas transcritas de la boleta revisada; no requieren un registro de lectura separado. Las fechas impresas no prueban una hora exacta.",
+                "Readings transcribed from the reviewed bill; no separate meter-reading record is required. Printed dates do not establish an exact time."));
+        if (experimental)
+            section.AddParagraph(L("Método principal: ventanas históricas empíricas (no R3). Candidatos internos seleccionados: ",
+                "Primary method: empirical historical windows (not R3). Selected internal candidates: ") + string.Join(", ", models));
 
         AddHeading(
             section,
@@ -333,8 +337,8 @@ public sealed class UtilityBillAuditReportService
         if(experimental)
         {
             section.AddPageBreak();
-            AddHeading(section,L("Anexo interno R3 / R4 / R5 — validación pendiente",
-                "Internal R3 / R4 / R5 appendix — validation pending"),16);
+            AddHeading(section,L("Anexo interno de modelos — validación pendiente",
+                "Internal model appendix — validation pending") + " · " + string.Join(" / ", models),16);
             section.AddParagraph(L(
                 "Comparación experimental de energía faltante. No reemplaza los resultados anteriores ni constituye evidencia validada ante Enel/SEC.",
                 "Experimental missing-energy comparison. Does not replace prior results or constitute validated evidence for the utility/regulator."));
@@ -342,7 +346,7 @@ public sealed class UtilityBillAuditReportService
             {
                 var candidates = _billGapCompletion.AnalyzeExperimentalCandidates(
                     deviceId,billStartLocalDate,billEndLocalDate,timeZoneId);
-                AddExperimentalCandidateEvidence(section,candidates,timeZoneId,spanish);
+                AddExperimentalCandidateEvidence(section,candidates,timeZoneId,spanish,models,statistical.ObservedKwh,bill,tariffScenario);
             }
             catch(Exception)
             {
@@ -379,7 +383,9 @@ public sealed class UtilityBillAuditReportService
     }
 
     private static void AddExperimentalCandidateEvidence(Section section,
-        ExperimentalGridReport report,string timeZoneId,bool spanish)
+        ExperimentalGridReport report,string timeZoneId,bool spanish,
+        IReadOnlyCollection<string> models,double observedKwh,UtilityBillRecord bill,
+        UtilityBillTariffScenarioAnalysis tariff)
     {
         string L(string es,string en)=>spanish?es:en;
         string F(double? value)=>value.HasValue?value.Value.ToString("N3"):"—";
@@ -387,12 +393,18 @@ public sealed class UtilityBillAuditReportService
             "P5, P50 y P95 son cuantiles de la energía faltante en kWh: extremo inferior, mediana y extremo superior. P5–P95 es el intervalo central nominal del 90% de la distribución del modelo; no una tolerancia del medidor. Enel no interviene en su cálculo.",
             "P5, P50 and P95 are missing-energy quantiles in kWh: lower, median and upper. P5–P95 is the nominal central 90% of the model distribution, not meter tolerance. Utility evidence is not used."));
         section.AddParagraph(L(
-            "Port nativo experimental; paridad con las referencias Python y validación prospectiva pendientes. R3 y R4: hasta 240 minutos. R4: misma franja local de 6 h. R5: más de 240 hasta 480 minutos, misma franja de 12 h. No se extrapola.",
-            "Experimental native port; parity with Python references and prospective validation pending. R3/R4: up to 240 minutes. R4: same local 6 h band. R5: over 240 up to 480 minutes, same 12 h band. No extrapolation."));
-        foreach(var name in new[]{ExperimentalGridImportCandidates.R3Version,
-            ExperimentalGridImportCandidates.R4Version,ExperimentalGridImportCandidates.R5Version})
+            "Port nativo experimental: paridad con las referencias Python y validación prospectiva pendientes. No se extrapola.",
+            "Experimental native port: Python reference parity and prospective validation pending. No extrapolation."));
+        foreach (var model in models)
         {
-            var p=section.AddParagraph(name);p.Format.Font.Size=8;
+            var (version, description) = model switch
+            {
+                "R3" => (ExperimentalGridImportCandidates.R3Version, L("Residuos condicionados por extremos y ponderados por día. Vacíos internos de hasta 240 minutos.", "Boundary-conditioned, day-weighted residuals. Internal gaps up to 240 minutes.")),
+                "R4" => (ExperimentalGridImportCandidates.R4Version, L("Modelo hurdle: separa la masa de energía cero y la distribución positiva, condicionado por extremos y franja local de 6 h. Hasta 240 minutos.", "Hurdle model: separates zero-energy mass and positive distribution, conditioned on endpoints and local 6 h band. Up to 240 minutes.")),
+                _ => (ExperimentalGridImportCandidates.R5Version, L("Modelo semi-Markov de estados y duración de episodios. Más de 240 y hasta 480 minutos, misma franja local de 12 h. Extremos ambos cero: sólo inspección.", "Semi-Markov state and episode-duration model. Over 240 and up to 480 minutes, same local 12 h band. Both-zero endpoints: inspection only."))
+            };
+            AddHeading(section, model + " · " + version, 10);
+            section.AddParagraph(description);
         }
         if(report.Gaps.Count==0)
             section.AddParagraph(L("No se detectaron vacíos en el período.","No gaps detected in the period."));
@@ -412,7 +424,7 @@ public sealed class UtilityBillAuditReportService
             info.Format.Font.Bold=true;info.Shading.Color=Colors.LightGray;
             info.Cells[0].AddParagraph(
                 $"#{g.Index}: {start:dd-MM HH:mm zzz} → {end:dd-MM HH:mm zzz} · {(g.EndUtc-g.StartUtc).TotalMinutes:N2} min · {F(g.StartWatts)} / {F(g.EndWatts)} W");
-            foreach(var e in report.Estimates.Where(x=>x.GapIndex==g.Index))
+            foreach(var e in report.Estimates.Where(x=>x.GapIndex==g.Index && models.Contains(x.Candidate)))
             {
                 var row=table.AddRow();row.Format.Font.Size=8;
                 var status=e.Status switch
@@ -442,12 +454,42 @@ public sealed class UtilityBillAuditReportService
         var headers=new[]{"R",L("Vacíos","Gaps"),L("P5 indep.","P5 indep."),L("P50 indep.","P50 indep."),
             L("P95 indep.","P95 indep."),L("P5/50/95 rango común","Common rank P5/50/95")};
         for(var i=0;i<headers.Length;i++)head.Cells[i].AddParagraph(headers[i]);
-        foreach(var a in report.Aggregates)
+        foreach(var a in report.Aggregates.Where(x=>models.Contains(x.Candidate)))
         {
             var row=agg.AddRow();row.Format.Font.Size=8;
             var cells=new[]{a.Candidate,$"{a.Estimated}/{a.Total}",F(a.IndependentP5),F(a.IndependentP50),
                 F(a.IndependentP95),$"{F(a.CommonRankP5)} / {F(a.CommonRankP50)} / {F(a.CommonRankP95)}"};
             for(var i=0;i<cells.Length;i++)row.Cells[i].AddParagraph(cells[i]);
+        }
+        AddHeading(section,L("Comparación del período por modelo","Period comparison by model"),12);
+        section.AddParagraph(L("Sólo se presentan totales y efectos monetarios si el modelo estima todos los vacíos. Las cifras son experimentales, no un intervalo calibrado. Se conserva el método empírico del informe principal.",
+            "Totals and monetary effects are shown only when the model estimates every gap. Values are experimental, not a calibrated interval. The main empirical method is preserved."));
+        foreach (var a in report.Aggregates.Where(x=>models.Contains(x.Candidate)))
+        {
+            if (a.Total == 0)
+            {
+                section.AddParagraph(a.Candidate + ": " + L("Sin vacíos; energía observada", "No gaps; observed energy") + $" {observedKwh:N3} kWh.");
+                continue;
+            }
+            if (a.Estimated != a.Total || !a.IndependentP5.HasValue || !a.IndependentP50.HasValue || !a.IndependentP95.HasValue)
+            {
+                section.AddParagraph($"{a.Candidate}: {a.Estimated}/{a.Total} " + L("vacíos estimables; total del período y efecto CLP no disponibles.", "estimable gaps; period total and CLP effect unavailable."));
+                continue;
+            }
+            AddHeading(section,a.Candidate,10);
+            foreach (var (label, missing) in new[] { ("P5", a.IndependentP5.Value), ("P50", a.IndependentP50.Value), ("P95", a.IndependentP95.Value) })
+            {
+                var total = observedKwh + missing;
+                var text = $"{label}: {total:N3} kWh";
+                if (bill.BilledConsumptionKwh is double billed)
+                {
+                    text += $" · Enel − {label}: {billed-total:+0.000;-0.000;0.000} kWh";
+                    if (tariff.HasTariffModel && tariff.SupportedVariableRateClpPerKwh is double rate
+                        && (bill.TotalDueClp ?? bill.AmountClp) is double due)
+                        text += $" · " + L("Total comparable", "Comparable total") + $": {Money(due+(total-billed)*rate)}";
+                }
+                section.AddParagraph(text);
+            }
         }
         section.AddParagraph(L(
             "No se declara un intervalo calibrado del período ni se selecciona un ganador por cercanía a Enel. La validación de agregación y la comparación prospectiva siguen pendientes.",
@@ -527,7 +569,7 @@ public sealed class UtilityBillAuditReportService
             var ratio = enel > 0 && diff.HasValue
                 ? diff.Value / enel.Value * 100.0 : 0.0;
             var context = diff.HasValue
-                ? $"Enel − {item.Name[..(i == 1 ? 3 : 2)]}: {diff.Value:+0.000;-0.000;0.000} kWh ({ratio:+0.00;-0.00;0.00}%)"
+                ? $"Enel − {(i == 0 ? "P5" : i == 1 ? "P50" : "P95")}: {diff.Value:+0.000;-0.000;0.000} kWh ({ratio:+0.00;-0.00;0.00}%)"
                 : L("Sin cálculo disponible", "Calculation unavailable");
             AddAuditMetricCard(values.Cells[i], item.Name,
                 item.Energy.HasValue ? $"{item.Energy.Value:N3} kWh" : "—",
@@ -628,8 +670,8 @@ public sealed class UtilityBillAuditReportService
                     distance)
                 : string.Format(
                     L(
-                        "Bajo la agregación provisional de gaps, Enel queda {3:N3} kWh por encima de P95 ({2:N3} kWh). La separación es pequeña. El soporte empírico completo alcanza {4}, por lo que 97 kWh no se presenta como imposible ni como estadísticamente excluido; sí se mantiene una diferencia material frente a P50 ({1:N3} kWh).",
-                        "Under the provisional gap aggregation, the utility value lies {3:N3} kWh above P95 ({2:N3} kWh). The separation is small. Full empirical support reaches {4}, so 97 kWh is not presented as impossible or statistically excluded; a material difference from P50 ({1:N3} kWh) remains."),
+                        "Bajo la agregación provisional de gaps, Enel queda {3:N3} kWh por encima de P95 ({2:N3} kWh). La separación es pequeña. El soporte empírico completo alcanza {4}, por lo que el valor facturado no se presenta como imposible ni como estadísticamente excluido; sí se mantiene una diferencia material frente a P50 ({1:N3} kWh).",
+                        "Under the provisional gap aggregation, the utility value lies {3:N3} kWh above P95 ({2:N3} kWh). The separation is small. Full empirical support reaches {4}, so the billed value is not presented as impossible or statistically excluded; a material difference from P50 ({1:N3} kWh) remains."),
                     enel.Value,
                     central,
                     upper,
@@ -2326,8 +2368,8 @@ public sealed class UtilityBillAuditReportService
             "S1",
             L("Boleta Enel", "Utility bill"),
             L(
-                "Período, lecturas, 97 kWh facturados, tarifa impresa, cargos, impuestos y total.",
-                "Period, readings, 97 billed kWh, printed tariff, charges, taxes and total."));
+                "Período, lecturas, kWh facturados, tarifa impresa, cargos, impuestos y total.",
+                "Period, readings, billed kWh, printed tariff, charges, taxes and total."));
         AddSourceRow(
             sources,
             "S2",
@@ -2371,7 +2413,7 @@ public sealed class UtilityBillAuditReportService
 
         AddHeading(
             section,
-            L("Trazabilidad de lecturas oficiales", "Official-reading traceability"),
+            L("Trazabilidad de lecturas de la boleta", "Bill-reading traceability"),
             11.5);
 
         var readings = section.AddTable();
@@ -2397,6 +2439,8 @@ public sealed class UtilityBillAuditReportService
             toLocal,
             spanish);
 
+        if (from.ReadingId == 0 || to.ReadingId == 0)
+            section.AddParagraph(L("Origen: valores impresos registrados en la cabecera de la boleta revisada; sin vínculo a lecturas independientes.", "Source: printed values recorded in the reviewed bill header; no independent reading link."));
         AddTariffEvidence(
             section,
             tariff,
@@ -2488,8 +2532,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("Independencia respecto de Enel", "Independence from utility value"),
             L(
-                "Los 97 kWh facturados no se usan para construir, calibrar, seleccionar ni puntuar la distribución del inversor. Enel se incorpora sólo después como referencia de comparación.",
-                "The billed 97 kWh are not used to construct, calibrate, select or score the inverter distribution. The utility value is introduced only afterward as a comparison reference."));
+                "Los kWh facturados no se usan para construir, calibrar, seleccionar ni puntuar la distribución del inversor. Enel se incorpora sólo después como referencia de comparación.",
+                "The billed kWh are not used to construct, calibrate, select or score the inverter distribution. The utility value is introduced only afterward as a comparison reference."));
 
         AddMethodBlock(
             section,

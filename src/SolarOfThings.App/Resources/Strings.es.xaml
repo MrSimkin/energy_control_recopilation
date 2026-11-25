@@ -912,4 +912,5 @@
     <sys:String x:Key="Diagnostics.H01From">Desde</sys:String>
     <sys:String x:Key="Diagnostics.H01Through">Hasta</sys:String>
     <sys:String x:Key="Diagnostics.H01Export">Exportar diagnóstico H-01 (ZIP)</sys:String>
+    <sys:String x:Key="GridUtility.AuditModelSelection">Modelos experimentales (PDF)</sys:String>
 </ResourceDictionary>

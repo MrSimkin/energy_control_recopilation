@@ -4143,6 +4143,17 @@ try
                     smokeTariffRepository,
                     smokeCandidateRepository,
                     smokeVersionResolver));
+        var existingAuditBill = utilityRepository.GetBills().Single(x => x.BillId == billId);
+        var manualAuditBill = existingAuditBill with
+        {
+            FromReadingId = null, ToReadingId = null,
+            MeterStartKwh = 79120, MeterEndKwh = 79230,
+            BilledConsumptionKwh = 110, ReviewState = UtilityBillReviewState.Reviewed
+        };
+        var resolvedManual = UtilityBillAuditReadings.Resolve(manualAuditBill, null, null, true);
+        if (!resolvedManual.Printed || resolvedManual.From.ReadingKwh != 79120 ||
+            resolvedManual.To.ReadingKwh != 79230)
+            throw new InvalidOperationException("Reviewed manual bill readings without links must be auditable.");
         var billAuditPdfPath =
             Path.Combine(root, "smoke-enel-bill-audit.pdf");
         billAuditReport.ExportPdf(

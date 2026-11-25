@@ -4293,6 +4293,17 @@ public partial class MainWindow : Window
         UtilityAuditExportProgressText.Text = label;
     }
 
+    private string UtilityBillExportPeriodTag(long billId, string? stationTimeZone)
+    {
+        var bill = _services.GetRequiredService<UtilityMeterRepository>().GetBills()
+            .SingleOrDefault(x => x.BillId == billId);
+        if (bill is null) return $"Boleta-{billId}";
+        var zone = string.IsNullOrWhiteSpace(stationTimeZone) ? "America/Santiago" : stationTimeZone;
+        var start = SolarApiTime.GetLocalDate(bill.PeriodStartUtc, zone);
+        var end = SolarApiTime.GetLocalDate(bill.PeriodEndUtc, zone);
+        return $"{start:yyyy-MM-dd}_a_{end:yyyy-MM-dd}";
+    }
+
     private async void UtilityExportBillAudit_Click(
         object sender,
         RoutedEventArgs e)
@@ -4306,13 +4317,19 @@ public partial class MainWindow : Window
             return;
         }
 
+        var selectedModels = new[] {
+            (Name: "R3", Selected: UtilityAuditR3.IsChecked == true),
+            (Name: "R4", Selected: UtilityAuditR4.IsChecked == true),
+            (Name: "R5", Selected: UtilityAuditR5.IsChecked == true)
+        }.Where(x => x.Selected).Select(x => x.Name).ToArray();
+        var periodTag = UtilityBillExportPeriodTag(billId, profile.StationTimeZone);
         var dialog = new SaveFileDialog
         {
             Title = _localization.GetString("GridUtility.ExportBillAuditTitle"),
             Filter = "PDF (*.pdf)|*.pdf",
             DefaultExt = "pdf",
             AddExtension = true,
-            FileName = $"Auditoria-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
+            FileName = $"Auditoria-Boleta-Enel-{periodTag}-{DateTime.Now:yyyyMMdd-HHmm}.pdf"
         };
 
         PrepareExportDialog(dialog);
@@ -4357,7 +4374,7 @@ public partial class MainWindow : Window
                     billId,
                     timeZone,
                     _localization.CurrentLanguage,
-                    ReportProducerIdentity()));
+                    ReportProducerIdentity(), selectedModels));
 
             SetAuditExportProgress(100, spanish
                 ? "Paso 3/3 · PDF guardado: " + dialog.FileName
@@ -4409,7 +4426,7 @@ public partial class MainWindow : Window
             DefaultExt = "zip",
             AddExtension = true,
             FileName =
-                $"Anexo-Tecnico-Boleta-Enel-{DateTime.Now:yyyyMMdd-HHmm}.zip"
+                $"Anexo-Tecnico-Boleta-Enel-{UtilityBillExportPeriodTag(billId, profile.StationTimeZone)}-{DateTime.Now:yyyyMMdd-HHmm}.zip"
         };
 
         PrepareExportDialog(dialog);
