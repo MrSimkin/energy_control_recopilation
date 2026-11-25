@@ -88,8 +88,6 @@ public sealed class UtilityBillAuditReportService
             "Informe técnico de revisión de consumo eléctrico facturado",
             "Technical review of billed electricity consumption");
 
-        if(experimental)
-            document.Info.Title = L("USO INTERNO EXPERIMENTAL — ", "INTERNAL EXPERIMENTAL USE — ") + document.Info.Title;
 
         var normal = document.Styles["Normal"];
         normal.Font.Name = "Arial";
@@ -158,8 +156,8 @@ public sealed class UtilityBillAuditReportService
             section.AddParagraph(L("Lecturas transcritas de la boleta revisada; no requieren un registro de lectura separado. Las fechas impresas no prueban una hora exacta.",
                 "Readings transcribed from the reviewed bill; no separate meter-reading record is required. Printed dates do not establish an exact time."));
         if (experimental)
-            section.AddParagraph(L("Método principal: ventanas históricas empíricas (no R3). Candidatos internos seleccionados: ",
-                "Primary method: empirical historical windows (not R3). Selected internal candidates: ") + string.Join(", ", models));
+            section.AddParagraph(L("Método principal: ventanas históricas empíricas (no R3). Modelos complementarios seleccionados: ",
+                "Primary method: empirical historical windows (not R3). Selected complementary models: ") + string.Join(", ", models));
 
         AddHeading(
             section,
@@ -337,11 +335,11 @@ public sealed class UtilityBillAuditReportService
         if(experimental)
         {
             section.AddPageBreak();
-            AddHeading(section,L("Anexo interno de modelos — validación pendiente",
-                "Internal model appendix — validation pending") + " · " + string.Join(" / ", models),16);
+            AddHeading(section,L("9. Comparación de modelos estadísticos",
+                "9. Statistical model comparison") + " · " + string.Join(" / ", models),16);
             section.AddParagraph(L(
-                "Comparación experimental de energía faltante. No reemplaza los resultados anteriores ni constituye evidencia validada ante Enel/SEC.",
-                "Experimental missing-energy comparison. Does not replace prior results or constitute validated evidence for the utility/regulator."));
+                "Comparación de métodos de estimación de energía faltante. Sus límites de aplicación y validación se indican en la metodología.",
+                "Comparison of missing-energy estimation methods. Applicability and validation limits are described in the methodology."));
             try
             {
                 var candidates = _billGapCompletion.AnalyzeExperimentalCandidates(
@@ -350,16 +348,14 @@ public sealed class UtilityBillAuditReportService
             }
             catch(Exception)
             {
-                section.AddParagraph(L("No se pudo calcular el anexo experimental. No se emiten estimaciones sustitutivas.",
-                    "Experimental appendix could not be calculated. No substitute estimates are issued."));
+                section.AddParagraph(L("No se pudo calcular la comparación de modelos. No se emiten estimaciones sustitutivas.",
+                    "Model comparison could not be calculated. No substitute estimates are issued."));
             }
         }
 
         var footer = section.Footers.Primary.AddParagraph();
         footer.Format.Alignment = ParagraphAlignment.Center;
-        footer.AddText(
-            experimental ? L("INTERNO EXPERIMENTAL · validación pendiente", "INTERNAL EXPERIMENTAL · validation pending")
-                : L("Informe técnico", "Technical report"));
+        footer.AddText(L("Informe técnico", "Technical report"));
         if (!string.IsNullOrWhiteSpace(producerIdentity))
         {
             footer.AddText($" · {producerIdentity}");
@@ -393,8 +389,8 @@ public sealed class UtilityBillAuditReportService
             "P5, P50 y P95 son cuantiles de la energía faltante en kWh: extremo inferior, mediana y extremo superior. P5–P95 es el intervalo central nominal del 90% de la distribución del modelo; no una tolerancia del medidor. Enel no interviene en su cálculo.",
             "P5, P50 and P95 are missing-energy quantiles in kWh: lower, median and upper. P5–P95 is the nominal central 90% of the model distribution, not meter tolerance. Utility evidence is not used."));
         section.AddParagraph(L(
-            "Port nativo experimental: paridad con las referencias Python y validación prospectiva pendientes. No se extrapola.",
-            "Experimental native port: Python reference parity and prospective validation pending. No extrapolation."));
+            "Implementación nativa: concordancia con referencias de investigación y validación prospectiva pendientes. No se extrapola.",
+            "Native implementation: research-reference parity and prospective validation pending. No extrapolation."));
         foreach (var model in models)
         {
             var (version, description) = model switch
@@ -429,7 +425,7 @@ public sealed class UtilityBillAuditReportService
                 var row=table.AddRow();row.Format.Font.Size=8;
                 var status=e.Status switch
                 {
-                    "EXPERIMENTAL_PENDING_VALIDATION"=>L("Experimental, pendiente","Experimental, pending"),
+                    "EXPERIMENTAL_PENDING_VALIDATION"=>L("Estimación provisional","Provisional estimate"),
                     "EXPERIMENTAL_BOTH_ZERO_WARNING"=>L("Extremos cero: riesgo","Zero endpoints: risk"),
                     _ when e.Status.StartsWith("NOT_APPLICABLE")=>L("Fuera de alcance","Out of scope"),
                     _ when e.Status.StartsWith("INSUFFICIENT")=>L("Evidencia insuficiente","Insufficient evidence"),
@@ -442,7 +438,7 @@ public sealed class UtilityBillAuditReportService
         section.AddParagraph(L(
             "Los días indican soporte histórico, no observaciones independientes garantizadas. Una celda sin estimación no equivale a cero. R5 con ambos extremos cero se muestra sólo para inspección y queda excluido de la agregación por su limitación estructural conocida.",
             "Days indicate historical support, not guaranteed independent observations. Missing estimates are not zero. R5 with both endpoints zero is shown for inspection only and excluded from aggregation because of its known structural limitation."));
-        AddHeading(section,L("Agregación experimental y sensibilidad","Experimental aggregation and sensitivity"),12);
+        AddHeading(section,L("Agregación y sensibilidad","Aggregation and sensitivity"),12);
         section.AddParagraph(L(
             "100.000 sumas simuladas por candidato: independencia entre vacíos frente a dependencia de rango común. Son dos hipótesis ilustrativas, no límites garantizados. Sólo se agregan vacíos estimables y elegibles; si faltan vacíos, las cifras son un subtotal parcial de energía faltante, no el total de la boleta.",
             "100,000 simulated sums per candidate: independent gaps versus common-rank dependence. These are illustrative assumptions, not guaranteed bounds. Only estimable eligible gaps are included; if gaps remain, figures are a partial missing-energy subtotal, not a bill total."));
@@ -474,6 +470,9 @@ public sealed class UtilityBillAuditReportService
             if (a.Estimated != a.Total || !a.IndependentP5.HasValue || !a.IndependentP50.HasValue || !a.IndependentP95.HasValue)
             {
                 section.AddParagraph($"{a.Candidate}: {a.Estimated}/{a.Total} " + L("vacíos estimables; total del período y efecto CLP no disponibles.", "estimable gaps; period total and CLP effect unavailable."));
+                if (a.IndependentP5.HasValue && a.IndependentP50.HasValue && a.IndependentP95.HasValue)
+                    section.AddParagraph(L("Subtotal observado más vacíos estimados (no total mensual): ", "Observed plus estimated gaps subtotal (not monthly total): ") +
+                        $"P5 {observedKwh+a.IndependentP5.Value:N3} · P50 {observedKwh+a.IndependentP50.Value:N3} · P95 {observedKwh+a.IndependentP95.Value:N3} kWh.");
                 continue;
             }
             AddHeading(section,a.Candidate,10);
@@ -670,8 +669,8 @@ public sealed class UtilityBillAuditReportService
                     distance)
                 : string.Format(
                     L(
-                        "Bajo la agregación provisional de gaps, Enel queda {3:N3} kWh por encima de P95 ({2:N3} kWh). La separación es pequeña. El soporte empírico completo alcanza {4}, por lo que el valor facturado no se presenta como imposible ni como estadísticamente excluido; sí se mantiene una diferencia material frente a P50 ({1:N3} kWh).",
-                        "Under the provisional gap aggregation, the utility value lies {3:N3} kWh above P95 ({2:N3} kWh). The separation is small. Full empirical support reaches {4}, so the billed value is not presented as impossible or statistically excluded; a material difference from P50 ({1:N3} kWh) remains."),
+                        "Bajo la agregación provisional de gaps, Enel queda {3:N3} kWh por encima de P95 ({2:N3} kWh). La magnitud debe evaluarse según la diferencia calculada. El soporte empírico completo alcanza {4}, por lo que el valor facturado no se presenta como imposible ni como estadísticamente excluido; sí se mantiene una diferencia material frente a P50 ({1:N3} kWh).",
+                        "Under the provisional gap aggregation, the utility value lies {3:N3} kWh above P95 ({2:N3} kWh). The magnitude must be assessed from the calculated difference. Full empirical support reaches {4}, so the billed value is not presented as impossible or statistically excluded; a material difference from P50 ({1:N3} kWh) remains."),
                     enel.Value,
                     central,
                     upper,
@@ -1905,8 +1904,8 @@ public sealed class UtilityBillAuditReportService
                 section,
                 L("DISTRIBUCIÓN NO DISPONIBLE", "DISTRIBUTION UNAVAILABLE"),
                 L(
-                    "No existen suficientes ventanas históricas comparables para construir una distribución empírica completa. No se dibuja una curva normal sustituta.",
-                    "There are not enough comparable historical windows to build a complete empirical distribution. No substitute normal curve is drawn."),
+                    "No se obtuvo una distribución completa. No se dibuja una curva normal sustituta. Motivo: ",
+                    "A complete distribution could not be obtained. No substitute normal curve is drawn. Reason: ") + analysis.Status,
                 Colors.LemonChiffon);
             return;
         }
@@ -1923,9 +1922,11 @@ public sealed class UtilityBillAuditReportService
         AddCallout(
             section,
             L("CÓMO SE CONSTRUYE LA DISTRIBUCIÓN", "HOW THE DISTRIBUTION IS BUILT"),
-            L(
-                "Las columnas muestran la frecuencia de combinaciones discretas de ventanas históricas. Cada escenario suma la importación observada y un aporte calculado para los intervalos sin registros.",
-                "Bars show frequencies of discrete combinations of historical windows. Each scenario combines observed import with computed energy for intervals without records."),
+            (analysis.AggregationSampled
+                ? L("Frecuencias de 200.000 combinaciones muestreadas con semilla fija; no enumeración exacta. ", "Frequencies of 200,000 combinations sampled with a fixed seed; not exact enumeration. ")
+                : L("Frecuencias de todas las combinaciones empíricas enumeradas exactamente. ", "Frequencies of all exactly enumerated empirical combinations. "))
+            + L("Cada escenario suma la importación observada y un aporte calculado para los intervalos sin registros.",
+                "Each scenario combines observed import with computed energy for intervals without records."),
             Colors.AliceBlue);
 
         // Reuse the real plotted distribution from the executive first page.
@@ -1939,8 +1940,8 @@ public sealed class UtilityBillAuditReportService
 
         var firstSentence = string.Format(
             L(
-                "El valor mínimo de {0:N3} kWh concentra {1:N2}% de las {2:N0} combinaciones ({3:N0} escenarios).",
-                "The minimum of {0:N3} kWh contains {1:N2}% of {2:N0} combinations ({3:N0} scenarios)."),
+                "El mínimo de los escenarios representados, {0:N3} kWh, concentra {1:N2}% de las {2:N0} combinaciones ({3:N0} escenarios).",
+                "The minimum of the represented scenarios, {0:N3} kWh, contains {1:N2}% of {2:N0} combinations ({3:N0} scenarios)."),
             first.EnergyKwh,
             firstShare,
             scenarioCount,
@@ -1958,7 +1959,7 @@ public sealed class UtilityBillAuditReportService
 
         AddCallout(
             section,
-            L("POR QUÉ COINCIDEN LOS PERCENTILES", "WHY PERCENTILES CAN COINCIDE"),
+            L("LECTURA DE LOS PERCENTILES", "WHY PERCENTILES CAN COINCIDE"),
             firstSentence + " " + explanation,
             Colors.Honeydew);
 
@@ -1986,8 +1987,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("LECTURA DE FRECUENCIAS", "READING THE FREQUENCIES"),
             L(
-                "La primera barra mantiene el mínimo exacto; las siguientes agrupan intervalos energéticos de la cola. Los porcentajes corresponden a frecuencias de escenarios con días históricos comparables. La boleta Enel es sólo referencia de contraste.",
-                "The first bar is the exact minimum; subsequent bars group energy intervals in the tail. Percentages are frequencies of scenarios using comparable historical days. The utility bill is solely a comparison reference."),
+                "La primera barra mantiene el mínimo de los escenarios representados; las siguientes agrupan intervalos energéticos de la cola. Los porcentajes corresponden a frecuencias de escenarios con días históricos comparables. La boleta Enel es sólo referencia de contraste.",
+                "The first bar is the minimum of the represented scenarios; subsequent bars group energy intervals in the tail. Percentages are frequencies of scenarios using comparable historical days. The utility bill is solely a comparison reference."),
             Colors.WhiteSmoke);
     }
 
@@ -2050,8 +2051,8 @@ public sealed class UtilityBillAuditReportService
             L("TIEMPO NO CUBIERTO", "UNCOVERED TIME"),
             $"{analysis.UncoveredHours:N3} h",
             L(
-                "Se identifica y se completa estadísticamente.",
-                "Identified and statistically completed."),
+                "Se identifica y se estima cuando el método es aplicable.",
+                "Identified and estimated when the method is applicable."),
             Colors.WhiteSmoke,
             13);
         AddAuditMetricCard(
@@ -2070,8 +2071,8 @@ public sealed class UtilityBillAuditReportService
                 section,
                 L("COMPLETACIÓN NO DISPONIBLE", "COMPLETION UNAVAILABLE"),
                 L(
-                    "No existe evidencia estadística suficiente para completar todos los gaps de este período.",
-                    "There is not enough statistical evidence to complete all gaps in this period."),
+                    "No se pudieron completar todos los vacíos del período. Motivo: ",
+                    "Not all period gaps could be completed. Reason: ") + analysis.Status,
                 Colors.LemonChiffon);
             return;
         }
@@ -2120,8 +2121,8 @@ public sealed class UtilityBillAuditReportService
                 L("¿PUEDE LA DIFERENCIA EXPLICARSE SÓLO POR LOS DATOS FALTANTES?", "CAN MISSING DATA ALONE EXPLAIN THE DIFFERENCE?"),
                 string.Format(
                     L(
-                        "Enel: {0:N3} kWh · P95 provisional: {1:N3} kWh · Enel − P95: {2:N3} kWh ({3:N2}%). El máximo empírico conjunto alcanza {4}; por ello el exceso sobre P95 se trata como una diferencia menor dependiente del supuesto de agregación, no como exclusión estadística.",
-                        "Utility: {0:N3} kWh · provisional P95: {1:N3} kWh · utility − P95: {2:N3} kWh ({3:N2}%). Full empirical support reaches {4}; therefore the excess above P95 is treated as a minor difference dependent on the aggregation assumption, not as statistical exclusion."),
+                        "Enel: {0:N3} kWh · P95 provisional: {1:N3} kWh · Enel − P95: {2:N3} kWh ({3:N2}%). El máximo del soporte histórico combinado alcanza {4}. La diferencia depende de los supuestos de agregación; superar P95 o el máximo histórico no demuestra imposibilidad física.",
+                        "Utility: {0:N3} kWh · provisional P95: {1:N3} kWh · utility − P95: {2:N3} kWh ({3:N2}%). The combined historical support maximum reaches {4}. The difference depends on aggregation assumptions; exceeding P95 or the historical maximum does not establish physical impossibility."),
                     enel,
                     statistical.UpperKwh.Value,
                     difference,
@@ -2242,6 +2243,14 @@ public sealed class UtilityBillAuditReportService
         h.Cells[1].AddParagraph(L("Evidencia", "Evidence"));
         h.Cells[2].AddParagraph(L("Estado", "Status"));
 
+        if (bill.BilledConsumptionKwh.HasValue && !statistical.MedianKwh.HasValue)
+        {
+            var billed = bill.BilledConsumptionKwh.Value;
+            AddFindingRow(table, "H01",
+                L($"Enel: {billed:N3} kWh; inversor observado: {statistical.ObservedKwh:N3} kWh. Diferencia observada: {billed-statistical.ObservedKwh:N3} kWh. Sin total completado: ",
+                    $"Utility: {billed:N3} kWh; inverter observed: {statistical.ObservedKwh:N3} kWh. Observed difference: {billed-statistical.ObservedKwh:N3} kWh. No completed total: ") + analysis.Status,
+                L("REQUIERE REVISIÓN", "REVIEW REQUIRED"));
+        }
         if (bill.BilledConsumptionKwh.HasValue &&
             statistical.MedianKwh.HasValue)
         {
@@ -2281,8 +2290,8 @@ public sealed class UtilityBillAuditReportService
                         ? $"{analysis.MaximumKwh.Value:N3} kWh"
                         : "—"),
                 diff > 0
-                    ? L("DIFERENCIA MENOR", "MINOR DIFFERENCE")
-                    : L("COINCIDE", "CONSISTENT"));
+                    ? L("SUPERA P95", "ABOVE P95")
+                    : L("NO SUPERA P95", "NOT ABOVE P95"));
         }
 
         var printedTotal =
@@ -2500,8 +2509,8 @@ public sealed class UtilityBillAuditReportService
             section,
             L("Completación estadística", "Statistical completion"),
             L(
-                "Para cada gap interno se usan ventanas históricas completas con el mismo horario local, la duración real del gap y el mismo tipo de día (laboral/fin de semana), siempre anteriores al objetivo. Se toman los 15 días elegibles más recientes, con mínimo 10. P5/P50/P95 se obtienen con cuantiles empíricos inversos. Los gaps distintos se agregan mediante combinaciones empíricas exactas.",
-                "For each internal gap, complete historical windows with the same local clock time, actual gap duration and day type (weekday/weekend) are used, always prior to the target. The latest 15 eligible dates are used, minimum 10. P5/P50/P95 use inverse empirical quantiles. Distinct gaps are aggregated using exact empirical combinations."));
+                "Para cada gap interno se usan ventanas históricas completas con el mismo horario local, la duración real del gap y el mismo tipo de día (laboral/fin de semana), siempre anteriores al objetivo. Se toman los 15 días elegibles más recientes, con mínimo 10. P5/P50/P95 se obtienen con cuantiles empíricos inversos. Los gaps se agregan por enumeración exacta o muestreo de combinaciones cuando el límite computacional lo requiere.",
+                "For each internal gap, complete historical windows with the same local clock time, actual gap duration and day type (weekday/weekend) are used, always prior to the target. The latest 15 eligible dates are used, minimum 10. P5/P50/P95 use inverse empirical quantiles. Distinct gaps are aggregated by exact enumeration or sampled combinations when required by the computational limit."));
 
         AddMethodBlock(
             section,
@@ -2513,9 +2522,13 @@ public sealed class UtilityBillAuditReportService
         AddMethodBlock(
             section,
             L("Cuantiles empíricos discretos", "Discrete empirical quantiles"),
-            L(
-                "Cada gap interno usa 15 ventanas históricas. Con cuantiles empíricos inversos, q05 coincide con el mínimo y q95 con el máximo de esas 15 ventanas. El P95 total no es la suma de esos máximos: es el percentil 95 de las 3.375 combinaciones exactas de los tres gaps.",
-                "Each internal gap uses 15 historical windows. With inverse empirical quantiles, q05 equals the minimum and q95 the maximum of those 15 windows. Total P95 is not the sum of those maxima: it is the 95th percentile of the 3,375 exact combinations of the three gaps."));
+            analysis.AggregationSampled
+                ? L("La enumeración completa supera el límite computacional. Se muestrean 200.000 combinaciones uniformemente con reemplazo de los mismos donantes, semilla fija 1729. P5/P50/P95 son cuantiles aproximados; el máximo del soporte se calcula por separado como suma de máximos.",
+                    "Full enumeration exceeds the computational limit. 200,000 combinations are sampled uniformly with replacement from the same donors, fixed seed 1729. P5/P50/P95 are approximate; the support maximum is separately calculated as the sum of maxima.")
+                : statistical.HasPredictiveInterval
+                    ? L($"Se enumeraron {analysis.ExactCombinationCount:N0} combinaciones de los donantes disponibles. P95 total es el percentil de esas sumas, no la suma de los P95 individuales.",
+                        $"{analysis.ExactCombinationCount:N0} combinations of available donors were enumerated. Total P95 is the percentile of those sums, not the sum of individual P95s.")
+                    : L("No hay distribución completa. Motivo: ", "No complete distribution. Reason: ") + analysis.Status);
 
         AddMethodBlock(
             section,

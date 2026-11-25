@@ -34,6 +34,40 @@ public sealed class UtilityBillGapStatisticalCompletionService
     private const double EdgeToleranceMinutes = 5.5;
     private const double Alpha = 0.10;
     private const int MaximumExactCombinations = 1_000_000;
+    private const int SampledCombinationCount = 200_000;
+    private const int AggregationSeed = 1729;
+    public const string SampledMethodVersion = "bill-gap-calendar-window-empirical.v1.mc200k.v1";
+
+    // Preserve exact Cartesian enumeration for small periods; use reproducible
+    // uniform draws from the same donor distributions when enumeration is too large.
+    public static (List<double> Totals, bool Sampled) AggregateDonorScenarios(
+        double observedAndEdges, IReadOnlyList<double[]> distributions)
+    {
+        long count = 1;
+        foreach (var distribution in distributions)
+        {
+            if (distribution.Length == 0)
+                throw new ArgumentException("Empty donor distribution.");
+            if (count > MaximumExactCombinations / distribution.Length)
+            {
+                var rng = new Random(AggregationSeed);
+                var sampled = new List<double>(SampledCombinationCount);
+                for (var i = 0; i < SampledCombinationCount; i++)
+                {
+                    var total = observedAndEdges;
+                    foreach (var donors in distributions)
+                        total += donors[rng.Next(donors.Length)];
+                    sampled.Add(total);
+                }
+                return (sampled, true);
+            }
+            count *= distribution.Length;
+        }
+        var totals = new List<double> { observedAndEdges };
+        foreach (var distribution in distributions)
+            totals = totals.SelectMany(total => distribution.Select(value => total + value)).ToList();
+        return (totals, false);
+    }
 
     private readonly SqliteDatabase _database;
 
@@ -202,7 +236,12 @@ public sealed class UtilityBillGapStatisticalCompletionService
             return Insufficient(
                 startLocalDate,
                 endLocalDateInclusive,
-                "INSUFFICIENT_INTERVAL_SAMPLES");
+                "INSUFFICIENT_INTERVAL_SAMPLES", interval) with
+            {
+                StartUtc = startUtc, EndUtcExclusive = endUtcExclusive,
+                MedianCadenceMinutes = medianCadenceMinutes,
+                DailyEvidence = BuildDailyEvidence(interval.Samples, startUtc, endUtcExclusive, threshold, timeZoneId)
+            };
         }
 
         var firstHistoryLocalDate =
@@ -216,6 +255,18 @@ public sealed class UtilityBillGapStatisticalCompletionService
         var distributions =
             new List<double[]>();
         var deterministicBoundaryKwh = 0.0;
+        var dailyEvidence = BuildDailyEvidence(interval.Samples, startUtc,
+            endUtcExclusive, threshold, timeZoneId);
+        UtilityBillGapStatisticalAnalysis Incomplete(string status) =>
+            Insufficient(startLocalDate, endLocalDateInclusive, status, interval) with
+            {
+                StartUtc = startUtc,
+                EndUtcExclusive = endUtcExclusive,
+                MedianCadenceMinutes = medianCadenceMinutes,
+                Gaps = gapEvidence.ToArray(),
+                DailyEvidence = dailyEvidence,
+                DeterministicBoundaryCompletionKwh = deterministicBoundaryKwh
+            };
 
         for (var index = 0;
              index < interval.Gaps.Count;
@@ -232,11 +283,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
                 if (gap.DurationMinutes >
                     EdgeToleranceMinutes)
                 {
-                    return Insufficient(
-                        startLocalDate,
-                        endLocalDateInclusive,
-                        $"BOUNDARY_GAP_{gapIndex}_EXCEEDS_EDGE_TOLERANCE",
-                        interval);
+                    return Incomplete($"BOUNDARY_GAP_{gapIndex}_EXCEEDS_EDGE_TOLERANCE");
                 }
 
                 var watts =
@@ -307,11 +354,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
 
             if (historical.Count < MinimumDays)
             {
-                return Insufficient(
-                    startLocalDate,
-                    endLocalDateInclusive,
-                    $"GAP_{gapIndex}_INSUFFICIENT_COMPARABLE_DATES",
-                    interval);
+                return Incomplete($"GAP_{gapIndex}_INSUFFICIENT_COMPARABLE_DATES");
             }
 
             var calibration =
@@ -321,11 +364,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
 
             if (calibration.Length < MinimumDays)
             {
-                return Insufficient(
-                    startLocalDate,
-                    endLocalDateInclusive,
-                    $"GAP_{gapIndex}_INSUFFICIENT_CALIBRATION_DATES",
-                    interval);
+                return Incomplete($"GAP_{gapIndex}_INSUFFICIENT_CALIBRATION_DATES");
             }
 
             var values =
@@ -413,35 +452,10 @@ public sealed class UtilityBillGapStatisticalCompletionService
             distributions.Add(values);
         }
 
-        var totals =
-            new List<double>
-            {
-                interval.ObservedKwh +
-                deterministicBoundaryKwh
-            };
-
-        foreach (var distribution in distributions)
-        {
-            if ((long)totals.Count *
-                distribution.Length >
-                MaximumExactCombinations)
-            {
-                return Insufficient(
-                    startLocalDate,
-                    endLocalDateInclusive,
-                    "EXACT_AGGREGATION_TOO_LARGE",
-                    interval);
-            }
-
-            totals =
-                totals
-                    .SelectMany(
-                        total =>
-                            distribution.Select(
-                                value =>
-                                    total + value))
-                    .ToList();
-        }
+        var (totals, sampledAggregation) = AggregateDonorScenarios(
+            interval.ObservedKwh + deterministicBoundaryKwh, distributions);
+        var supportMaximum = interval.ObservedKwh + deterministicBoundaryKwh +
+            distributions.Sum(values => values.Max());
 
         totals.Sort();
 
@@ -480,14 +494,6 @@ public sealed class UtilityBillGapStatisticalCompletionService
                   (totals.Count - 1)
                 : 0;
 
-        var dailyEvidence =
-            BuildDailyEvidence(
-                interval.Samples,
-                startUtc,
-                endUtcExclusive,
-                threshold,
-                timeZoneId);
-
         var denominator =
             interval.CoveredHours +
             interval.UncoveredHours;
@@ -512,7 +518,7 @@ public sealed class UtilityBillGapStatisticalCompletionService
                     item =>
                         item.CalibrationDays),
                 totals.Count,
-                MethodVersion,
+                sampledAggregation ? SampledMethodVersion : MethodVersion,
                 "PROVISIONAL_REPORT_METHOD_RESEARCH_ONLY",
                 0.05,
                 0.95);
@@ -531,13 +537,14 @@ public sealed class UtilityBillGapStatisticalCompletionService
             deterministicBoundaryKwh,
             gapEvidence,
             dailyEvidence,
-            totals.Count,
+            sampledAggregation ? 0 : totals.Count,
             mean,
-            totals.Max(),
+            supportMaximum,
             "PROVISIONAL_REPORT_METHOD_RESEARCH_ONLY",
             false) with
         {
-            Distribution = distributionPoints
+            Distribution = distributionPoints,
+            AggregationSampled = sampledAggregation
         };
     }
 
@@ -1475,6 +1482,7 @@ public sealed record UtilityBillGapStatisticalAnalysis(
 {
     // Additive, non-breaking report evidence; existing callers may continue to
     // use the primary constructor without supplying any distribution.
+    public bool AggregationSampled { get; init; }
     public IReadOnlyList<UtilityBillDistributionPoint> Distribution { get; init; } =
         Array.Empty<UtilityBillDistributionPoint>();
 }

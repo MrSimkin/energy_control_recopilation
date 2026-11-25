@@ -4143,6 +4143,16 @@ try
                     smokeTariffRepository,
                     smokeCandidateRepository,
                     smokeVersionResolver));
+        var manyDonors = Enumerable.Range(0,8).Select(_ => Enumerable.Range(0,15).Select(x => (double)x).ToArray()).ToArray();
+        var (sampledTotals, wasSampled) = UtilityBillGapStatisticalCompletionService.AggregateDonorScenarios(10,manyDonors);
+        var (repeatTotals, repeatSampled) = UtilityBillGapStatisticalCompletionService.AggregateDonorScenarios(10,manyDonors);
+        if (!wasSampled || !repeatSampled || sampledTotals.Count != 200000 ||
+            !sampledTotals.SequenceEqual(repeatTotals) || sampledTotals.Any(x => x < 10 || x > 122) ||
+            Math.Abs(sampledTotals.Average()-66)>0.2)
+            throw new InvalidOperationException("Large Cartesian donor aggregation must be reproducible and bounded.");
+        var (exactTotals, exactSampled) = UtilityBillGapStatisticalCompletionService.AggregateDonorScenarios(10,new[]{new[]{0d,1d},new[]{0d,2d}});
+        if (exactSampled || !exactTotals.SequenceEqual(new[]{10d,12d,11d,13d}))
+            throw new InvalidOperationException("Small Cartesian donor aggregation must remain exact.");
         var existingAuditBill = utilityRepository.GetBills().Single(x => x.BillId == billId);
         var manualAuditBill = existingAuditBill with
         {
@@ -4179,6 +4189,9 @@ try
                     "Enel audit lost required report chapters.");
             var firstPage = pages[0].Text;
             var fullText = string.Join(" ", pages.Select(page => page.Text));
+            if (fullText.Contains("USO INTERNO EXPERIMENTAL", StringComparison.OrdinalIgnoreCase) ||
+                fullText.Contains("INTERNO EXPERIMENTAL", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Technical report identity must not be changed by model selection.");
             if (!firstPage.Contains("P50", StringComparison.OrdinalIgnoreCase) ||
                 !firstPage.Contains("P95", StringComparison.OrdinalIgnoreCase) ||
                 !firstPage.Contains("INVERSOR", StringComparison.OrdinalIgnoreCase))
