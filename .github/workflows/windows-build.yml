@@ -96,3 +96,27 @@ jobs:
           name: SolarEnergyMonitor-win-x64-dev
           path: artifacts/SolarEnergyMonitor-win-x64
           if-no-files-found: error
+
+      - name: Build temporary per-build Windows installer
+        shell: pwsh
+        run: |
+          $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found" }
+          $build = "${{ github.run_number }}"
+          $folder = ([int]$build).ToString("D6")
+          & $iscc "/DBuildNumber=$build" "/DBuildFolderNumber=$folder" "tools/installer/SolarEnergyMonitor.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+
+      - name: Upload temporary Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SolarEnergyMonitor-Build-${{ github.run_number }}-win-x64-Setup
+          path: artifacts/installer/*.exe
+          if-no-files-found: error
