@@ -490,6 +490,43 @@ public sealed class UtilityBillAuditReportService
                 section.AddParagraph(text);
             }
         }
+        if (report.Hybrids.Count > 0)
+        {
+            section.AddPageBreak();
+            AddHeading(section,L("10. Comparación de modelos híbridos","10. Hybrid model comparison"),16);
+            section.AddParagraph(L(
+                "Cada variante usa su modelo R cuando existe una estimación elegible; en los demás vacíos utiliza la distribución de ventanas históricas del método original (incluidos bordes breves). No se suman percentiles: se combinan distribuciones mediante 100.000 escenarios reproducibles, con independencia entre vacíos y sensibilidad de rango común. Son métodos compuestos nuevos, no resultados puros R3/R4/R5 ni intervalos calibrados.",
+                "Each variant uses its R model when an eligible estimate exists; other gaps use the original historical-window distribution (including short edges). Percentiles are not added: distributions are combined through 100,000 reproducible scenarios, with independent gaps and common-rank sensitivity. These are new composite methods, not pure R3/R4/R5 outputs or calibrated intervals."));
+            foreach (var h in report.Hybrids.Where(x=>models.Contains(x.Candidate)))
+            {
+                AddHeading(section,h.Candidate+" + "+L("método original","original method"),12);
+                section.AddParagraph(L($"Vacíos: {h.CandidateGaps} con {h.Candidate}, {h.FallbackGaps} con método original y {h.TotalGaps-h.CandidateGaps-h.FallbackGaps} sin estimación.",
+                    $"Gaps: {h.CandidateGaps} using {h.Candidate}, {h.FallbackGaps} using original method and {h.TotalGaps-h.CandidateGaps-h.FallbackGaps} unestimated."));
+                if (h.CandidateGaps==0)
+                    section.AddParagraph(L("Sin aporte del modelo R: composición equivalente al método original; los cuantiles simulados pueden diferir por el muestreo.",
+                        "No R-model contribution: equivalent composition to the original method; sampled quantiles may differ."));
+                if (!h.P5.HasValue || !h.P50.HasValue || !h.P95.HasValue)
+                {
+                    section.AddParagraph(L("No hay total del período: quedan vacíos sin estimación.", "No period total: some gaps remain unestimated."));
+                    continue;
+                }
+                foreach (var (label,missing) in new[]{("P5",h.P5.Value),("P50",h.P50.Value),("P95",h.P95.Value)})
+                {
+                    var total=observedKwh+missing;
+                    var line=$"{label}: {total:N3} kWh";
+                    if (bill.BilledConsumptionKwh is double billed)
+                    {
+                        line += $" · Enel − {label}: {billed-total:+0.000;-0.000;0.000} kWh";
+                        if (tariff.HasTariffModel && tariff.SupportedVariableRateClpPerKwh is double rate &&
+                            (bill.TotalDueClp ?? bill.AmountClp) is double due)
+                            line += " · "+L("Total comparable","Comparable total")+$": {Money(due+(total-billed)*rate)}";
+                    }
+                    section.AddParagraph(line);
+                }
+                section.AddParagraph(L("Sensibilidad de rango común (total kWh): ","Common-rank sensitivity (total kWh): ")+
+                    $"P5 {F(observedKwh+h.CommonP5)} · P50 {F(observedKwh+h.CommonP50)} · P95 {F(observedKwh+h.CommonP95)}");
+            }
+        }
         section.AddParagraph(L(
             "No se declara un intervalo calibrado del período ni se selecciona un ganador por cercanía a Enel. La validación de agregación y la comparación prospectiva siguen pendientes.",
             "No calibrated period interval is claimed and no winner is selected by proximity to the utility value. Aggregation and prospective validation remain pending."));

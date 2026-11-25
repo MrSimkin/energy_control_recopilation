@@ -15,7 +15,13 @@ public sealed record ExperimentalGridAggregate(string Candidate, int Estimated,
     double? CommonRankP5, double? CommonRankP50, double? CommonRankP95);
 public sealed record ExperimentalGridReport(IReadOnlyList<ExperimentalGridGap> Gaps,
     IReadOnlyList<ExperimentalGridEstimate> Estimates,
-    IReadOnlyList<ExperimentalGridAggregate> Aggregates);
+    IReadOnlyList<ExperimentalGridAggregate> Aggregates)
+{
+    public IReadOnlyList<HybridGridAggregate> Hybrids { get; init; } = Array.Empty<HybridGridAggregate>();
+}
+public sealed record HybridGridAggregate(string Candidate, int CandidateGaps, int FallbackGaps,
+    int TotalGaps, double? P5, double? P50, double? P95,
+    double? CommonP5, double? CommonP50, double? CommonP95);
 
 public static class ExperimentalGridImportCandidates
 {
@@ -49,7 +55,8 @@ public static class ExperimentalGridImportCandidates
 
     public static ExperimentalGridReport Analyze(
         IEnumerable<ExperimentalGridSample> source,
-        IReadOnlyList<ExperimentalGridGap> gaps, string timeZoneId)
+        IReadOnlyList<ExperimentalGridGap> gaps, string timeZoneId,
+        IReadOnlyDictionary<int,double[]>? fallbackDonors = null)
     {
         // Fail closed if physically invalid normalized readings occur in a
         // relevant history. Do not turn negative values into valid zeros.
@@ -124,7 +131,55 @@ public static class ExperimentalGridImportCandidates
                 LinearQ(independent,.05),LinearQ(independent,.5),LinearQ(independent,.95),
                 LinearQ(common,.05),LinearQ(common,.5),LinearQ(common,.95)));
         }
-        return new(gaps,results.Select(x=>x.Row).ToArray(),aggregate);
+        var hybrids = new List<HybridGridAggregate>();
+        if (fallbackDonors is not null)
+        {
+            foreach (var model in new[] {"R3","R4","R5"})
+            {
+                var distributions = new List<Distribution>();
+                var candidateCount = 0;
+                var fallbackCount = 0;
+                foreach (var gap in gaps)
+                {
+                    var estimate = results.Single(x => x.Row.GapIndex == gap.Index && x.Row.Candidate == model);
+                    if (estimate.AggregateEligible && estimate.Dist is not null)
+                    {
+                        distributions.Add(estimate.Dist);
+                        candidateCount++;
+                    }
+                    else if (fallbackDonors.TryGetValue(gap.Index, out var values) && values.Length > 0 &&
+                        values.All(x => double.IsFinite(x) && x >= 0))
+                    {
+                        var sorted = values.OrderBy(x => x).ToArray();
+                        distributions.Add(new Distribution(sorted.Select((x,i) =>
+                            new Weighted(x,(i+1.0)/sorted.Length)).ToArray()));
+                        fallbackCount++;
+                    }
+                }
+                if (distributions.Count != gaps.Count)
+                {
+                    hybrids.Add(new(model,candidateCount,fallbackCount,gaps.Count,null,null,null,null,null,null));
+                    continue;
+                }
+                var rng = new Random(1729);
+                var independent = new double[AggregateDraws];
+                var common = new double[AggregateDraws];
+                for (var i=0; i<AggregateDraws; i++)
+                {
+                    var u = rng.NextDouble();
+                    foreach (var d in distributions)
+                    {
+                        independent[i] += d.Quantile(rng.NextDouble());
+                        common[i] += d.Quantile(u);
+                    }
+                }
+                Array.Sort(independent); Array.Sort(common);
+                hybrids.Add(new(model,candidateCount,fallbackCount,gaps.Count,
+                    LinearQ(independent,.05),LinearQ(independent,.5),LinearQ(independent,.95),
+                    LinearQ(common,.05),LinearQ(common,.5),LinearQ(common,.95)));
+            }
+        }
+        return new(gaps,results.Select(x=>x.Row).ToArray(),aggregate) { Hybrids = hybrids };
     }
     private static string Version(string model)=>model switch {"R3"=>R3Version,"R4"=>R4Version,_=>R5Version};
     private static Prediction Missing(ExperimentalGridGap g,string m,string status,int support=0)=>

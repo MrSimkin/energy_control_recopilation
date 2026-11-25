@@ -36,6 +36,17 @@ internal static class ExperimentalGridCandidateSmoke
             throw new InvalidOperationException("R345 unordered quantiles");
         if(r.Aggregates.Any(a=>a.Estimated>=a.Total)||r.Aggregates.Single(a=>a.Candidate=="R5").Estimated!=1)
             throw new InvalidOperationException("R345 partial aggregate not accounted for");
+        var fallback = gaps.ToDictionary(g=>g.Index,g=>new[]{1d,2d});
+        var hybrid = ExperimentalGridImportCandidates.Analyze(samples,gaps,"UTC",fallback);
+        if (hybrid.Hybrids.Count!=3 || hybrid.Hybrids.Any(h=>h.CandidateGaps+h.FallbackGaps!=h.TotalGaps ||
+            !h.P50.HasValue || h.P5>h.P50 || h.P50>h.P95))
+            throw new InvalidOperationException("Hybrid coverage and quantiles failed");
+        if (hybrid.Hybrids.Single(h=>h.Candidate=="R5").CandidateGaps!=1)
+            throw new InvalidOperationException("Hybrid R5 candidate count failed");
+        fallback.Remove(3);
+        var incomplete=ExperimentalGridImportCandidates.Analyze(samples,gaps,"UTC",fallback);
+        if (incomplete.Hybrids.Any(h=>h.P50.HasValue))
+            throw new InvalidOperationException("Hybrid must not fabricate totals for uncovered gaps");
         // Prior-only: perturb samples after the target day; predictions
         // must remain identical.
         var later=samples.Append(new(t.AddDays(1),999999));

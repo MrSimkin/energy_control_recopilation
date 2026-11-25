@@ -94,8 +94,31 @@ public sealed class UtilityBillGapStatisticalCompletionService
             new ExperimentalGridGap(i+1,g.StartUtc,g.EndUtc,g.Kind,g.StartWatts,g.EndWatts)).ToArray();
         if(interval.Samples.Count==0)
             gaps = new[]{new ExperimentalGridGap(1,start,end,"NO_OBSERVATION",null,null)};
+        // Use the same original method per gap; do not depend on a complete
+        // original monthly estimate, so supported fallback gaps remain available.
+        var fallback = new Dictionary<int,double[]>();
+        if (all.Count >= 20 && interval.Samples.Count >= 2)
+        {
+            var firstDay = SolarApiTime.GetLocalDate(all[0].TimestampUtc,timeZoneId).AddDays(1);
+            for (var i=0; i<interval.Gaps.Count; i++)
+            {
+                var gap = interval.Gaps[i];
+                if (gap.Kind != "INTERNAL")
+                {
+                    var watts = gap.Kind == "BOUNDARY_START" ? gap.EndWatts : gap.StartWatts;
+                    if (gap.DurationMinutes <= EdgeToleranceMinutes && watts is double w && double.IsFinite(w))
+                        fallback[i+1] = new[] { Math.Max(0,w)*gap.DurationMinutes/60.0/1000.0 };
+                    continue;
+                }
+                var local = SolarApiTime.ConvertToLocalTime(gap.StartUtc,timeZoneId);
+                var historical = HistoricalSeries(all,firstDay,DateOnly.FromDateTime(local.DateTime),
+                    TimeOnly.FromDateTime(local.DateTime),gap.DurationMinutes,DayType(local.DayOfWeek),threshold,timeZoneId);
+                if (historical.Count >= MinimumDays)
+                    fallback[i+1] = historical.TakeLast(DayCount).Select(x=>x.EnergyKwh).ToArray();
+            }
+        }
         return ExperimentalGridImportCandidates.Analyze(
-            all.Select(x=>new ExperimentalGridSample(x.TimestampUtc,x.Watts)),gaps,timeZoneId);
+            all.Select(x=>new ExperimentalGridSample(x.TimestampUtc,x.Watts)),gaps,timeZoneId,fallback);
     }
 
     public UtilityGridImportStatisticalCompletion AnalyzeObservedOnly(
